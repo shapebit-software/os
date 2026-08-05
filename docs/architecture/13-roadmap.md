@@ -16,10 +16,9 @@
 
 - Fedora bootc;
 - QEMU;
-- temporary desktop;
+- UEFI boot;
+- console login;
 - networking;
-- audio;
-- Flatpak;
 - branding.
 
 ## M1.5 — Dioxus installer prototype
@@ -71,7 +70,7 @@
 
 ## M7 — hardware and installation
 
-- installer;
+- installer hardening;
 - encryption;
 - Secure Boot;
 - recovery;

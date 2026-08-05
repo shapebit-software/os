@@ -1,54 +1,50 @@
 # ShapeBit OS project status
 
-**Bundle version:** 0.5  
-**Consolidation date:** 2026-08-04  
-**Phase:** architecture and first-prototype preparation
+**Last reviewed:** 2026-08-05
 
-## Accepted decisions
+**Phase:** architecture and first-prototype scaffolding
 
-- Fedora and bootc form the system base.
-- The system is image-based and uses atomic deployments.
-- systemd is the init system and service platform.
-- systemd-boot and BLS are used from the first prototype.
-- LUKS2 is mandatory default encryption for persistent data.
-- Btrfs is the proposed filesystem for `/var` and `/home`.
-- The first working system is console-only.
-- Dioxus is the frontend for the custom installer.
-- The installer UI is separated from the privileged backend.
+This page records repository state, not target architecture. The ADRs are the
+authority for accepted and proposed decisions.
 
-## Current implementation goal
+## Current repository state
 
-Build a minimal ShapeBit OS image that:
+- The `os` repository contains product documentation and coordinates the
+  implementation through Git submodules.
+- The `image` submodule contains a Fedora bootc 44, console-only image scaffold,
+  build and QEMU scripts, and container smoke tests.
+- The `installer` submodule currently contains interface and safety guidance for
+  the planned UI, protocol, and privileged backend. The Rust crates have not yet
+  been implemented.
+- The first active delivery target is a bootable QEMU disk that reaches a TTY.
 
-1. is built from `Containerfile`;
-2. passes `bootc container lint`;
-3. can be installed to a QEMU disk;
-4. boots through UEFI and systemd-boot;
-5. unlocks LUKS2;
-6. mounts Btrfs;
-7. starts systemd and a TTY;
-8. allows console login;
-9. preserves `/home` and `/var` across deployments.
+## Verification state
 
-## Next custom component
+The repository does not yet record a successful end-to-end image build, disk
+creation, UEFI boot, or TTY login. Those capabilities remain implementation
+targets until they have been exercised and their results recorded.
 
-The Dioxus installer:
+## Active plan
 
-```text
-installer/ui
-→ installer/protocol
-→ installer/backend
-```
+The canonical near-term sequence is the
+[first working prototype](../architecture/14-first-prototype.md). The
+[long-term roadmap](../architecture/13-roadmap.md) places that foundation in the
+larger delivery sequence.
 
-The first integration will use a mock/dry-run backend. Operations on a real disk will be added only after the `InstallationPlan` model has stabilized.
+## Decision status
 
-## Most important open decisions
+The accepted decisions currently recorded in ADRs are:
 
-- exact Fedora bootc base-image version;
-- installer UI ↔ backend communication format;
-- method for generating and updating UKIs;
-- production Secure Boot and shim model;
-- exact `/boot`, ESP, and encrypted Btrfs partition layout;
-- boot-counting and acceptance health-check mechanism;
-- form of independent recovery;
-- Dioxus renderer for the minimal installer image.
+- [Fedora + bootc as the system base](../decisions/ADR-0001-fedora-bootc.md)
+- [Dioxus as the installer frontend](../decisions/ADR-0010-dioxus-installer.md)
+
+All other ADRs are currently marked **Proposed** and require review or
+implementation validation before they become binding.
+
+## Open decisions
+
+Open design questions belong in the relevant architecture specification or ADR:
+
+- persistent storage and encryption: [filesystem and persistent state](../architecture/04-filesystem-and-state.md)
+- boot acceptance, updates, and recovery: [updates, deployments, and recovery](../architecture/05-updates-and-recovery.md)
+- installer details: [installer and hardware](../architecture/11-installer-and-hardware.md)

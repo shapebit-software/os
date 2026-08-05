@@ -24,19 +24,21 @@ Fedora bootc base
 - stable is never built manually on a developer workstation;
 - custom binaries should be delivered to production as RPMs.
 
-## Proposed structure
+## Repository structure
 
 ```text
-os-image/
+image/
 ├── Containerfile
-├── manifests/
 ├── overlays/
 │   ├── usr/
 │   └── etc/
-├── selinux/
 ├── scripts/
-└── tests/
+├── tests/
+└── Justfile
 ```
+
+Add manifests, packaging, and SELinux policy directories when the image begins
+to carry components that require them.
 
 ## OCI layers
 

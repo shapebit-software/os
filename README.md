@@ -1,61 +1,47 @@
-# ShapeBit OS — project bundle v0.5
+# ShapeBit OS
 
-This bundle consolidates all existing ShapeBit OS architecture documentation and the first implementation repository scaffold.
+ShapeBit OS is an image-based Linux desktop operating system built on Fedora
+bootc. This repository coordinates the product architecture and the first
+implementation repositories.
 
-## Selected direction
-
-```text
-Fedora bootc
-+ OSTree backend
-+ systemd-boot
-+ BLS
-+ LUKS2
-+ Btrfs
-+ console-only system in the first stage
-+ custom Dioxus installer
-+ custom desktop environment and compositor at a later stage
-```
-
-## Structure
+## Repository layout
 
 ```text
 os/
-├── README.md
-├── PROJECT-STATUS.md
-├── NEXT-STEPS.md
-├── MANIFEST.json
-├── docs/
-│   ├── architecture documents
-│   ├── decisions/       # ADRs
-│   └── checklists/
-└── starter/
-    ├── Containerfile
-    ├── Justfile
-    ├── image/
-    ├── installer/
-    ├── scripts/
-    └── tests/
+├── docs/        # architecture, decisions, roadmaps, and checklists
+├── image/       # bootc image Git submodule
+└── installer/   # installer Git submodule
 ```
 
-## Getting started
+The implementation directories are independent Git repositories. Clone them
+with the coordination repository:
 
-1. Read `PROJECT-STATUS.md`.
-2. Then read `docs/14-first-prototype.md`.
-3. Continue with `starter/README.md`.
-4. The first implementation goal is a bootc image that boots to a TTY in QEMU.
-5. The Dioxus installer will first be connected to a mock backend and later to the real installation backend.
+```bash
+git clone --recurse-submodules https://github.com/shapebit-software/os.git
+```
 
-## Primary documents
+For an existing clone:
 
-- `docs/01-product-vision.md`
-- `docs/02-system-architecture.md`
-- `docs/03-image-and-build-model.md`
-- `docs/04-filesystem-and-state.md`
-- `docs/05-updates-and-recovery.md`
-- `docs/11-installer-and-hardware.md`
-- `docs/13-roadmap.md`
-- `docs/14-first-prototype.md`
+```bash
+git submodule update --init --recursive
+```
 
-## Status
+The configured submodule URLs use SSH and therefore require GitHub SSH access.
 
-The documentation remains at the design stage. Decisions marked `Accepted` are binding, while decisions marked `Proposed` require implementation validation and testing.
+## Start here
+
+1. Read the [documentation index](docs/README.md).
+2. Check the [current project status](docs/roadmap/PROJECT-STATUS.md).
+3. Follow the [first-prototype plan](docs/architecture/14-first-prototype.md).
+4. Use the component instructions in the
+   [image](https://github.com/shapebit-software/image) and
+   [installer](https://github.com/shapebit-software/installer) repositories.
+
+Architecture proposals describe intended behavior, not completed features.
+Accepted architecture decisions are recorded in `docs/decisions/`.
+
+## Project links
+
+- [ShapeBit website](https://shapebit.software)
+- [GitHub organization](https://github.com/shapebit-software)
+- [Issue tracker](https://github.com/shapebit-software/os/issues)

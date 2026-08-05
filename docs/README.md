@@ -1,85 +1,67 @@
-# ShapeBit OS — Architecture Documentation
+# ShapeBit OS documentation
 
-**Status:** conceptual design  
-**Base:** Fedora + bootc  
-**System model:** image-based, atomic, transactional  
-**Application layer:** Flatpak  
-**Development layer:** Toolbox/Podman + developer images  
-**Desktop:** custom Wayland compositor and desktop environment
+This directory is the canonical source for ShapeBit OS product and system
+design. Implementation-specific commands belong in the README of the component
+that implements them.
 
-## Project goal
+## Reading order
 
-ShapeBit OS is intended to be a consumer Linux desktop system that:
+1. [Product vision](architecture/01-product-vision.md)
+2. [System architecture](architecture/02-system-architecture.md)
+3. [Project status](roadmap/PROJECT-STATUS.md)
+4. [First working prototype](architecture/14-first-prototype.md)
 
-- is simple and predictable for ordinary users;
-- updates as a coherent image;
-- supports safe rollback;
-- limits accidental modification of the base system;
-- remains open and convenient for developers;
-- develops a custom, coherent desktop and platform API.
-
-## Governing principles
-
-1. The base system is built as a versioned OCI image.
-2. Official devices do not update through direct `dnf upgrade` operations.
-3. An update creates a new deployment activated after reboot.
-4. The previous working deployment remains available.
-5. User applications are installed primarily as Flatpaks.
-6. Development toolchains run in containers.
-7. Host components enter the image during its build.
-8. Every stable release must pass boot, update, and rollback tests.
-9. `/usr` belongs to the image; persistent state belongs in `/var` and `/home`.
-10. The user interface should not expose base-distribution details.
-
-## Documents
+## Architecture
 
 | Document | Scope |
 |---|---|
-| `01-product-vision.md` | product vision, audience, and principles |
-| `02-system-architecture.md` | system layers and responsibility boundaries |
-| `03-image-and-build-model.md` | bootc image, RPMs, and composition process |
-| `04-filesystem-and-state.md` | `/usr`, `/etc`, `/var`, `/home`, and persistent state |
-| `05-updates-and-recovery.md` | updates, deployments, rollback, and recovery |
-| `06-release-channels.md` | developer, nightly, testing, and stable |
-| `07-application-model.md` | Flatpak, containers, and host extensions |
-| `08-development-workflow.md` | daily development, SDKs, VMs, and integration |
-| `09-security-model.md` | Secure Boot, SELinux, encryption, and signatures |
-| `10-desktop-platform.md` | compositor, shell, portals, and platform API |
-| `11-installer-and-hardware.md` | installation and supported-hardware policy |
-| `12-ci-cd-and-testing.md` | pipeline, tests, publishing, and image promotion |
-| `13-roadmap.md` | milestones and implementation sequence |
-| `decisions/ADR-0001-fedora-bootc.md` | first architecture decision |
-| `decisions/ADR-TEMPLATE.md` | template for subsequent decisions |
+| [01. Product vision](architecture/01-product-vision.md) | audience, promise, and MVP criteria |
+| [02. System architecture](architecture/02-system-architecture.md) | system layers and responsibility boundaries |
+| [03. Image and build model](architecture/03-image-and-build-model.md) | bootc image, packages, and composition |
+| [04. Filesystem and persistent state](architecture/04-filesystem-and-state.md) | filesystem ownership, storage, and migrations |
+| [05. Updates, deployments, and recovery](architecture/05-updates-and-recovery.md) | updates, rollback, acceptance, and recovery |
+| [06. Release channels](architecture/06-release-channels.md) | channel promotion and staged rollout |
+| [07. Application model](architecture/07-application-model.md) | Flatpak, containers, and host extensions |
+| [08. Development workflow](architecture/08-development-workflow.md) | local, integration, and release loops |
+| [09. Security model](architecture/09-security-model.md) | boot trust, encryption, sandboxing, and keys |
+| [10. Desktop platform](architecture/10-desktop-platform.md) | compositor, shell, portals, and platform APIs |
+| [11. Installer and hardware](architecture/11-installer-and-hardware.md) | installer boundaries and installation target |
+| [12. CI/CD and testing](architecture/12-ci-cd-and-testing.md) | pipeline, validation, and publishing |
+| [13. Roadmap](architecture/13-roadmap.md) | long-term product milestones |
+| [14. First working prototype](architecture/14-first-prototype.md) | near-term implementation sequence |
 
-## Document statuses
+## Decisions
 
-- **Draft** — working material.
-- **Proposed** — ready for discussion.
-- **Accepted** — binding decision.
-- **Deprecated** — replaced by a new decision.
-- **Superseded** — points to a successor document.
+Architecture decision records (ADRs) are the authority for decisions. An
+architecture document may explain a decision in more detail, but should link to
+the corresponding ADR instead of redefining its status.
 
-## Next step
+- [ADR-0001: Fedora + bootc as the system base](decisions/ADR-0001-fedora-bootc.md)
+- [ADR-0002: Filesystem ownership boundaries](decisions/ADR-0002-filesystem-ownership.md)
+- [ADR-0003: LUKS2 + Btrfs for persistent data](decisions/ADR-0003-persistent-storage-btrfs-luks.md)
+- [ADR-0004: Data migrations independent of image rollback](decisions/ADR-0004-data-migrations-and-rollback.md)
+- [ADR-0005: Separate rollback, backup, and factory reset](decisions/ADR-0005-reset-backup-and-home.md)
+- [ADR-0006: OCI digest as the release unit](decisions/ADR-0006-update-unit-oci-digest.md)
+- [ADR-0007: Trial boot and explicit deployment acceptance](decisions/ADR-0007-trial-boot-and-acceptance.md)
+- [ADR-0008: Independent recovery environment](decisions/ADR-0008-independent-recovery.md)
+- [ADR-0009: Staged stable rollout](decisions/ADR-0009-staged-rollout.md)
+- [ADR-0010: Dioxus as the installer frontend](decisions/ADR-0010-dioxus-installer.md)
+- [ADR template](decisions/ADR-TEMPLATE.md)
 
-The first document to develop further should be `04-filesystem-and-state.md`, because it affects updates, configuration, recovery, backup, and developer mode.
+ADR statuses:
 
-## Detailed persistent-state decisions
+- **Draft** — incomplete decision record.
+- **Proposed** — under review and not binding.
+- **Accepted** — current binding decision.
+- **Deprecated** — no longer recommended.
+- **Superseded** — replaced by another ADR.
 
-- `decisions/ADR-0002-filesystem-ownership.md`
-- `decisions/ADR-0003-persistent-storage-btrfs-luks.md`
-- `decisions/ADR-0004-data-migrations-and-rollback.md`
-- `decisions/ADR-0005-reset-backup-and-home.md`
-- `checklists/persistent-state-component.md`
+## Delivery documents
 
-## Detailed update and recovery decisions
-
-- `decisions/ADR-0006-update-unit-oci-digest.md`
-- `decisions/ADR-0007-trial-boot-and-acceptance.md`
-- `decisions/ADR-0008-independent-recovery.md`
-- `decisions/ADR-0009-staged-rollout.md`
-- `checklists/update-release-candidate.md`
-
-## Nearest implementation target
-
-- `14-first-prototype.md` — first console-only image and installer integration.
-- `decisions/ADR-0010-dioxus-installer.md` — Dioxus decision.
+- [Project status](roadmap/PROJECT-STATUS.md) records what exists now and what
+  has been verified.
+- [Roadmap](architecture/13-roadmap.md) records long-term milestones.
+- [First working prototype](architecture/14-first-prototype.md) is the active
+  near-term implementation plan.
+- [Persistent-state component checklist](checklists/persistent-state-component.md)
+- [Update candidate checklist](checklists/update-release-candidate.md)

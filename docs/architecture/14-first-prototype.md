@@ -6,6 +6,11 @@
 
 Boot ShapeBit OS in QEMU without a graphical environment, then install it using the backend of the future Dioxus installer.
 
+This document is the canonical near-term implementation plan. The
+[roadmap](13-roadmap.md) tracks later product milestones, while
+[project status](../roadmap/PROJECT-STATUS.md) records completed and verified
+work.
+
 ## Scope
 
 - Fedora bootc;
@@ -73,21 +78,20 @@ Boot ShapeBit OS in QEMU without a graphical environment, then install it using 
 
 ## Repository organization
 
-A monorepo is recommended initially:
+The `os` coordination repository uses implementation submodules:
 
 ```text
 os/
-├── image/
-├── installer/
-│   ├── ui/
-│   ├── backend/
-│   └── protocol/
-├── tools/
-├── tests/
-└── docs/
+├── docs/
+├── image/                 # git submodule
+└── installer/             # git submodule
+    ├── ui/
+    ├── backend/
+    └── protocol/
 ```
 
-`protocol` should be a separate Rust crate shared by the UI, backend, and tests.
+`protocol` should be a separate Rust crate within the installer repository,
+shared by the UI, backend, and tests.
 
 ## Initial contract
 
