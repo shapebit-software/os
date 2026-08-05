@@ -1,6 +1,7 @@
-# shapebit-installer-protocol
+# Installer protocol
 
-Shared Rust crate for the Dioxus UI, backend, and tests.
+This planned Rust crate defines the data exchanged by the Dioxus UI, backend,
+and tests.
 
 Initial types:
 
@@ -12,4 +13,6 @@ Initial types:
 - `InstallationEvent`
 - `InstallerError`
 
-The plan must not contain a LUKS password or other secrets. Secrets will be passed through a separate, short-lived channel.
+Messages must be serializable and versioned. `InstallationPlan` must not contain
+LUKS passwords or other secrets; secrets require a separate short-lived
+channel.

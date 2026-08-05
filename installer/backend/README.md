@@ -1,11 +1,16 @@
-# shapebit-installer-backend
+# Installer backend
 
-Privileged installer backend. The first implementation should begin with:
+The planned privileged backend validates installation plans and performs only
+explicitly modeled operations.
+
+Initial interface:
 
 1. `probe-disks`
-2. `plan --dry-run`
-3. `validate-plan`
+2. `validate-plan`
+3. `plan --dry-run`
 4. transaction-log persistence
-5. operations restricted to test loop/QEMU disks
+5. operations restricted to loop devices and QEMU disks
 
-Never execute arbitrary commands supplied by the frontend.
+The backend must validate block-device identity and state immediately before a
+destructive operation. It must never execute arbitrary commands supplied by the
+frontend.
