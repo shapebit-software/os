@@ -31,7 +31,8 @@ Use option 2 for the supported production configuration.
 
 ### Boot chain
 
-- Use UEFI Secure Boot and `systemd-boot`.
+- Use the Microsoft-signed ShapeBit shim defined by ADR-0015, followed by
+  `systemd-boot` and signed ShapeBit UKIs.
 - Boot signed Unified Kernel Images (UKIs) as systemd-boot Type #2 entries.
 - Do not maintain a separate unsigned kernel, initramfs, or kernel command line
   on the EFI System Partition (ESP).
@@ -52,7 +53,8 @@ Use option 2 for the supported production configuration.
 - Restrict authorization to the initrd phase used to unlock the system volume.
 - Do not bind PCR 0 or PCR 2 by default; ordinary firmware and option-ROM
   updates would make recovery unnecessarily frequent.
-- Add PCR 14 only if a later generic-PC design uses shim and MOK policy.
+- Do not bind PCR 14 merely because shim is present. The supported chain does
+  not use MOK; revisit PCR 14 only if MOK becomes a supported policy input.
 
 The exact `systemd-cryptenroll`, `systemd-measure`, and `ukify` arguments are an
 implementation detail that must be pinned to, and tested with, the systemd
@@ -99,8 +101,8 @@ Use separate keys for separate trust domains:
 
 | Key | Purpose | Production custody |
 |---|---|---|
-| UEFI Platform Key and KEK | firmware ownership and authorized `db` changes | offline or hardware-backed provisioning authority |
-| Secure Boot `db` key | sign systemd-boot and UKIs | restricted release-signing service backed by an HSM |
+| Microsoft 3rd Party UEFI CA | authorize the reviewed ShapeBit shim | external Microsoft and OEM trust infrastructure |
+| ShapeBit boot signing key | trusted by the ShapeBit shim; sign the boot manager and UKIs | restricted release-signing service backed by an HSM |
 | PCR policy key | authorize expected PCR 11 measurements | separate restricted HSM-backed service |
 | OCI/release-manifest key | authorize downloaded release metadata and content | release infrastructure, separate from boot keys |
 | Device recovery key | unlock one device's system LUKS2 volume | device owner only |
@@ -110,19 +112,20 @@ written to the installed disk, or exposed to general-purpose CI jobs. Builds
 may receive a signing operation or short-lived secret from controlled signing
 infrastructure. Development uses visibly distinct disposable test keys.
 
-ShapeBit's Secure Boot `db` certificate authorizes ShapeBit OS releases. Who
-owns a device's firmware Platform Key is a hardware-distribution decision and
-does not require reuse of any ShapeBit release-signing private key.
+The supported path preserves the device's factory PK and KEK configuration.
+ShapeBit's reviewed shim creates the ShapeBit-controlled trust boundary without
+requiring custom firmware-key enrollment.
 
 ### Hardware scope
 
-- The first supported path is ShapeBit reference hardware and virtual machines
-  whose Secure Boot trust can be provisioned explicitly.
-- Generic PCs with existing OEM or Microsoft trust are not production-supported
-  by this ADR. Replacing their keys can affect dual boot and third-party EFI
-  components.
-- A future generic-PC path must separately decide whether to use shim and
-  Microsoft signing, preserve owner-managed keys, or require custom enrollment.
+- The first automated path is the QEMU, OVMF, and software-TPM profile defined
+  by ADR-0014.
+- Physical laptops retain factory Secure Boot ownership and use the
+  Microsoft-signed ShapeBit shim.
+- ShapeBit does not define one reference laptop; physical evidence follows the
+  versioned labels and test policy in ADR-0014.
+- Custom firmware-key enrollment and owner-managed PK/KEK configurations are
+  outside the initial supported path.
 
 ### Recovery, rotation, and revocation
 
@@ -130,9 +133,9 @@ does not require reuse of any ShapeBit release-signing private key.
   [ADR-0012](ADR-0012-encrypted-system-volume.md).
 - Recovery-key boot must be tested after simulated PCR mismatch, Secure Boot
   database change, TPM clear, and motherboard replacement.
-- Secure Boot key rotation uses an authenticated firmware update with an
-  overlap period in which the old rollback artifact and the new release remain
-  bootable. TPM enrollment is refreshed before a PCR 7-changing key update.
+- ShapeBit boot-certificate and shim rotation uses an overlap period in which
+  the old rollback artifact and the new release remain bootable. TPM enrollment
+  is refreshed before a PCR 7-changing factory Secure Boot database update.
 - PCR policy-key rotation creates a new TPM2 enrollment while the old policy or
   device recovery key can still unlock the volume.
 - Compromise of the Secure Boot signing key requires stopping release,
@@ -167,18 +170,20 @@ from permanently destroying access to the encrypted system volume.
 
 ## Negative consequences
 
-- Provisioning requires Secure Boot key enrollment on reference targets.
+- Production requires external shim review and Microsoft signing.
+- Factory Secure Boot trust includes a broader ecosystem than ShapeBit alone.
 - Firmware trust updates can change PCR 7 and require coordinated TPM2
   re-enrollment.
 - A retained, still-signed old release remains bootable within the rollback
   window.
 - HSM-backed signing and revocation procedures add release-infrastructure work.
-- Generic-PC support needs another decision and may require external signing.
+- Microsoft certificate transitions and `dbx` changes require compatibility
+  and recovery testing.
 
 ## Required validation
 
-Before accepting this ADR, demonstrate in QEMU with OVMF and swtpm, then on
-reference hardware:
+Before accepting this ADR, demonstrate in QEMU with OVMF and swtpm, then on at
+least one `Officially-tested` laptop:
 
 1. boot of a signed UKI with Secure Boot enabled;
 2. refusal to boot a modified or untrusted UKI;
@@ -194,7 +199,7 @@ reference hardware:
 
 ## Re-evaluation criteria
 
-- ShapeBit OS expands from controlled reference hardware to generic PCs.
+- ShapeBit begins shipping custom hardware or supporting custom firmware keys.
 - The target systemd or bootc release changes its supported TPM2 policy or
   sealed-image mechanism.
 - The target systemd gains native composition of signed PCR and TPM2 NV-counter
@@ -219,6 +224,8 @@ that authorizes the TPM2 LUKS2 keyslot. It does not own:
 - [ADR-0007](ADR-0007-trial-boot-and-acceptance.md)
 - [ADR-0008](ADR-0008-independent-recovery.md)
 - [ADR-0012](ADR-0012-encrypted-system-volume.md)
+- [ADR-0014](ADR-0014-platform-and-hardware-validation.md)
+- [ADR-0015](ADR-0015-microsoft-shim-and-trust-domains.md)
 
 ## References
 

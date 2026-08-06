@@ -5,7 +5,8 @@
 
 ## Context
 
-Even comprehensive CI and reference hardware cannot detect every regression in the PC market.
+Even comprehensive CI and officially tested hardware cannot detect every
+regression in the PC market.
 
 ## Decision
 

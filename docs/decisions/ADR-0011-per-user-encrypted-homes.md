@@ -37,6 +37,28 @@ under `/var/lib/systemd/home/`. The system volume protects those files at the
 physical-disk layer, but the separate per-user LUKS2 layer remains the authority
 for access to an inactive home.
 
+Each LUKS2 home uses Btrfs internally. Homes draw capacity from the protected
+dynamic pool defined by ADR-0016 rather than fixed per-user partitions.
+
+## Suspend authentication
+
+ShapeBit exposes one user-facing **Require authentication after suspend**
+setting, enabled by default.
+
+Normal suspend remains the default laptop behavior; closing the lid does not
+power off the device by default. Hibernation remains separately deferred.
+
+When enabled, suspend locks both the desktop session and the active
+`systemd-homed` home. The home key is removed from memory, access to the home is
+suspended, and one authentication interaction restores both home access and the
+session.
+
+When disabled, both locks remain inactive so resume returns directly to the
+session. The settings UI must warn that the active home key and session state
+remain available in memory and that the full physical-access claim applies only
+to a powered-off device. A future managed-device policy may force the setting
+on.
+
 ## Secret handling
 
 Account and storage policy may appear in `InstallationPlan`, but passwords and
@@ -60,6 +82,11 @@ authentication or enrollment operation completes.
 
 ## Boundaries
 
-This ADR owns human-user home activation and recovery. It does not select the
-filesystem inside a home container, define system-volume unlock, or grant the
-device recovery key access to any user's home.
+This ADR owns human-user home activation, recovery, filesystem choice, and
+suspend authentication behavior. It does not define system-volume unlock or
+grant the device recovery key access to any user's home.
+
+## Related decisions
+
+- [ADR-0012](ADR-0012-encrypted-system-volume.md)
+- [ADR-0016](ADR-0016-initial-installation-and-storage-profile.md)

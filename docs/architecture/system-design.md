@@ -2,7 +2,7 @@
 
 **Document type:** Living system design and delivery tracker
 
-**Last updated:** 2026-08-06
+**Last updated:** 2026-08-07
 
 **Current phase:** Architecture consolidation and first-prototype planning
 
@@ -32,9 +32,24 @@ ShapeBit OS is an image-based Linux desktop operating system built on Fedora
 bootc. It hides package and deployment mechanics behind a coherent product
 model while preserving diagnostics and controlled developer workflows.
 
-The initial audience is technical users, developers, and testers using
-controlled x86-64 UEFI and TPM2 hardware or virtual machines. Broad arbitrary-PC
-support and a polished consumer ecosystem are outside the first release.
+The initial audience is technical users, developers, and testers using x86-64
+UEFI Secure Boot and TPM2 laptops or the controlled QEMU/OVMF/software-TPM
+profile. ShapeBit does not define one reference laptop and does not claim that
+all modern PCs are supported.
+
+Physical evidence is release-, firmware-, and configuration-specific:
+
+- **Officially-tested** means the ShapeBit team passed the complete mandatory
+  product suite and published the capability matrix;
+- **Community-tested** means a community report supplied sufficient positive
+  evidence without the official suite;
+- **Unknown** means there is no sufficient current positive evidence and does
+  not by itself mean incompatible.
+
+Developer and nightly artifacts may publish after the mandatory QEMU suite.
+Stable and public-alpha releases require at least one `Officially-tested`
+laptop for the exact release. ShapeBit initially validates market-available
+laptops and defers custom hardware.
 
 The product must eventually provide:
 
@@ -142,11 +157,13 @@ OCI digest, SBOM, signatures, and test results.
 
 ### 6.2 Boot trust
 
-The proposed production chain is:
+The production compatibility and trust chain begins as follows:
 
 ```text
 UEFI Secure Boot
--> signed systemd-boot
+-> Microsoft 3rd Party UEFI CA
+-> Microsoft-signed ShapeBit shim
+-> ShapeBit-signed systemd-boot
 -> signed UKI carrying the sealed-deployment identity
 -> required fs-verity verification
 -> PCR 7 plus signed PCR 11 authorization
@@ -157,16 +174,23 @@ UEFI Secure Boot
 PCR 7 is directly bound to Secure Boot policy. PCR 11 uses signed expected
 measurements so ordinary approved UKI updates do not require sealing to one
 fixed value. PCR 0 and PCR 2 are excluded initially because normal firmware and
-hardware changes would cause unnecessary recovery. PCR 14 belongs only to a
-future shim/MOK design.
+hardware changes would cause unnecessary recovery. The supported path does not
+use MOK, so shim alone does not add PCR 14 to the policy.
 
-Production firmware administration, Secure Boot signing, PCR-policy signing,
-release-manifest signing, and device recovery use separate keys. Production
-private keys never enter Git, OCI layers, installed disks, logs, or ordinary CI
-workers. Development uses visibly distinct disposable keys.
+Production boot signing, PCR-policy signing, release-manifest signing, and
+device recovery use separate keys. Production private keys never enter Git,
+OCI layers, installed disks, logs, or ordinary CI workers. Development uses a
+separate development shim and locally generated disposable keys.
 
-The first supported targets are ShapeBit-controlled reference hardware and
-virtual machines. Generic-PC Secure Boot ownership remains an open decision.
+Production preserves factory PK and KEK databases. ShapeBit maintains its own
+reviewed shim and uses Microsoft signing to enter the factory trust chain.
+Fedora's shim is limited to disposable experiments.
+
+ShapeBit protects powered-off devices against offline data access and
+unauthorized boot or deployment modification, including temporary unattended
+physical access. It does not claim protection against compromised firmware,
+malicious hardware, advanced laboratory attacks, an already unlocked session,
+or arbitrary privileged code already running in an authorized boot.
 
 ### 6.3 Anti-rollback boundary
 
@@ -194,26 +218,46 @@ Vendor defaults belong in `/usr`; local overrides belong in `/etc`; dynamic
 state belongs in `/var`. Services use dedicated state, cache, log, and runtime
 directories. Caches must be reproducible and disposable.
 
-### 7.2 Proposed disk layout
+### 7.2 Accepted disk layout
 
 ```text
 GPT
 ├── EFI System Partition
-│   └── signed systemd-boot and signed UKIs
+│   ├── Microsoft-signed ShapeBit shim
+│   ├── signed systemd-boot and signed UKIs
+│   └── minimal signed recovery UKI
 └── system LUKS2
     └── Btrfs physical root
         ├── bootc-managed deployments and /usr
         ├── @root
-        ├── @var
+        ├── @state
+        ├── @homes
         │   └── systemd-homed container files
-        ├── @snapshots
-        └── @recovery-data
+        └── @recovery
 ```
+
+The initial layout uses only these four lowercase, single-word structural
+subvolumes. It does not create one subvolume per service and does not reserve an
+`@snapshots` subvolume. Snapshot and migration-generation policy remains open.
 
 The system LUKS2 volume protects device state and inactive home-container files
 against physical disk access. Each human home remains a separate LUKS2
-container with independent credentials. The filesystem inside those containers
-is still undecided.
+container with independent credentials and Btrfs inside. Homes share a dynamic
+capacity pool with a guaranteed minimum per home, equal default allocation
+weight, owner-defined limits, and a shared burst pool. A new account may be
+created only when its minimum can be guaranteed without revoking used capacity
+from another home.
+
+The protected system reserve is calculated from emergency, transaction/log,
+pending deployment, retained rollback, migration-workspace, and Btrfs-metadata
+needs rather than one fixed percentage. Automatic cleanup touches only data
+explicitly declared rebuildable; it never deletes user data, retained boot
+states, recovery assets, or transaction-critical state. Exact numerical
+formulas and thresholds remain open.
+
+The initial installer owns and erases one explicitly selected physical disk. It
+does not shrink partitions, install alongside another system, or offer manual
+partitioning. Other physical disks remain untouched.
 
 Zram is the default swap. Plaintext disk-backed swap is never supported.
 Hibernation remains out of scope until encrypted resume and deployment
@@ -227,9 +271,8 @@ space requirements. Migrations are idempotent, logged, and verified. A critical
 migration failure prevents deployment acceptance; `/var` and `/home` are never
 globally rolled back with the system image.
 
-Snapshots are selective safety tools, not backups and not an implicit companion
-to every deployment. Each snapshot needs an owner, reason, expiration, and
-space limit.
+Snapshot ownership, retention, and migration-generation policy is explicitly
+deferred. No snapshot is treated as a backup.
 
 ## 8. Authentication and accounts
 
@@ -251,6 +294,15 @@ independent system-volume recovery key. The initial owner may receive both as
 one Recovery Kit presentation, but the keys remain cryptographically and
 operationally separate. ShapeBit does not escrow them.
 
+ShapeBit exposes one **Require authentication after suspend** setting, enabled
+by default. When enabled, suspend locks both the session and the active
+`systemd-homed` home, removes the home key from memory, and uses one
+authentication interaction to restore both. When disabled, resume returns
+directly to the session and the UI warns that the session and home key remain
+available in memory. Full physical-access protection is claimed only for a
+powered-off device. Normal suspend remains the default laptop behavior; lid
+close does not power off the device by default.
+
 ## 9. Updates, trial boot, and rollback
 
 ### 9.1 Device state machine
@@ -269,9 +321,28 @@ deployment, a pending or trial deployment when present, and recovery outside
 normal rotation. Cleanup must not remove artifacts required by any retained
 state.
 
-The proposed default is three failed trial boots. A deployment becomes accepted
-only after required boot, base-system, device, and critical-migration checks
-succeed and a power-loss-safe success marker is written.
+The trial limit is two attempts. A deterministic hard failure rolls back
+immediately; an ambiguous interruption, power loss, or shutdown before durable
+acceptance may use the one remaining attempt. A declared bounded multi-stage
+restart does not consume another attempt. Two unsuccessful attempts select the
+previous accepted deployment.
+
+A deployment is accepted automatically after mandatory identity, storage,
+migration, critical-service, and graphical-login checks followed by two minutes
+of continuous healthy operation. Login and Internet access are not required.
+The network-management stack must start, but association, DHCP, DNS, and
+external connectivity are not gates.
+
+Acceptance is a fail-safe durable transaction. An incomplete, contradictory,
+or corrupt result remains unaccepted. Redundant generation- and
+checksum-protected records are required; the system does not rely only on UEFI
+variables. Exact record locations, authentication, and sole-writer ownership
+remain open.
+
+Persistent data must remain readable by N and N-1 throughout the rollback
+window. An irreversible migration requires explicit owner consent and a
+previously exercised bridge release that understands both formats. It is a
+separate barrier, not a side effect of ordinary deployment acceptance.
 
 ### 9.2 Staging invariants
 
@@ -302,16 +373,36 @@ These operations are intentionally distinct:
 
 | Operation | System deployment | Device state | User homes |
 |---|---|---|---|
-| rollback | select previous accepted deployment | preserve | preserve |
-| backup restore | independent | restore selected data | restore selected data |
-| system reset | restore known system and clear host configuration | reset selected device state | preserve encrypted homes and required account metadata |
-| full reset | restore factory system | erase | erase |
-| single-user reset | unchanged | remove that account metadata | erase only that user's home |
+| Roll back | select previous accepted deployment | preserve | preserve |
+| Repair system | restore current system and boot artifacts | preserve | preserve |
+| Reset system | restore clean system | clear configuration and ordinary state | preserve encrypted containers for controlled rebinding |
+| Remove user | unchanged | remove that account inventory | erase only that user's home |
+| Erase device | optionally reinstall latest compatible non-revoked stable | erase | erase all |
 
-The proposed recovery environment is a separately versioned, minimal signed
-image outside normal deployment rotation. It mounts data read-only by default,
-uses the device recovery key when TPM2 unlock is unavailable, and requires a
-user's own credential to access that user's home.
+The recovery environment is a separately versioned, minimal signed UKI on the
+ESP, outside normal deployment rotation. It starts without the system LUKS2 or
+Btrfs, mounts data read-only by default, uses the device recovery key when TPM2
+unlock is unavailable, and requires a user's own credential to access that
+user's home. The same signed environment is distributable as USB recovery
+media.
+
+Reset generates a new local home-record signing key and never preserves the old
+private key or bindings. A minimal non-private inventory links old public
+identity, account/container identifiers, and role to the recovery flow. Each
+user proves possession of their own password or home recovery key to rebind;
+the device recovery key cannot unlock a home.
+
+Recovery initially uses an offline-first local/serial TUI. The ESP rotates two
+independent recovery slots, `recovery-a` and `recovery-b`, by writing and
+verifying the inactive slot before selection. Network reinstall is preferred,
+signed USB media is the fallback, and no large factory image is retained
+locally. Erase offers cryptographic erase with optional verified hardware
+sanitize and supports both reinstall and no-reinstall outcomes.
+
+After suspected Btrfs corruption, recovery is read-only and export-first. It
+never runs destructive `btrfs check --repair` automatically, prefers
+non-mutating export to other physical media, and favors a new filesystem or
+disk replacement over trusting an in-place repair.
 
 ## 11. Installer architecture
 
@@ -338,6 +429,10 @@ requirements are verified.
 The first integration target is a virtual disk and console-only installed
 system. The Dioxus UI follows a tested protocol and mock backend; it does not
 define storage policy.
+
+The first destructive storage contract uses an entire explicitly selected
+physical disk. Same-disk dual boot, filesystem shrinking, and manual
+partitioning are not valid initial installation plans.
 
 ## 12. Application and desktop platform
 
@@ -370,6 +465,21 @@ release:     merge -> CI -> artifacts -> controlled signing -> tests -> promotio
 Stable systems are not modified manually. Development uses containers, VMs,
 temporary overlays, or a developer-channel image.
 
+The official developer host class is Linux x86-64 with KVM. Fedora is the
+canonical host and required CI environment; another Linux distribution may use
+the same flow after passing capability checks. macOS, Windows, WSL, ARM64, and
+non-KVM hosts are initially outside official scope.
+
+Development and production are separate trust domains. One development command
+prepares disposable local keys, a development shim, OVMF variables, software
+TPM state, signed artifacts, the VM, and a test report. Production uses the
+Microsoft-signed ShapeBit shim and restricted signing services; no production
+shim may trust a development key.
+
+Using the ShapeBit developer channel as the team's primary daily host is a
+distant dogfooding goal. Fedora permanently remains an independent bootstrap,
+CI, and fallback path. Both hosts will use the same pinned SDK container.
+
 The target pipeline is:
 
 ```text
@@ -397,31 +507,41 @@ scope beyond disposable prototypes.
 
 - [ ] Assign the sole writer for each deployment-state transition.
 - [ ] Select the power-loss-safe state and boot-attempt storage mechanism.
-- [ ] Define exact success, failure, intentional-shutdown, and power-loss rules.
-- [ ] Decide the minimum health observation period.
-- [ ] Define the rollback barrier and N/N-1 data compatibility contract.
-- [ ] Reconcile the final design into ADR-0004 and ADR-0007.
+- [x] Define success, failure, intentional-shutdown, and power-loss rules.
+- [x] Select two trial attempts and immediate rollback for hard failures.
+- [x] Require mandatory checks plus two minutes of healthy observation.
+- [x] Define the owner-authorized rollback barrier and N/N-1 contract.
+- [x] Require a bridge release before an irreversible format transition.
+- [ ] Define support behavior when an owner declines the rollback barrier.
+- [x] Reconcile accepted lifecycle decisions into ADR-0004 and ADR-0007.
 
 ### A2 — release and trust lifecycle
 
 - [ ] Specify the signed release-manifest schema and signature envelope.
 - [ ] Define how UKI, sealed deployment, OCI digest, and PCR policy are bound.
 - [ ] Define signing ownership, rotation, revocation, and compromise response.
-- [ ] Decide the generic-PC Secure Boot ownership model or explicitly defer it
-  to a named milestone.
+- [x] Select Microsoft-signed ShapeBit shim with factory PK/KEK preserved.
+- [x] Separate development and production trust domains.
 - [ ] Create a separate TPM2 NV anti-rollback ADR.
 - [ ] Define invalidation and migration of prototype TPM2 enrollments.
 - [ ] Review ADR-0006 and ADR-0013 for acceptance after these decisions.
 
 ### A3 — storage and recovery lifecycle
 
-- [ ] Confirm Btrfs subvolumes and the inactive home-container location.
-- [ ] Select Btrfs or ext4 inside per-user home containers.
-- [ ] Define low-space reserves, quotas, and snapshot retention.
-- [ ] Specify system-reset preservation of account metadata and home containers.
-- [ ] Select recovery UI form and independent recovery update strategy.
-- [ ] Define recovery behavior after Btrfs corruption.
-- [ ] Review ADR-0002, ADR-0003, ADR-0005, and ADR-0008 for acceptance.
+- [x] Confirm `@root`, `@state`, `@homes`, and `@recovery` and the inactive
+  home-container boundary.
+- [x] Select Btrfs inside per-user LUKS2 home containers.
+- [x] Select guaranteed home minimums, shared burst capacity, and dynamically
+  calculated protected reserves.
+- [ ] Define numerical reserve formulas, quotas, and warning thresholds.
+- [ ] Define snapshot ownership and retention.
+- [x] Specify reset preservation and controlled home rebinding.
+- [x] Select a minimal recovery UKI on the ESP and equivalent USB media.
+- [x] Select the offline-first TUI and rotating `recovery-a`/`recovery-b` slots.
+- [x] Define conservative export-first behavior after Btrfs corruption.
+- [x] Define rollback, repair, reset, remove-user, and two erase outcomes.
+- [ ] Review ADR-0002 for acceptance.
+- [x] Accept ADR-0003, ADR-0005, and ADR-0008.
 
 ### A4 — installer contract
 
@@ -431,10 +551,14 @@ scope beyond disposable prototypes.
 - [ ] Define stable disk identity and destructive-operation confirmation rules.
 - [ ] Define the Recovery Kit presentation and verification flow.
 - [ ] Map every installation operation to its governing ADR.
+- [x] Select exclusive whole-disk installation for the initial profile.
 
 ### A5 — product and platform contracts
 
-- [ ] Define supported reference hardware and VM profiles.
+- [x] Define the QEMU profile and versioned physical-hardware evidence labels.
+- [x] Define official Linux x86-64/KVM development scope with Fedora canonical.
+- [x] Define the initial physical threat boundary and suspend authentication.
+- [ ] Specify the exact mandatory QEMU and hardware test schemas.
 - [ ] Define the versioned platform-service API boundary.
 - [ ] Define Flatpak source, verification, and permission presentation policy.
 - [ ] Define diagnostic-report schema and privacy rules.
@@ -505,7 +629,7 @@ even when supporting scripts or documentation already exist.
 - [ ] Add PAM-based greeter and separate lock screen.
 - [ ] Boot a complete session in a VM.
 
-### M7 — reference hardware and recovery
+### M7 — hardware validation and recovery
 
 - [ ] Validate the supported hardware matrix.
 - [ ] Validate production key rotation and revocation.
@@ -520,13 +644,15 @@ even when supporting scripts or documentation already exist.
 ### M9 — public alpha
 
 - [ ] No persistent device retains prototype trust enrollment.
-- [ ] Stable rollout, diagnostics, recovery, and factory reset are operational.
+- [ ] Stable rollout, diagnostics, recovery, and device erase are operational.
 - [ ] The published hardware scope and security claims match verified evidence.
 
 ## 16. Explicitly deferred work
 
-- arbitrary generic-PC support;
-- shim/Microsoft signing or owner-managed Secure Boot keys;
+- blanket support claims for arbitrary generic PCs;
+- custom firmware PK/KEK enrollment and owner-managed Secure Boot keys;
+- same-disk dual boot, partition shrinking, and manual partitioning;
+- custom ShapeBit hardware;
 - hibernation and encrypted resume;
 - public host-extension ecosystem;
 - XWayland unless required by the application target;
