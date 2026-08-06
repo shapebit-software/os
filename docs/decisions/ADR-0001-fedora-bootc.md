@@ -1,6 +1,6 @@
 # ADR-0001: Fedora + bootc as the System Base
 
-**Status:** Accepted  
+**Status:** Accepted
 **Date:** 2026-08-04
 
 ## Context
@@ -46,3 +46,8 @@ ShapeBit OS will initially be built as a derivative Fedora bootc image.
 ## Decision review
 
 Re-evaluate the decision after reaching M3 or if bootc presents major limitations.
+
+## Boundaries
+
+This ADR selects the system base and deployment technology. It does not select
+the filesystem, encryption, boot trust, release identity, or user interface.

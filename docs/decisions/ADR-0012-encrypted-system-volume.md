@@ -26,8 +26,8 @@ therefore cannot be unlocked with one user's password.
   changes, motherboard replacement, and repair workflows.
 - Normal startup does not request the device recovery key or another system
   passphrase.
-- The ESP and boot assets required by UEFI remain unencrypted. They must be
-  minimized and protected with Secure Boot, signed UKIs, and measured boot.
+- The ESP and boot assets required by UEFI remain unencrypted. Their integrity
+  and authorization are governed by ADR-0013.
 - Encryption is not a substitute for system integrity. OCI signatures, Secure
   Boot, signed UKIs, and deployment-integrity mechanisms remain required.
 
@@ -62,3 +62,21 @@ volume does not activate any user's home.
 Boot-chain trust, update-compatible TPM2 authorization, key custody, rotation,
 and revocation are specified by
 [ADR-0013](ADR-0013-boot-trust-and-tpm-policy.md).
+
+## Boundaries
+
+This ADR requires encryption, automatic verified TPM2 unlock, and an independent
+device recovery key. It does not select the filesystem inside the volume or the
+PCR and signing policy used to authorize TPM2 unlock.
+
+The outer system volume may contain inactive per-user home-container files. The
+device recovery key unlocks only the outer system volume and never substitutes
+for a user's credential or home recovery key.
+
+## Related decisions
+
+- [ADR-0003](ADR-0003-btrfs-system-state.md) selects the system
+  filesystem.
+- [ADR-0011](ADR-0011-per-user-encrypted-homes.md) defines per-user encryption.
+- [ADR-0013](ADR-0013-boot-trust-and-tpm-policy.md) defines verified boot and
+  TPM2 authorization.

@@ -32,6 +32,11 @@ to the system authentication boundary, not to a particular login UI.
 The future ShapeBit login screen will act as a PAM client. It must not implement
 password verification, LUKS key derivation, or home mounting itself.
 
+Inactive home-container files are persistent device state, initially stored
+under `/var/lib/systemd/home/`. The system volume protects those files at the
+physical-disk layer, but the separate per-user LUKS2 layer remains the authority
+for access to an inactive home.
+
 ## Secret handling
 
 Account and storage policy may appear in `InstallationPlan`, but passwords and
@@ -52,3 +57,9 @@ authentication or enrollment operation completes.
 - `/var` and other device state are protected by the TPM2-unlocked system
   volume defined in [ADR-0012](ADR-0012-encrypted-system-volume.md), without a
   routine second password prompt during normal startup.
+
+## Boundaries
+
+This ADR owns human-user home activation and recovery. It does not select the
+filesystem inside a home container, define system-volume unlock, or grant the
+device recovery key access to any user's home.

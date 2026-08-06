@@ -1,7 +1,9 @@
 # ADR-0013: Boot Trust and TPM2 Unlock Policy
 
 **Status:** Proposed
+
 **Date:** 2026-08-05
+
 **Last updated:** 2026-08-06
 
 ## Context
@@ -59,12 +61,12 @@ systemd policy features until they exist in that image.
 
 ### Update and rollback window
 
-- A promoted deployment must contain a Secure Boot-signed UKI and a valid
-  signed PCR 11 policy before it may be staged.
+- A release manifest defined by ADR-0006 must identify a Secure Boot-signed UKI
+  and valid signed PCR 11 policy before its deployment may be staged.
 - Pre-reboot validation must prove that TPM2 unlock authorizes both the pending
   deployment and the retained rollback deployment.
-- The current accepted deployment, one pending deployment, and one previous
-  accepted deployment form the default authorized boot window.
+- The accepted, pending or trial, and previous accepted deployments defined by
+  ADR-0007 form the default authorized boot window.
 - Artifacts leave the ESP and authorized rollback set only after they are no
   longer required by retention policy.
 - A failed trial boot must be able to select the previous signed UKI without a
@@ -75,19 +77,21 @@ artifact signed by a still-trusted key remains bootable. The prototype uses a
 bounded rollback window; signed release blocklists prevent an old image from
 being staged again but cannot invalidate an offline retained UKI.
 
-Every signed release manifest reserves a non-decreasing `security_epoch`. The
+Every signed release manifest defined by ADR-0006 reserves a non-decreasing
+`security_epoch`. The
 epoch changes only at an explicit security barrier, not for every ordinary
 release, so current and rollback deployments may share an epoch. It is release
 metadata until a later anti-rollback ADR defines its cryptographic binding to a
 TPM2 NV policy.
 
-Strong TPM-backed anti-rollback may be deferred during disposable prototype and
-VM work, but must be designed, implemented, and validated before public alpha
-or the first persistent production-device provisioning, whichever happens
-first. A device provisioned earlier must not be advertised as supporting strong
-anti-rollback. Migrating such a device must invalidate the old TPM2 enrollment;
-deleting only its current LUKS2 keyslot is insufficient because an attacker may
-have retained an older LUKS2 header.
+TPM-backed anti-rollback requires a separate ADR covering TPM2 NV state,
+security-epoch transitions, recovery, and migration from prototype enrollments.
+It may be deferred during disposable VM work but must be accepted, implemented,
+and validated before public alpha or the first persistent production-device
+provisioning, whichever happens first. A device provisioned earlier must not be
+advertised as supporting strong anti-rollback. Migration must invalidate the old
+TPM2 authorization path; deleting only a keyslot from the current LUKS2 header
+is insufficient because an attacker may retain an older header.
 
 ### Key roles
 
@@ -197,6 +201,24 @@ reference hardware:
   policies.
 - Hibernation is introduced.
 - Secure Boot or PCR policy key compromise occurs.
+
+## Boundaries
+
+This ADR owns boot-chain integrity, signing-key separation, and the PCR policy
+that authorizes the TPM2 LUKS2 keyslot. It does not own:
+
+- system-volume encryption requirements, which belong to ADR-0012;
+- release identity, which belongs to ADR-0006;
+- deployment state transitions and attempt counting, which belong to ADR-0007;
+- the independent recovery environment, which belongs to ADR-0008;
+- strong TPM2 NV anti-rollback, which requires a separate ADR.
+
+## Related decisions
+
+- [ADR-0006](ADR-0006-signed-release-manifest.md)
+- [ADR-0007](ADR-0007-trial-boot-and-acceptance.md)
+- [ADR-0008](ADR-0008-independent-recovery.md)
+- [ADR-0012](ADR-0012-encrypted-system-volume.md)
 
 ## References
 

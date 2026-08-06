@@ -1,6 +1,6 @@
 # ADR-0010: Dioxus as the ShapeBit OS Installer Frontend
 
-**Status:** Accepted  
+**Status:** Accepted
 **Date:** 2026-08-04
 
 ## Context
@@ -19,6 +19,14 @@ Dioxus UI
 
 The UI does not perform operations directly as root.
 
+The shared installation plan contains declarative policy but no passwords,
+recovery keys, or derived secrets. Secret enrollment uses a separate,
+short-lived channel to the privileged backend and is excluded from transaction
+logs.
+
+This ADR selects the frontend technology and privilege boundary. Storage,
+encryption, boot, and account policy remain owned by their respective ADRs.
+
 ## Positive consequences
 
 - preservation of existing work;
@@ -33,3 +41,10 @@ The UI does not perform operations directly as root.
 - need to validate the Dioxus renderer in a minimal image;
 - the graphical installer precedes the complete custom desktop environment;
 - additional accessibility and error-path testing.
+
+## Related decisions
+
+- [ADR-0003](ADR-0003-btrfs-system-state.md)
+- [ADR-0011](ADR-0011-per-user-encrypted-homes.md)
+- [ADR-0012](ADR-0012-encrypted-system-volume.md)
+- [ADR-0013](ADR-0013-boot-trust-and-tpm-policy.md)

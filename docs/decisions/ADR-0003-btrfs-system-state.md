@@ -1,19 +1,21 @@
-# ADR-0003: LUKS2 + Btrfs for Persistent Data
+# ADR-0003: Btrfs for Persistent System State
 
-**Status:** Proposed  
+**Status:** Proposed
 **Date:** 2026-08-04
 
 ## Context
 
-ShapeBit OS needs encryption, logical data separation, snapshots, and space management.
+ShapeBit OS needs logical separation, checksums, snapshots, and space management
+for persistent system state. Encryption is a separate system-volume decision.
 
 ## Decision
 
-The prototype uses Btrfs for persistent system state inside LUKS2:
+The prototype uses Btrfs inside the system LUKS2 volume:
 
 ```text
 LUKS2
 └── Btrfs
+    ├── @root
     ├── @var
     ├── @snapshots
     └── @recovery-data
@@ -22,8 +24,15 @@ LUKS2
 Human home directories are not a shared `@home` subvolume. Each human user has
 an independently encrypted LUKS2 home managed by `systemd-homed`, as decided in
 [ADR-0011](ADR-0011-per-user-encrypted-homes.md). The base system/deployment
-remains managed by bootc and is protected by the system LUKS2 volume defined in
-[ADR-0012](ADR-0012-encrypted-system-volume.md).
+remains managed by bootc. The exact bootc deployment layout is not a Btrfs
+subvolume contract owned by this ADR.
+
+Inactive `systemd-homed` container files are stored under persistent system
+state, initially `/var/lib/systemd/home/`. They receive physical-disk protection
+from the outer system LUKS2 volume but retain their own per-user encryption.
+
+The filesystem inside each user's home container remains an open choice and is
+not selected by this ADR.
 
 ## Rationale
 
@@ -53,3 +62,10 @@ remains managed by bootc and is protected by the system LUKS2 volume defined in
 ## Alternative
 
 LUKS2 + ext4/XFS if Btrfs testing does not meet the M7 criteria.
+
+## Related decisions
+
+- [ADR-0002](ADR-0002-filesystem-ownership.md) defines path ownership.
+- [ADR-0011](ADR-0011-per-user-encrypted-homes.md) defines per-user homes.
+- [ADR-0012](ADR-0012-encrypted-system-volume.md) defines the outer encrypted
+  system volume.

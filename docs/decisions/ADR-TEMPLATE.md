@@ -1,6 +1,6 @@
 # ADR-NNNN: Decision Title
 
-**Status:** Proposed  
+**Status:** Proposed
 **Date:** YYYY-MM-DD
 
 ## Context
@@ -16,6 +16,11 @@ Describe the problem and constraints.
 ## Decision
 
 Describe the selected solution.
+
+## Boundaries
+
+State what this ADR owns and which related decisions it deliberately leaves to
+other ADRs.
 
 ## Rationale
 
@@ -34,5 +39,9 @@ Explain why it was selected.
 - ...
 
 ## Re-evaluation criteria
+
+- ...
+
+## Related decisions
 
 - ...

@@ -1,6 +1,6 @@
 # ADR-0002: Filesystem Ownership Boundaries
 
-**Status:** Proposed  
+**Status:** Proposed
 **Date:** 2026-08-04
 
 ## Context
@@ -15,6 +15,9 @@ An image-based system requires a clear separation between code, machine configur
 - `/home` stores user data and preferences.
 - `/run` and `/tmp` are ephemeral.
 - vendor defaults should be placed in `/usr`, not `/etc`, when supported by the component.
+
+This ADR defines logical ownership, not the partition table, filesystem type,
+encryption topology, snapshot policy, or migration mechanism.
 
 ## Positive consequences
 
@@ -32,3 +35,12 @@ An image-based system requires a clear separation between code, machine configur
 ## Review criteria
 
 Review after the first working update + rollback in M2.
+
+## Related decisions
+
+- [ADR-0003](ADR-0003-btrfs-system-state.md) selects the persistent
+  system filesystem and subvolume layout.
+- [ADR-0004](ADR-0004-data-migrations-and-rollback.md) defines migrations for
+  persistent state.
+- [ADR-0011](ADR-0011-per-user-encrypted-homes.md) defines human-user homes.
+- [ADR-0012](ADR-0012-encrypted-system-volume.md) defines system encryption.
