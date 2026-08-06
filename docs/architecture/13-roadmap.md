@@ -16,8 +16,11 @@
 
 - Fedora bootc;
 - QEMU;
-- UEFI boot;
+- OVMF Secure Boot;
+- signed UKIs;
+- TPM2 automatic system-volume unlock;
 - console login;
+- per-user encrypted home activation;
 - networking;
 - branding.
 
@@ -41,6 +44,7 @@
 ## M3 — CI/CD
 
 - automated build;
+- controlled boot and policy signing;
 - boot test;
 - nightly;
 - manifest and SBOM.
@@ -72,7 +76,8 @@
 
 - installer hardening;
 - encryption;
-- Secure Boot;
+- production key rotation and revocation;
+- TPM2-backed anti-rollback and legacy-enrollment migration;
 - recovery;
 - reference hardware.
 
@@ -82,6 +87,7 @@ The team can test the system daily.
 
 ## M9 — public alpha
 
+- no persistent production device remains on the prototype TPM2 policy;
 - stable update channel;
 - limited hardware matrix;
 - documentation;

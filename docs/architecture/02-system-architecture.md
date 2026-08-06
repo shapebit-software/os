@@ -50,6 +50,7 @@ Provide compilers, SDKs, and tools without polluting the host.
 
 - `shapebit-compositor`
 - `shapebit-shell`
+- `shapebit-greeter`
 - `shapebit-settings`
 - `shapebit-updater`
 - `shapebit-onboarding`

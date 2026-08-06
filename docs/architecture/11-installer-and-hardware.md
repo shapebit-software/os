@@ -1,9 +1,12 @@
 # 11. Installer and Hardware
 
-**Status:** Proposed  
-**Owner:** Installer / Core Platform  
-**Last updated:** 2026-08-04  
-**Related ADRs:** ADR-0010
+**Status:** Proposed
+
+**Owner:** Installer / Core Platform
+
+**Last updated:** 2026-08-05
+
+**Related ADRs:** ADR-0010, ADR-0011, ADR-0012
 
 ## Direction
 
@@ -34,13 +37,16 @@ probe_hardware
 plan_installation
 validate_plan
 partition_disk
-create_luks
+create_system_luks
+enroll_system_tpm2
+enroll_device_recovery_key
 create_btrfs
 create_subvolumes
 install_bootc_image
 install_systemd_boot
 configure_recovery
-create_user
+create_homed_user
+enroll_home_recovery_key
 configure_locale
 verify_installation
 finalize
@@ -68,12 +74,18 @@ Dioxus UI
 - UEFI;
 - the entire selected disk;
 - mandatory LUKS2;
+- one encrypted physical root covering `/usr`, `/etc`, `/var`, and `/root`;
+- TPM2 automatic unlock for the system volume;
+- a separate device recovery key;
 - Btrfs;
-- subvolumes for `/var`, `/home`, snapshots, and recovery data;
+- subvolumes for persistent system state, snapshots, and recovery data;
+- one `systemd-homed` LUKS2 container per human user;
 - systemd-boot;
-- BLS entries;
+- signed UKI boot entries;
+- provisioned Secure Boot public certificates;
 - bootc image;
 - initial user;
+- zram swap with no disk-backed swap;
 - console-only final system.
 
 ## MVP criteria
@@ -81,10 +93,20 @@ Dioxus UI
 1. Detect a disk in QEMU.
 2. Create and validate a plan.
 3. Perform a dry run.
-4. Create GPT, LUKS2, and Btrfs.
-5. Install the bootc image.
-6. Install systemd-boot and BLS.
-7. Create a user.
-8. Boot to a TTY.
-9. Produce a correct error report after interruption.
-10. Never report false success.
+4. Create GPT, the system LUKS2 volume, and Btrfs.
+5. Enroll TPM2 automatic unlock using the approved PCR policy and enroll a
+   device recovery key.
+6. Install the bootc image.
+7. Install systemd-boot and signed UKIs, then verify Secure Boot trust.
+8. Create a `systemd-homed` user and separate recovery key.
+9. Boot to a TTY without a system-volume password prompt.
+10. Authenticate once, unlock the user's home, and start the session.
+11. Deactivate the home after the user's final logout.
+12. Boot with the device recovery key after simulated TPM loss.
+13. Confirm that no plaintext disk-backed swap exists.
+14. Produce a correct error report after interruption.
+15. Never report false success.
+
+The installation plan contains user and home-storage policy but no passwords or
+recovery keys. Enrollment secrets travel through a separate short-lived channel
+and never enter the transaction log.

@@ -1,9 +1,12 @@
 # 04. Filesystem and Persistent State
 
-**Status:** Proposed  
-**Owner:** Core Platform  
-**Last updated:** 2026-08-04  
-**Related ADRs:** ADR-0002, ADR-0003, ADR-0004, ADR-0005
+**Status:** Proposed
+
+**Owner:** Core Platform
+
+**Last updated:** 2026-08-05
+
+**Related ADRs:** ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0011, ADR-0012, ADR-0013
 
 ## 1. Purpose
 
@@ -51,13 +54,13 @@ Rolling back the system image does not automatically roll back device state or u
 
 | Path | Owner | Persistence | Mutability | Notes |
 |---|---|---:|---:|---|
-| `/usr` | ShapeBit OS image | per deployment | read-only at runtime | vendor code and resources |
+| `/usr` | ShapeBit OS image | per deployment | read-only at runtime | encrypted with the system volume |
 | `/opt` | image/extensions | per deployment | read-only at runtime | approved components only |
-| `/etc` | administrator/system | persistent | writable | machine configuration only |
-| `/var` | system services | persistent | writable | dynamic host state |
-| `/home` | user | persistent | writable | user data and preferences |
-| `/boot` | update system | controlled | restricted | no manual administration |
-| `/efi` | boot chain | controlled | restricted | ESP partition |
+| `/etc` | administrator/system | persistent | writable | encrypted machine configuration |
+| `/var` | system services | persistent | writable | encrypted dynamic host state |
+| `/home` | user | persistent | writable | independently encrypted per user |
+| `/boot` | update system | controlled | restricted | only required boot assets remain outside root encryption |
+| `/efi` | boot chain | controlled | restricted | unencrypted ESP; signed and measured assets only |
 | `/run` | runtime | ephemeral | writable | tmpfs, cleared after reboot |
 | `/tmp` | runtime | ephemeral | writable | automatic cleanup policy |
 | `/srv` | optional services | persistent | writable | intentional uses only |
@@ -232,7 +235,6 @@ The index does not replace bootc; it supports diagnostics, the settings UI, and 
 | `/var/spool` | queues |
 | `/var/tmp` | temporary files that survive reboot |
 | `/var/lib/flatpak` | system-wide Flatpak installations |
-| `/var/home` | possible physical home location under OSTree/bootc |
 | `/var/mnt` | persistent system-managed mount points |
 | `/var/lib/containers` | system-container data, if supported |
 
@@ -296,7 +298,28 @@ Toolbox/Podman data belongs to the user and should be stored in the user's data 
 - rootless containers;
 - local SDKs and development caches.
 
-### 7.2 XDG Base Directory
+### 7.2 Encrypted-home lifecycle
+
+Every human user has a separate LUKS2 home container managed by
+`systemd-homed`:
+
+```text
+login password
+→ PAM authentication
+→ pam_systemd_home
+→ unlock and mount /home/<user>
+→ start the user session
+```
+
+The user enters the password once. The system must reach the TTY, graphical
+greeter, or future ShapeBit login screen without first requesting that user's
+home password. A session must not start if home activation fails.
+
+The home remains active while at least one session for the user exists and is
+deactivated after the last session ends. System accounts and service state do
+not use this mechanism.
+
+### 7.3 XDG Base Directory
 
 Custom applications must respect:
 
@@ -309,7 +332,7 @@ Custom applications must respect:
 
 Do not create new hidden directories without justification.
 
-### 7.3 Rollback
+### 7.4 Rollback
 
 A system rollback:
 
@@ -328,16 +351,24 @@ User-data formats must therefore remain backward-compatible where possible, or m
 ```text
 GPT
 ├── EFI System Partition
-├── /boot
-└── LUKS2
-    └── Btrfs
-        ├── @var
-        ├── @home
-        ├── @snapshots
-        └── @recovery-data
+│   └── systemd-boot + signed UKIs
+└── system LUKS2 (TPM2 auto-unlock + device recovery key)
+    └── physical root
+        ├── bootc-managed /usr
+        ├── persistent /etc
+        ├── persistent /var
+        ├── /root
+        └── /home
+            ├── alice.home → LUKS2 → Btrfs or ext4 → /home/alice
+            └── bob.home   → LUKS2 → Btrfs or ext4 → /home/bob
 ```
 
-The actual `/usr` and root deployment is managed by bootc/OSTree. Persistent data resides under `/var`, while home may be exposed logically as `/home`.
+The actual `/usr` and root deployment is managed by bootc; its internal storage
+backend is not a user-visible persistence boundary. Persistent system
+configuration and state reside under `/etc` and `/var`. The physical root is
+automatically unlocked by TPM2 during verified boot. Human homes remain
+independent encrypted containers mounted at `/home/<user>` only after
+authentication.
 
 ### 8.2 Why Btrfs for data
 
@@ -352,19 +383,22 @@ Planned benefits:
 
 Btrfs is not a bootc requirement. It is a separate ShapeBit OS decision about persistent data.
 
-### 8.3 Conservative alternative
+### 8.3 Conservative system-state alternative
 
 ```text
 LUKS2
-├── XFS or ext4 for /var
-└── ext4 for /home
+└── XFS or ext4 physical root
 ```
 
-This reduces snapshot complexity but limits backup and state-management features.
+This reduces snapshot complexity but limits system-state management features.
+Per-user LUKS2 homes remain unchanged by this choice.
 
 ### 8.4 Preliminary decision
 
-Use Btrfs inside LUKS2 for the prototype and reference desktop. Before M7, validate the decision with power-failure, low-space, snapshot, and recovery tests.
+Use Btrfs inside LUKS2 for persistent system state in the prototype and
+reference desktop. Evaluate Btrfs and ext4 inside the per-user LUKS2 containers;
+the choice must be validated with resizing, power-failure, low-space, snapshot,
+and recovery tests before M7.
 
 ---
 
@@ -374,25 +408,38 @@ Use Btrfs inside LUKS2 for the prototype and reference desktop. Before M7, valid
 
 Encrypt persistent device data by default:
 
+- the bootc physical root and `/usr` deployments;
+- `/etc`;
 - `/var`;
+- `/root`;
 - `/home`;
 - swap;
 - recovery data containing user data.
 
 The ESP and required boot-chain elements are not encrypted, but must be protected by Secure Boot and integrity measurements.
 
-### 9.2 MVP model
+### 9.2 User-home model
 
-- LUKS2;
-- user recovery passphrase;
-- optional automatic TPM2 unlocking;
+- one `systemd-homed` LUKS2 container per human user;
+- the login password is also the home-unlock credential;
+- PAM performs authentication and home activation in one conversation;
+- a separate recovery key is generated for every user;
+- no password or recovery key is sent to the system vendor;
+- the custom login screen uses PAM rather than implementing cryptography.
+
+### 9.3 Device-state model
+
+- one LUKS2 system volume covering the physical root;
+- automatic TPM2 unlocking bound to verified boot;
 - key rotation;
-- separate recovery key;
-- no keys sent to the system vendor.
+- a high-entropy device recovery key;
+- no routine second password prompt during normal startup.
 
-### 9.3 TPM
+### 9.4 TPM
 
-The TPM provides convenience and additional key protection; it is not the only recovery mechanism.
+TPM2 is required for the supported production configuration. It provides
+automatic system-volume unlocking only when the configured boot policy is
+satisfied; it is not the only recovery mechanism.
 
 The system must define procedures for:
 
@@ -412,18 +459,29 @@ MVP:
 
 - zram as the primary swap;
 - no hibernation in the first public release;
-- no unprotected swap partition.
+- no disk-backed swap by default;
+- no unprotected swap under any supported configuration.
+
+Zram is not persisted and therefore does not need disk encryption. If
+disk-backed swap is enabled without hibernation, it must either reside inside
+the encrypted system volume or use an independently encrypted mapping with a
+fresh random key on every boot.
 
 ### 10.2 Future hibernation
 
 Hibernation requires:
 
-- encrypted swap;
+- a persistent LUKS-protected resume area unlockable in the initramfs;
+- a stable resume device and, for a swap file, a stable resume offset;
 - binding the resume image to the current deployment;
 - testing after kernel updates;
-- invalidating hibernation when the deployment changes.
+- invalidating hibernation when the deployment changes;
+- clearing an abandoned or failed resume image safely;
+- returning to an external lock screen before exposing an active user session.
 
-Hibernation must not prevent safe rollback.
+Hibernation cannot use per-boot random-key swap. It must not prevent safe
+rollback and remains disabled until the complete encrypted-resume path passes
+power-loss and update testing.
 
 ---
 
@@ -483,7 +541,7 @@ Selective snapshots are allowed:
 - before migrating an important `/var` database;
 - before factory reset;
 - before a repair operation;
-- for user backups.
+- for user backups while the relevant home is active.
 
 ### 12.3 Retention
 
@@ -510,6 +568,10 @@ Backups should include:
 - the installed-Flatpak list;
 - basic ShapeBit OS settings;
 - optionally, secrets with separate consent.
+
+A backup service may access a user's files only while the home is active or
+after explicit recovery authentication. Backups must not depend solely on the
+live LUKS2 container image as their portable format.
 
 ### 13.2 Excluded by default
 
@@ -664,15 +726,24 @@ The filesystem/state architecture is ready for implementation when tests confirm
 6. insufficient space blocks an update before system changes;
 7. power loss does not leave a partial deployment;
 8. factory reset works in both modes;
-9. the recovery key decrypts data without the TPM;
-10. a backup can be restored on a fresh installation.
+9. the physical root remains unreadable at rest without TPM2 authorization or
+   the device recovery key;
+10. each user can unlock only their own home with their password;
+11. each user's recovery key unlocks only the intended home;
+12. login asks for the password only once;
+13. password changes preserve access to the encrypted home;
+14. logout deactivates the home after the final session;
+15. a backup can be restored on a fresh installation;
+16. TPM2 unlock succeeds only for an accepted boot state;
+17. the device recovery key unlocks after TPM loss;
+18. no supported swap configuration writes plaintext memory to disk.
 
 ---
 
 ## 19. Open questions
 
-- Will the physical home be `/var/home` or a separate `/home` mount?
-- Will `/var` and `/home` share one LUKS/Btrfs volume?
+- Will per-user LUKS2 containers use Btrfs or ext4 internally?
+- Where will the inactive `*.home` container files be stored?
 - How long is the previous deployment retained?
 - Does stable permit local administrator drop-ins?
 - How are `/etc` conflicts presented in the GUI?

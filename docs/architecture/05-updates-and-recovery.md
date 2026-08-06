@@ -1,9 +1,12 @@
 # 05. Updates, Deployments, and Recovery
 
-**Status:** Proposed  
-**Owner:** Core Platform / Release Engineering  
-**Last updated:** 2026-08-04  
-**Related ADRs:** ADR-0004, ADR-0006, ADR-0007, ADR-0008, ADR-0009
+**Status:** Proposed
+
+**Owner:** Core Platform / Release Engineering
+
+**Last updated:** 2026-08-06
+
+**Related ADRs:** ADR-0004, ADR-0006, ADR-0007, ADR-0008, ADR-0009, ADR-0013
 
 ## 1. Purpose
 
@@ -88,6 +91,7 @@ The updater downloads a signed channel manifest containing at least:
 
 - image digest;
 - ShapeBit OS release number;
+- non-decreasing security epoch;
 - minimum supported source version;
 - required bootloader/updater level;
 - required space;
@@ -179,6 +183,7 @@ Staging must:
 - retain the last accepted deployment;
 - create a pending deployment;
 - prepare a bootloader entry;
+- install a Secure Boot-signed UKI carrying its signed PCR 11 policy;
 - record a transaction ID;
 - perform no destructive data migration;
 - pass static deployment validation.
@@ -189,10 +194,13 @@ Before displaying "ready to restart," check:
 
 - presence of the kernel and initramfs;
 - correct bootloader entry;
+- valid Secure Boot signature and sealed deployment digest;
 - deployment metadata consistency;
 - presence of critical systemd units;
 - valid SELinux policies;
-- availability of an unlock/recovery key;
+- presence of valid TPM2 and device-recovery LUKS2 keyslots;
+- authorization of the pending signed boot artifacts by the TPM2 unlock policy;
+- absence of an active hibernation image;
 - image completeness;
 - ability to select the previous deployment.
 
@@ -206,6 +214,11 @@ The user may:
 - cancel a pending update before first boot when policy permits.
 
 The system does not reboot automatically during active work without clear advance notice.
+
+An update must not invalidate TPM2 automatic unlock. Before reboot, the updater
+must verify that the signed PCR 11 policies authorize both the pending UKI and
+the retained rollback UKI, and that the device-recovery LUKS2 keyslot remains
+enrolled. Updates remain blocked while a hibernation image is active.
 
 ## 13. First boot
 
@@ -231,7 +244,7 @@ In the initramfs or very early userspace, record:
 
 - the bootloader loaded the correct entry;
 - the kernel started;
-- encrypted storage was unlocked;
+- boot-required storage is available;
 - root/deployment was mounted.
 
 ### L1 — Base system
@@ -250,6 +263,11 @@ In the initramfs or very early userspace, record:
 - the shell starts basic components;
 - the desktop portal responds;
 - a login screen or session can be displayed.
+
+An inactive user's encrypted home is not required for system health. User-home
+activation is tested as part of login: PAM must authenticate the credential,
+mount the correct home, and fail without starting a session if activation does
+not succeed.
 
 ### L3 — Device functions
 
@@ -388,6 +406,17 @@ Default policy:
 - recovery outside normal retention.
 
 Cleanup retains every object required by these deployments.
+
+Retained signed UKIs define a bounded rollback window. Secure Boot and the TPM2
+policy do not by themselves prevent booting an older artifact that is still
+present and signed by a trusted key. The signed release manifest carries a
+`security_epoch`; ordinary releases inside one rollback window may share it.
+
+The prototype does not enforce that epoch in TPM2 NV. Strong anti-rollback must
+be specified and validated before public alpha or persistent production-device
+provisioning. Its migration design must invalidate legacy TPM2 enrollments and
+must not assume that deleting a keyslot from the current LUKS2 header revokes
+copies of an older header.
 
 ## 21. Staged updates
 
@@ -545,6 +574,9 @@ Every stable candidate must pass:
 13. unavailable registry;
 14. update on battery power;
 15. boot and rollback on reference hardware.
+16. Secure Boot and TPM2 unlock of both pending and rollback UKIs.
+17. rejection of a modified UKI and a mismatched sealed deployment.
+18. recovery-key boot after simulated TPM2 or Secure Boot policy loss.
 
 ## 30. MVP criteria
 
@@ -562,7 +594,6 @@ M2 is complete when:
 
 ## 31. Open decisions
 
-- systemd-boot or GRUB for the first prototype;
 - exact boot-counting mechanism;
 - minimum observation period before acceptance;
 - number of boot attempts;
@@ -572,3 +603,4 @@ M2 is complete when:
 - whether users may pin a deployment;
 - how long updates from very old stable releases remain supported;
 - OCI signing and attestation infrastructure.
+- exact TPM2 NV anti-rollback mechanism and legacy-enrollment migration.

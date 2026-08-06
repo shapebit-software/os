@@ -17,4 +17,8 @@ Every new component must answer these questions before entering the image:
 - [ ] Do logs contain personal data or secrets?
 - [ ] How does the component behave after a factory reset?
 - [ ] Does it work with a read-only `/usr`?
+- [ ] Does it behave correctly when the user's home is inactive?
+- [ ] Does it avoid requiring home access before PAM completes login?
+- [ ] Can any of its memory contents reach disk-backed swap?
+- [ ] Does its test environment reject plaintext disk-backed swap?
 - [ ] Does it have an update → rollback test?

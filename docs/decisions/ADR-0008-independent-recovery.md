@@ -14,7 +14,8 @@ ShapeBit OS will provide a separate, minimal, independently versioned recovery i
 ## Requirements
 
 - independence from the main compositor;
-- LUKS unlocking;
+- system-volume unlocking with the device recovery key;
+- per-user home unlocking with that user's recovery key;
 - storage diagnostics;
 - deployment selection;
 - reinstallation of a known image;

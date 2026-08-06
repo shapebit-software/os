@@ -46,6 +46,9 @@ the corresponding ADR instead of redefining its status.
 - [ADR-0008: Independent recovery environment](decisions/ADR-0008-independent-recovery.md)
 - [ADR-0009: Staged stable rollout](decisions/ADR-0009-staged-rollout.md)
 - [ADR-0010: Dioxus as the installer frontend](decisions/ADR-0010-dioxus-installer.md)
+- [ADR-0011: Per-user encrypted homes](decisions/ADR-0011-per-user-encrypted-homes.md)
+- [ADR-0012: TPM-unlocked encrypted system volume](decisions/ADR-0012-encrypted-system-volume.md)
+- [ADR-0013: Boot trust and TPM2 unlock policy](decisions/ADR-0013-boot-trust-and-tpm-policy.md)
 - [ADR template](decisions/ADR-TEMPLATE.md)
 
 ADR statuses:

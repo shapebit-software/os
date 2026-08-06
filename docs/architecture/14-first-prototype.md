@@ -15,10 +15,15 @@ work.
 
 - Fedora bootc;
 - systemd-boot;
-- BLS;
-- OSTree backend;
+- signed UKI boot entries;
+- bootc deployment backend;
+- OVMF Secure Boot and swtpm;
 - LUKS2;
+- TPM2 automatic system-volume unlock;
+- device recovery key;
 - Btrfs;
+- `systemd-homed`;
+- PAM home activation;
 - TTY;
 - NetworkManager;
 - administrative user;
@@ -39,15 +44,23 @@ work.
 - raw/QCOW2 image;
 - UEFI;
 - systemd-boot;
-- BLS;
+- signed UKI boot entries;
+- provisioned development Secure Boot keys;
 - LUKS2;
+- TPM2 automatic unlock using PCR 7 and signed PCR 11 policy;
+- device recovery-key boot;
 - Btrfs;
-- TTY login.
+- zram with no disk-backed swap;
+- encrypted per-user home;
+- one-password TTY login;
+- home deactivation after final logout.
 
 ### P2 — update
 
 - images A and B;
 - `bootc update`;
+- signed UKIs and sealed deployment verification;
+- pre-reboot TPM2 authorization check for A and B;
 - reboot;
 - rollback.
 
@@ -64,9 +77,15 @@ work.
 - disk detection;
 - partitioning;
 - LUKS2;
+- TPM2 enrollment;
+- device recovery-key enrollment;
 - Btrfs;
 - bootc installation;
 - systemd-boot;
+- Secure Boot public-key enrollment;
+- signed UKI installation;
+- `systemd-homed` user creation;
+- recovery-key enrollment;
 - boot verification.
 
 ### P5 — Dioxus integration
@@ -100,10 +119,22 @@ The installation plan is serializable and contains no secrets:
 ```json
 {
   "target_disk": "/dev/vda",
-  "encryption": "luks2",
-  "filesystem": "btrfs",
+  "system_encryption": {
+    "type": "luks2",
+    "unlock": "tpm2",
+    "recovery_key": true
+  },
+  "system_filesystem": "btrfs",
+  "swap": "zram",
   "bootloader": "systemd-boot",
   "image_reference": "registry.shapebit.software/os:developer",
-  "username": "developer"
+  "user": {
+    "username": "developer",
+    "home_storage": "systemd-homed-luks2"
+  }
 }
 ```
+
+The password and generated recovery key are intentionally absent. They use a
+separate short-lived enrollment channel and must never be serialized into the
+plan or transaction log.

@@ -5,6 +5,7 @@
 - [ ] The image has an immutable digest.
 - [ ] The digest passed tests without being rebuilt.
 - [ ] The release manifest is signed.
+- [ ] The signed `security_epoch` is present and does not decrease.
 - [ ] The image/attestation is signed.
 - [ ] The SBOM is available.
 - [ ] Release notes are ready.
@@ -19,12 +20,19 @@
 
 ## Boot and rollback
 
+- [ ] systemd-boot and every promoted UKI have valid Secure Boot signatures.
+- [ ] Every UKI contains the expected signed PCR 11 policy.
+- [ ] Sealed deployment digest and required fs-verity verification pass.
+- [ ] TPM2 unlock authorizes the pending and retained rollback UKIs.
+- [ ] A modified UKI and mismatched deployment are rejected.
+- [ ] The device recovery key still unlocks the system volume.
 - [ ] The pending deployment boots.
 - [ ] L0–L4 health checks work.
 - [ ] The acceptance marker is persisted.
 - [ ] Manual rollback works.
 - [ ] Automatic rollback works.
 - [ ] Boot counting does not treat a normal shutdown as a failure.
+- [ ] No active hibernation image exists during update or rollback.
 
 ## Recovery
 

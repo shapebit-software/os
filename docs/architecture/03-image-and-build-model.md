@@ -4,7 +4,9 @@
 
 ## System artifact
 
-The release unit is a signed, bootc-compatible OCI image.
+The release unit is a signed, bootc-compatible OCI image. Production uses a
+sealed deployment with a signed UKI carrying the expected composefs digest;
+fs-verity verification is required at boot.
 
 ```text
 Fedora bootc base
@@ -23,6 +25,8 @@ Fedora bootc base
 - channel tags point to specific digests;
 - stable is never built manually on a developer workstation;
 - custom binaries should be delivered to production as RPMs.
+- production boot and policy private keys are supplied only through controlled
+  signing infrastructure and are never copied into an image layer.
 
 ## Repository structure
 

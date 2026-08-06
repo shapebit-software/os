@@ -1,6 +1,10 @@
 # 12. CI/CD and Testing
 
-**Status:** Draft
+**Status:** Proposed
+
+**Last updated:** 2026-08-05
+
+**Related ADRs:** ADR-0013
 
 ## Pipeline
 
@@ -12,12 +16,13 @@ commit
 → build image
 → bootc lint
 → security scan
+→ controlled signing
 → boot QEMU
+→ Secure Boot and TPM2 policy tests
 → service tests
 → desktop tests
 → update test
 → rollback test
-→ sign
 → publish
 ```
 
@@ -26,6 +31,8 @@ commit
 - unit tests;
 - integration tests;
 - boot tests;
+- Secure Boot signature and rejection tests;
+- TPM2 unlock, policy-mismatch, and recovery-key tests;
 - systemd service tests;
 - SELinux tests;
 - update tests;
@@ -45,8 +52,12 @@ commit
 - package manifest;
 - test report;
 - release notes;
-- signature.
+- release-manifest signature;
+- signed UKIs and PCR policy signatures.
 
 ## Publishing rule
 
-The stable image must have the same digest that passed testing. It must not be rebuilt after acceptance.
+The stable image must have the same digest and signed boot artifacts that passed
+testing. It must not be rebuilt or re-signed after acceptance. Production
+signing uses a restricted service; general CI and pull-request jobs have access
+only to disposable development keys.

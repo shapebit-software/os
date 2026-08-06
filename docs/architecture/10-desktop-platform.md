@@ -16,6 +16,26 @@
 - Polkit agent;
 - D-Bus services.
 
+## Login surface
+
+The future ShapeBit login screen is a replaceable frontend over the system
+authentication stack. It uses PAM to authenticate the user; `pam_systemd_home`
+then unlocks and mounts that user's LUKS2 home before the session starts.
+
+The login screen must:
+
+- request the user's password once;
+- avoid implementing password verification or storage cryptography;
+- remain functional without access to any user's home;
+- start a session only after PAM and home activation succeed;
+- clear credentials from memory promptly and never log them;
+- expose recovery as an explicit, distinguishable flow;
+- provide equivalent behavior to the prototype TTY login.
+
+The session lock screen is a separate state from initial login. Suspend-time
+home locking may be enabled only after the external lock screen can reliably
+reauthenticate and reactivate the home.
+
 ## Proposed stack
 
 - Rust;
