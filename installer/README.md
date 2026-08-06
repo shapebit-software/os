@@ -18,3 +18,16 @@ dry-run backend, and UI integration without modifying a real disk. The
 defines the delivery sequence; the
 [installer architecture](https://github.com/shapebit-software/os/blob/main/docs/architecture/11-installer-and-hardware.md)
 defines responsibilities and safety boundaries.
+
+Human accounts use `systemd-homed` with one LUKS2 home per user. The login
+password and generated recovery key use a separate secret-enrollment channel;
+they never appear in `InstallationPlan` or transaction logs.
+
+The physical root uses a separate TPM2-unlocked LUKS2 volume with a device
+recovery key. Zram is the default swap; unencrypted disk-backed swap is never a
+valid installation plan.
+
+For the initial device owner, the installer presents the device recovery key
+and the owner's home recovery key as one logical Recovery Kit while preserving
+their independent cryptographic and access boundaries. The canonical UX is
+defined in [`ui/README.md`](ui/README.md#recovery-kit).
