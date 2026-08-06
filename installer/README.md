@@ -13,11 +13,10 @@ ui -> protocol -> backend
 - [`backend/`](backend/README.md) performs validated privileged operations.
 
 The first integration target is a serializable `InstallationPlan`, a mock or
-dry-run backend, and UI integration without modifying a real disk. The
-[first-prototype plan](https://github.com/shapebit-software/os/blob/main/docs/architecture/14-first-prototype.md)
-defines the delivery sequence; the
-[installer architecture](https://github.com/shapebit-software/os/blob/main/docs/architecture/11-installer-and-hardware.md)
-defines responsibilities and safety boundaries.
+dry-run backend, and UI integration without modifying a real disk. The parent
+repository's
+[system design](https://github.com/shapebit-software/os/blob/main/docs/architecture/system-design.md)
+defines the delivery sequence, responsibilities, and safety boundaries.
 
 Human accounts use `systemd-homed` with one LUKS2 home per user. The login
 password and generated recovery key use a separate secret-enrollment channel;
