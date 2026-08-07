@@ -46,6 +46,9 @@ Development and production are separate trust domains:
   production signing services.
 - Development uses a development shim, generated local disposable keys, OVMF,
   and a software TPM.
+- Central nightly artifacts use a non-production key that is not trusted by a
+  normal production installation. Production-signed candidates begin at the
+  `testing` stage and are promoted unchanged to `stable` as defined by ADR-0009.
 - A single development command prepares the development keys, firmware variable
   store, software-TPM state, signed artifacts, VM, and test report.
 - Development and production use the same shim source, verification rules,
@@ -128,3 +131,4 @@ boundary. ADR-0013 owns TPM2 PCR authorization and sealed-deployment binding.
 - [ADR-0012](ADR-0012-encrypted-system-volume.md)
 - [ADR-0013](ADR-0013-boot-trust-and-tpm-policy.md)
 - [ADR-0014](ADR-0014-platform-and-hardware-validation.md)
+- [ADR-0009](ADR-0009-staged-rollout.md)

@@ -105,6 +105,7 @@ Use separate keys for separate trust domains:
 | ShapeBit boot signing key | trusted by the ShapeBit shim; sign the boot manager and UKIs | restricted release-signing service backed by an HSM |
 | PCR policy key | authorize expected PCR 11 measurements | separate restricted HSM-backed service |
 | OCI/release-manifest key | authorize downloaded release metadata and content | release infrastructure, separate from boot keys |
+| Emergency revocation key | revoke exact releases or boot artifacts | offline, separate custody with two-person approval |
 | Device recovery key | unlock one device's system LUKS2 volume | device owner only |
 
 Production private keys must never be stored in Git, copied into an OCI image,
@@ -143,6 +144,9 @@ requiring custom firmware-key enrollment.
   where supported, and replacing affected boot artifacts.
 - Compromise of the PCR policy key requires a new policy key and device TPM2
   re-enrollment; revoking only the Secure Boot key is insufficient.
+- Device-side release revocation uses the separate emergency authorization and
+  offline cache defined by ADR-0009. If no safe normal deployment remains, boot
+  selection enters independent recovery.
 - Recovery media may unlock the system volume only after the owner supplies the
   device recovery key. It must not automatically unlock per-user homes.
 

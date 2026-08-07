@@ -1,4 +1,4 @@
-# ADR-0004: Data Migrations Independent of Image Rollback
+# ADR-0004: Persistent State Compatibility Without Automatic Migrations
 
 **Status:** Accepted
 **Date:** 2026-08-04
@@ -6,52 +6,65 @@
 
 ## Context
 
-A bootc rollback restores the base system, but persistent `/var` and `/home` remain. A destructive data migration may prevent the previous deployment from starting.
+A bootc rollback restores the base system while persistent `/etc`, `/var`, and
+human homes remain. A general reversible-migration framework would require
+schema classification, bidirectional transforms, transaction recovery, rollback
+barriers, and bridge releases before ShapeBit has concrete migrations that need
+those mechanisms.
 
 ## Decision
 
-- do not automatically roll back all of `/var` or `/home`;
-- every component has a data-schema version;
-- migrations are idempotent and logged;
-- data compatibility between N and N-1 is required throughout the rollback
-  window;
-- a deployment is marked healthy only after critical migrations succeed.
+- Stable updates do not perform incompatible automatic migrations of persistent
+  host data.
+- Persistent host paths have exactly two lifecycle classes:
+  - `preserved`: the data remains readable and safe for both N and N-1 during
+    the complete rollback window;
+  - `disposable`: the data may be deleted and recreated without losing user
+    data or required device configuration.
+- An undeclared persistent path blocks stable release.
+- A host service is eligible only when it is stateless, owns only `disposable`
+  state, or has tested N/N-1 compatibility for all `preserved` state.
+- Additive changes are permitted only when the previous release safely ignores
+  and preserves them.
+- Caches and indexes may be rebuilt; durable data may not be silently
+  discarded or transformed into an N-1-incompatible representation.
+- Flatpak application data and formats remain the responsibility of each
+  application and are outside the host rollback contract.
 
-A trial deployment may make only changes that remain readable by both the new
-deployment and the retained previous deployment. Ordinary deployment
-acceptance does not itself close the rollback window.
+Stable validation exercises the following cycle with representative state:
 
-An irreversible migration is a separate rollback barrier. It requires:
+```text
+release N -> create state -> update to N+1 -> use N+1 -> roll back to N
+```
 
-- explicit owner authorization before the barrier is crossed;
-- a previously released bridge version that understands both the old and new
-  formats;
-- preflight validation, an idempotent and logged transaction, and post-migration
-  verification;
-- disabling normal boot of deployments that cannot safely read the migrated
-  state.
+After rollback, all `preserved` state must remain usable and every `disposable`
+path must be safe to recreate. A component that cannot meet this contract is
+pinned, excluded from the host, redesigned, or receives a compatible backport.
+The incompatible feature does not ship in stable.
 
-The bridge release must be deployed and exercised before a later release may
-offer the irreversible transition. ShapeBit never combines the introduction of
-a new-only data format with its first production exposure.
+The initial system has no general migration engine, reverse migrations,
+rollback barrier, or mandatory bridge-release mechanism. A concrete future need
+for incompatible durable-state evolution requires a new ADR based on that
+actual case.
 
 This ADR owns persistent-data compatibility. It does not define boot-attempt
-counting or deployment selection. Those mechanisms only consume migration
-results as defined by ADR-0007.
+counting or deployment selection, which belong to ADR-0007.
 
 ## Consequences
 
-This requires disciplined data APIs, support for two formats during a bridge
-period, and additional tests. It protects user documents and makes the claimed
-N/N-1 rollback window real rather than merely restoring older system files over
-incompatible persistent data.
+This keeps the update and rollback mechanism small and testable, and encourages
+a minimal host. It may delay features, require version pinning, or require
+security-fix backports when an upstream component changes persistent formats.
+Snapshots may later assist recovery, but they are not part of the rollback
+correctness guarantee.
 
-## Open questions
+## Re-evaluation criteria
 
-- How long a bridge release receives security fixes when its owner declines the
-  later rollback barrier.
-- What migration-specific recovery artifact is required before crossing a
-  barrier; the general snapshot policy remains deferred.
+- A required host component cannot receive a critical security fix while
+  retaining the N/N-1 contract.
+- A concrete product feature requires an incompatible persistent-data change.
+- The cost of compatible backports exceeds the verified complexity of a scoped
+  migration design.
 
 ## Related decisions
 

@@ -29,7 +29,7 @@ encryption topology, snapshot policy, or migration mechanism.
 ## Negative consequences
 
 - some existing software will require changes;
-- `/etc` and `/var` migrations must be designed;
+- persistent host data must obey the N/N-1 or disposable-state contract;
 - administrators cannot treat the host like a traditional Fedora installation.
 
 ## Review criteria
@@ -40,7 +40,7 @@ Review after the first working update + rollback in M2.
 
 - [ADR-0003](ADR-0003-btrfs-system-state.md) selects the persistent
   system filesystem and subvolume layout.
-- [ADR-0004](ADR-0004-data-migrations-and-rollback.md) defines migrations for
-  persistent state.
+- [ADR-0004](ADR-0004-data-migrations-and-rollback.md) defines persistent-state
+  classes and compatibility.
 - [ADR-0011](ADR-0011-per-user-encrypted-homes.md) defines human-user homes.
 - [ADR-0012](ADR-0012-encrypted-system-volume.md) defines system encryption.

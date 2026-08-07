@@ -265,11 +265,19 @@ compatibility have a separate accepted design.
 
 ### 7.3 Persistent-data contract
 
-Every stateful component must publish its data paths, schema version,
-compatibility range, migration procedure, backup and restore procedure, and
-space requirements. Migrations are idempotent, logged, and verified. A critical
-migration failure prevents deployment acceptance; `/var` and `/home` are never
-globally rolled back with the system image.
+The initial system does not perform incompatible automatic migrations of
+persistent host data. Every persistent host path is either `preserved` or
+`disposable`. Preserved data must remain readable by N and N-1 throughout the
+rollback window. Disposable data may be deleted and recreated without losing
+user data or required device configuration. An undeclared path blocks stable
+release.
+
+A host service must be stateless, own only disposable state, or pass a tested
+`N -> N+1 -> rollback N` cycle for its preserved state. Otherwise it is pinned,
+excluded, redesigned, or receives a compatible backport. Flatpak application
+data is outside the host rollback contract. General reverse migrations, bridge
+releases, and rollback barriers are deferred until a concrete incompatible
+state change justifies a new design.
 
 Snapshot ownership, retention, and migration-generation policy is explicitly
 deferred. No snapshot is treated as a backup.
@@ -328,21 +336,21 @@ restart does not consume another attempt. Two unsuccessful attempts select the
 previous accepted deployment.
 
 A deployment is accepted automatically after mandatory identity, storage,
-migration, critical-service, and graphical-login checks followed by two minutes
-of continuous healthy operation. Login and Internet access are not required.
+critical-service, and graphical-login checks followed by two minutes of
+continuous healthy operation. Login and Internet access are not required.
 The network-management stack must start, but association, DHCP, DNS, and
 external connectivity are not gates.
 
-Acceptance is a fail-safe durable transaction. An incomplete, contradictory,
-or corrupt result remains unaccepted. Redundant generation- and
-checksum-protected records are required; the system does not rely only on UEFI
-variables. Exact record locations, authentication, and sole-writer ownership
-remain open.
+ShapeBit uses systemd Automatic Boot Assessment. A new UKI filename carries two
+attempts; `systemd-boot` decrements the counter before boot. ShapeBit health
+units gate `boot-complete.target`, and `systemd-bless-boot` removes the counter
+only after all checks and the observation period succeed. A hard failure may
+mark the entry bad immediately. Diagnostic reports live in `@state` but are not
+a second boot-selection authority.
 
-Persistent data must remain readable by N and N-1 throughout the rollback
-window. An irreversible migration requires explicit owner consent and a
-previously exercised bridge release that understands both formats. It is a
-separate barrier, not a side effect of ordinary deployment acceptance.
+After automatic rollback, the exact failed digest is locally blocked from
+automatic restaging. A different digest proceeds normally, while recovery may
+retry the failed digest only after informed user action.
 
 ### 9.2 Staging invariants
 
@@ -359,6 +367,11 @@ Staging must be power-loss safe. At every durable transition, at least one
 accepted deployment must remain bootable and recoverable without depending on
 the incomplete transaction.
 
+ShapeBit automatically checks, downloads, verifies, and stages updates over any
+working network connection without distinguishing metered networks. Downloads
+are resumable. Applying a staged deployment waits for a user-chosen restart;
+the updater never terminates an active session merely to update.
+
 ### 9.3 Release service
 
 Accepted stable releases are offered in deterministic cohorts. Rollout changes
@@ -366,6 +379,26 @@ who discovers a manifest; it never changes that manifest or rebuilds its
 artifacts. A release service can suspend discovery, block a digest, or publish a
 superseding release. Repointing a channel does not remediate devices already
 running a withdrawn release.
+
+Rollout pauses automatically after a sufficient sample crosses configured
+failure thresholds, but only an authorized human may resume it. Exact wave
+sizes, sample sizes, and thresholds remain release-policy parameters.
+
+Minimal operational telemetry is enabled by default but may be disabled
+completely without affecting updates. It contains the digest, accepted or
+rolled-back result, broad failure stage, attempts consumed, and a random token
+scoped to one release. It contains no stable device identifier or user content,
+and the service does not retain source IP addresses. Detailed logs and hardware
+information require separate consent and a user-visible preview.
+
+`withdrawn` stops discovery, cancels an unbooted staged copy when learned, and
+locally blocks that digest without removing an already accepted deployment.
+`revoked` is reserved for releases unsafe to boot. It uses a separate offline
+emergency key and two-person approval, cancels matching pending/trial states,
+selects a safe deployment for the next boot, and enters recovery if none exists.
+It does not terminate the active session. Devices enforce the last cached signed
+revocation list offline; the list does not expire in a way that prevents boot,
+and ShapeBit cannot enforce revocations published after permanent disconnect.
 
 ## 10. Recovery operations
 
@@ -438,7 +471,9 @@ partitioning are not valid initial installation plans.
 
 | Software | Supported delivery mechanism |
 |---|---|
-| desktop application | Flatpak |
+| sandboxed user application | per-user Flatpak |
+| portable native application | per-user AppImage with explicit trust warning |
+| essential system application | immutable OS image |
 | web application | browser or PWA |
 | developer tool | Toolbox/Podman |
 | host service | system image |
@@ -447,6 +482,34 @@ partitioning are not valid initial installation plans.
 Arbitrary host `dnf install` is not a supported product workflow. Public host
 extensions are deferred; future options include image variants and signed
 system extensions.
+
+The normal application catalog combines Flathub for third-party software with a
+separate ShapeBit repository limited to first-party applications. It never
+silently rebuilds third-party App IDs. Recommendations are selected manually by
+ShapeBit from either source, retain accurate publisher/community/source labels,
+and are not chosen through paid promotion. Other Flatpak remotes are advanced
+per-user extensions outside ShapeBit application support.
+
+Each user owns a separate Flatpak installation inside their encrypted home.
+Applications, runtimes, caches, and data consume that user's capacity and update
+only while the home is active. Safe updates are automatic, but a static
+permission expansion requires user approval. ShapeBit provides no automatic
+application rollback. The OS image contains only the applications necessary to
+operate the system; no Flathub application is preinstalled, and first-login
+onboarding offers manually curated downloads when online.
+
+The initial application platform is Wayland-only. The normal store hides
+X11-only applications, and an update that would turn a working Flatpak into an
+X11-only application is not activated. Developer tooling may expose unsupported
+catalog entries. XWayland is deferred.
+
+AppImage is a separate per-user native-executable path, not a repository in the
+store. ShapeBit offers **Run once** or **Add to Apps**, manages imported files in
+the user's home, and warns that every AppImage runs unsandboxed with all rights
+of that user. It does not classify AppImage signatures. Every manager-driven
+update requires confirmation and uses download-then-atomic-replacement. The
+manager watches `Downloads`, `Desktop`, and user-selected directories, alerts
+once per new hash, and never executes payload code while reading metadata.
 
 The proposed desktop uses Rust, Smithay, Wayland, systemd user services, D-Bus,
 PipeWire, portals, libinput, Mesa, DRM, and KMS. Initial compositor scope is a
@@ -490,6 +553,12 @@ lint -> unit tests -> RPMs -> image -> bootc lint -> security scan
 
 Stable must be the exact digest and signed artifact set that passed testing.
 
+`developer` uses local keys and `nightly` uses a central non-production key.
+Neither is directly promotable. A selected revision produces a separately
+tested and production-signed candidate for `testing`; only that exact candidate
+may be manually promoted to `stable`. The normal UI exposes only stable.
+Release cadence and minimum testing duration remain undecided.
+
 ## 14. Architecture work queue
 
 This is the current planning queue. Complete it before expanding implementation
@@ -505,21 +574,23 @@ scope beyond disposable prototypes.
 
 ### A1 — deployment lifecycle
 
-- [ ] Assign the sole writer for each deployment-state transition.
-- [ ] Select the power-loss-safe state and boot-attempt storage mechanism.
+- [x] Select systemd-boot counting and blessing as boot-state authority.
 - [x] Define success, failure, intentional-shutdown, and power-loss rules.
 - [x] Select two trial attempts and immediate rollback for hard failures.
 - [x] Require mandatory checks plus two minutes of healthy observation.
-- [x] Define the owner-authorized rollback barrier and N/N-1 contract.
-- [x] Require a bridge release before an irreversible format transition.
-- [ ] Define support behavior when an owner declines the rollback barrier.
+- [x] Replace automatic migrations with `preserved` and `disposable` state.
+- [x] Require tested N/N-1 compatibility for preserved host state.
+- [x] Defer bridge releases, reverse migrations, and rollback barriers.
+- [x] Block a failed digest locally after automatic rollback.
+- [x] Keep restart user-controlled after automatic background staging.
 - [x] Reconcile accepted lifecycle decisions into ADR-0004 and ADR-0007.
 
 ### A2 — release and trust lifecycle
 
 - [ ] Specify the signed release-manifest schema and signature envelope.
 - [ ] Define how UKI, sealed deployment, OCI digest, and PCR policy are bound.
-- [ ] Define signing ownership, rotation, revocation, and compromise response.
+- [ ] Complete signing ownership, rotation, and compromise response.
+- [x] Define withdrawal and offline-cached emergency revocation semantics.
 - [x] Select Microsoft-signed ShapeBit shim with factory PK/KEK preserved.
 - [x] Separate development and production trust domains.
 - [ ] Create a separate TPM2 NV anti-rollback ADR.
@@ -560,8 +631,15 @@ scope beyond disposable prototypes.
 - [x] Define the initial physical threat boundary and suspend authentication.
 - [ ] Specify the exact mandatory QEMU and hardware test schemas.
 - [ ] Define the versioned platform-service API boundary.
-- [ ] Define Flatpak source, verification, and permission presentation policy.
-- [ ] Define diagnostic-report schema and privacy rules.
+- [x] Select Flathub plus a first-party-only ShapeBit Flatpak repository.
+- [x] Define per-user Flatpak ownership, updates, permissions, and storage.
+- [x] Select a Wayland-only initial application catalog with X11-only entries
+  hidden from the normal UI.
+- [x] Define unsandboxed per-user AppImage discovery, import, and update policy.
+- [ ] Resolve AppImage MIME, URL-handler, default-app, and autostart behavior.
+- [ ] Define the complete diagnostic-report schema and redaction rules.
+- [x] Select default-minimal, user-disableable telemetry and consent-only
+  detailed reports.
 - [ ] Define developer-mode guarantees and unsupported host modifications.
 
 ## 15. Delivery roadmap
@@ -595,7 +673,7 @@ even when supporting scripts or documentation already exist.
 - [ ] Authorize TPM2 unlock for both pending and rollback UKIs.
 - [ ] Accept a successful trial boot.
 - [ ] Automatically return to A after failed trial boots.
-- [ ] Exercise compatible and failed persistent-data migrations.
+- [ ] Exercise preserved-state N/N-1 rollback and disposable-state recreation.
 - [ ] Produce a diagnostic report for every transition.
 
 ### M3 — installer backend and protocol
@@ -619,7 +697,9 @@ even when supporting scripts or documentation already exist.
 - [ ] Generate SBOMs, manifests, attestations, and test reports.
 - [ ] Integrate restricted boot and policy signing.
 - [ ] Automate boot, update, rollback, recovery, and rejection tests.
-- [ ] Promote identical digests through developer, nightly, testing, and stable.
+- [ ] Build non-production developer/nightly artifacts without promotion rights.
+- [ ] Produce a production candidate and manually promote the identical artifact
+  from testing to stable.
 
 ### M6 — desktop platform
 
@@ -627,6 +707,8 @@ even when supporting scripts or documentation already exist.
 - [ ] Implement the nested Smithay compositor.
 - [ ] Add shell, launcher, panel, notifications, and settings.
 - [ ] Add PAM-based greeter and separate lock screen.
+- [ ] Add per-user Flatpak management and the two official remotes.
+- [ ] Add AppImage discovery, import, warning, update, and removal flows.
 - [ ] Boot a complete session in a VM.
 
 ### M7 — hardware validation and recovery
@@ -655,7 +737,7 @@ even when supporting scripts or documentation already exist.
 - custom ShapeBit hardware;
 - hibernation and encrypted resume;
 - public host-extension ecosystem;
-- XWayland unless required by the application target;
+- XWayland;
 - offline update bundles;
 - complete cloud backup;
 - polished consumer onboarding and application ecosystem.

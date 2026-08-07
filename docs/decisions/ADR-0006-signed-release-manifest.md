@@ -2,6 +2,7 @@
 
 **Status:** Proposed
 **Date:** 2026-08-04
+**Last updated:** 2026-08-07
 
 ## Context
 
@@ -27,6 +28,11 @@ minimum, the manifest records:
 The OCI digest remains the immutable identity of the system payload. Channel
 tags and channel manifests are discovery and promotion pointers; they are not
 release identities and never replace digest or signature verification.
+
+Mutable rollout state is not inserted into, or confused with, the immutable
+release manifest. Devices consume separately authenticated release-status and
+revocation metadata that identifies exact immutable digests. ADR-0009 defines
+the semantics and authorization of `withdrawn` and `revoked`.
 
 ## Consequences
 

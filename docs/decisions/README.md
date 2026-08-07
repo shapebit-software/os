@@ -21,12 +21,12 @@ an explicit review action.
 | [ADR-0001](ADR-0001-fedora-bootc.md) | Accepted | Fedora bootc system base |
 | [ADR-0002](ADR-0002-filesystem-ownership.md) | Proposed | ownership and mutability of filesystem paths |
 | [ADR-0003](ADR-0003-btrfs-system-state.md) | Accepted | filesystem inside the system LUKS2 volume |
-| [ADR-0004](ADR-0004-data-migrations-and-rollback.md) | Accepted | persistent-data schema compatibility and migrations |
+| [ADR-0004](ADR-0004-data-migrations-and-rollback.md) | Accepted | persistent-state classes and N/N-1 compatibility without automatic migrations |
 | [ADR-0005](ADR-0005-recovery-operation-semantics.md) | Accepted | semantic difference between rollback, backup, and reset |
 | [ADR-0006](ADR-0006-signed-release-manifest.md) | Proposed | immutable release identity and signed release manifest |
 | [ADR-0007](ADR-0007-trial-boot-and-acceptance.md) | Accepted | deployment states, trial boot, acceptance, and rollback selection |
 | [ADR-0008](ADR-0008-independent-recovery.md) | Accepted | independent recovery environment |
-| [ADR-0009](ADR-0009-staged-rollout.md) | Proposed | server-side stable-channel rollout |
+| [ADR-0009](ADR-0009-staged-rollout.md) | Accepted | staged rollout, telemetry, withdrawal, and revocation |
 | [ADR-0010](ADR-0010-dioxus-installer.md) | Accepted | Dioxus installer frontend and privilege boundary |
 | [ADR-0011](ADR-0011-per-user-encrypted-homes.md) | Accepted | human-user authentication and encrypted homes |
 | [ADR-0012](ADR-0012-encrypted-system-volume.md) | Accepted | system-volume encryption and recovery key |
@@ -34,13 +34,14 @@ an explicit review action.
 | [ADR-0014](ADR-0014-platform-and-hardware-validation.md) | Accepted | platform scope, hardware evidence, and release hardware gates |
 | [ADR-0015](ADR-0015-microsoft-shim-and-trust-domains.md) | Accepted | Microsoft-signed ShapeBit shim and trust-domain separation |
 | [ADR-0016](ADR-0016-initial-installation-and-storage-profile.md) | Accepted | initial disk ownership, recovery placement, and home capacity profile |
+| [ADR-0017](ADR-0017-application-distribution-and-appimage.md) | Accepted | Flatpak sources, per-user applications, Wayland scope, and AppImage integration |
 
 ## Boundary rules
 
 - ADR-0003 selects the filesystem layout; ADR-0012 requires the outer system
   volume to be encrypted.
-- ADR-0004 owns data migrations; ADR-0007 only consumes their success or failure
-  when accepting a deployment.
+- ADR-0004 owns persistent-state classes and N/N-1 compatibility; ADR-0007 owns
+  boot attempts, health gates, acceptance, and deployment selection.
 - ADR-0005 defines user-visible recovery operations; ADR-0008 defines the
   independent environment that can perform them.
 - ADR-0006 identifies a release; ADR-0009 controls how an accepted release is
@@ -54,3 +55,5 @@ an explicit review action.
   that boundary.
 - ADR-0016 selects the initial installation profile; ADR-0003 and ADR-0008 own
   the detailed outer filesystem and recovery lifecycles.
+- ADR-0017 owns application delivery and per-user application lifecycle;
+  ADR-0011 and ADR-0016 own the encrypted-home and capacity boundaries.

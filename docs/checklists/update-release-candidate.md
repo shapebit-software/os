@@ -14,7 +14,10 @@
 
 - [ ] Updating from the previous stable release works.
 - [ ] Updating from the oldest supported stable release works.
-- [ ] Critical data schemas support N-1 rollback.
+- [ ] Every persistent host path is declared `preserved` or `disposable`.
+- [ ] Representative `preserved` state passes N -> N+1 -> rollback N.
+- [ ] Every `disposable` path can be safely recreated.
+- [ ] The update performs no incompatible automatic persistent-data migration.
 - [ ] `/etc` conflicts have been tested.
 - [ ] The minimum required free space has been checked.
 
@@ -28,10 +31,16 @@
 - [ ] The device recovery key still unlocks the system volume.
 - [ ] The pending deployment boots.
 - [ ] L0–L4 health checks work.
-- [ ] The acceptance marker is persisted.
+- [ ] `boot-complete.target` remains gated until every mandatory health check
+  and the two-minute observation period succeed.
+- [ ] `systemd-bless-boot` marks a successful UKI good.
+- [ ] The UKI starts with two attempts and exhaustion selects the previous good
+  entry.
 - [ ] Manual rollback works.
 - [ ] Automatic rollback works.
-- [ ] Boot counting does not treat a normal shutdown as a failure.
+- [ ] Shutdown before acceptance consumes an attempt; shutdown after blessing
+  does not.
+- [ ] Automatic rollback locally blocks the failed digest.
 - [ ] No active hibernation image exists during update or rollback.
 
 ## Recovery
@@ -41,7 +50,7 @@
 - [ ] A report can be exported.
 - [ ] A known stable release can be restored.
 - [ ] A system reset does not delete `/home`.
-- [ ] A full reset deletes data as communicated.
+- [ ] `Erase device` deletes data as communicated.
 
 ## Rollout
 
@@ -49,4 +58,8 @@
 - [ ] Rollout waves are defined.
 - [ ] The quality dashboard works.
 - [ ] A stop-rollout procedure exists.
+- [ ] Automatic pause and manual resume are tested.
+- [ ] `withdrawn` cancels an unbooted staged deployment.
+- [ ] Cached `revoked` metadata prevents the next boot offline.
+- [ ] Minimal telemetry can be disabled without affecting updates.
 - [ ] A superseding build or remediation plan exists.
