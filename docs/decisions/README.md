@@ -35,6 +35,9 @@ an explicit review action.
 | [ADR-0015](ADR-0015-microsoft-shim-and-trust-domains.md) | Accepted | Microsoft-signed ShapeBit shim and trust-domain separation |
 | [ADR-0016](ADR-0016-initial-installation-and-storage-profile.md) | Accepted | initial disk ownership, recovery placement, and home capacity profile |
 | [ADR-0017](ADR-0017-application-distribution-and-appimage.md) | Accepted | Flatpak sources, per-user applications, Wayland scope, and AppImage integration |
+| [ADR-0018](ADR-0018-desktop-session-and-authorization.md) | Accepted | desktop process isolation, session failure, authorization, developer mode, and SSH |
+| [ADR-0019](ADR-0019-display-power-and-thermal-policy.md) | Accepted | display, HDR, VRR, suspend, power, battery, and thermal policy |
+| [ADR-0020](ADR-0020-media-privacy-and-notifications.md) | Accepted | media routing, capture consent, remote input, and notification privacy |
 
 ## Boundary rules
 
@@ -57,3 +60,9 @@ an explicit review action.
   the detailed outer filesystem and recovery lifecycles.
 - ADR-0017 owns application delivery and per-user application lifecycle;
   ADR-0011 and ADR-0016 own the encrypted-home and capacity boundaries.
+- ADR-0018 owns graphical and remote session behavior; ADR-0011 remains the
+  authority for PAM activation and encrypted-home lifecycle.
+- ADR-0019 owns display and power policy; ADR-0014 owns the evidence required
+  before those capabilities may be claimed for hardware.
+- ADR-0020 owns media and notification privacy; ADR-0017 defines why direct
+  microphone or camera enforcement is not guaranteed for AppImage.

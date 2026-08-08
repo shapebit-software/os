@@ -46,7 +46,8 @@ ShapeBit exposes one user-facing **Require authentication after suspend**
 setting, enabled by default.
 
 Normal suspend remains the default laptop behavior; closing the lid does not
-power off the device by default. Hibernation remains separately deferred.
+power off the device by default. ADR-0019 defines detailed lid, docked-mode,
+power-failure, and initial hibernation behavior.
 
 When enabled, suspend locks both the desktop session and the active
 `systemd-homed` home. The home key is removed from memory, access to the home is
@@ -90,3 +91,5 @@ grant the device recovery key access to any user's home.
 
 - [ADR-0012](ADR-0012-encrypted-system-volume.md)
 - [ADR-0016](ADR-0016-initial-installation-and-storage-profile.md)
+- [ADR-0018](ADR-0018-desktop-session-and-authorization.md)
+- [ADR-0019](ADR-0019-display-power-and-thermal-policy.md)

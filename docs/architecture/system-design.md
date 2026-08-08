@@ -2,7 +2,7 @@
 
 **Document type:** Living system design and delivery tracker
 
-**Last updated:** 2026-08-07
+**Last updated:** 2026-08-08
 
 **Current phase:** Architecture consolidation and first-prototype planning
 
@@ -308,8 +308,21 @@ by default. When enabled, suspend locks both the session and the active
 authentication interaction to restore both. When disabled, resume returns
 directly to the session and the UI warns that the session and home key remain
 available in memory. Full physical-access protection is claimed only for a
-powered-off device. Normal suspend remains the default laptop behavior; lid
-close does not power off the device by default.
+powered-off device.
+
+The first human account is an administrator, but all desktop processes remain
+unprivileged. Narrow root services expose versioned D-Bus operations and Polkit
+authorization. The trusted authorization agent may cache authentication for a
+short period, but every later operation still receives a **Yes**/**No**
+confirmation. Direct root login is disabled; graphical Polkit and terminal
+`sudo` caches remain separate.
+
+The greeter, each user compositor, the shell, lock UI, and authorization agent
+are separate processes. ShapeBit allows one logged-in graphical session at a
+time, while SSH sessions may coexist and keep that user's home active. SSH is
+disabled by default. Key login is sufficient for an already active home; an
+inactive home requires the key followed by the normal PAM password. Password-
+only SSH, remote Recovery Kit use, and direct root SSH are disabled.
 
 ## 9. Updates, trial boot, and rollback
 
@@ -510,12 +523,42 @@ of that user. It does not classify AppImage signatures. Every manager-driven
 update requires confirmation and uses download-then-atomic-replacement. The
 manager watches `Downloads`, `Desktop`, and user-selected directories, alerts
 once per new hash, and never executes payload code while reading metadata.
+ShapeBit adds no AppImage-specific restriction to MIME and URI handlers,
+default applications, autostart, or user services; those capabilities are part
+of the broad native-executable warning.
 
-The proposed desktop uses Rust, Smithay, Wayland, systemd user services, D-Bus,
-PipeWire, portals, libinput, Mesa, DRM, and KMS. Initial compositor scope is a
-nested backend, one output, keyboard and pointer input, focus, basic window
-management, logging, and application launch. The login surface remains separate
-from session locking and uses PAM as described above.
+The desktop uses Rust, Smithay, Wayland, systemd user services, D-Bus,
+PipeWire, portals, libinput, Mesa, DRM, and KMS. A minimal compositor owns
+Wayland, input, outputs, and lock state. One restartable shell contains the
+panel, launcher, notifications, and primary desktop UI. Separate trusted
+processes own locking and authorization. A shell failure preserves applications;
+a compositor failure ends the damaged graphical session, returns to the
+independent greeter, and records diagnostics. ShapeBit applications provide
+autosave where possible, but arbitrary process state is not recoverable.
+
+Per-output fractional scaling, remembered layouts, HDR, independent SDR/HDR
+color transforms, and fullscreen VRR are initial requirements. HDR is enabled
+manually per monitor. Screenshots, recordings, and sharing are tone-mapped to
+SDR initially. With the lid open, a new monitor extends the desktop. With the
+lid closed, an active external monitor automatically becomes the docked output;
+disconnecting the last external output requests suspend.
+
+A system power service owns lid, battery, profile, suspend, and thermal policy
+independently of the shell. The initial profiles are Balanced, Power Saver, and
+hardware-dependent Performance. Firmware and kernel drivers own fans and
+thermal thresholds. Suspend-to-RAM is supported; hibernation is not. A failed
+lid-close suspend causes controlled shutdown. A hardware-supported system-wide
+charge limit is changeable by an active local administrator with confirmation
+but without a password.
+
+PipeWire transports audio and capture streams, while WirePlumber owns per-user
+device and routing policy. Flatpak microphone and camera access uses portals and
+visible indicators. Direct-device enforcement against unsandboxed AppImage is
+best effort. Screen capture and remote input remain compositor-mediated for all
+applications, require per-session consent, stop on lock, and cannot control
+trusted surfaces. Whole-monitor sharing suppresses notification banners by
+default. The lock screen shows no application notifications, and only an
+allowlisted root ShapeBit service may issue a critical notification.
 
 ## 13. Development, CI, and release flow
 
@@ -636,11 +679,19 @@ scope beyond disposable prototypes.
 - [x] Select a Wayland-only initial application catalog with X11-only entries
   hidden from the normal UI.
 - [x] Define unsandboxed per-user AppImage discovery, import, and update policy.
-- [ ] Resolve AppImage MIME, URL-handler, default-app, and autostart behavior.
+- [x] Permit ordinary native AppImage MIME, URI, default-app, autostart, and
+  user-service behavior under the broad-permission warning.
+- [x] Define compositor, shell, greeter, lock, and authorization boundaries.
+- [x] Define administrator, root-login, and SSH policy.
+- [x] Define developer-mode security and trust-domain guarantees.
+- [x] Define mixed-monitor scaling, HDR, VRR, docking, and capture behavior.
+- [x] Define system power, suspend, hibernation, thermal, and charging policy.
+- [x] Select PipeWire and WirePlumber and define media privacy boundaries.
+- [x] Define screen-share, remote-input, and notification privacy policy.
 - [ ] Define the complete diagnostic-report schema and redaction rules.
 - [x] Select default-minimal, user-disableable telemetry and consent-only
   detailed reports.
-- [ ] Define developer-mode guarantees and unsupported host modifications.
+- [ ] Define detection and support handling for unsupported host modifications.
 
 ## 15. Delivery roadmap
 
@@ -705,8 +756,11 @@ even when supporting scripts or documentation already exist.
 
 - [ ] Implement versioned platform services.
 - [ ] Implement the nested Smithay compositor.
-- [ ] Add shell, launcher, panel, notifications, and settings.
-- [ ] Add PAM-based greeter and separate lock screen.
+- [ ] Add the restartable shell, launcher, panel, notifications, and settings.
+- [ ] Add the separate PAM greeter, trusted lock UI, and authorization agent.
+- [ ] Add fractional scaling, HDR color management, SDR capture, and VRR.
+- [ ] Add display layout, automatic docked mode, and the system power service.
+- [ ] Add PipeWire/WirePlumber policy, media portals, and privacy indicators.
 - [ ] Add per-user Flatpak management and the two official remotes.
 - [ ] Add AppImage discovery, import, warning, update, and removal flows.
 - [ ] Boot a complete session in a VM.
@@ -736,6 +790,8 @@ even when supporting scripts or documentation already exist.
 - same-disk dual boot, partition shrinking, and manual partitioning;
 - custom ShapeBit hardware;
 - hibernation and encrypted resume;
+- fast graphical user switching;
+- native HDR screenshots and recordings;
 - public host-extension ecosystem;
 - XWayland;
 - offline update bundles;

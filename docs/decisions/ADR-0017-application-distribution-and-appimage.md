@@ -107,6 +107,15 @@ exists, the manager downloads a replacement alongside the current file and
 requires user confirmation for every update before an atomic replacement. A
 self-updater inside an unsandboxed AppImage is outside ShapeBit's control.
 
+ShapeBit adds no AppImage-specific restriction to standard per-user desktop
+integration or background behavior. After launch, an AppImage may use the same
+interfaces available to any unsandboxed native process to register MIME or URI
+handlers, request default-application status, configure autostart, or create
+user services. ShapeBit documents that broad authority but does not add a
+second approval or policy layer around those operations. The AppImage manager
+does not claim that removing an imported file reverses changes made by the
+application itself.
+
 The per-user manager watches `Downloads` and `Desktop` plus directories the user
 adds explicitly. It uses filesystem events rather than repeatedly scanning the
 whole tree, recognizes the file format rather than trusting only the extension,
@@ -129,12 +138,12 @@ does not disable an application's internal security mechanisms to make it run.
   downloaded executable with full user permissions.
 - AppImage updates, identity, and background behavior cannot receive the same
   guarantees as repository-managed Flatpaks.
+- ShapeBit cannot promise to inventory or reverse persistence, handlers, or
+  configuration created directly by an AppImage.
 
 ## Open questions
 
 - Exact set of system applications included in the OS image.
-- AppImage MIME and URL-handler registration, default-application behavior, and
-  autostart integration.
 - Detailed recommendation-review and removal criteria.
 - Whether and when XWayland becomes a supported compatibility layer.
 
