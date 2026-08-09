@@ -665,10 +665,11 @@ items. Deferred features in section 17 are not counted here.
 - [x] **D04 — Application recommendations:** use sole-curator approval,
   event-driven review without a fixed cadence, and the signed canonical list
   defined by ADR-0024.
-- [ ] **D05 — Enterprise network credentials:** choose the initially supported
-  enterprise Wi-Fi and VPN authentication and secret types.
-- [ ] **D06 — Boot health details:** name the mandatory service checks and set
-  their exact timeouts inside the accepted health-check classes.
+- [x] **D05 — Enterprise network credentials:** use the bounded 802.1X, VPN,
+  software-certificate, safe-import, and strict server-identity set defined by
+  ADR-0025.
+- [x] **D06 — Boot health details:** use the five parallel controls, exact
+  timeouts, bounded observation, and failure transitions defined by ADR-0026.
 - [ ] **D07 — Staged-restart UX:** define notification and reminder cadence for
   an installed update waiting for a user-controlled restart.
 

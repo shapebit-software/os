@@ -62,6 +62,8 @@ second custom attempt counter or a cross-database reconciliation protocol.
 No cleanup may remove the previous accepted deployment until the new deployment
 is accepted. Persistent-state compatibility belongs to ADR-0004. TPM2
 authorization of pending and rollback boot artifacts belongs to ADR-0013.
+Exact health units, timeouts, observation resets, and failure transitions belong
+to ADR-0026.
 
 After automatic rollback, the failed OCI digest is locally blocked and is not
 staged again automatically. A different digest may proceed normally. Recovery
@@ -80,7 +82,6 @@ and blessing use the standard systemd interfaces.
 
 ## Open questions
 
-- Exact service names and timeouts inside each mandatory health-check class.
 - Exact UI and reminder cadence for a staged update awaiting user restart.
 
 ## Related decisions
@@ -90,6 +91,7 @@ and blessing use the standard systemd interfaces.
 - [ADR-0006](ADR-0006-signed-release-manifest.md) owns release identity.
 - [ADR-0008](ADR-0008-independent-recovery.md) owns recovery.
 - [ADR-0013](ADR-0013-boot-trust-and-tpm-policy.md) owns boot authorization.
+- [ADR-0026](ADR-0026-boot-health-contract.md) owns health checks and timeouts.
 
 ## References
 

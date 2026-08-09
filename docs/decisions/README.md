@@ -42,6 +42,8 @@ an explicit review action.
 | [ADR-0022](ADR-0022-inbound-file-sharing.md) | Accepted | SFTP and SMB scope, credentials, exposure, lifecycle, and privacy |
 | [ADR-0023](ADR-0023-application-platform-and-system-set.md) | Accepted | system applications, Flatpak integrations, browsers, AppImage, and Distrobox |
 | [ADR-0024](ADR-0024-application-recommendations.md) | Accepted | recommendation governance, criteria, signed distribution, and presentation |
+| [ADR-0025](ADR-0025-enterprise-network-authentication.md) | Accepted | enterprise Wi-Fi, VPN protocols, credentials, import, and server identity |
+| [ADR-0026](ADR-0026-boot-health-contract.md) | Accepted | boot-health checks, timeouts, observation, and failure transitions |
 
 ## Boundary rules
 
@@ -76,3 +78,7 @@ an explicit review action.
   and firewall boundaries, while ADR-0018 owns the underlying SSH lifecycle.
 - ADR-0024 owns the curated recommendation signal; ADR-0023 owns the underlying
   application sources, installation, updates, and runtime behavior.
+- ADR-0025 owns enterprise authentication and credential types; ADR-0021 owns
+  network-profile ownership, activation, routing, DNS, and firewall behavior.
+- ADR-0026 owns health evidence and failure transitions within a trial boot;
+  ADR-0007 owns attempts, blessing, and deployment selection.
