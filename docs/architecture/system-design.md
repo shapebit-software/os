@@ -2,7 +2,7 @@
 
 **Document type:** Living system design and delivery tracker
 
-**Last updated:** 2026-08-08
+**Last updated:** 2026-08-09
 
 **Current phase:** Architecture consolidation and first-prototype planning
 
@@ -488,7 +488,7 @@ partitioning are not valid initial installation plans.
 | portable native application | per-user AppImage with explicit trust warning |
 | essential system application | immutable OS image |
 | web application | browser or PWA |
-| developer tool | Toolbox/Podman |
+| developer tool | Distrobox/Podman |
 | host service | system image |
 | driver or kernel module | system image or future controlled extension |
 
@@ -497,11 +497,13 @@ extensions are deferred; future options include image variants and signed
 system extensions.
 
 The normal application catalog combines Flathub for third-party software with a
-separate ShapeBit repository limited to first-party applications. It never
-silently rebuilds third-party App IDs. Recommendations are selected manually by
-ShapeBit from either source, retain accurate publisher/community/source labels,
-and are not chosen through paid promotion. Other Flatpak remotes are advanced
-per-user extensions outside ShapeBit application support.
+separate ShapeBit repository for first-party applications and ShapeBit-owned
+integration artifacts. An integration may contain scripts, manifests, metadata,
+and sandbox configuration but never third-party binaries; it uses a ShapeBit ID
+and downloads the payload directly from the identified producer or distributor.
+Recommendations are selected manually, retain accurate source labels, and are
+not chosen through paid promotion. Other remotes are advanced per-user
+extensions outside ShapeBit application support.
 
 Each user owns a separate Flatpak installation inside their encrypted home.
 Applications, runtimes, caches, and data consume that user's capacity and update
@@ -510,6 +512,13 @@ permission expansion requires user approval. ShapeBit provides no automatic
 application rollback. The OS image contains only the applications necessary to
 operate the system; no Flathub application is preinstalled, and first-login
 onboarding offers manually curated downloads when online.
+
+The immutable graphical set is ShapeBit Settings, Files, Apps, Diagnostics,
+Terminal, Help, Text, and Calculator. Terminal is hidden outside developer mode.
+Full document and media applications remain per-user Flatpaks. First-login
+onboarding offers Chrome, Chromium, Firefox, Brave, and GNOME Web without a
+preselected default. Chrome downloads Google binaries through `extra-data`;
+Chromium downloads Fedora-signed RPMs through a ShapeBit integration.
 
 The initial application platform is Wayland-only. The normal store hides
 X11-only applications, and an update that would turn a working Flatpak into an
@@ -526,6 +535,12 @@ once per new hash, and never executes payload code while reading metadata.
 ShapeBit adds no AppImage-specific restriction to MIME and URI handlers,
 default applications, autostart, or user services; those capabilities are part
 of the broad native-executable warning.
+
+Developer mode uses rootless Podman and Distrobox rather than Toolbox. New
+containers initially default to the Fedora Toolbox image matching the current
+ShapeBit base. Distrobox is not a security sandbox. A validated ShapeBit
+development image may become the later first choice while Fedora remains a
+supported reference.
 
 The desktop uses Rust, Smithay, Wayland, systemd user services, D-Bus,
 PipeWire, portals, libinput, Mesa, DRM, and KMS. A minimal compositor owns
@@ -632,13 +647,91 @@ Release cadence and minimum testing duration remain undecided.
 This is the current planning queue. Complete it before expanding implementation
 scope beyond disposable prototypes.
 
+### Remaining decision backlog
+
+This is the canonical ordered list of unresolved architecture work. The A0-A5
+sections below retain completed decision history and do not duplicate open
+items. Deferred features in section 17 are not counted here.
+
+#### P0 — product behavior that can be decided now
+
+- [x] **D01 — Inbound file sharing:** use SFTP through configured SSH and
+  optional per-user SMB 3 sharing as defined by ADR-0022.
+- [x] **D02 — Authorization cache:** use a fixed, non-renewable five-minute
+  Polkit authentication cache as defined by ADR-0018.
+- [x] **D03 — System application set:** use the exact offline desktop core,
+  browser onboarding, integration wrappers, and Distrobox environment defined
+  by ADR-0023.
+- [x] **D04 — Application recommendations:** use sole-curator approval,
+  event-driven review without a fixed cadence, and the signed canonical list
+  defined by ADR-0024.
+- [ ] **D05 — Enterprise network credentials:** choose the initially supported
+  enterprise Wi-Fi and VPN authentication and secret types.
+- [ ] **D06 — Boot health details:** name the mandatory service checks and set
+  their exact timeouts inside the accepted health-check classes.
+- [ ] **D07 — Staged-restart UX:** define notification and reminder cadence for
+  an installed update waiting for a user-controlled restart.
+
+#### P1 — platform, storage, and release contracts
+
+- [ ] **D08 — Capacity policy:** define reserve formulas, home quotas, burst
+  behavior, low-space thresholds, and warnings.
+- [ ] **D09 — Snapshot policy:** define snapshot ownership, scope, retention,
+  deletion, and the relationship to rollback and backup.
+- [ ] **D10 — Platform-service API:** define versioning, compatibility, caller
+  identity, authorization, errors, and lifecycle for system D-Bus services.
+- [ ] **D11 — Diagnostics:** define the complete report schema, redaction,
+  preview, consent, retention, and export rules.
+- [ ] **D12 — Unsupported host modifications:** define detection, diagnostics,
+  recovery, and support status when protected host state is modified.
+- [ ] **D13 — Test evidence schemas:** define exact mandatory QEMU and physical-
+  hardware test records and pass criteria.
+- [ ] **D14 — Release timing:** define stable cadence, minimum testing duration,
+  and the emergency-release exception process.
+
+#### P1 — installer contract
+
+- [ ] **D15 — Installation protocol schemas:** define versioned
+  `InstallationPlan`, capability, event, and error structures.
+- [ ] **D16 — Secret enrollment:** define the secret channel, credential
+  ownership, exposure boundaries, cancellation, and memory lifetime.
+- [ ] **D17 — Installer transaction lifecycle:** define phases, durable state,
+  cancellation points, retry, resume, and interruption behavior.
+- [ ] **D18 — Disk identity and confirmation:** define stable device identity,
+  replacement detection, final destructive confirmation, and stale-plan rules.
+- [ ] **D19 — Recovery Kit flow:** define presentation, verification,
+  confirmation, printing/export, and secret-lifetime UX.
+- [ ] **D20 — Installer decision mapping:** map every installation operation to
+  its authoritative ADR. This is documentation closure rather than a new
+  product decision.
+
+#### P1 — release trust and anti-rollback
+
+- [ ] **D21 — Release manifest:** define the canonical schema, serialization,
+  signature envelope, identifiers, and compatibility fields.
+- [ ] **D22 — Artifact binding:** define the verifiable binding among the OCI
+  digest, sealed deployment, UKI, release manifest, and PCR policy.
+- [ ] **D23 — Signing operations:** define production ownership, HSM roles,
+  authorization, rotation, audit, and compromise response for every key.
+- [ ] **D24 — Strong anti-rollback:** create the TPM2 NV security-epoch ADR,
+  including transitions, rollback window, recovery, and failure behavior.
+- [ ] **D25 — Prototype trust migration:** define how early TPM enrollments are
+  detected, invalidated, and migrated without preserving an old unlock path.
+
+#### Acceptance gates
+
+- [ ] **G01 — ADR-0002:** accept, revise, or reject filesystem ownership after
+  the required update-and-rollback evidence exists.
+- [ ] **G02 — ADR-0006:** accept or revise signed release identity after D21-D23.
+- [ ] **G03 — ADR-0013:** accept or revise boot trust after D22-D25 and the
+  required QEMU and physical-hardware evidence.
+
 ### A0 — documentation structure
 
 - [x] Establish ADRs as the authority for durable decisions.
 - [x] Add an ADR index and decision ownership map.
 - [x] Remove duplicated architecture sources.
 - [x] Consolidate system design, status, roadmap, and task tracking here.
-- [ ] Review and explicitly accept, revise, or reject every proposed ADR.
 
 ### A1 — deployment lifecycle
 
@@ -655,15 +748,9 @@ scope beyond disposable prototypes.
 
 ### A2 — release and trust lifecycle
 
-- [ ] Specify the signed release-manifest schema and signature envelope.
-- [ ] Define how UKI, sealed deployment, OCI digest, and PCR policy are bound.
-- [ ] Complete signing ownership, rotation, and compromise response.
 - [x] Define withdrawal and offline-cached emergency revocation semantics.
 - [x] Select Microsoft-signed ShapeBit shim with factory PK/KEK preserved.
 - [x] Separate development and production trust domains.
-- [ ] Create a separate TPM2 NV anti-rollback ADR.
-- [ ] Define invalidation and migration of prototype TPM2 enrollments.
-- [ ] Review ADR-0006 and ADR-0013 for acceptance after these decisions.
 
 ### A3 — storage and recovery lifecycle
 
@@ -672,24 +759,15 @@ scope beyond disposable prototypes.
 - [x] Select Btrfs inside per-user LUKS2 home containers.
 - [x] Select guaranteed home minimums, shared burst capacity, and dynamically
   calculated protected reserves.
-- [ ] Define numerical reserve formulas, quotas, and warning thresholds.
-- [ ] Define snapshot ownership and retention.
 - [x] Specify reset preservation and controlled home rebinding.
 - [x] Select a minimal recovery UKI on the ESP and equivalent USB media.
 - [x] Select the offline-first TUI and rotating `recovery-a`/`recovery-b` slots.
 - [x] Define conservative export-first behavior after Btrfs corruption.
 - [x] Define rollback, repair, reset, remove-user, and two erase outcomes.
-- [ ] Review ADR-0002 for acceptance.
 - [x] Accept ADR-0003, ADR-0005, and ADR-0008.
 
 ### A4 — installer contract
 
-- [ ] Define versioned `InstallationPlan`, event, error, and capability schemas.
-- [ ] Define the secret-enrollment channel and memory-lifetime requirements.
-- [ ] Define transaction phases, cancellation points, and resume behavior.
-- [ ] Define stable disk identity and destructive-operation confirmation rules.
-- [ ] Define the Recovery Kit presentation and verification flow.
-- [ ] Map every installation operation to its governing ADR.
 - [x] Select exclusive whole-disk installation for the initial profile.
 
 ### A5 — product and platform contracts
@@ -697,8 +775,6 @@ scope beyond disposable prototypes.
 - [x] Define the QEMU profile and versioned physical-hardware evidence labels.
 - [x] Define official Linux x86-64/KVM development scope with Fedora canonical.
 - [x] Define the initial physical threat boundary and suspend authentication.
-- [ ] Specify the exact mandatory QEMU and hardware test schemas.
-- [ ] Define the versioned platform-service API boundary.
 - [x] Select Flathub plus a first-party-only ShapeBit Flatpak repository.
 - [x] Define per-user Flatpak ownership, updates, permissions, and storage.
 - [x] Select a Wayland-only initial application catalog with X11-only entries
@@ -719,11 +795,9 @@ scope beyond disposable prototypes.
 - [x] Define firewall defaults, SSH network scope, MAC randomization, and local
   discovery policy.
 - [x] Defer dedicated captive-portal support from the initial release.
-- [ ] Decide initial inbound file-sharing scope.
-- [ ] Define the complete diagnostic-report schema and redaction rules.
+- [x] Select SFTP through configured SSH plus optional per-user SMB 3 sharing.
 - [x] Select default-minimal, user-disableable telemetry and consent-only
   detailed reports.
-- [ ] Define detection and support handling for unsupported host modifications.
 
 ## 16. Delivery roadmap
 

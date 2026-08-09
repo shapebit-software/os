@@ -69,10 +69,12 @@ an administrator role.
 
 The trusted authorization agent receives credentials directly for PAM/Polkit,
 shows the exact requester and operation, and obtains compositor-controlled
-exclusive input. Authorization may be cached for a short period whose exact
-fixed duration remains undecided. Every later privileged request still receives a
-trusted **Yes**/**No** confirmation. Lock, logout, or session termination clears
-the cache. Polkit and `sudo` caches are independent.
+exclusive input. A successful Polkit authentication is cached for a fixed five
+minutes. Later requests do not extend that deadline. Every privileged request
+during the cached period still receives a trusted **Yes**/**No** confirmation
+that identifies the requester and operation. Lock, logout, or session
+termination clears the cache immediately. Polkit and `sudo` caches are
+independent.
 
 The system-wide battery charge limit is a specific low-risk exception: only an
 active local administrator may change it, but the trusted confirmation does not
@@ -123,15 +125,11 @@ developer-mode security invariants, and SSH interaction with encrypted homes.
 ADR-0011 remains authoritative for home encryption and PAM-based activation.
 ADR-0021 defines the network profiles on which SSH is exposed.
 
-## Open questions
-
-- Exact short-lived Polkit authentication-cache duration.
-
 ## Related decisions
 
 - [ADR-0011](ADR-0011-per-user-encrypted-homes.md)
 - [ADR-0015](ADR-0015-microsoft-shim-and-trust-domains.md)
-- [ADR-0017](ADR-0017-application-distribution-and-appimage.md)
+- [ADR-0023](ADR-0023-application-platform-and-system-set.md)
 - [ADR-0021](ADR-0021-network-ownership-and-privacy.md)
 
 ## References

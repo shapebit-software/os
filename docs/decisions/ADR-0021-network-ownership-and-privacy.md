@@ -128,12 +128,12 @@ This ADR owns network-profile secret placement, profile lifetime, device-wide
 VPN semantics, DNS routing, firewall defaults, SSH network exposure, MAC
 randomization, discovery, and captive-portal scope. ADR-0018 owns SSH
 authentication and graphical versus remote session lifecycles. ADR-0009 owns
-when update artifacts may be downloaded over an available network.
+when update artifacts may be downloaded over an available network. ADR-0022
+defines file-sharing services and selects the network profiles on which they
+are exposed.
 
 ## Open questions
 
-- Whether the initial release provides inbound file sharing through SMB, uses
-  only SFTP through SSH, or defers all built-in file serving.
 - Detailed enterprise Wi-Fi and VPN credential types supported initially.
 
 ## Related decisions
@@ -141,6 +141,7 @@ when update artifacts may be downloaded over an available network.
 - [ADR-0009](ADR-0009-staged-rollout.md)
 - [ADR-0011](ADR-0011-per-user-encrypted-homes.md)
 - [ADR-0018](ADR-0018-desktop-session-and-authorization.md)
+- [ADR-0022](ADR-0022-inbound-file-sharing.md)
 
 ## References
 

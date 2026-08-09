@@ -107,12 +107,12 @@ automatic privacy behavior above.
 ## Boundaries
 
 This ADR owns desktop media routing, capture consent, remote-input consent, and
-notification privacy. ADR-0017 owns AppImage isolation expectations. ADR-0018
+notification privacy. ADR-0023 owns AppImage isolation expectations. ADR-0018
 owns trusted surfaces and session locking. ADR-0019 owns HDR capture format.
 
 ## Related decisions
 
-- [ADR-0017](ADR-0017-application-distribution-and-appimage.md)
+- [ADR-0023](ADR-0023-application-platform-and-system-set.md)
 - [ADR-0018](ADR-0018-desktop-session-and-authorization.md)
 - [ADR-0019](ADR-0019-display-power-and-thermal-policy.md)
 

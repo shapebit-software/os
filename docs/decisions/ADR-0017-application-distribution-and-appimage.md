@@ -1,6 +1,6 @@
 # ADR-0017: Application Distribution and AppImage Integration
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0023](ADR-0023-application-platform-and-system-set.md)
 **Date:** 2026-08-07
 
 ## Context

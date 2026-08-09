@@ -34,11 +34,14 @@ an explicit review action.
 | [ADR-0014](ADR-0014-platform-and-hardware-validation.md) | Accepted | platform scope, hardware evidence, and release hardware gates |
 | [ADR-0015](ADR-0015-microsoft-shim-and-trust-domains.md) | Accepted | Microsoft-signed ShapeBit shim and trust-domain separation |
 | [ADR-0016](ADR-0016-initial-installation-and-storage-profile.md) | Accepted | initial disk ownership, recovery placement, and home capacity profile |
-| [ADR-0017](ADR-0017-application-distribution-and-appimage.md) | Accepted | Flatpak sources, per-user applications, Wayland scope, and AppImage integration |
+| [ADR-0017](ADR-0017-application-distribution-and-appimage.md) | Superseded | replaced by ADR-0023 |
 | [ADR-0018](ADR-0018-desktop-session-and-authorization.md) | Accepted | desktop process isolation, session failure, authorization, developer mode, and SSH |
 | [ADR-0019](ADR-0019-display-power-and-thermal-policy.md) | Accepted | display, HDR, VRR, suspend, power, battery, and thermal policy |
 | [ADR-0020](ADR-0020-media-privacy-and-notifications.md) | Accepted | media routing, capture consent, remote input, and notification privacy |
 | [ADR-0021](ADR-0021-network-ownership-and-privacy.md) | Accepted | network ownership, VPN, DNS, firewall, SSH exposure, and discovery |
+| [ADR-0022](ADR-0022-inbound-file-sharing.md) | Accepted | SFTP and SMB scope, credentials, exposure, lifecycle, and privacy |
+| [ADR-0023](ADR-0023-application-platform-and-system-set.md) | Accepted | system applications, Flatpak integrations, browsers, AppImage, and Distrobox |
+| [ADR-0024](ADR-0024-application-recommendations.md) | Accepted | recommendation governance, criteria, signed distribution, and presentation |
 
 ## Boundary rules
 
@@ -59,13 +62,17 @@ an explicit review action.
   that boundary.
 - ADR-0016 selects the initial installation profile; ADR-0003 and ADR-0008 own
   the detailed outer filesystem and recovery lifecycles.
-- ADR-0017 owns application delivery and per-user application lifecycle;
+- ADR-0023 owns application delivery and per-user application lifecycle;
   ADR-0011 and ADR-0016 own the encrypted-home and capacity boundaries.
 - ADR-0018 owns graphical and remote session behavior; ADR-0011 remains the
   authority for PAM activation and encrypted-home lifecycle.
 - ADR-0019 owns display and power policy; ADR-0014 owns the evidence required
   before those capabilities may be claimed for hardware.
-- ADR-0020 owns media and notification privacy; ADR-0017 defines why direct
+- ADR-0020 owns media and notification privacy; ADR-0023 defines why direct
   microphone or camera enforcement is not guaranteed for AppImage.
 - ADR-0021 owns network connectivity and exposure; ADR-0018 owns SSH
   authentication and session lifecycle.
+- ADR-0022 owns inbound file-sharing behavior; ADR-0021 owns its network-profile
+  and firewall boundaries, while ADR-0018 owns the underlying SSH lifecycle.
+- ADR-0024 owns the curated recommendation signal; ADR-0023 owns the underlying
+  application sources, installation, updates, and runtime behavior.
