@@ -560,7 +560,32 @@ trusted surfaces. Whole-monitor sharing suppresses notification banners by
 default. The lock screen shows no application notifications, and only an
 allowlisted root ShapeBit service may issue a critical notification.
 
-## 13. Development, CI, and release flow
+## 13. Networking and connectivity
+
+NetworkManager owns device-wide connectivity. Ethernet and administrator-
+approved system profiles can operate before login. New Wi-Fi and VPN profiles
+belong to their creating user by default and keep credentials inside that
+encrypted home. Their connections still carry device-wide traffic while active
+and end after the owner's final session. Wi-Fi uses a stable randomized MAC per
+profile unless explicitly overridden.
+
+Initial VPNs change routing and DNS for the whole device. User VPNs require an
+active local graphical owner but no administrator password; system VPNs require
+administrator authorization. An optional per-profile kill switch blocks all
+non-tunnel traffic during an unexpected outage, with local-LAN access as an
+explicit exception.
+
+NetworkManager integrates with `systemd-resolved` for per-link and split DNS.
+VPN DNS never silently falls back to an ordinary link. Strict DNS-over-TLS is a
+per-profile option with no plaintext fallback; system-wide DoH is deferred.
+
+The firewall denies unsolicited inbound traffic. SSH exposure is enabled by an
+administrator per saved network profile rather than globally. Local mDNS
+discovery is off for a new profile and may be enabled by its owner without
+publishing ShapeBit services; LLMNR stays off. Dedicated captive-portal support
+is outside the initial release. Inbound file-sharing scope remains undecided.
+
+## 14. Development, CI, and release flow
 
 ```text
 fast:        edit -> build -> nested/local test
@@ -602,7 +627,7 @@ tested and production-signed candidate for `testing`; only that exact candidate
 may be manually promoted to `stable`. The normal UI exposes only stable.
 Release cadence and minimum testing duration remain undecided.
 
-## 14. Architecture work queue
+## 15. Architecture work queue
 
 This is the current planning queue. Complete it before expanding implementation
 scope beyond disposable prototypes.
@@ -688,12 +713,19 @@ scope beyond disposable prototypes.
 - [x] Define system power, suspend, hibernation, thermal, and charging policy.
 - [x] Select PipeWire and WirePlumber and define media privacy boundaries.
 - [x] Define screen-share, remote-input, and notification privacy policy.
+- [x] Define network-profile ownership and device-wide VPN behavior.
+- [x] Select NetworkManager with `systemd-resolved`, split DNS, and strict
+  per-profile DNS-over-TLS.
+- [x] Define firewall defaults, SSH network scope, MAC randomization, and local
+  discovery policy.
+- [x] Defer dedicated captive-portal support from the initial release.
+- [ ] Decide initial inbound file-sharing scope.
 - [ ] Define the complete diagnostic-report schema and redaction rules.
 - [x] Select default-minimal, user-disableable telemetry and consent-only
   detailed reports.
 - [ ] Define detection and support handling for unsupported host modifications.
 
-## 15. Delivery roadmap
+## 16. Delivery roadmap
 
 Tasks below are implementation outcomes. They remain unchecked until verified,
 even when supporting scripts or documentation already exist.
@@ -761,6 +793,7 @@ even when supporting scripts or documentation already exist.
 - [ ] Add fractional scaling, HDR color management, SDR capture, and VRR.
 - [ ] Add display layout, automatic docked mode, and the system power service.
 - [ ] Add PipeWire/WirePlumber policy, media portals, and privacy indicators.
+- [ ] Add user/system network profiles, VPN policy, DNS, and firewall controls.
 - [ ] Add per-user Flatpak management and the two official remotes.
 - [ ] Add AppImage discovery, import, warning, update, and removal flows.
 - [ ] Boot a complete session in a VM.
@@ -783,7 +816,7 @@ even when supporting scripts or documentation already exist.
 - [ ] Stable rollout, diagnostics, recovery, and device erase are operational.
 - [ ] The published hardware scope and security claims match verified evidence.
 
-## 16. Explicitly deferred work
+## 17. Explicitly deferred work
 
 - blanket support claims for arbitrary generic PCs;
 - custom firmware PK/KEK enrollment and owner-managed Secure Boot keys;
@@ -792,6 +825,9 @@ even when supporting scripts or documentation already exist.
 - hibernation and encrypted resume;
 - fast graphical user switching;
 - native HDR screenshots and recordings;
+- dedicated captive-portal detection and login UI;
+- per-user and per-application VPN network namespaces;
+- system-wide DNS-over-HTTPS;
 - public host-extension ecosystem;
 - XWayland;
 - offline update bundles;

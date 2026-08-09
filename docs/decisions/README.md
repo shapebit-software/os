@@ -38,6 +38,7 @@ an explicit review action.
 | [ADR-0018](ADR-0018-desktop-session-and-authorization.md) | Accepted | desktop process isolation, session failure, authorization, developer mode, and SSH |
 | [ADR-0019](ADR-0019-display-power-and-thermal-policy.md) | Accepted | display, HDR, VRR, suspend, power, battery, and thermal policy |
 | [ADR-0020](ADR-0020-media-privacy-and-notifications.md) | Accepted | media routing, capture consent, remote input, and notification privacy |
+| [ADR-0021](ADR-0021-network-ownership-and-privacy.md) | Accepted | network ownership, VPN, DNS, firewall, SSH exposure, and discovery |
 
 ## Boundary rules
 
@@ -66,3 +67,5 @@ an explicit review action.
   before those capabilities may be claimed for hardware.
 - ADR-0020 owns media and notification privacy; ADR-0017 defines why direct
   microphone or camera enforcement is not guaranteed for AppImage.
+- ADR-0021 owns network connectivity and exposure; ADR-0018 owns SSH
+  authentication and session lifecycle.

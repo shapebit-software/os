@@ -121,6 +121,7 @@ This ADR owns desktop process isolation, graphical session cardinality,
 compositor-failure recovery, local authorization, administrator roles,
 developer-mode security invariants, and SSH interaction with encrypted homes.
 ADR-0011 remains authoritative for home encryption and PAM-based activation.
+ADR-0021 defines the network profiles on which SSH is exposed.
 
 ## Open questions
 
@@ -131,6 +132,7 @@ ADR-0011 remains authoritative for home encryption and PAM-based activation.
 - [ADR-0011](ADR-0011-per-user-encrypted-homes.md)
 - [ADR-0015](ADR-0015-microsoft-shim-and-trust-domains.md)
 - [ADR-0017](ADR-0017-application-distribution-and-appimage.md)
+- [ADR-0021](ADR-0021-network-ownership-and-privacy.md)
 
 ## References
 
