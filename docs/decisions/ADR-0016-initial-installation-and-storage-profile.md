@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-06
-**Last updated:** 2026-08-07
+**Last updated:** 2026-08-09
 
 ## Context
 
@@ -51,8 +51,8 @@ as external USB recovery media.
 - Homes share a dynamically managed capacity pool rather than fixed partitions
   or permanently preallocated sizes.
 - Every home has a guaranteed minimum plus access to a shared burst pool.
-- Equal allocation weight is the default; the device owner may set explicit
-  limits later.
+- Burst capacity follows actual use by default; the device owner may set
+  explicit limits as defined by ADR-0028.
 - Creating a new user is allowed only when the system can guarantee that
   user's minimum without revoking space already used by another home.
 - The outer filesystem protects separate emergency, update/rollback, service
@@ -71,10 +71,10 @@ Automatic low-space cleanup may remove only data explicitly declared
 rebuildable. It never removes user data or homes, the current, previous
 accepted, or trial deployment, recovery assets, or transaction-critical state.
 
-Exact numerical home minimums, weights, reserve formulas, quotas, and warning
-thresholds remain open design work. Snapshot policy remains deferred. A
-snapshot of an active outer `.home` image is not considered a valid backup of
-the inner filesystem.
+ADR-0028 defines the numerical home minimum, reserve formula, quotas, burst
+admission, cleanup, and warning thresholds. ADR-0029 defines that ShapeBit does
+not create managed snapshots. A snapshot of an active outer `.home` image is
+not considered a valid backup of the inner filesystem.
 
 ## Rationale
 
@@ -104,7 +104,8 @@ encryption, and online resizing needed by a dynamic shared pool.
 This ADR owns the initial installer disk-ownership contract, recovery-image
 placement, per-user filesystem choice, and dynamic home-pool model. ADR-0003
 owns the detailed outer Btrfs subvolume layout. ADR-0008 owns recovery
-operations and lifecycle. Snapshot policy remains open.
+operations and lifecycle. ADR-0028 owns capacity accounting and low-space
+behavior. ADR-0029 owns snapshot policy.
 
 ## Re-evaluation criteria
 
@@ -120,3 +121,5 @@ operations and lifecycle. Snapshot policy remains open.
 - [ADR-0011](ADR-0011-per-user-encrypted-homes.md)
 - [ADR-0012](ADR-0012-encrypted-system-volume.md)
 - [ADR-0015](ADR-0015-microsoft-shim-and-trust-domains.md)
+- [ADR-0028](ADR-0028-capacity-and-low-space-policy.md)
+- [ADR-0029](ADR-0029-no-managed-snapshots.md)

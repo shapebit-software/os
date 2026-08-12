@@ -4,6 +4,8 @@
 
 **Date:** 2026-08-09
 
+**Last updated:** 2026-08-10
+
 ## Context
 
 ADR-0007 requires identity, storage, critical-service, network-stack, and
@@ -87,7 +89,8 @@ of relying only on `systemctl is-active`: D-Bus must respond, logind must return
 seat state, homed must answer without activating a home, Polkit must accept a
 non-privileged check, the platform aggregate must report a compatible protocol
 and `ready`, and diagnostics must durably write a minimal record in `@state`.
-D10 owns the internal platform-service split while preserving this aggregate.
+ADR-0030 owns the internal platform-service split while preserving this
+aggregate.
 
 A missing or masked required unit or incompatible required API is deterministic.
 A crash, readiness timeout, or temporary unavailability is ambiguous. Optional
@@ -165,16 +168,17 @@ ADR-0007.
 - Optional or absent hardware does not roll back an otherwise healthy release.
 - Confirmed integrity and structural failures prioritize rollback over unsaved
   session work; ambiguous failures preserve an active session.
-- D22 and D10 must satisfy the identity-binding and platform-health interfaces
-  referenced by this contract before implementation can be considered complete.
+- D22 and ADR-0030 must satisfy the identity-binding and platform-health
+  interfaces referenced by this contract before implementation can be
+  considered complete.
 
 ## Boundaries
 
 This ADR owns mandatory boot-health unit names, checks, timeouts, observation,
 and failure transitions. ADR-0007 owns trial attempts, blessing, deployment
 selection, and previous-deployment retention. ADR-0003 owns the structural Btrfs
-layout. ADR-0021 owns ordinary network behavior and firewall policy. D10 owns
-platform-service APIs, and D22 owns artifact binding.
+layout. ADR-0021 owns ordinary network behavior and firewall policy. ADR-0030
+owns platform-service APIs, and D22 owns artifact binding.
 
 ## Related decisions
 
@@ -182,6 +186,7 @@ platform-service APIs, and D22 owns artifact binding.
 - [ADR-0007](ADR-0007-trial-boot-and-acceptance.md)
 - [ADR-0013](ADR-0013-boot-trust-and-tpm-policy.md)
 - [ADR-0021](ADR-0021-network-ownership-and-privacy.md)
+- [ADR-0030](ADR-0030-platform-service-api-contract.md)
 
 ## References
 

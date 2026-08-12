@@ -44,6 +44,15 @@ an explicit review action.
 | [ADR-0024](ADR-0024-application-recommendations.md) | Accepted | recommendation governance, criteria, signed distribution, and presentation |
 | [ADR-0025](ADR-0025-enterprise-network-authentication.md) | Accepted | enterprise Wi-Fi, VPN protocols, credentials, import, and server identity |
 | [ADR-0026](ADR-0026-boot-health-contract.md) | Accepted | boot-health checks, timeouts, observation, and failure transitions |
+| [ADR-0027](ADR-0027-staged-restart-ux.md) | Accepted | staged-update indicators, reminders, and user-controlled restart behavior |
+| [ADR-0028](ADR-0028-capacity-and-low-space-policy.md) | Accepted | system reserve, home guarantees, quotas, low-space behavior, and cleanup |
+| [ADR-0029](ADR-0029-no-managed-snapshots.md) | Accepted | absence of managed snapshots and treatment of unmanaged snapshots |
+| [ADR-0030](ADR-0030-platform-service-api-contract.md) | Accepted | internal platform services, API versions, authorization, jobs, errors, and lifecycle |
+| [ADR-0031](ADR-0031-diagnostic-reports-and-consent.md) | Accepted | diagnostic envelope, data handling, global consent, retention, and export |
+| [ADR-0032](ADR-0032-host-customization-and-integrity-status.md) | Accepted | configuration layers, customization detection, support effects, integrity response, and restoration |
+| [ADR-0033](ADR-0033-simple-test-evidence.md) | Accepted | simple QEMU and physical test reports, pass rules, and community minimum |
+| [ADR-0034](ADR-0034-release-cadence-and-candidate-aging.md) | Accepted | target stable cadence, candidate aging, and emergency security timing |
+| [ADR-0035](ADR-0035-minimal-installer-protocol.md) | Accepted | local installer transport, minimal plan, capabilities, Wi-Fi, events, and errors |
 
 ## Boundary rules
 
@@ -82,3 +91,20 @@ an explicit review action.
   network-profile ownership, activation, routing, DNS, and firewall behavior.
 - ADR-0026 owns health evidence and failure transitions within a trial boot;
   ADR-0007 owns attempts, blessing, and deployment selection.
+- ADR-0027 owns the user-facing wait for restart; ADR-0007 owns the staged
+  deployment and what the subsequent trial boot means.
+- ADR-0028 owns numerical capacity and low-space rules; ADR-0016 owns the
+  installation storage profile and dynamic-home model.
+- ADR-0029 owns snapshot behavior; ADR-0007 owns deployment rollback, and a
+  future backup design must remain independent of both.
+- ADR-0030 owns the common platform-service contract; each domain ADR owns the
+  product policy performed through that contract.
+- ADR-0031 owns detailed diagnostic reports; ADR-0009 owns separate minimal
+  rollout telemetry.
+- ADR-0032 owns writable-host customization and its support status; signed boot
+  and image verification remain owned by their trust decisions.
+- ADR-0033 owns the test-report format and pass criteria; ADR-0014 owns hardware
+  labels and release gates.
+- ADR-0034 owns release timing; ADR-0009 owns immutable promotion and rollout.
+- ADR-0035 owns the ordinary installer protocol; later installer decisions own
+  secrets, transaction state, disk confirmation, and Recovery Kit UX.

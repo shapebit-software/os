@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-04
-**Last updated:** 2026-08-07
+**Last updated:** 2026-08-09
 
 ## Context
 
@@ -33,7 +33,7 @@ state. The signed recovery UKIs themselves remain on the ESP.
 Do not create one subvolume per service. A service uses normal directories
 inside `@state` unless a later accepted decision establishes a concrete
 lifecycle boundary. There is no `@snapshots` subvolume in the initial layout.
-The snapshot and migration-generation policy remains deferred.
+ADR-0029 defines that the initial product creates no managed snapshots.
 
 Human home directories are not a shared `@home` subvolume. Each human user has
 an independently encrypted LUKS2 home managed by `systemd-homed`, as decided in
@@ -64,7 +64,7 @@ filesystem and its detailed subvolume layout.
 - more complex recovery;
 - behavior when full;
 - need for power-failure testing;
-- a still-open snapshot policy may later add retention complexity.
+- a future snapshot feature would add retention and capacity complexity.
 
 ## Corruption policy
 
@@ -106,3 +106,5 @@ LUKS2 + ext4/XFS if Btrfs testing does not meet the M7 criteria.
   system volume.
 - [ADR-0016](ADR-0016-initial-installation-and-storage-profile.md) defines the
   initial disk-ownership, recovery placement, and per-user filesystem profile.
+- [ADR-0029](ADR-0029-no-managed-snapshots.md) defines the absence of managed
+  snapshots in the initial product.

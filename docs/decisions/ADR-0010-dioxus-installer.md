@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-04
+**Last updated:** 2026-08-12
 
 ## Context
 
@@ -22,7 +23,7 @@ The UI does not perform operations directly as root.
 The shared installation plan contains declarative policy but no passwords,
 recovery keys, or derived secrets. Secret enrollment uses a separate,
 short-lived channel to the privileged backend and is excluded from transaction
-logs.
+logs. ADR-0035 defines the minimal ordinary protocol and plan.
 
 This ADR selects the frontend technology and privilege boundary. Storage,
 encryption, boot, and account policy remain owned by their respective ADRs.
@@ -48,3 +49,4 @@ encryption, boot, and account policy remain owned by their respective ADRs.
 - [ADR-0011](ADR-0011-per-user-encrypted-homes.md)
 - [ADR-0012](ADR-0012-encrypted-system-volume.md)
 - [ADR-0013](ADR-0013-boot-trust-and-tpm-policy.md)
+- [ADR-0035](ADR-0035-minimal-installer-protocol.md)

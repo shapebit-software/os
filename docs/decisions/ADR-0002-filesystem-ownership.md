@@ -2,6 +2,7 @@
 
 **Status:** Proposed
 **Date:** 2026-08-04
+**Last updated:** 2026-08-12
 
 ## Context
 
@@ -44,3 +45,5 @@ Review after the first working update + rollback in M2.
   classes and compatibility.
 - [ADR-0011](ADR-0011-per-user-encrypted-homes.md) defines human-user homes.
 - [ADR-0012](ADR-0012-encrypted-system-volume.md) defines system encryption.
+- [ADR-0032](ADR-0032-host-customization-and-integrity-status.md) defines
+  configuration layering, customization detection, and host status.

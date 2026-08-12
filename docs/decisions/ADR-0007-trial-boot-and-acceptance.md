@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-04
-**Last updated:** 2026-08-07
+**Last updated:** 2026-08-09
 
 ## Context
 
@@ -73,16 +73,13 @@ ShapeBit checks for, downloads, verifies, and stages stable updates in the
 background over any working network connection. It does not distinguish
 metered from unmetered networks. Downloads are resumable. Applying the staged
 deployment requires a restart chosen by the user; ShapeBit does not terminate
-an active session to force that restart.
+an active session to force that restart. The staged-restart notification,
+reminder, and user-facing restart behavior belong to ADR-0027.
 
 ## Consequences
 
 ShapeBit needs health-check units and diagnostic reporting, but boot counting
 and blessing use the standard systemd interfaces.
-
-## Open questions
-
-- Exact UI and reminder cadence for a staged update awaiting user restart.
 
 ## Related decisions
 
@@ -92,6 +89,8 @@ and blessing use the standard systemd interfaces.
 - [ADR-0008](ADR-0008-independent-recovery.md) owns recovery.
 - [ADR-0013](ADR-0013-boot-trust-and-tpm-policy.md) owns boot authorization.
 - [ADR-0026](ADR-0026-boot-health-contract.md) owns health checks and timeouts.
+- [ADR-0027](ADR-0027-staged-restart-ux.md) owns staged-restart notifications,
+  reminders, and user-facing restart behavior.
 
 ## References
 

@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-06
+**Last updated:** 2026-08-12
 
 ## Context
 
@@ -60,6 +61,8 @@ release, a similarly named model, or a different SKU.
 
 Results are published as a capability matrix. Optional hardware features may
 carry explicit limitations, but a missing mandatory result is not a pass.
+ADR-0033 defines the simple YAML record, mandatory QEMU and physical groups,
+overall pass calculation, and minimum community submission.
 
 ### Release gates
 
@@ -69,8 +72,8 @@ carry explicit limitations, but a missing mandatory result is not a pass.
   `Officially-tested` laptop for that exact release.
 - A critical emergency security release may be published with
   `hardware validation pending` after its mandatory QEMU and security tests
-  pass. Physical validation must follow immediately, and rollback must remain
-  available.
+  pass. ADR-0034 requires physical validation within 72 hours, and rollback
+  must remain available.
 
 ### Long-term self-hosting
 
@@ -122,3 +125,5 @@ detailed test implementation.
 - [ADR-0001](ADR-0001-fedora-bootc.md)
 - [ADR-0015](ADR-0015-microsoft-shim-and-trust-domains.md)
 - [ADR-0016](ADR-0016-initial-installation-and-storage-profile.md)
+- [ADR-0033](ADR-0033-simple-test-evidence.md)
+- [ADR-0034](ADR-0034-release-cadence-and-candidate-aging.md)

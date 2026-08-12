@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-04
-**Last updated:** 2026-08-07
+**Last updated:** 2026-08-12
 
 ## Context
 
@@ -52,8 +52,8 @@ the separate emergency revocation operation retains its two-person requirement.
 
 Safe switching between stable and non-stable channels is not an initial normal
 product workflow. Returning from an experimental installation may require
-`Reset system` or reinstallation. Release cadence, minimum time in `testing`,
-and an emergency release schedule remain explicitly undecided.
+`Reset system` or reinstallation. ADR-0034 defines the target cadence, minimum
+time in `testing`, and emergency security exception.
 
 ## Promotion criteria
 
@@ -82,8 +82,9 @@ address, or stable cross-release device identifier. The rollout service does not
 retain source IP addresses. The user can disable this minimal telemetry
 completely without losing updates, recovery, or security metadata.
 
-Detailed logs, precise hardware information, and boot history remain local.
-They are uploaded only after separate consent and a user-visible preview.
+Detailed logs, precise hardware information, and boot history remain local by
+default. ADR-0031 defines separate global consent for automatic detailed-report
+upload without per-report prompts or content previews.
 
 ## Withdrawal and revocation
 
@@ -119,3 +120,7 @@ published after a device became permanently disconnected.
 - [ADR-0007](ADR-0007-trial-boot-and-acceptance.md) defines device-side
   deployment state.
 - [ADR-0013](ADR-0013-boot-trust-and-tpm-policy.md) defines boot-signing trust.
+- [ADR-0031](ADR-0031-diagnostic-reports-and-consent.md) defines detailed
+  diagnostic reports and their separate upload consent.
+- [ADR-0034](ADR-0034-release-cadence-and-candidate-aging.md) defines release
+  timing and candidate aging.

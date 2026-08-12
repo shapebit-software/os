@@ -60,7 +60,8 @@ The product must eventually provide:
 - sandboxed applications that do not modify the host;
 - a custom, modular Wayland desktop;
 - reproducible releases with verifiable provenance;
-- useful diagnostics without collecting user content or secrets.
+- useful diagnostics without deliberately collecting private file contents or
+  high-risk authentication and recovery secrets.
 
 ## 3. Current verified state
 
@@ -125,6 +126,14 @@ Fedora, kernel, Mesa, firmware, hardware
 - **Distrobox/Podman** contains developer toolchains and SDKs.
 - **ShapeBit services** provide product behavior without transferring policy to
   UI processes.
+
+The internal platform API uses eight narrow system services named under
+`software.shapebit` for update, storage, accounts, power, remote access, trust,
+diagnostics, and recovery, plus a read-only `software.shapebit.platform`
+readiness aggregate. Stable lowercase bus names expose explicitly versioned
+interfaces such as `software.shapebit.update.v1`. ADR-0030 defines their common
+identity, authorization, asynchronous-job, error, activation, and retention
+contract.
 
 Custom desktop components are separate processes managed by systemd user
 services. A launcher, panel, or settings failure must not terminate the whole
@@ -215,8 +224,20 @@ before public alpha or persistent production provisioning.
 | ESP | boot chain | persistent | minimal signed and measured assets |
 
 Vendor defaults belong in `/usr`; local overrides belong in `/etc`; dynamic
-state belongs in `/var`. Services use dedicated state, cache, log, and runtime
-directories. Caches must be reproducible and disposable.
+state belongs in `/var`. ShapeBit components use image defaults under
+`/usr/lib/shapebit`, temporary overrides under `/run/shapebit`, persistent local
+overrides under `/etc/shapebit`, and service state under `/var/lib/shapebit`.
+Services use dedicated state, cache, log, and runtime directories. Caches must
+be reproducible and disposable.
+
+An allowlisted scanner and root-owned expected-state manifest classify writable
+host configuration as `Managed` or `Customized`; this is diagnostic drift
+detection, not protection against malicious root. Customization limits support
+only for plausibly affected areas and normally does not block boot or updates.
+Protected-artifact verification separately classifies `Integrity failure` and
+selects a trusted deployment or recovery. Administrators may restore managed
+configuration atomically after exact review, with originals quarantined in
+encrypted `@state` for 30 days under a 256 MiB limit, without snapshots.
 
 ### 7.2 Accepted disk layout
 
@@ -238,22 +259,22 @@ GPT
 
 The initial layout uses only these four lowercase, single-word structural
 subvolumes. It does not create one subvolume per service and does not reserve an
-`@snapshots` subvolume. Snapshot and migration-generation policy remains open.
+`@snapshots` subvolume. ShapeBit creates no managed Btrfs snapshots in the
+initial product.
 
 The system LUKS2 volume protects device state and inactive home-container files
 against physical disk access. Each human home remains a separate LUKS2
 container with independent credentials and Btrfs inside. Homes share a dynamic
-capacity pool with a guaranteed minimum per home, equal default allocation
-weight, owner-defined limits, and a shared burst pool. A new account may be
-created only when its minimum can be guaranteed without revoking used capacity
-from another home.
+capacity pool with a 16 GiB guaranteed minimum per home, owner-defined limits,
+and an opportunistic shared burst pool allocated by actual use. A new account
+may be created only when its minimum can be guaranteed without revoking used
+capacity from another home.
 
-The protected system reserve is calculated from emergency, transaction/log,
-pending deployment, retained rollback, migration-workspace, and Btrfs-metadata
-needs rather than one fixed percentage. Automatic cleanup touches only data
-explicitly declared rebuildable; it never deletes user data, retained boot
-states, recovery assets, or transaction-critical state. Exact numerical
-formulas and thresholds remain open.
+The protected system reserve is the greater of 30 GiB and the component formula
+defined by ADR-0028. Low-space warnings begin below the greater of 16 GiB and
+10% headroom and become critical below 8 GiB. Automatic cleanup touches only
+system-owned data explicitly declared rebuildable; it never deletes user data,
+retained boot states, recovery assets, or transaction-critical state.
 
 The initial installer owns and erases one explicitly selected physical disk. It
 does not shrink partitions, install alongside another system, or offer manual
@@ -279,8 +300,10 @@ data is outside the host rollback contract. General reverse migrations, bridge
 releases, and rollback barriers are deferred until a concrete incompatible
 state change justifies a new design.
 
-Snapshot ownership, retention, and migration-generation policy is explicitly
-deferred. No snapshot is treated as a backup.
+ShapeBit creates no scheduled, pre-update, administration, migration, or user
+file-history snapshots. Unmanaged snapshots are reported and counted as
+capacity but never removed automatically. Deployment rollback is not a data
+snapshot, and no snapshot is treated as a backup.
 
 ## 8. Authentication and accounts
 
@@ -402,7 +425,13 @@ completely without affecting updates. It contains the digest, accepted or
 rolled-back result, broad failure stage, attempts consumed, and a random token
 scoped to one release. It contains no stable device identifier or user content,
 and the service does not retain source IP addresses. Detailed logs and hardware
-information require separate consent and a user-visible preview.
+information remain local unless a local administrator enables the separate
+device-wide consent defined by ADR-0031. While enabled, new detailed reports are
+uploaded automatically without per-report prompts or content previews and use a
+random diagnostic installation identifier unrelated to hardware identity.
+Local reports are retained for 30 days with a 2 GiB ordinary-store limit; full
+server reports are retained for 90 days. Manual export uses a non-encrypted
+`.tar.zst` archive with an explicit sensitivity warning.
 
 `withdrawn` stops discovery, cancels an unbooted staged copy when learned, and
 locally blocks that digest without removing an already accepted deployment.
@@ -471,6 +500,14 @@ recovery keys use a separate short-lived enrollment channel. The backend uses
 transaction IDs, an explicit state machine, dry-run support, structured events,
 strict block-device identity checks, and never reports success before final boot
 requirements are verified.
+
+The ordinary versioned protocol uses JSON Lines over a private Unix socket with
+`message` plus `payload` for normal messages and string `code` plus `payload`
+for errors. One capability snapshot supplies hardware choices; visible Wi-Fi
+networks remain dynamic. The minimal plan contains user choices only. When
+Internet is unavailable, optional installer Wi-Fi may be skipped or saved as a
+profile in the first owner's encrypted home without placing its credential in
+the plan.
 
 The first integration target is a virtual disk and console-only installed
 system. The Dioxus UI follows a tested protocol and mock backend; it does not
@@ -640,7 +677,11 @@ Stable must be the exact digest and signed artifact set that passed testing.
 Neither is directly promotable. A selected revision produces a separately
 tested and production-signed candidate for `testing`; only that exact candidate
 may be manually promoted to `stable`. The normal UI exposes only stable.
-Release cadence and minimum testing duration remain undecided.
+ShapeBit targets a stable release every four weeks without making the date a
+gate. An ordinary unchanged candidate spends seven complete days in `testing`.
+The bounded emergency-security exception may waive aging after complete QEMU
+and focused security tests, with official physical validation due within 72
+hours.
 
 ## 15. Architecture work queue
 
@@ -670,30 +711,38 @@ items. Deferred features in section 17 are not counted here.
   ADR-0025.
 - [x] **D06 — Boot health details:** use the five parallel controls, exact
   timeouts, bounded observation, and failure transitions defined by ADR-0026.
-- [ ] **D07 — Staged-restart UX:** define notification and reminder cadence for
-  an installed update waiting for a user-controlled restart.
+- [x] **D07 — Staged-restart UX:** use the persistent indicator, bounded
+  reminders, explicit actions, and user-controlled restart behavior defined by
+  ADR-0027.
 
 #### P1 — platform, storage, and release contracts
 
-- [ ] **D08 — Capacity policy:** define reserve formulas, home quotas, burst
-  behavior, low-space thresholds, and warnings.
-- [ ] **D09 — Snapshot policy:** define snapshot ownership, scope, retention,
-  deletion, and the relationship to rollback and backup.
-- [ ] **D10 — Platform-service API:** define versioning, compatibility, caller
-  identity, authorization, errors, and lifecycle for system D-Bus services.
-- [ ] **D11 — Diagnostics:** define the complete report schema, redaction,
-  preview, consent, retention, and export rules.
-- [ ] **D12 — Unsupported host modifications:** define detection, diagnostics,
-  recovery, and support status when protected host state is modified.
-- [ ] **D13 — Test evidence schemas:** define exact mandatory QEMU and physical-
-  hardware test records and pass criteria.
-- [ ] **D14 — Release timing:** define stable cadence, minimum testing duration,
-  and the emergency-release exception process.
+- [x] **D08 — Capacity policy:** use the protected reserve, home guarantee,
+  opportunistic burst pool, low-space states, and cleanup rules defined by
+  ADR-0028.
+- [x] **D09 — Snapshot policy:** create no managed snapshots and treat detected
+  unmanaged snapshots as external capacity use under ADR-0029.
+- [x] **D10 — Platform-service API:** use the narrow internal services,
+  versioned interfaces, caller classes, asynchronous jobs, structured errors,
+  and lifecycle contract defined by ADR-0030.
+- [x] **D11 — Diagnostics:** use the common envelope, producer-owned payloads,
+  global upload consent without previews, bounded retention, and manual export
+  defined by ADR-0031.
+- [x] **D12 — Unsupported host modifications:** use the three host statuses,
+  allowlisted drift detection, scoped support effects, strict integrity
+  response, and reversible restoration defined by ADR-0032.
+- [x] **D13 — Test evidence schemas:** use one simple YAML report, eight QEMU
+  groups, eight physical groups, mechanical official pass, and the community
+  minimum defined by ADR-0033.
+- [x] **D14 — Release timing:** target four-week stable releases, require seven
+  unchanged days in `testing`, and use the bounded emergency-security exception
+  defined by ADR-0034.
 
 #### P1 — installer contract
 
-- [ ] **D15 — Installation protocol schemas:** define versioned
-  `InstallationPlan`, capability, event, and error structures.
+- [x] **D15 — Installation protocol schemas:** use the private JSON Lines
+  protocol, minimal plan, capability snapshot, optional Wi-Fi, common messages,
+  structured events, and string errors defined by ADR-0035.
 - [ ] **D16 — Secret enrollment:** define the secret channel, credential
   ownership, exposure boundaries, cancellation, and memory lifetime.
 - [ ] **D17 — Installer transaction lifecycle:** define phases, durable state,

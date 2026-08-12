@@ -4,6 +4,8 @@
 
 **Date:** 2026-08-08
 
+**Last updated:** 2026-08-10
+
 ## Context
 
 ShapeBit OS needs a custom Wayland desktop that can recover from ordinary UI
@@ -55,7 +57,8 @@ guarantee recovery for third-party applications.
 The compositor, shell, lock UI, authorization UI, and settings UI run without
 root privileges. Narrow system services perform privileged work through
 versioned D-Bus APIs. Polkit decides whether the active caller may authorize a
-request.
+request. ADR-0030 defines service names, caller-identity evidence,
+authorization classes, versioning, errors, and job lifecycle.
 
 The first human account created during installation is an administrator.
 Additional accounts may be standard users or administrators. Administrator
@@ -131,6 +134,7 @@ ADR-0021 defines the network profiles on which SSH is exposed.
 - [ADR-0015](ADR-0015-microsoft-shim-and-trust-domains.md)
 - [ADR-0023](ADR-0023-application-platform-and-system-set.md)
 - [ADR-0021](ADR-0021-network-ownership-and-privacy.md)
+- [ADR-0030](ADR-0030-platform-service-api-contract.md)
 
 ## References
 
