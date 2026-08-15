@@ -39,9 +39,10 @@ candidate does not turn it into a different candidate, but paused time does not
 count toward aging.
 
 During the period, the mandatory QEMU report, at least one complete official
-physical report, update and rollback from the previous stable release, N/N-1
-persistent-state compatibility, and independent recovery must all pass. Absence
-of reported failures is not evidence by itself.
+physical report, update and pre-acceptance rollback from the previous stable
+release, forward-migration interruption and commit-resumption tests, and
+independent recovery must all pass. Absence of reported failures is not evidence
+by itself.
 
 Seven days only makes the candidate eligible. Stable promotion remains a manual
 release-owner decision and never occurs automatically. Developer and nightly
@@ -57,7 +58,7 @@ Before emergency publication, the exact candidate must:
 
 - pass the complete mandatory QEMU suite;
 - pass a focused test that demonstrates the vulnerability is fixed;
-- retain a working previous deployment and rollback path; and
+- retain a working trial baseline and pre-acceptance rollback path; and
 - receive a recorded manual decision stating the threat, reason for urgency,
   tests completed, and tests still pending.
 
@@ -98,3 +99,4 @@ release gates. ADR-0033 owns test-report content and pass calculation.
 - [ADR-0014](ADR-0014-platform-and-hardware-validation.md)
 - [ADR-0026](ADR-0026-boot-health-contract.md)
 - [ADR-0033](ADR-0033-simple-test-evidence.md)
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)

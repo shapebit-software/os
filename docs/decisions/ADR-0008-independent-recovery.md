@@ -2,11 +2,13 @@
 
 **Status:** Accepted
 **Date:** 2026-08-04
-**Last updated:** 2026-08-07
+**Last updated:** 2026-08-15
 
 ## Context
 
-The previous deployment may be insufficient when a failure affects the bootloader, storage, encryption, or shared data.
+The trial rollback baseline may be insufficient when a failure affects the
+bootloader, storage, encryption, or shared data. After durable acceptance, no
+old deployment is guaranteed to remain compatible with committed host state.
 
 ## Decision
 
@@ -29,6 +31,20 @@ overwrites the accepted slot in place, and retains the previous recovery image
 as fallback. Recovery images have candidate, accepted, and previous states in a
 lifecycle independent of normal system deployments.
 
+When a system release requires a newer compatible recovery version, recovery
+rotation is a prerequisite transaction. ShapeBit writes and verifies the
+inactive recovery slot and durably selects the compatible recovery image before
+staging the system release. If recovery download, verification, writing, or
+selection fails, the system release is not staged and the currently accepted
+system remains unchanged.
+
+Within manifest schema version 1, compatible recovery is also the bootstrap
+executor when the running updater does not satisfy the target's updater
+requirement. The current system rotates recovery and schedules a declared boot
+into it; recovery then verifies and stages the target system release. Failure
+before the target trial begins returns to the unchanged accepted system. This
+flow does not install a temporary privileged updater in the running system.
+
 The initial interface is a minimal offline-first TUI usable by local keyboard
 and serial console. It can import a Recovery Kit from USB or accept manual key
 entry. A later graphical interface must use the same backend. Remote recovery
@@ -41,13 +57,15 @@ is deferred and may never become the only recovery path.
 - per-user home unlocking with that user's recovery key;
 - storage diagnostics;
 - deployment selection;
+- recovery-assisted staging of a schema-v1 system release;
 - reinstallation of a known image;
 - data export;
 - device erase with and without reinstallation.
 
-The environment also exposes both erase outcomes defined by ADR-0005 and the
-ability to retry a trial deployment, boot the previous accepted deployment
-once, abandon the pending update, and inspect its health report.
+The environment also exposes both erase outcomes defined by ADR-0005 and, while
+a candidate remains unaccepted, the ability to retry it, boot its previous
+accepted baseline once, abandon the pending update, and inspect its health
+report.
 
 Recovery mounts data read-only by default. Unlocking the system volume requires
 the device recovery key when normal TPM2 authorization is unavailable.
@@ -68,6 +86,7 @@ erase. ADR-0007 defines automatic deployment rollback.
 
 - [ADR-0005](ADR-0005-recovery-operation-semantics.md)
 - [ADR-0007](ADR-0007-trial-boot-and-acceptance.md)
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)
 - [ADR-0011](ADR-0011-per-user-encrypted-homes.md)
 - [ADR-0012](ADR-0012-encrypted-system-volume.md)
 - [ADR-0013](ADR-0013-boot-trust-and-tpm-policy.md)

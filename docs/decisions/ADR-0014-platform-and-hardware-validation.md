@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-06
-**Last updated:** 2026-08-12
+**Last updated:** 2026-08-15
 
 ## Context
 
@@ -54,7 +54,7 @@ release, a similarly named model, or a different SKU.
 - TPM2 unlock and device-recovery-key unlock;
 - per-user home activation and recovery;
 - rejection of modified boot artifacts;
-- update, trial boot, acceptance, and rollback;
+- update, trial boot, acceptance, and pre-acceptance rollback;
 - recovery after an interrupted operation;
 - required laptop graphics, networking, audio, input, battery, suspend, resume,
   shutdown, and supported firmware behavior.
@@ -72,8 +72,8 @@ overall pass calculation, and minimum community submission.
   `Officially-tested` laptop for that exact release.
 - A critical emergency security release may be published with
   `hardware validation pending` after its mandatory QEMU and security tests
-  pass. ADR-0034 requires physical validation within 72 hours, and rollback
-  must remain available.
+  pass. ADR-0034 requires physical validation within 72 hours, and the trial
+  rollback baseline must remain available until acceptance.
 
 ### Long-term self-hosting
 
@@ -127,3 +127,4 @@ detailed test implementation.
 - [ADR-0016](ADR-0016-initial-installation-and-storage-profile.md)
 - [ADR-0033](ADR-0033-simple-test-evidence.md)
 - [ADR-0034](ADR-0034-release-cadence-and-candidate-aging.md)
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)

@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-06
-**Last updated:** 2026-08-09
+**Last updated:** 2026-08-15
 
 ## Context
 
@@ -22,6 +22,9 @@ destructive and low-space failure cases before the core lifecycle is proven.
 - Installation erases the selected disk after strict identity validation and
   destructive-action confirmation.
 - Other physical disks remain untouched.
+- Eligible external disks are permitted under the identity and additional
+  confirmation rules in ADR-0038; the running installer medium is never a
+  target.
 - Same-disk dual boot is deferred even though the Microsoft-signed shim model
   preserves a future compatibility path.
 
@@ -55,8 +58,8 @@ as external USB recovery media.
   explicit limits as defined by ADR-0028.
 - Creating a new user is allowed only when the system can guarantee that
   user's minimum without revoking space already used by another home.
-- The outer filesystem protects separate emergency, update/rollback, service
-  state, and recovery reserves from ordinary home growth.
+- The outer filesystem protects separate emergency, update/trial-rollback,
+  service-state, and recovery reserves from ordinary home growth.
 - An unlimited user setting means access to the available home pool, not to all
   physical free space.
 - The system must not promise aggregate guaranteed home capacity greater than
@@ -65,11 +68,14 @@ as external USB recovery media.
 The protected reserve is calculated dynamically rather than as one fixed
 percentage or fixed number of GiB. Its inputs include an emergency floor,
 transaction and log space, a pending deployment, the retained rollback
-deployment, migration workspace, and Btrfs metadata requirements.
+baseline until acceptance, migration workspace, and Btrfs metadata
+requirements.
 
 Automatic low-space cleanup may remove only data explicitly declared
-rebuildable. It never removes user data or homes, the current, previous
-accepted, or trial deployment, recovery assets, or transaction-critical state.
+rebuildable. It never removes user data or homes, the current deployment, a
+pending or trial deployment, its required rollback baseline, recovery assets,
+or transaction-critical state. An old deployment cached after acceptance is
+not protected by this rollback rule.
 
 ADR-0028 defines the numerical home minimum, reserve formula, quotas, burst
 admission, cleanup, and warning thresholds. ADR-0029 defines that ShapeBit does
@@ -123,3 +129,5 @@ behavior. ADR-0029 owns snapshot policy.
 - [ADR-0015](ADR-0015-microsoft-shim-and-trust-domains.md)
 - [ADR-0028](ADR-0028-capacity-and-low-space-policy.md)
 - [ADR-0029](ADR-0029-no-managed-snapshots.md)
+- [ADR-0038](ADR-0038-installer-disk-identity-and-confirmation.md)
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)

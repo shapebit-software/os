@@ -203,11 +203,12 @@ or arbitrary privileged code already running in an authorized boot.
 
 ### 6.3 Anti-rollback boundary
 
-Retaining accepted and previous signed artifacts creates a bounded rollback
-window, not strong anti-rollback. The manifest reserves a non-decreasing
-`security_epoch`, but its TPM2 NV enforcement is not yet designed. A separate
-ADR must define that mechanism and migration from prototype TPM2 enrollments
-before public alpha or persistent production provisioning.
+Retaining a trial candidate and its signed rollback baseline creates a bounded
+rollback window until acceptance, not strong anti-rollback. The manifest
+reserves a non-decreasing `security_epoch`, but its TPM2 NV enforcement is not
+yet designed. A separate ADR must define that mechanism and migration from
+prototype TPM2 enrollments before public alpha or persistent production
+provisioning.
 
 ## 7. Filesystem, storage, and state
 
@@ -274,7 +275,9 @@ The protected system reserve is the greater of 30 GiB and the component formula
 defined by ADR-0028. Low-space warnings begin below the greater of 16 GiB and
 10% headroom and become critical below 8 GiB. Automatic cleanup touches only
 system-owned data explicitly declared rebuildable; it never deletes user data,
-retained boot states, recovery assets, or transaction-critical state.
+the current deployment, a pending or trial deployment, its required rollback
+baseline, recovery assets, or transaction-critical state. An old deployment
+cached after acceptance is not protected and may be cleaned up.
 
 The initial installer owns and erases one explicitly selected physical disk. It
 does not shrink partitions, install alongside another system, or offer manual
@@ -286,19 +289,19 @@ compatibility have a separate accepted design.
 
 ### 7.3 Persistent-data contract
 
-The initial system does not perform incompatible automatic migrations of
-persistent host data. Every persistent host path is either `preserved` or
-`disposable`. Preserved data must remain readable by N and N-1 throughout the
-rollback window. Disposable data may be deleted and recreated without losing
-user data or required device configuration. An undeclared path blocks stable
-release.
+The target image carries an ordered, forward-only history of ShapeBit host-state
+migrations. Missing migrations run in sequence and record durable checkpoints,
+so a device may jump directly across several releases without a manifest-level
+source-release path.
 
-A host service must be stateless, own only disposable state, or pass a tested
-`N -> N+1 -> rollback N` cycle for its preserved state. Otherwise it is pinned,
-excluded, redesigned, or receives a compatible backport. Flatpak application
-data is outside the host rollback contract. General reverse migrations, bridge
-releases, and rollback barriers are deferred until a concrete incompatible
-state change justifies a new design.
+An incompatible migration has a backward-compatible, additive `prepare` phase
+before acceptance and a resumable `commit` phase after acceptance. Before the
+candidate is accepted, the old representation remains usable and rollback to
+the old accepted deployment is guaranteed. Durable acceptance closes that
+guarantee; commit may then make the new representation authoritative and remove
+obsolete data. Post-acceptance failures use forward repair, recovery, or a newer
+release rather than a promised old-system rollback. Human homes and
+application-owned data are outside this host migration contract.
 
 ShapeBit creates no scheduled, pre-update, administration, migration, or user
 file-history snapshots. Unmanaged snapshots are reported and counted as
@@ -360,10 +363,12 @@ accepted
    `-> failed -> rollback-pending -> rolled-back
 ```
 
-A device retains the booted accepted deployment, one previous accepted
-deployment, a pending or trial deployment when present, and recovery outside
-normal rotation. Cleanup must not remove artifacts required by any retained
-state.
+A device retains the booted accepted deployment, its rollback baseline while a
+pending or trial deployment exists, and recovery outside normal rotation. The
+baseline must remain bootable until the candidate is accepted. After
+acceptance, the old deployment may remain cached but is not a guaranteed
+rollback target. Its boot entry is retired before an incompatible migration
+commit begins, and its cached OCI data may be removed by normal cleanup.
 
 The trial limit is two attempts. A deterministic hard failure rolls back
 immediately; an ambiguous interruption, power loss, or shutdown before durable
@@ -384,9 +389,12 @@ only after all checks and the observation period succeed. A hard failure may
 mark the entry bad immediately. Diagnostic reports live in `@state` but are not
 a second boot-selection authority.
 
-After automatic rollback, the exact failed digest is locally blocked from
-automatic restaging. A different digest proceeds normally, while recovery may
-retry the failed digest only after informed user action.
+Durable acceptance closes the rollback guarantee before any incompatible
+migration commit begins. The old baseline is then retired from normal and
+recovery boot selection before commit. After automatic rollback, the exact
+failed digest is locally blocked from automatic restaging. A different digest
+proceeds normally, while recovery may retry the failed digest only after
+informed user action.
 
 ### 9.2 Staging invariants
 
@@ -394,14 +402,45 @@ Before reboot, the updater must verify:
 
 - signed manifest and immutable artifact identities;
 - signed UKI and sealed-deployment binding;
-- sufficient space without deleting the last rollback deployment;
+- sufficient space without deleting the trial rollback baseline;
 - valid system and recovery LUKS2 keyslots;
-- TPM2 authorization for pending and previous accepted UKIs;
-- compatible bootloader, updater, hardware, and data schemas.
+- an independently rotated and verified recovery release satisfying the
+  manifest requirement;
+- TPM2 authorization for pending and rollback-baseline UKIs;
+- a satisfied updater version requirement;
+- compatible hardware, bound boot artifacts, and prepared host state.
 
 Staging must be power-loss safe. At every durable transition, at least one
 accepted deployment must remain bootable and recoverable without depending on
 the incomplete transaction.
+
+If the running schema-v1 updater does not satisfy the target's updater version
+requirement, it first rotates to compatible recovery and performs a declared
+restart into it. Recovery verifies and stages the system release; the target's
+trial counter begins only when that target is booted. Failure before then
+returns to the unchanged accepted system. ShapeBit does not download a
+temporary privileged updater into the running system. An updater that cannot
+parse the manifest schema or rotate recovery blocks the update safely.
+
+The immutable release manifest uses a closed schema without `annotations` or a
+general extension map. Unknown fields are rejected. Mutable rollout data,
+timestamps, provenance, and channel presentation remain in separately
+authenticated metadata keyed by manifest digest.
+
+Its UTF-8 JSON payload uses RFC 8785 JCS and an exact ShapeBit v1 DSSE payload
+type. The envelope requires at least one signature with a non-empty, unique
+`keyid`, while D23 owns trusted keys and signature thresholds. The SHA-256
+`manifest_digest` is computed from canonical payload bytes only; signatures may
+be added without changing release identity.
+
+`artifacts` is a role-indexed object with exactly one descriptor for each of
+`system_image`, `shim`, `boot_manager`, `system_uki`, `pcr_policy`, and
+`integrity.rootfs`. Descriptors contain digest, decimal-string size, and media
+type. SHA-256 is used for downloadable artifacts; SHA-512 is used for the
+rootfs integrity descriptor.
+
+Manifest schema v1 is x86-64-only and spells the architecture `x86_64`. D22
+must bind that value to OCI `amd64` and the corresponding UEFI machine type.
 
 ShapeBit automatically checks, downloads, verifies, and stages updates over any
 working network connection without distinguishing metered networks. Downloads
@@ -437,7 +476,9 @@ server reports are retained for 90 days. Manual export uses a non-encrypted
 locally blocks that digest without removing an already accepted deployment.
 `revoked` is reserved for releases unsafe to boot. It uses a separate offline
 emergency key and two-person approval, cancels matching pending/trial states,
-selects a safe deployment for the next boot, and enters recovery if none exists.
+uses their compatible rollback baseline before acceptance, and otherwise
+selects only a compatible superseding deployment. It enters recovery when none
+exists and does not assume an older deployment can read committed host state.
 It does not terminate the active session. Devices enforce the last cached signed
 revocation list offline; the list does not expire in a way that prevents boot,
 and ShapeBit cannot enforce revocations published after permanent disconnect.
@@ -448,7 +489,7 @@ These operations are intentionally distinct:
 
 | Operation | System deployment | Device state | User homes |
 |---|---|---|---|
-| Roll back | select previous accepted deployment | preserve | preserve |
+| Roll back | select the trial rollback baseline before acceptance | preserve its compatible prepared state | preserve |
 | Repair system | restore current system and boot artifacts | preserve | preserve |
 | Reset system | restore clean system | clear configuration and ordinary state | preserve encrypted containers for controlled rebinding |
 | Remove user | unchanged | remove that account inventory | erase only that user's home |
@@ -501,6 +542,30 @@ transaction IDs, an explicit state machine, dry-run support, structured events,
 strict block-device identity checks, and never reports success before final boot
 requirements are verified.
 
+Secret transfer uses a purpose-bound one-shot private Unix socket, separate
+from ordinary JSON Lines. Input requests expire after two minutes and accepted
+input plaintext after at most 30 minutes. Each channel carries one bounded
+binary value for the owner password, Wi-Fi password, or outbound Recovery Kit.
+Cancellation and failed use erase input values; Recovery Kit re-presentation
+across a frontend reconnect remains bounded by ADR-0039's presentation flow.
+
+The initial owner receives one logical, self-contained offline Recovery Kit
+containing separately labeled device and first-home recovery keys. One QR,
+labeled text, the printed form, and the encrypted external-file export represent
+the same versioned document. Installation cannot complete until the current kit
+has been presented using at least one method and the user acknowledges saving it
+outside the computer. Plaintext is never persisted; a backend restart before
+acknowledgement safely replaces both unconfirmed keys and invalidates earlier
+copies.
+
+Installation advances through validation, preparation, storage creation, system
+installation, configuration, and verification. Storage creation is the
+destructive boundary: ordinary cancellation ends there, while a separately
+warned controlled stop may leave an unbootable disk. Secret-free checkpoints on
+the target support conservative continuation or confirmed start over. Only
+backend-declared steps are retryable, and completion requires final storage,
+image, boot, keyslot, account, recovery, and synchronization checks.
+
 The ordinary versioned protocol uses JSON Lines over a private Unix socket with
 `message` plus `payload` for normal messages and string `code` plus `payload`
 for errors. One capability snapshot supplies hardware choices; visible Wi-Fi
@@ -516,6 +581,15 @@ define storage policy.
 The first destructive storage contract uses an entire explicitly selected
 physical disk. Same-disk dual boot, filesystem shrinking, and manual
 partitioning are not valid initial installation plans.
+
+The backend identifies a target by stable udev properties, serial, model, exact
+capacity, transport, and device class rather than `/dev` name, and revalidates
+it immediately before writing. No disk is preselected. A one-use erase
+confirmation bound to the exact plan and disk expires after 10 minutes.
+Storage hot-plug, identity or eligibility change, target-digest change, backend
+restart, or target change clears selection and confirmation. Eligible external
+disks are allowed with an extra disconnect warning; the running installer
+medium, ambiguous multipath, read-only, and unsafe active targets are blocked.
 
 ## 12. Application and desktop platform
 
@@ -668,7 +742,8 @@ The target pipeline is:
 ```text
 lint -> unit tests -> RPMs -> image -> bootc lint -> security scan
 -> controlled signing -> QEMU boot -> Secure Boot and TPM2 tests
--> service and desktop tests -> update and rollback tests -> publish
+-> service and desktop tests -> update, trial, migration, and rollback tests
+-> publish
 ```
 
 Stable must be the exact digest and signed artifact set that passed testing.
@@ -743,22 +818,32 @@ items. Deferred features in section 17 are not counted here.
 - [x] **D15 — Installation protocol schemas:** use the private JSON Lines
   protocol, minimal plan, capability snapshot, optional Wi-Fi, common messages,
   structured events, and string errors defined by ADR-0035.
-- [ ] **D16 — Secret enrollment:** define the secret channel, credential
-  ownership, exposure boundaries, cancellation, and memory lifetime.
-- [ ] **D17 — Installer transaction lifecycle:** define phases, durable state,
-  cancellation points, retry, resume, and interruption behavior.
-- [ ] **D18 — Disk identity and confirmation:** define stable device identity,
-  replacement detection, final destructive confirmation, and stale-plan rules.
-- [ ] **D19 — Recovery Kit flow:** define presentation, verification,
-  confirmation, printing/export, and secret-lifetime UX.
-- [ ] **D20 — Installer decision mapping:** map every installation operation to
-  its authoritative ADR. This is documentation closure rather than a new
-  product decision.
+- [x] **D16 — Secret enrollment:** use the purpose-bound one-shot channel,
+  bounded input lifetime, cancellation, binary framing, and directed Recovery
+  Kit transfer defined by ADR-0036.
+- [x] **D17 — Installer transaction lifecycle:** use the six phases, explicit
+  destructive boundary, durable checkpoints, conservative resume, declared
+  retries, and final verification defined by ADR-0037.
+- [x] **D18 — Disk identity and confirmation:** use composite stable identity,
+  last-moment validation, one-use confirmation, stale-plan invalidation, and
+  explicit external-disk handling defined by ADR-0038.
+- [x] **D19 — Recovery Kit flow:** use the single offline kit, two independent
+  keys, trusted QR/text presentation, encrypted external export, explicit
+  acknowledgement, completion gate, and interrupted-presentation replacement
+  lifecycle defined by ADR-0039.
+- [x] **D20 — Installer decision mapping:** use the installer component's
+  [decision map](../../installer/DECISION-MAP.md) to assign every planned
+  operation to its authoritative ADR and expose the remaining proposed
+  production gates. This is documentation closure rather than a new product
+  decision.
 
 #### P1 — release trust and anti-rollback
 
-- [ ] **D21 — Release manifest:** define the canonical schema, serialization,
-  signature envelope, identifiers, and compatibility fields.
+- [x] **D21 — Release manifest:** use the closed schema-v1 payload, RFC 8785
+  JCS, DSSE envelope, computed manifest digest, strict artifact roles, three
+  tool compatibility ranges, and external mutable metadata defined in
+  ADR-0006. ADR-0006 remains proposed until the D22-D23 dependencies and G02
+  review are complete.
 - [ ] **D22 — Artifact binding:** define the verifiable binding among the OCI
   digest, sealed deployment, UKI, release manifest, and PCR policy.
 - [ ] **D23 — Signing operations:** define production ownership, HSM roles,
@@ -789,12 +874,14 @@ items. Deferred features in section 17 are not counted here.
 - [x] Define success, failure, intentional-shutdown, and power-loss rules.
 - [x] Select two trial attempts and immediate rollback for hard failures.
 - [x] Require mandatory checks plus two minutes of healthy observation.
-- [x] Replace automatic migrations with `preserved` and `disposable` state.
-- [x] Require tested N/N-1 compatibility for preserved host state.
-- [x] Defer bridge releases, reverse migrations, and rollback barriers.
+- [x] Replace indefinite N/N-1 compatibility with forward-only migrations.
+- [x] Split incompatible migrations into compatible `prepare` and forward
+  `commit` phases.
+- [x] Guarantee rollback only until durable trial acceptance.
+- [x] Keep reverse migrations and whole-state update snapshots out of scope.
 - [x] Block a failed digest locally after automatic rollback.
 - [x] Keep restart user-controlled after automatic background staging.
-- [x] Reconcile accepted lifecycle decisions into ADR-0004 and ADR-0007.
+- [x] Reconcile accepted lifecycle decisions into ADR-0040 and ADR-0007.
 
 ### A2 — release and trust lifecycle
 
@@ -880,7 +967,10 @@ even when supporting scripts or documentation already exist.
 - [ ] Authorize TPM2 unlock for both pending and rollback UKIs.
 - [ ] Accept a successful trial boot.
 - [ ] Automatically return to A after failed trial boots.
-- [ ] Exercise preserved-state N/N-1 rollback and disposable-state recreation.
+- [ ] Stage B through compatible recovery when A's updater is outside B's
+  accepted updater range.
+- [ ] Exercise migration interruption, pre-acceptance rollback, and
+  post-acceptance commit resumption.
 - [ ] Produce a diagnostic report for every transition.
 
 ### M3 — installer backend and protocol

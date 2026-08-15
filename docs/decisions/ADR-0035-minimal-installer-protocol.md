@@ -62,8 +62,8 @@ It contains no password, Wi-Fi credential, recovery key, derived secret,
 partition layout, encryption algorithm, Btrfs detail, command, transaction
 state, or recovery acknowledgement. The backend derives those technical
 details from accepted ShapeBit policy and validates the complete effective plan
-before any destructive action. D18 owns exact disk identity and final
-confirmation; D16 owns secret transfer; D17 owns execution state.
+before any destructive action. ADR-0038 owns exact disk identity and final
+confirmation; ADR-0036 owns secret transfer; ADR-0037 owns execution state.
 
 ### Capabilities
 
@@ -88,8 +88,8 @@ relevant environment no longer matches and requires a new scan.
 
 When no working Internet connection exists, the frontend offers a Wi-Fi step.
 The user may connect or skip it; lack of Internet does not block installation.
-The selected password uses the D16 secret channel and never enters the ordinary
-protocol, plan, event stream, or logs.
+The selected password uses the ADR-0036 secret channel and never enters the
+ordinary protocol, plan, event stream, or logs.
 
 An installer-created connection is temporary in the live environment. If the
 plan requests preservation, the backend saves it after provisioning as a
@@ -123,7 +123,7 @@ installation-failed
 
 Each ordinary event still uses the common `message` plus `payload` envelope.
 The message is a localization key. The sequence number defines ordering; UI
-arrival time does not. D17 defines step names, reconnection, replay, and
+arrival time does not. ADR-0037 defines step names, reconnection, replay, and
 transaction completion.
 
 ### Installer errors
@@ -169,8 +169,9 @@ report under ADR-0031.
 This ADR owns the ordinary installer transport, envelope, versioning,
 InstallationPlan choices, Capabilities snapshot, optional Wi-Fi behavior,
 event shape, and error shape. ADR-0010 owns the Dioxus/frontend privilege
-boundary. D16 owns the secret channel. D17 owns transaction semantics. D18 owns
-disk identity and destructive confirmation. D19 owns Recovery Kit UX.
+boundary. ADR-0036 owns the secret channel. ADR-0037 owns transaction semantics.
+ADR-0038 owns disk identity and destructive confirmation. ADR-0039 owns
+Recovery Kit presentation and lifecycle.
 
 ## Related decisions
 
@@ -179,3 +180,7 @@ disk identity and destructive confirmation. D19 owns Recovery Kit UX.
 - [ADR-0016](ADR-0016-initial-installation-and-storage-profile.md)
 - [ADR-0021](ADR-0021-network-ownership-and-privacy.md)
 - [ADR-0031](ADR-0031-diagnostic-reports-and-consent.md)
+- [ADR-0036](ADR-0036-one-shot-installer-secret-channel.md)
+- [ADR-0037](ADR-0037-installer-transaction-lifecycle.md)
+- [ADR-0038](ADR-0038-installer-disk-identity-and-confirmation.md)
+- [ADR-0039](ADR-0039-recovery-kit-presentation-and-lifecycle.md)

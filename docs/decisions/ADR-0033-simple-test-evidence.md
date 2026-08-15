@@ -79,7 +79,7 @@ An official physical run reports these eight groups:
 
 1. installation, Secure Boot, TPM2 unlock, and device recovery-key unlock;
 2. login and encrypted-home activation;
-3. update, trial boot, and rollback;
+3. update, trial boot, acceptance, and pre-acceptance rollback;
 4. built-in display, graphics, brightness, and scaling;
 5. keyboard, touchpad, and present input devices;
 6. Wi-Fi, Ethernet, and Bluetooth where that hardware is present;
@@ -150,3 +150,4 @@ evidence format.
 - [ADR-0015](ADR-0015-microsoft-shim-and-trust-domains.md)
 - [ADR-0026](ADR-0026-boot-health-contract.md)
 - [ADR-0034](ADR-0034-release-cadence-and-candidate-aging.md)
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)

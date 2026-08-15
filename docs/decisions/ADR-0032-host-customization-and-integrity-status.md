@@ -36,9 +36,9 @@ configuration.
 
 ShapeBit follows equivalent upstream `/usr/lib`, `/run`, and `/etc` precedence
 where a component already defines it. Software that cannot separate vendor
-defaults from local configuration requires an explicit compatibility and N/N-1
-state plan; ShapeBit does not assume that bootc will semantically merge its
-configuration.
+defaults from local configuration requires an explicit migration plan with a
+rollback-compatible `prepare` phase; ShapeBit does not assume that bootc will
+semantically merge its configuration.
 
 ### Status model
 
@@ -174,7 +174,7 @@ absence of managed snapshots. ADR-0031 owns diagnostic report data handling.
 ## Related decisions
 
 - [ADR-0002](ADR-0002-filesystem-ownership.md)
-- [ADR-0004](ADR-0004-data-migrations-and-rollback.md)
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)
 - [ADR-0008](ADR-0008-independent-recovery.md)
 - [ADR-0013](ADR-0013-boot-trust-and-tpm-policy.md)
 - [ADR-0018](ADR-0018-desktop-session-and-authorization.md)

@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-04
-**Last updated:** 2026-08-09
+**Last updated:** 2026-08-15
 
 ## Context
 
@@ -29,6 +29,11 @@ not consume an extra trial attempt. An explicit recovery boot, a normal shutdown
 after acceptance, and a user authentication failure are not failed trial boots.
 After two unsuccessful attempts, the boot path selects the previous accepted
 deployment.
+
+A prerequisite restart into compatible recovery because the running updater
+does not satisfy the target manifest is such a declared multi-stage transition.
+It does not consume a target trial attempt. Trial counting begins only when the
+target system deployment is selected for boot.
 
 ```text
 accepted -> staged -> pending -> trial -> accepted
@@ -60,8 +65,9 @@ construction because the entry is not blessed. The system does not create a
 second custom attempt counter or a cross-database reconciliation protocol.
 
 No cleanup may remove the previous accepted deployment until the new deployment
-is accepted. Persistent-state compatibility belongs to ADR-0004. TPM2
-authorization of pending and rollback boot artifacts belongs to ADR-0013.
+is accepted. The pre-acceptance migration and compatibility contract belongs to
+ADR-0040. TPM2 authorization of pending and rollback boot artifacts belongs to
+ADR-0013.
 Exact health units, timeouts, observation resets, and failure transitions belong
 to ADR-0026.
 
@@ -83,8 +89,9 @@ and blessing use the standard systemd interfaces.
 
 ## Related decisions
 
-- [ADR-0004](ADR-0004-data-migrations-and-rollback.md) owns persistent-state
-  compatibility.
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)
+  owns migrations and closes the persistent-state rollback guarantee at durable
+  acceptance.
 - [ADR-0006](ADR-0006-signed-release-manifest.md) owns release identity.
 - [ADR-0008](ADR-0008-independent-recovery.md) owns recovery.
 - [ADR-0013](ADR-0013-boot-trust-and-tpm-policy.md) owns boot authorization.

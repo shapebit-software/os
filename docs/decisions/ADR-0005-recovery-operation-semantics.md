@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-04
-**Last updated:** 2026-08-07
+**Last updated:** 2026-08-15
 
 ## Context
 
@@ -10,8 +10,8 @@ System rollback, data restoration, and device reset solve three different proble
 
 ## Decision
 
-- **Roll back** selects the previous accepted deployment and preserves `/etc`,
-  `/var`, and all homes.
+- **Roll back**, while a candidate remains unaccepted, selects its previous
+  accepted baseline and preserves compatible prepared host state and all homes.
 - **Repair system** restores the current system and boot artifacts while
   preserving `/etc`, `/var`, and all homes.
 - **Reset system** clears system configuration and device state while
@@ -72,6 +72,9 @@ The recovery interface must clearly present the three separate operations and th
 
 ## Related decisions
 
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)
+  limits the guaranteed rollback window to the period before durable trial
+  acceptance.
 - [ADR-0007](ADR-0007-trial-boot-and-acceptance.md) owns deployment rollback.
 - [ADR-0008](ADR-0008-independent-recovery.md) owns the recovery environment.
 - [ADR-0011](ADR-0011-per-user-encrypted-homes.md) owns user-home encryption.

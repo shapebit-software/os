@@ -2,7 +2,7 @@
 
 **Status:** Proposed
 **Date:** 2026-08-04
-**Last updated:** 2026-08-12
+**Last updated:** 2026-08-15
 
 ## Context
 
@@ -30,7 +30,8 @@ encryption topology, snapshot policy, or migration mechanism.
 ## Negative consequences
 
 - some existing software will require changes;
-- persistent host data must obey the N/N-1 or disposable-state contract;
+- persistent host data must obey the forward-migration and trial-rollback
+  contract;
 - administrators cannot treat the host like a traditional Fedora installation.
 
 ## Review criteria
@@ -41,8 +42,8 @@ Review after the first working update + rollback in M2.
 
 - [ADR-0003](ADR-0003-btrfs-system-state.md) selects the persistent
   system filesystem and subvolume layout.
-- [ADR-0004](ADR-0004-data-migrations-and-rollback.md) defines persistent-state
-  classes and compatibility.
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)
+  defines host-state migration and compatibility before trial acceptance.
 - [ADR-0011](ADR-0011-per-user-encrypted-homes.md) defines human-user homes.
 - [ADR-0012](ADR-0012-encrypted-system-volume.md) defines system encryption.
 - [ADR-0032](ADR-0032-host-customization-and-integrity-status.md) defines

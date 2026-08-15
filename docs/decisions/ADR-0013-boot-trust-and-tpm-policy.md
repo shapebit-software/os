@@ -4,14 +4,14 @@
 
 **Date:** 2026-08-05
 
-**Last updated:** 2026-08-06
+**Last updated:** 2026-08-15
 
 ## Context
 
 ShapeBit OS needs an encrypted system volume that unlocks without a second
 password prompt. The TPM2 must release its LUKS2 key only to an approved boot
-chain, while routine system updates and rollback to the previous deployment
-continue to work.
+chain, while routine system updates and rollback to the trial baseline continue
+to work until durable acceptance.
 
 Binding the TPM2 key to exact kernel measurements would break automatic unlock
 after every update. Trusting Secure Boot alone would authenticate EFI programs
@@ -66,25 +66,28 @@ systemd policy features until they exist in that image.
 - A release manifest defined by ADR-0006 must identify a Secure Boot-signed UKI
   and valid signed PCR 11 policy before its deployment may be staged.
 - Pre-reboot validation must prove that TPM2 unlock authorizes both the pending
-  deployment and the retained rollback deployment.
-- The accepted, pending or trial, and previous accepted deployments defined by
-  ADR-0007 form the default authorized boot window.
-- Artifacts leave the ESP and authorized rollback set only after they are no
-  longer required by retention policy.
+  deployment and its retained rollback baseline.
+- The accepted deployment and the pending or trial deployment's rollback
+  baseline defined by ADR-0007 form the default authorized boot window.
+- The rollback baseline must remain on the ESP and authorized until the new
+  deployment is durably accepted. It leaves normal boot selection after
+  acceptance and before an incompatible migration commit begins. Strong
+  cryptographic prevention of reintroduction belongs to the later TPM2 NV
+  anti-rollback ADR.
 - A failed trial boot must be able to select the previous signed UKI without a
   recovery-key prompt.
 
 This policy does not provide absolute anti-rollback protection. Any retained
-artifact signed by a still-trusted key remains bootable. The prototype uses a
-bounded rollback window; signed release blocklists prevent an old image from
-being staged again but cannot invalidate an offline retained UKI.
+artifact signed by a still-trusted key may remain bootable even after the
+product rollback guarantee closes. Signed release blocklists prevent an old
+image from being staged again but cannot invalidate an offline retained UKI.
 
 Every signed release manifest defined by ADR-0006 reserves a non-decreasing
 `security_epoch`. The
 epoch changes only at an explicit security barrier, not for every ordinary
-release, so current and rollback deployments may share an epoch. It is release
-metadata until a later anti-rollback ADR defines its cryptographic binding to a
-TPM2 NV policy.
+release, so a trial candidate and its rollback baseline may share an epoch. It
+is release metadata until a later anti-rollback ADR defines its cryptographic
+binding to a TPM2 NV policy.
 
 TPM-backed anti-rollback requires a separate ADR covering TPM2 NV state,
 security-epoch transitions, recovery, and migration from prototype enrollments.
@@ -134,9 +137,10 @@ requiring custom firmware-key enrollment.
   [ADR-0012](ADR-0012-encrypted-system-volume.md).
 - Recovery-key boot must be tested after simulated PCR mismatch, Secure Boot
   database change, TPM clear, and motherboard replacement.
-- ShapeBit boot-certificate and shim rotation uses an overlap period in which
-  the old rollback artifact and the new release remain bootable. TPM enrollment
-  is refreshed before a PCR 7-changing factory Secure Boot database update.
+- ShapeBit boot-certificate and shim rotation uses an explicit overlap period in
+  which the trial rollback baseline and the new release remain bootable. TPM
+  enrollment is refreshed before a PCR 7-changing factory Secure Boot database
+  update.
 - PCR policy-key rotation creates a new TPM2 enrollment while the old policy or
   device recovery key can still unlock the volume.
 - Compromise of the Secure Boot signing key requires stopping release,
@@ -165,8 +169,8 @@ from permanently destroying access to the encrypted system volume.
 ## Positive consequences
 
 - Normal startup has no system-volume password prompt.
-- Approved updates and the previous rollback deployment remain automatically
-  unlockable.
+- Approved trial updates and their rollback baseline remain automatically
+  unlockable until acceptance.
 - Modified boot assets or an unauthorized UKI do not receive the TPM2 key.
 - Production, development, boot, PCR-policy, and release-metadata trust are
   independently rotatable.
@@ -178,8 +182,8 @@ from permanently destroying access to the encrypted system volume.
 - Factory Secure Boot trust includes a broader ecosystem than ShapeBit alone.
 - Firmware trust updates can change PCR 7 and require coordinated TPM2
   re-enrollment.
-- A retained, still-signed old release remains bootable within the rollback
-  window.
+- A retained, still-signed old release may remain technically bootable after
+  the guaranteed rollback window closes.
 - HSM-backed signing and revocation procedures add release-infrastructure work.
 - Microsoft certificate transitions and `dbx` changes require compatibility
   and recovery testing.
@@ -193,7 +197,7 @@ least one `Officially-tested` laptop:
 2. refusal to boot a modified or untrusted UKI;
 3. TPM2 unlock of the current deployment without a system passphrase;
 4. refusal to auto-unlock after unauthorized PCR 7 or PCR 11 changes;
-5. update from image A to B and automatic rollback from B to A;
+5. update from image A to trial B and automatic pre-acceptance rollback to A;
 6. recovery-key unlock after TPM clear and after a Secure Boot trust change;
 7. Secure Boot `db` and PCR policy-key rotation without data loss;
 8. confirmation that production private keys are absent from images, ESPs,
@@ -230,6 +234,7 @@ that authorizes the TPM2 LUKS2 keyslot. It does not own:
 - [ADR-0012](ADR-0012-encrypted-system-volume.md)
 - [ADR-0014](ADR-0014-platform-and-hardware-validation.md)
 - [ADR-0015](ADR-0015-microsoft-shim-and-trust-domains.md)
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)
 
 ## References
 

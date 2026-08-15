@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-04
-**Last updated:** 2026-08-12
+**Last updated:** 2026-08-15
 
 ## Context
 
@@ -64,8 +64,9 @@ time in `testing`, and emergency security exception.
 - release-engineering acceptance;
 - complete CI and QEMU evidence;
 - the full required suite on at least one `Officially-tested` laptop;
-- successful update and rollback from the previous stable release;
-- successful N/N-1 preserved-state compatibility testing;
+- successful update and pre-acceptance rollback to the previous stable release;
+- successful migration-chain, interruption, pre-acceptance rollback, and
+  post-acceptance commit-resumption testing;
 - compatible independent recovery.
 
 ## Privacy
@@ -101,8 +102,11 @@ images instead of boot revocation.
 
 A revocation:
 
-- cancels matching pending and trial deployments;
-- selects a known safe previous or superseding deployment for the next boot;
+- cancels matching pending and trial deployments and may select their still
+  compatible rollback baseline;
+- for an already accepted release, selects only a known compatible superseding
+  deployment and enters recovery when none exists; it does not assume that an
+  older deployment can use committed host state;
 - does not terminate an active user session automatically;
 - prevents the revoked UKI from being selected on the next boot;
 - enters independent recovery when no safe normal deployment exists.
@@ -124,3 +128,5 @@ published after a device became permanently disconnected.
   diagnostic reports and their separate upload consent.
 - [ADR-0034](ADR-0034-release-cadence-and-candidate-aging.md) defines release
   timing and candidate aging.
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)
+  defines when an older deployment remains a compatible rollback target.

@@ -21,7 +21,7 @@ an explicit review action.
 | [ADR-0001](ADR-0001-fedora-bootc.md) | Accepted | Fedora bootc system base |
 | [ADR-0002](ADR-0002-filesystem-ownership.md) | Proposed | ownership and mutability of filesystem paths |
 | [ADR-0003](ADR-0003-btrfs-system-state.md) | Accepted | filesystem inside the system LUKS2 volume |
-| [ADR-0004](ADR-0004-data-migrations-and-rollback.md) | Accepted | persistent-state classes and N/N-1 compatibility without automatic migrations |
+| [ADR-0004](ADR-0004-data-migrations-and-rollback.md) | Superseded | replaced by ADR-0040 |
 | [ADR-0005](ADR-0005-recovery-operation-semantics.md) | Accepted | semantic difference between rollback, backup, and reset |
 | [ADR-0006](ADR-0006-signed-release-manifest.md) | Proposed | immutable release identity and signed release manifest |
 | [ADR-0007](ADR-0007-trial-boot-and-acceptance.md) | Accepted | deployment states, trial boot, acceptance, and rollback selection |
@@ -53,13 +53,19 @@ an explicit review action.
 | [ADR-0033](ADR-0033-simple-test-evidence.md) | Accepted | simple QEMU and physical test reports, pass rules, and community minimum |
 | [ADR-0034](ADR-0034-release-cadence-and-candidate-aging.md) | Accepted | target stable cadence, candidate aging, and emergency security timing |
 | [ADR-0035](ADR-0035-minimal-installer-protocol.md) | Accepted | local installer transport, minimal plan, capabilities, Wi-Fi, events, and errors |
+| [ADR-0036](ADR-0036-one-shot-installer-secret-channel.md) | Accepted | one-shot installer secret transport, purposes, lifetime, cancellation, and Recovery Kit output |
+| [ADR-0037](ADR-0037-installer-transaction-lifecycle.md) | Accepted | installer phases, destructive boundary, checkpoints, resume, retry, and completion |
+| [ADR-0038](ADR-0038-installer-disk-identity-and-confirmation.md) | Accepted | installer disk identity, target eligibility, destructive confirmation, and stale plans |
+| [ADR-0039](ADR-0039-recovery-kit-presentation-and-lifecycle.md) | Accepted | Recovery Kit presentation, saving, acknowledgement, interruption, and plaintext lifetime |
+| [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md) | Accepted | forward-only host migrations and the trial-acceptance rollback boundary |
 
 ## Boundary rules
 
 - ADR-0003 selects the filesystem layout; ADR-0012 requires the outer system
   volume to be encrypted.
-- ADR-0004 owns persistent-state classes and N/N-1 compatibility; ADR-0007 owns
-  boot attempts, health gates, acceptance, and deployment selection.
+- ADR-0040 owns forward-only host migrations and the persistent-state rollback
+  boundary; ADR-0007 owns boot attempts, health gates, acceptance, and
+  deployment selection.
 - ADR-0005 defines user-visible recovery operations; ADR-0008 defines the
   independent environment that can perform them.
 - ADR-0006 identifies a release; ADR-0009 controls how an accepted release is
@@ -108,3 +114,11 @@ an explicit review action.
 - ADR-0034 owns release timing; ADR-0009 owns immutable promotion and rollout.
 - ADR-0035 owns the ordinary installer protocol; later installer decisions own
   secrets, transaction state, disk confirmation, and Recovery Kit UX.
+- ADR-0036 owns installer secret transfer; ADR-0039 owns Recovery Kit
+  presentation and final plaintext lifetime.
+- ADR-0037 owns installer transaction execution; ADR-0038 owns target identity
+  and the final destructive confirmation.
+- ADR-0038 owns installer target identity and erase authorization; ADR-0037 owns
+  execution after the destructive boundary.
+- ADR-0039 owns the Recovery Kit handoff and completion gate; ADR-0037 owns the
+  underlying installation transaction and verification.

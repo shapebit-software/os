@@ -8,11 +8,11 @@
 
 Btrfs can create cheap copy-on-write snapshots, but cheap creation does not
 make retention, capacity accounting, consistency, or recovery semantics free.
-ShapeBit already uses bootc deployments for system-image rollback and requires
-persistent host state to remain compatible across the N/N-1 rollback window.
-Each human home is also a separate active filesystem inside an encrypted
-container file, which an outer snapshot cannot safely represent as a general
-file-level recovery point.
+ShapeBit already uses bootc deployments for system-image rollback and keeps
+prepared host state compatible with the rollback baseline until trial
+acceptance. Each human home is also a separate active filesystem inside an
+encrypted container file, which an outer snapshot cannot safely represent as a
+general file-level recovery point.
 
 The initial product needs one clear recovery model and predictable low-space
 behavior more than it needs an additional checkpoint mechanism.
@@ -71,8 +71,8 @@ status as part of the broader host-customization policy.
 - Snapshot retention cannot silently consume the protected system reserve.
 - ShapeBit provides no built-in previous-version file recovery and no local
   checkpoint before administrator changes.
-- Bootc rollback does not undo a harmful persistent-data change; the N/N-1
-  compatibility contract remains essential.
+- Bootc rollback does not undo a harmful persistent-data change; ADR-0040's
+  compatible `prepare` boundary remains essential.
 - Externally created snapshots remain possible for development, but ShapeBit
   neither manages nor automatically removes them.
 
@@ -88,7 +88,7 @@ must be recorded separately.
 ## Related decisions
 
 - [ADR-0003](ADR-0003-btrfs-system-state.md)
-- [ADR-0004](ADR-0004-data-migrations-and-rollback.md)
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)
 - [ADR-0005](ADR-0005-recovery-operation-semantics.md)
 - [ADR-0007](ADR-0007-trial-boot-and-acceptance.md)
 - [ADR-0016](ADR-0016-initial-installation-and-storage-profile.md)

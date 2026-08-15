@@ -136,8 +136,9 @@ old deployment and the UI requests a restart, especially for a security update.
 Updates that do not add static permissions install automatically. An update
 that expands static permissions is downloaded but not activated until the user
 approves a human-readable permission diff. Portal permissions remain contextual
-and per user. ShapeBit provides no automatic Flatpak application rollback; OS
-rollback does not change Flatpak versions or application data.
+and per user. ShapeBit provides no automatic Flatpak application rollback;
+pre-acceptance OS rollback does not change Flatpak versions or application
+data.
 
 ### Wayland-only application scope
 
@@ -230,7 +231,7 @@ recommendation governance.
 ## Related decisions
 
 - [ADR-0002](ADR-0002-filesystem-ownership.md)
-- [ADR-0004](ADR-0004-data-migrations-and-rollback.md)
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)
 - [ADR-0011](ADR-0011-per-user-encrypted-homes.md)
 - [ADR-0016](ADR-0016-initial-installation-and-storage-profile.md)
 - [ADR-0018](ADR-0018-desktop-session-and-authorization.md)

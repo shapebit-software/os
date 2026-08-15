@@ -4,7 +4,7 @@
 
 **Date:** 2026-08-10
 
-**Last updated:** 2026-08-12
+**Last updated:** 2026-08-15
 
 ## Context
 
@@ -71,7 +71,7 @@ or authorization guarantee.
 
 The release contract declares the interface versions required by its in-image
 clients and verifies the match before staging. Because bootc switches the whole
-deployment and rollback boots the previous deployment's own clients and
+deployment and pre-acceptance rollback boots the baseline's own clients and
 services, ShapeBit does not retain an unused old interface for a fixed number of
 releases. It may remove that version once no supported component in the image
 uses it. An interface advertised during one boot does not disappear or change
@@ -206,7 +206,7 @@ endpoint.
 
 ## Related decisions
 
-- [ADR-0004](ADR-0004-data-migrations-and-rollback.md)
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)
 - [ADR-0006](ADR-0006-signed-release-manifest.md)
 - [ADR-0018](ADR-0018-desktop-session-and-authorization.md)
 - [ADR-0019](ADR-0019-display-power-and-thermal-policy.md)

@@ -8,8 +8,8 @@
 
 ADR-0016 establishes dynamically sized encrypted homes, a shared burst pool,
 and a protected system reserve. ShapeBit needs exact accounting rules so that
-ordinary home growth cannot consume the space required for updates, rollback,
-recovery, and basic system operation.
+ordinary home growth cannot consume the space required for updates, trial
+rollback, recovery, and basic system operation.
 
 ## Decision
 
@@ -36,11 +36,13 @@ The components are:
 - `migration`: additional workspace explicitly declared by a release, zero
   when no such operation exists.
 
-The installed current, previous accepted, pending, and trial deployments and
-recovery assets are actual protected allocations. Their occupied bytes are
-deducted before home capacity is offered and are not counted a second time in
-the free-space reserve. Filesystem accounting must use allocated physical space,
-not apparent sparse-file size.
+The installed current deployment, a pending or trial deployment, its required
+rollback baseline, and recovery assets are actual protected allocations. Their
+occupied bytes are deducted before home capacity is offered and are not counted
+a second time in the free-space reserve. An old deployment cached after durable
+acceptance is ordinary system use, not a protected rollback allocation, and may
+be cleaned up. Filesystem accounting must use allocated physical space, not
+apparent sparse-file size.
 
 An approved system operation may consume its own reserve component and must
 release unused workspace when it completes. Home growth cannot consume any
@@ -101,7 +103,8 @@ Automatic cleanup never removes:
 
 - user files, application data, or application caches;
 - Flatpaks or AppImages;
-- a current, previous accepted, pending, or trial deployment;
+- the current deployment, a pending or trial deployment, or its required
+  rollback baseline;
 - recovery assets or Recovery Kit material;
 - transaction-critical state; or
 - diagnostics retained for an active failure.
@@ -157,3 +160,4 @@ unmanaged snapshots count as real allocated capacity under this policy.
 - [ADR-0011](ADR-0011-per-user-encrypted-homes.md)
 - [ADR-0016](ADR-0016-initial-installation-and-storage-profile.md)
 - [ADR-0029](ADR-0029-no-managed-snapshots.md)
+- [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)

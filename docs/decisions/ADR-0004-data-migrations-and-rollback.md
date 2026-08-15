@@ -1,8 +1,8 @@
 # ADR-0004: Persistent State Compatibility Without Automatic Migrations
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md)
 **Date:** 2026-08-04
-**Last updated:** 2026-08-07
+**Last updated:** 2026-08-15
 
 ## Context
 
