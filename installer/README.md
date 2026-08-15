@@ -12,6 +12,10 @@ ui -> protocol -> backend
   errors.
 - [`backend/`](backend/README.md) performs validated privileged operations.
 
+The [installer decision map](DECISION-MAP.md) assigns every planned operation to
+its authoritative parent-repository ADR and exposes unresolved production
+gates.
+
 The first integration target is a serializable `InstallationPlan`, a mock or
 dry-run backend, and UI integration without modifying a real disk. The parent
 repository's

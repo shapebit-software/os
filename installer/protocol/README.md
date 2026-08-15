@@ -35,3 +35,8 @@ the device recovery key and that owner's home recovery key. The payload is
 ephemeral and must not be embedded in serializable plans, installation events,
 errors, persistent state, or diagnostic representations. Additional-user
 enrollment returns only that user's home recovery key.
+
+The initial-owner payload represents one self-contained offline document with a
+common header, separately labeled device and home key records, and an integrity
+checksum. QR, print, and encrypted-file encodings preserve that logical content;
+none contains a URL or server-side retrieval reference.

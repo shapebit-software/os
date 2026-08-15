@@ -25,20 +25,33 @@ The installer uses one recovery screen:
 
 1. Explain that anyone holding the Recovery Kit can access the corresponding
    encrypted volumes and that ShapeBit cannot restore a lost kit.
-2. Display one QR code containing a versioned, clearly labeled representation
-   of both recovery keys.
+2. Display one QR code containing the complete versioned offline representation
+   of both recovery keys; it must not contain a URL or server reference.
 3. Keep the grouped plain-text representation hidden until the user selects
    **Show text**.
-4. Offer copy, print, and removable-media export for the complete kit.
-5. Require a simple **I saved my Recovery Kit** acknowledgement. Do not require
-   the user to retype or verify selected key fragments.
-6. Clear the QR payload, revealed text, clipboard data where supported, and
-   other in-memory UI state when the screen is left.
+4. Offer printing and password-encrypted export to another attached storage
+   device. The export password is entered twice and is separate from the owner
+   password; successful export is read back and decrypted before it is called
+   verified.
+5. Require the user to use encrypted export, print, or QR/text display and then
+   select **I saved my Recovery Kit outside this computer**. Do not require the
+   user to retype or verify selected key fragments, and do not call print or
+   manual saving a verified backup.
+6. Clear the QR payload, revealed text, and other in-memory UI state when the
+   presentation ends and no later than five minutes after the screen closes.
 
 The QR code is itself a representation of both secrets and must receive the
 same screen-capture, logging, analytics, and lifetime protections as revealed
-plain text. Export must not target the system volume being protected, and the
-UI must warn against keeping removable media or a printout with the device.
+plain text. Recovery material is hidden during screen sharing and on session
+lock, and the initial flow does not offer clipboard copying. Export must not
+target the system volume being protected, and the UI must warn against keeping
+removable media or a printout with the device.
+
+The backend may re-present the same kit after a UI restart while it remains
+alive. If the backend restarts before acknowledgement, the UI asks for the
+owner password again, clearly invalidates every earlier unconfirmed copy, and
+presents the safely replaced keys as a new kit. Installation cannot report
+completion until the current kit has been acknowledged.
 
 An additional user receives a separate kit containing only that user's home
 recovery key. The device recovery key is not shown during additional-user

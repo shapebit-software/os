@@ -26,6 +26,18 @@ The response is never part of `InstallationPlan`, persistent transaction state,
 logs, diagnostics, or analytics. Acknowledging presentation does not prove
 external storage and must not be recorded as cryptographic verification.
 
+The backend retains the current plaintext keys only in protected memory until
+the UI presents and the user acknowledges the kit. It may return the same kit
+after a frontend reconnect while the backend remains alive. It must not mark
+installation complete before acknowledgement, and it zeroizes the values
+immediately afterward.
+
+If the backend restarts first, resume uses TPM system unlock and a newly entered
+owner password to replace both unconfirmed recovery keyslots. Each replacement
+is enrolled and tested before the old keyslot is revoked. Earlier unconfirmed
+kit copies are then invalid and the replacement kit must be presented and
+acknowledged before completion.
+
 Recovery-key replacement must enroll and test the new keyslot before revoking
 the old keyslot. Device and home recovery keys are replaced independently.
 
