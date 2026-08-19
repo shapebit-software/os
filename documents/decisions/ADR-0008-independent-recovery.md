@@ -57,6 +57,8 @@ is deferred and may never become the only recovery path.
 - per-user home unlocking with that user's recovery key;
 - storage diagnostics;
 - deployment selection;
+- authenticated reconstruction of signed boot-stack slots, generic UEFI
+  fallback files, and firmware entries under ADR-0041;
 - recovery-assisted staging of a schema-v1 system release;
 - reinstallation of a known image;
 - data export;
@@ -71,6 +73,12 @@ Recovery mounts data read-only by default. Unlocking the system volume requires
 the device recovery key when normal TPM2 authorization is unavailable.
 Unlocking a user's home additionally requires that user's credential or recovery
 key; the device recovery key never unlocks a per-user home.
+
+Boot-chain diagnostics require no authentication. Writing repaired ESP files or
+UEFI variables requires an administrator credential or the device recovery key
+as defined by ADR-0005. Internal recovery can repair a partially usable ESP;
+complete loss of its internal boot path requires the external USB form of the
+same signed recovery environment.
 
 ## Consequences
 
@@ -91,3 +99,4 @@ erase. ADR-0007 defines automatic deployment rollback.
 - [ADR-0012](ADR-0012-encrypted-system-volume.md)
 - [ADR-0013](ADR-0013-boot-trust-and-tpm-policy.md)
 - [ADR-0016](ADR-0016-initial-installation-and-storage-profile.md)
+- [ADR-0041](ADR-0041-release-artifact-and-rootfs-binding.md)

@@ -58,6 +58,8 @@ an explicit review action.
 | [ADR-0038](ADR-0038-installer-disk-identity-and-confirmation.md) | Accepted | installer disk identity, target eligibility, destructive confirmation, and stale plans |
 | [ADR-0039](ADR-0039-recovery-kit-presentation-and-lifecycle.md) | Accepted | Recovery Kit presentation, saving, acknowledgement, interruption, and plaintext lifetime |
 | [ADR-0040](ADR-0040-forward-only-migrations-and-trial-bounded-rollback.md) | Accepted | forward-only host migrations and the trial-acceptance rollback boundary |
+| [ADR-0041](ADR-0041-release-artifact-and-rootfs-binding.md) | Proposed | D22 artifact graph and boot-time rootfs binding |
+| [ADR-0042](ADR-0042-production-signing-operations.md) | Proposed | D23 production signing hierarchy and operations |
 
 ## Boundary rules
 
@@ -122,3 +124,7 @@ an explicit review action.
   execution after the destructive boundary.
 - ADR-0039 owns the Recovery Kit handoff and completion gate; ADR-0037 owns the
   underlying installation transaction and verification.
+- ADR-0006 owns release-manifest structure; ADR-0041 owns the cryptographic and
+  boot-time relationships among the artifacts named by that manifest.
+- ADR-0015 owns the production/development trust split; ADR-0042 owns the
+  production key hierarchy and signing operations inside that boundary.

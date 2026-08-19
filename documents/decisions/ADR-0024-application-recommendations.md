@@ -114,3 +114,4 @@ revocation policy is separate from recommendations.
 - [ADR-0006](ADR-0006-signed-release-manifest.md)
 - [ADR-0009](ADR-0009-staged-rollout.md)
 - [ADR-0023](ADR-0023-application-platform-and-system-set.md)
+- [ADR-0042](ADR-0042-production-signing-operations.md)

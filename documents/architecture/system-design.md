@@ -164,6 +164,77 @@ Production releases are promoted without rebuilding or re-signing the tested
 artifact set. Every build records source revision, base image, package versions,
 OCI digest, SBOM, signatures, and test results.
 
+Production signing uses one offline ShapeBit root that signs only versioned,
+expiring role delegations, never ordinary artifacts or releases. Separate
+operational keys perform narrowly scoped signing roles. One administrator may
+initially operate several workflows, but key material, policy scopes, audit
+identities, and rotation paths remain distinct. Development and nightly trust
+cannot chain to the production root.
+
+Core production roles are `system-manifest`, `boot-stack-manifest`,
+`recovery-manifest`, `boot-artifact`, `pcr-policy`, and `release-status`.
+The ShapeBit boot role signs systemd-boot and system or recovery UKIs, while
+Microsoft signs shim. Manifest creation, boot signing, PCR policy, and mutable
+rollout control are not interchangeable authorities.
+
+Application trust adds separate `application-repository` and
+`application-recommendations` roles. The first is a code-distribution authority
+for the ShapeBit Flatpak repository; the second can change only the curated
+presentation list. Flathub, upstream package signatures, and AppImage
+publishers do not become ShapeBit delegates.
+
+Initial production signing is manual. Root and operational private keys are
+non-exportable hardware-token objects; CI produces a complete unsigned bundle
+and a human approves each requested role after reviewing its deterministic
+summary. Root tokens are used only offline. Operational roles may migrate later
+to non-exportable HSM/KMS keys through normal root-authorized rotation, without
+bringing the root online or changing artifact formats.
+
+The logical production root is a two-of-three threshold over three independent,
+non-exportable keys on separately stored hardware tokens. One lost or
+compromised token can be revoked and replaced by the remaining two; private
+root keys are never cloned or escrowed. The single current administrator may
+operate both required tokens, so this protects against one device rather than
+asserting two-person governance.
+
+Operational signing uses three devices: one manifest token for the three
+immutable manifest roles, one boot token for boot artifacts and PCR policy, and
+one distribution token for rollout, the ShapeBit Flatpak repository, and
+recommendations. Each contained role is a distinct non-exportable key and
+requires one valid role-authorized signature. Keys are not cloned; loss pauses
+the affected workflow until the root delegates replacement keys.
+
+CI packages production requests into immutable, per-token signing bundles with
+source identity, canonical inputs or digests, requested roles, expected
+outputs, and test-evidence references. A human reviews one deterministic
+summary and explicitly approves all ordered operations in that bundle; any
+change requires a new bundle and approval. Boot and PCR signing runs first and
+emits final artifact digests, after which a separate bundle requests the
+manifest signature. Emergency releases do not bypass this ceremony.
+
+Key delegation uses a closed JCS/DSSE ShapeBit root policy with exactly
+`schema_version`, sequential `version`, `expires`, public `keys`, and `roles`.
+The roles include the two-of-three logical root plus all eight operational
+roles. A client updates only from `N` to `N+1`, requiring the new policy to meet
+both the old and new root thresholds, and retains the verified chain. This
+borrows TUF's root-continuity rule without adopting or claiming the full TUF
+repository workflow.
+
+Root policy lasts 24 months, and production publishing stops with fewer than 90
+days remaining. Expiration pauses acceptance of new ShapeBit trust and content
+but never blocks the accepted OS, existing applications, recovery, or repair
+from previously accepted local artifacts. Offline media may install only its
+closed embedded set and is marked as requiring a metadata refresh. Clients
+verify every missing policy version in sequence and require the final policy to
+be current before accepting newly downloaded content.
+
+Devices persist a non-decreasing `trusted_time_floor` and use the later of that
+floor and system time for expiry. Boot never waits for network time, but new
+online content requires reliable synchronization. Failure pauses updates
+without affecting the current system. Recovery may correct a falsely advanced
+floor only after device authorization, reliable time acquisition, and audit
+recording.
+
 ### 6.2 Boot trust
 
 The production compatibility and trust chain begins as follows:
@@ -245,9 +316,11 @@ encrypted `@state` for 30 days under a 256 MiB limit, without snapshots.
 ```text
 GPT
 ├── EFI System Partition
-│   ├── Microsoft-signed ShapeBit shim
-│   ├── signed systemd-boot and signed UKIs
-│   └── minimal signed recovery UKI
+│   ├── EFI/ShapeBit/slot-a/{shimx64,shapebit-bootx64}.efi
+│   ├── EFI/ShapeBit/slot-b/{shimx64,shapebit-bootx64}.efi
+│   ├── EFI/BOOT/{BOOTX64,shapebit-bootx64}.efi
+│   ├── signed system and recovery UKIs
+│   └── boot metadata
 └── system LUKS2
     └── Btrfs physical root
         ├── bootc-managed deployments and /usr
@@ -433,14 +506,95 @@ type. The envelope requires at least one signature with a non-empty, unique
 `manifest_digest` is computed from canonical payload bytes only; signatures may
 be added without changing release identity.
 
-`artifacts` is a role-indexed object with exactly one descriptor for each of
-`system_image`, `shim`, `boot_manager`, `system_uki`, `pcr_policy`, and
-`integrity.rootfs`. Descriptors contain digest, decimal-string size, and media
-type. SHA-256 is used for downloadable artifacts; SHA-512 is used for the
-rootfs integrity descriptor.
+`artifacts` is a role-indexed object with exactly one downloadable descriptor
+for each of `system_image` and `system_uki`.
+Descriptors contain a SHA-256 digest, decimal-string size, and media type. The
+separate required `rootfs` object contains `format: composefs` and its SHA-512
+integrity digest without an artificial size or media type.
 
-Manifest schema v1 is x86-64-only and spells the architecture `x86_64`. D22
-must bind that value to OCI `amd64` and the corresponding UEFI machine type.
+The `system_image` descriptor uses
+`application/vnd.oci.image.manifest.v1+json`; `system_uki` uses the registered
+PE format type `application/vnd.microsoft.portable-executable`.
+
+Shim and the boot manager are excluded from the system release manifest. They
+form an independently signed, device-wide boot stack with a separate manifest
+that pins both PE artifacts. This shared stack moves only forward and is not
+reverted when a trial system deployment rolls back. Every stack update must
+remain able to boot the accepted and retained rollback deployments.
+
+The boot-stack manifest is a closed JCS/DSSE payload with exact fields
+`schema_version`, `boot_stack_version`, `architecture`, `security_epoch`, and
+`artifacts`. Schema v1 contains exactly the `shim` and `boot_manager` PE
+descriptors and uses payload type
+`application/vnd.shapebit.boot-stack-manifest.v1+json`. It deliberately has no
+timestamps, channel, URLs, component requirements, compatibility ranges,
+annotations, or extension map.
+
+Boot-stack compatibility is contractual within one `security_epoch`: every
+newer stack must boot every non-revoked system release in that epoch. ShapeBit
+qualifies this with QEMU and required hardware gates before publication.
+Devices verify signatures, architecture, epoch, artifact identity, and format,
+but do not solve version ranges or download compatibility tables. Only an
+explicit global epoch transition may reject older system releases.
+
+A same-epoch boot-stack update may run independently and does not affect the OS
+trial state. For a higher epoch, the target OS first completes its trial on the
+old stack so its rollback baseline remains valid. After durable acceptance,
+ShapeBit installs the new stack and advances the durable epoch barrier. This is
+a resumable post-acceptance, fix-forward transition; failure must not reinstall
+the security-invalidated stack or reopen the old rollback guarantee.
+
+Boot-stack installation uses two logical ESP slots, each holding a matched shim
+and boot-manager pair with its own UEFI entry. The inactive slot is written,
+flushed, read back, and fully verified before a one-shot `BootNext` trial. The
+durable default remains unchanged until the candidate boots the expected
+accepted deployment, confirms its running stack identity, and passes mandatory
+health checks. A failed or interrupted pre-promotion trial therefore returns to
+the old default; a post-promotion failure is resumed or repaired forward and
+never copies partial files over the known-good slot. Higher-epoch enforcement
+advances only after the candidate stack becomes the durable default.
+
+The slot shims load `shapebit-bootx64.efi` from their own directories. The
+generic `EFI/BOOT` pair is a copy of the last promoted stack for firmware-reset
+recovery and is refreshed only after promotion. ShapeBit installs neither MOK
+nor shim's `MokManager.efi`, `fallback.efi`, or `BOOT.CSV`. Before an epoch
+barrier advances, the generic pair must match the promoted boot-stack manifest.
+
+Recovery diagnoses boot state without authentication, but ESP or firmware
+writes require an administrator credential or the device recovery key. It
+reconstructs only artifacts named by a valid signed boot-stack manifest, using
+verified cache or a fresh download. Internal recovery can repair surviving boot
+paths; an unreadable ESP or total internal-path loss requires signed external
+USB recovery, which may rebuild the ESP while preserving encrypted system and
+home data.
+
+Artifacts are revalidated at every trust boundary. Builds finalize and verify
+OCI and composefs first, then construct and sign the UKI, and sign the release
+manifest last. Staging authenticates policy and manifests before downloading,
+validates every descriptor and nested relationship, and flushes, reads back,
+and revalidates critical files before creating `pending` boot state. Boot
+rechecks the Secure Boot chain and signed rootfs selection while fs-verity
+validates root data on access rather than hashing the whole OS eagerly.
+Recovery begins from its own signed image and repeats validation instead of
+trusting status recorded by the installed system.
+
+Manifest schema v1 is x86-64-only and spells the architecture `x86_64`. Its OCI
+descriptor is bound to `amd64`, while every PE artifact must have the matching
+UEFI machine type.
+
+D22 binds `system_image.digest` to the per-architecture OCI `amd64`
+manifest. The exact image deterministically produces the composefs root digest,
+which is embedded in a separately built and signed UKI. Initrd accepts only the
+matching fs-verity-protected deployment. The final UKI is outside the hashed
+rootfs, preventing a self-referential digest cycle. Remaining boot-artifact and
+PCR-policy relationships are tracked in ADR-0041. PCR policy uses the standard
+embedded UKI `.pcrsig` and `.pcrpkey` sections rather than a separate manifest
+artifact.
+
+The signed UKI `.cmdline` contains exactly one
+`rd.shapebit.rootfs=sha512:<digest>` parameter. Missing, duplicate, malformed,
+or unequal values are hard failures. Initrd resolves only the matching local
+deployment and requires fs-verity before switching root.
 
 ShapeBit automatically checks, downloads, verifies, and stages updates over any
 working network connection without distinguishing metered networks. Downloads
@@ -842,10 +996,13 @@ items. Deferred features in section 17 are not counted here.
 - [x] **D21 — Release manifest:** use the closed schema-v1 payload, RFC 8785
   JCS, DSSE envelope, computed manifest digest, strict artifact roles, three
   tool compatibility ranges, and external mutable metadata defined in
-  ADR-0006. ADR-0006 remains proposed until the D22-D23 dependencies and G02
-  review are complete.
-- [ ] **D22 — Artifact binding:** define the verifiable binding among the OCI
-  digest, sealed deployment, UKI, release manifest, and PCR policy.
+  ADR-0006. ADR-0006 remains proposed until D23 and the G02 review are
+  complete.
+- [x] **D22 — Artifact binding:** use the OCI-to-composefs-to-UKI binding,
+  independent signed forward-only boot stack, A/B ESP transaction, firmware
+  fallback, recovery reconstruction, repeated verification, and evidence gates
+  defined by ADR-0041. ADR-0041 remains proposed until its QEMU and physical
+  acceptance evidence exists.
 - [ ] **D23 — Signing operations:** define production ownership, HSM roles,
   authorization, rotation, audit, and compromise response for every key.
 - [ ] **D24 — Strong anti-rollback:** create the TPM2 NV security-epoch ADR,

@@ -222,7 +222,9 @@ lifecycle, Wayland catalog scope, AppImage behavior, and the Podman/Distrobox
 developer environment. ADR-0011 and ADR-0016 own encrypted-home and capacity
 boundaries. ADR-0018 owns developer-mode presentation and authorization.
 ADR-0020 owns media privacy and notification behavior. ADR-0024 owns
-recommendation governance.
+recommendation governance. ADR-0042 owns ShapeBit production signing roles and
+does not convert Flathub, upstream package, or AppImage keys into ShapeBit trust
+delegations.
 
 ## Open questions
 
@@ -237,6 +239,7 @@ recommendation governance.
 - [ADR-0018](ADR-0018-desktop-session-and-authorization.md)
 - [ADR-0020](ADR-0020-media-privacy-and-notifications.md)
 - [ADR-0024](ADR-0024-application-recommendations.md)
+- [ADR-0042](ADR-0042-production-signing-operations.md)
 
 ## References
 

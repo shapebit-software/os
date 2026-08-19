@@ -35,31 +35,36 @@ metadata rather than the immutable manifest.
 
 `architecture` is a closed enum. Schema version 1 accepts only `x86_64`, matching
 the Fedora and Linux architecture name. D22 owns verification that its OCI
-descriptor uses the corresponding `amd64` architecture and that every boot
-artifact has the correct UEFI machine type. Supporting `aarch64` requires an
-explicit schema revision and artifact-binding rules.
+descriptor uses the corresponding `amd64` architecture and that `system_uki`
+has the correct UEFI machine type. Supporting `aarch64` requires an explicit
+schema revision and artifact-binding rules.
 
 ### Artifact descriptors
 
 `artifacts` is an object indexed by artifact role, not an array. Schema version
-1 requires exactly these six roles:
+1 requires exactly these two downloadable roles:
 
 - `system_image`;
-- `shim`;
-- `boot_manager`;
-- `system_uki`;
-- `pcr_policy`; and
-- `integrity.rootfs`.
+- `system_uki`.
 
 Every role has exactly one descriptor containing `digest`, `size`, and
 `media_type`. This prevents duplicate roles and gives no semantic meaning to
 object-member order. Unknown roles and unknown descriptor fields are rejected.
 
-`size` is a non-negative decimal integer encoded as a string. Digest strings use
-the form `<algorithm>:<lowercase hexadecimal>`. Schema version 1 requires
-SHA-256 with exactly 64 hexadecimal digits for every downloadable artifact and
-SHA-512 with exactly 128 hexadecimal digits for `integrity.rootfs`. Each object
-has one authoritative digest; alternate hashes are not included.
+`system_image.media_type` is exactly
+`application/vnd.oci.image.manifest.v1+json` and `system_uki.media_type` is
+exactly `application/vnd.microsoft.portable-executable`. The object key
+supplies the artifact role.
+
+`size` is a non-negative decimal integer encoded as a string. Artifact digest
+strings use the form `sha256:<64 lowercase hexadecimal digits>`. Each object has
+one authoritative digest; alternate hashes are not included.
+
+`rootfs` is a separate required top-level object because its digest is an
+integrity value rather than a downloadable artifact descriptor. It contains
+exactly `format` with the value `composefs` and `digest` in the form
+`sha512:<128 lowercase hexadecimal digits>`. It has no artificial download size
+or media type.
 
 The manifest contains one required `requires` object with exactly three fields:
 `installer`, `updater`, and `recovery`. Each value is a Cargo-style SemVer
@@ -86,10 +91,11 @@ recovery rotation, the update is blocked without changing the accepted system.
 Cross-schema bootstrapping is deferred until a second manifest schema is
 actually designed.
 
-There is no separate `boot_stack` version requirement. The manifest identifies
-the exact shim, boot-manager, UKI, PCR-policy, and integrity artifacts; their
-verifiable compatibility and binding belong to the planned D22 artifact-binding
-decision rather than an opaque component-version range.
+There is no `boot_stack` component-version requirement. Shim and the boot
+manager form an independently signed, device-wide, forward-only boot stack and
+are deliberately excluded from a system release manifest. Their manifest,
+compatibility rules, and update transaction belong to D22. PCR policy is
+embedded in the per-deployment UKI and is not a separate manifest artifact.
 
 The manifest does not contain a source-release constraint, migration head, or
 migration list. The target image contains its complete ordered migration chain
@@ -130,7 +136,8 @@ change release identity.
 ### Complete schema-v1 payload
 
 The top-level object contains exactly `schema_version`, `version`,
-`architecture`, `security_epoch`, `platform`, `requires`, and `artifacts`.
+`architecture`, `security_epoch`, `platform`, `requires`, `artifacts`, and
+`rootfs`.
 
 - `schema_version` is the integer `1` and agrees with the DSSE payload type.
 - `version` is SemVer-compatible CalVer in `year.month.revision` form, for
@@ -141,7 +148,7 @@ The top-level object contains exactly `schema_version`, `version`,
   security barrier; D24 owns enforcement and transition rules.
 - `platform` contains exactly the required Boolean members `uefi`,
   `secure_boot`, and `tpm2`.
-- `requires` and `artifacts` follow the closed structures above.
+- `requires`, `artifacts`, and `rootfs` follow the closed structures above.
 
 Human-readable example; the DSSE payload contains its JCS serialization:
 
@@ -165,33 +172,17 @@ Human-readable example; the DSSE payload contains its JCS serialization:
     "system_image": {
       "digest": "sha256:<64 lowercase hexadecimal digits>",
       "size": "123456789",
-      "media_type": "<defined by D22>"
-    },
-    "shim": {
-      "digest": "sha256:<64 lowercase hexadecimal digits>",
-      "size": "123456",
-      "media_type": "<defined by D22>"
-    },
-    "boot_manager": {
-      "digest": "sha256:<64 lowercase hexadecimal digits>",
-      "size": "123456",
-      "media_type": "<defined by D22>"
+      "media_type": "application/vnd.oci.image.manifest.v1+json"
     },
     "system_uki": {
       "digest": "sha256:<64 lowercase hexadecimal digits>",
       "size": "123456",
-      "media_type": "<defined by D22>"
-    },
-    "pcr_policy": {
-      "digest": "sha256:<64 lowercase hexadecimal digits>",
-      "size": "123456",
-      "media_type": "<defined by D22>"
-    },
-    "integrity.rootfs": {
-      "digest": "sha512:<128 lowercase hexadecimal digits>",
-      "size": "123456789",
-      "media_type": "<defined by D22>"
+      "media_type": "application/vnd.microsoft.portable-executable"
     }
+  },
+  "rootfs": {
+    "format": "composefs",
+    "digest": "sha512:<128 lowercase hexadecimal digits>"
   }
 }
 ```
@@ -205,7 +196,8 @@ without changing release identity.
 - exact deployment reproduction;
 - safe promotion of the same artifact;
 - ability to block a specific digest;
-- unambiguous one-descriptor-per-role artifact selection;
+- unambiguous one-descriptor-per-role artifact selection and a distinct rootfs
+  integrity identity;
 - binding of boot artifacts and policy to the matching system payload;
 - signature rotation without changing manifest identity;
 - the UI still displays a friendly release number.
