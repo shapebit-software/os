@@ -14,7 +14,7 @@ decisions, and engineering checklists.
 ## Published site
 
 The same documentation is published as a Jekyll site at
-[shapebit-software.github.io/docs](https://shapebit-software.github.io/docs/).
+[shapebit.software](https://shapebit.software/).
 
 ## Source repositories
 
