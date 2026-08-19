@@ -6,10 +6,10 @@ decisions, and engineering checklists.
 
 ## Documentation
 
-- [System design and delivery tracker](System-Design.md)
-- [Architecture decision records](Architecture-Decisions.md)
-- [Persistent-state component checklist](Checklist-Persistent-State-Component.md)
-- [Update release-candidate checklist](Checklist-Update-Release-Candidate.md)
+- [System design and delivery tracker](system-design.md)
+- [Architecture decision records](architecture-decisions.md)
+- [Persistent-state component checklist](checklist-persistent-state-component.md)
+- [Update release-candidate checklist](checklist-update-release-candidate.md)
 
 ## Published site
 
