@@ -19,7 +19,7 @@ gates.
 The first integration target is a serializable `InstallationPlan`, a mock or
 dry-run backend, and UI integration without modifying a real disk. The parent
 repository's
-[system design](https://github.com/shapebit-software/os/blob/main/docs/architecture/system-design.md)
+[system design](https://github.com/shapebit-software/docs/wiki/System-Design)
 defines the delivery sequence, responsibilities, and safety boundaries.
 
 Human accounts use `systemd-homed` with one LUKS2 home per user. The login
