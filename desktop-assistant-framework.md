@@ -10,7 +10,7 @@ not implemented or verified desktop behavior.
 
 - Voice and chat are channels to the same framework, not separate assistants.
   The framework and its agents run locally.
-- The initial product has one global assistant agent shared across all Projects
+- The initial product has one global assistant agent shared across all Workspaces
   and both channels.
 - Context access, capabilities, privileges, and confirmations do not vary by
   input channel.

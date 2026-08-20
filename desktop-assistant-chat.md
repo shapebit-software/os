@@ -8,7 +8,7 @@ intended behavior, not implemented or verified desktop behavior.
 
 ## Surface
 
-- Chat is a global, on-demand overlay not owned by a Project.
+- Chat is a global, on-demand overlay not owned by a Workspace.
 - It opens from the system bar or a user-configurable shortcut and remains
   hidden when inactive.
 - Escape or clicking outside hides it without ending the conversation or

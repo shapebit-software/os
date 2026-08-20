@@ -31,7 +31,7 @@ architecture:
   upstream interfaces remain visible dependencies rather than being renamed by
   unnecessary ShapeBit wrappers.
 - The initial application scope is native Wayland; XWayland is deferred.
-- Ordinary Wayland applications receive core Project and window behavior
+- Ordinary Wayland applications receive core Workspace and window behavior
   without ShapeBit-specific support. Richer state is used only when exposed by
   a trustworthy application interface.
 - A shell failure preserves applications and authoritative lock state. A
@@ -51,19 +51,23 @@ and
 
 ## Goals
 
-### G1. Organize windows around Projects
+### G1. Organize windows around Workspaces
 
-A **Project** is a named, persistent workspace that groups windows and their
-compositor-owned layout. **General** is the default Project for work that does
-not need a named context.
+A **Workspace** is a persistent user-facing surface that groups windows and
+their compositor-owned layout. Workspaces are unnamed by default and arranged
+in a horizontal sequence. The detailed lifecycle, optional naming, switching,
+deletion, multi-display, and window-admission rules are defined in
+[Workspaces](desktop-workspaces.md).
 
-ShapeBit restores Project membership and layout. Application content and
+ShapeBit restores Workspace membership and layout. Application content and
 sessions are restored only when the application provides reliable support.
 
-Projects do not initially own files, Shelf contents, notifications, tasks,
+The initial product has one hidden **Project** containing all Workspaces.
+Projects are reserved for a future feature that may store groups of Workspaces
+and other related material; no user-facing Project hierarchy exists initially.
+Workspaces do not initially own files, Shelf contents, notifications, tasks,
 focus rules, or background operations. Those integrations will be designed
-separately. One Project is one workspace; a visible **Desk** hierarchy is not
-part of the initial model.
+separately.
 
 ### G2. Make window organization predictable and reversible
 
@@ -72,11 +76,14 @@ is the default. Floating is reserved for transient windows or an explicit
 placement choice. Presentation may be normal, expanded, or fullscreen.
 Keyboard focus is independent of both placement and presentation.
 
+Detailed insertion, resizing, collapsed-state, floating, and presentation
+rules are defined in [Window Management](desktop-window-management.md).
+
 A tiled window may be **collapsed** into a compositor-owned spine on the
-Project surface. Adjacent tiles temporarily receive its space. Restoring the
+Workspace surface. Adjacent tiles temporarily receive its space. Restoring the
 window returns its previous size and restores the adjacent layout.
 
-Expanding a window temporarily fills the usable Project area without changing
+Expanding a window temporarily fills the usable Workspace area without changing
 its saved layout. Fullscreen also hides desktop chrome. One action restores the
 previous presentation.
 
@@ -94,21 +101,23 @@ ordinary tile.
 
 ### G4. Navigate through one Overview
 
-The Overview shows Projects, their windows and stacks, and applications. It is
-used to create or switch Projects, focus an existing window, and launch an
-application into the selected Project. Search initially covers only those three
+The Overview shows Workspaces, their windows and stacks, and applications. It is
+used to create or switch Workspaces, focus an existing window, and launch an
+application into the selected Workspace. Search initially covers only those three
 object types.
 
-Launching never moves an existing window between Projects implicitly. Broader
-search, actions, archival controls, cross-Project dragging, and the exact visual
+Launching never moves an existing window between Workspaces implicitly. Broader
+search, actions, archival controls, and the exact visual
 arrangement will be designed later.
 
 ### G5. Keep permanent chrome minimal and truthful
 
 A compact system bar remains visible during normal, collapsed, and expanded
-presentations and hides during fullscreen. It shows the current Project, access
-to Overview and the global assistant, active privacy indicators, essential
-device status, and time. It is not a taskbar or permanent application launcher.
+presentations and hides during fullscreen. It shows access to Overview and the
+global assistant, active privacy indicators, essential device status, and time.
+It is not a taskbar or permanent application launcher. The Workspace sequence
+has a persistent graphical representation, but its placement and visual form
+remain undecided.
 
 The [Shelf](desktop-shelf.md),
 [assistant chat](desktop-assistant-chat.md), and

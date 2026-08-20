@@ -3,12 +3,12 @@
 **Status:** Draft
 
 The Shelf is a temporary, user-controlled place for keeping material close at
-hand while working across [Projects](desktop-goals.md). This document records
+hand while working across [Workspaces](desktop-workspaces.md). This document records
 intended behavior, not implemented or verified desktop behavior.
 
 ## Scope and contents
 
-- The Shelf is global to the user, not owned by a Project, and cleared at
+- The Shelf is global to the user, not owned by a Workspace, and cleared at
   logout.
 - Items enter only through an explicit action such as dragging or **Send to
   Shelf**. Clipboard contents are never captured automatically.

@@ -10,6 +10,8 @@ been implemented or verified.
 ## Product model
 
 - [Desktop goals](desktop-goals.md)
+- [Workspaces](desktop-workspaces.md)
+- [Window management](desktop-window-management.md)
 - [Shelf](desktop-shelf.md)
 - [Gaze input](desktop-gaze-input.md)
 
