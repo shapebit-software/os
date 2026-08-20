@@ -2,6 +2,7 @@
 
 - [Home](Home)
 - [System design](system-design)
+- [ShapeBit Desktop](desktop)
 - [Architecture decisions](architecture-decisions)
 
 ### Decision records

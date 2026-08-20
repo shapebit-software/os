@@ -814,14 +814,16 @@ ShapeBit base. Distrobox is not a security sandbox. A validated ShapeBit
 development image may become the later first choice while Fedora remains a
 supported reference.
 
-The desktop uses Rust, Smithay, Wayland, systemd user services, D-Bus,
-PipeWire, portals, libinput, Mesa, DRM, and KMS. A minimal compositor owns
-Wayland, input, outputs, and lock state. One restartable shell contains the
-panel, launcher, notifications, and primary desktop UI. Separate trusted
-processes own locking and authorization. A shell failure preserves applications;
-a compositor failure ends the damaged graphical session, returns to the
-independent greeter, and records diagnostics. ShapeBit applications provide
-autosave where possible, but arbitrary process state is not recoverable.
+Product goals and interaction designs are maintained in
+[ShapeBit Desktop](desktop.md). The desktop uses Rust, Smithay, Wayland, systemd
+user services, D-Bus, PipeWire, portals, libinput, Mesa, DRM, and KMS. A minimal
+compositor owns Wayland, input, outputs, and lock state. One restartable shell
+contains the panel, launcher, notifications, and primary desktop UI. Separate
+trusted processes own locking and authorization. A shell failure preserves
+applications; a compositor failure ends the damaged graphical session, returns
+to the independent greeter, and records diagnostics. ShapeBit applications
+provide autosave where possible, but arbitrary process state is not
+recoverable.
 
 Per-output fractional scaling, remembered layouts, HDR, independent SDR/HDR
 color transforms, and fullscreen VRR are initial requirements. HDR is enabled
