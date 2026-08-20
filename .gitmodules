@@ -6,4 +6,4 @@
 	url = git@github.com:shapebit-software/image.git
 [submodule "docs"]
 	path = docs
-	url = git@github.com:shapebit-software/docs.git
+	url = git@github.com:shapebit-software/website.wiki.git
