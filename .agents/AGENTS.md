@@ -2,8 +2,8 @@
 
 ## General Guidelines
 
+- Always be as precise and concise as possible, without sacrificing completeness or clarity.
 - Keep repository content in English.
-- Run `tests/test-shapebit-agents.sh` after changing the management CLI.
 
 ## ShapeBit OS
 
