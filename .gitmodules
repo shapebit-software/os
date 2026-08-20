@@ -7,3 +7,6 @@
 [submodule "docs"]
 	path = docs
 	url = git@github.com:shapebit-software/website.wiki.git
+[submodule ".agents/shared"]
+	path = .agents/shared
+	url = git@github.com:shapebit-software/agents.git
