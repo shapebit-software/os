@@ -9,11 +9,15 @@ intended behavior, not implemented or verified desktop behavior.
 ## Surface
 
 - Chat is a global, on-demand overlay not owned by a Workspace.
+- Chat is an independent panel anchored at the bottom-left. It is not a pane or
+  region inside the Shelf.
 - It opens from the system bar or a user-configurable shortcut and remains
   hidden when inactive.
 - Escape or clicking outside hides it without ending the conversation or
   stopping ongoing work. Reopening restores the same conversation and
   position.
+- Chat and Shelf may remain open together, but their exact adjacent or
+  overlapping layout remains undecided.
 
 ## Conversations
 

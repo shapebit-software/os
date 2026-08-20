@@ -19,9 +19,27 @@ intended behavior, not implemented or verified desktop behavior.
 
 ## Presentation and capacity
 
-- The Shelf is an on-demand overlay opened with a screen-edge gesture and
-  hidden when inactive.
-- The default edge is the right edge of the display and is user-configurable.
+- The Shelf has no system-bar icon initially.
+- The Shelf is a bottom-edge surface independent of system-bar placement. It
+  does not move when the user moves the system bar to the top.
+- Clicking or tapping the bottom edge reveals a small Shelf bar. The Shelf opens
+  upward from that bar as an overlay.
+- When the system bar is at the bottom, an open Shelf temporarily replaces it.
+  When the system bar is at the top, it remains visible while the Shelf is open.
+- Shelf contents are global and only one overlay can be open at a time. Opening
+  it on another display closes the previous overlay and reopens the same Shelf
+  on the newly activated display. Exact multi-display bottom-edge activation
+  remains undecided.
+- Clicking outside or pressing Escape closes the overlay.
+- The open Shelf overlays windows and never resizes or changes the tiled layout.
+- A foreground fullscreen window disables bottom-edge Shelf activation on that
+  display. The explicit Shelf keyboard shortcut remains available and opens the
+  overlay above fullscreen.
+- The open Shelf remains open across Workspace switches.
+- Opening Overview closes the Shelf overlay without changing its contents.
+- Shelf and assistant chat remain independent surfaces and may be open together
+  so items can be dragged into a conversation. Their exact coexistence layout
+  remains undecided.
 - There is no item-count limit; the overlay scrolls when full.
 - Snapshots share a configurable storage-size limit. Existing items are never
   evicted silently.

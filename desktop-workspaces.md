@@ -11,15 +11,16 @@ intended behavior, not implemented or verified desktop behavior.
 The initial desktop has one hidden **Project** entity. It contains the user's
 Workspaces and is not exposed as a creation, switching, or navigation level.
 Projects are reserved as a future extension for storing sets of Workspaces and
-other related material. That future behavior remains undecided.
+other related material. Project names are unique; other future Project behavior
+remains undecided.
 
 ## Workspace set
 
 - ShapeBit always has at least one Workspace. No Workspace has a special Home
   identity or appearance.
 - Workspaces are unnamed by default. A user may assign a name later.
-- A user-assigned name is trimmed, non-empty, and unique without regard to
-  letter case.
+- Non-empty Workspace names are trimmed and unique without regard to letter
+  case. An empty name means the Workspace is unnamed.
 - A Workspace created through the ordinary creation action starts empty and
   becomes active immediately. Edge-transfer creation is the exception described
   below.
@@ -30,10 +31,90 @@ other related material. That future behavior remains undecided.
 ## Persistent representation
 
 ShapeBit keeps a compact graphical representation of the Workspace sequence on
-the desktop, with distinct active and inactive states. Every unnamed Workspace
-uses the same visual treatment. The representation may use a line with
-application text, application icons, or another compact representation. Its
-placement, contents, and final visual form remain open design decisions.
+the center of the system bar, between Overview and assistant controls on the
+left and privacy, device-status, and time indicators on the right. Every
+display's bar shows the same global Workspace strip. It is horizontal, with one
+equal-width segment per Workspace in navigation order.
+
+The strip scrolls horizontally within its allotted bar area instead of
+shrinking segments and automatically keeps the active Workspace visible.
+Scrolling over an overflowing strip moves its viewport without switching the
+active Workspace; switching remains an explicit click, shortcut, or dedicated
+gesture.
+
+- The active Workspace segment is highlighted. Other segments remain subdued
+  but visible.
+- Pointer hover shows a tooltip only; it never previews or switches the
+  Workspace.
+- An unnamed empty Workspace has no generic icon. Its boundary and state are
+  the only visible content. Tooltips and accessibility interfaces identify it
+  by its current position, such as **Workspace 2**; that is not a persistent
+  name.
+- A user-assigned Workspace name appears before its application icons and is
+  truncated when necessary. Its tooltip exposes the complete name.
+- Users can reorder Workspaces by dragging their segments. An equivalent
+  keyboard-accessible reorder command is required, and the spatial order
+  changes immediately. Reordering does not activate another Workspace or alter
+  windows. Keyboard focus follows the moved segment so repeated commands keep
+  moving the same Workspace.
+- A segment's secondary-click menu initially contains **Rename** and **Delete
+  Workspace**. Deletion follows the rules below.
+- **Rename** opens a popover anchored to the segment rather than editing the
+  segment itself. Valid edits apply automatically; there are no Save or Cancel
+  actions. A duplicate name is shown as invalid input and does not replace the
+  last valid name. Clicking outside, pressing Escape, or using the close
+  control closes the popover while keeping the latest valid value. Clearing the
+  field returns the Workspace to its unnamed state.
+- A trailing **+** control creates a new unnamed Workspace at the end and
+  switches to it immediately. It appears when the pointer hovers anywhere over
+  the strip or when keyboard focus enters the strip. A keyboard command and
+  accessibility interface expose the same action without depending on hover.
+- On touch, a long-press reveals the creation and segment-management controls,
+  which remain visible until the user taps outside the strip. Long-pressing a
+  segment and dragging reorders it; long-pressing and releasing without movement
+  opens its Rename/Delete menu.
+
+Each application with a window in a Workspace appears once as an icon, with a
+count badge when it has multiple windows. Icons retain first-appearance order
+instead of moving with focus. An icon disappears when its application's last
+window leaves or closes; background applications without windows do not appear.
+Application icons are not draggable between Workspace segments in the initial
+design; individual-window and complete-stack transfer controls remain the
+unambiguous movement mechanisms.
+
+- The focused application's icon has a stronger highlight inside the active
+  Workspace.
+- Clicking an application icon in an inactive Workspace switches to that
+  Workspace and focuses the application's most recently used window, restoring
+  a collapsed window or selecting its stack member when necessary.
+- In the active Workspace, clicking an icon focuses its most recently used
+  window. Repeated clicks while that window is focused cycle through the
+  application's other windows in recent-use order.
+- Clicking empty space in a Workspace segment switches to it without changing
+  its remembered window focus.
+- When all application icons do not fit, the segment ends with a `+N` overflow
+  indicator. Activating it opens a small anchored list without switching
+  Workspaces until an application is selected.
+- An application attention request marks its icon and its Workspace segment,
+  including when the icon is in overflow. It never switches or focuses
+  automatically. The marker clears when the relevant window receives focus or
+  the application withdraws the request, not merely when its Workspace becomes
+  active.
+
+## Strip keyboard navigation
+
+- Left and Right move between Workspace segments; Enter activates the focused
+  Workspace.
+- Down enters the selected Workspace's application icons. Left and Right move
+  between icons, and Up returns to the Workspace-segment level.
+- Right from the last Workspace segment moves focus to the trailing **+**
+  control. Enter creates and activates a Workspace; Left returns to the last
+  segment.
+- The `+N` overflow indicator is the final item at the application level. Enter
+  opens its hidden-application list, where arrow keys navigate the entries.
+- Escape first closes the overflow list, then leaves the application level, and
+  finally returns focus to the previously focused window. It does not change
+  Workspaces unless the user activated one.
 
 ## Overview
 
@@ -67,7 +148,8 @@ placement, contents, and final visual form remain open design decisions.
 
 - Deleting an empty Workspace is immediate and requires no confirmation when
   another Workspace remains. Deletion is unavailable when it would remove the
-  final Workspace.
+  final Workspace. In that case the menu item remains visible but disabled and
+  explains that ShapeBit requires at least one Workspace.
 - Deleting a non-empty Workspace opens a small transient choice window. **Move
   windows to another Workspace** has initial keyboard focus; **Close
   applications** is the secondary action. Other Workspaces are presented as
@@ -85,6 +167,13 @@ placement, contents, and final visual form remain open design decisions.
   remains with any windows that are still open.
 - The Workspace is removed entirely only after either transfer or closure
   succeeds.
+- Deleting the active Workspace activates its nearest neighbor, preferring the
+  left and otherwise the right. Deleting an inactive Workspace leaves the
+  current active Workspace and keyboard focus unchanged.
+- When closing applications in an inactive Workspace requires an unsaved-work
+  interaction, ShapeBit temporarily switches there so the prompt is usable.
+  After the close sequence succeeds or is cancelled, ShapeBit returns to the
+  previously active Workspace unless that Workspace was the deletion target.
 
 ## Window admission
 
@@ -128,6 +217,16 @@ placement, contents, and final visual form remain open design decisions.
 - Keyboard **Move window left/right** commands mirror a quick edge drop,
   including background creation at either end. Separate commands move the
   complete stack. Exact bindings are deferred.
+- Dropping a dragged window on a Workspace segment also transfers it there. A
+  quick drop uses automatic insertion and leaves the source active; holding
+  over the segment opens the target Workspace for exact placement.
+- Dropping on the trailing **+** control creates an unnamed target Workspace.
+  A quick drop creates it in the background, while holding opens it for exact
+  placement.
+- The same configurable modifier transfers the complete stack through either
+  bar target. On multiple displays, automatic insertion uses the display whose
+  system bar received the drop, targeting its focused tiled region or filling
+  it when none exists.
 
 ## Display changes
 

@@ -115,9 +115,19 @@ arrangement will be designed later.
 A compact system bar remains visible during normal, collapsed, and expanded
 presentations and hides during fullscreen. It shows access to Overview and the
 global assistant, active privacy indicators, essential device status, and time.
-It is not a taskbar or permanent application launcher. The Workspace sequence
-has a persistent graphical representation, but its placement and visual form
-remain undecided.
+It is not a global taskbar or permanent application launcher: application
+icons represent only windows that already exist inside each Workspace. The
+Workspace sequence has a persistent graphical representation integrated into
+the system bar.
+The Workspace strip is centered and repeated on every display; the other bar
+contents remain grouped to its left and right.
+
+The bar is placed at the bottom by default. One per-user setting can move it to
+the top on every display. It has no automatic-hide mode initially; it hides only
+on a display where fullscreen presentation is in the foreground. While visible,
+it reserves screen space so tiled and expanded windows never sit underneath it.
+An open bottom Shelf replaces a bottom-positioned bar; a top-positioned bar
+remains visible.
 
 The [Shelf](desktop-shelf.md),
 [assistant chat](desktop-assistant-chat.md), and

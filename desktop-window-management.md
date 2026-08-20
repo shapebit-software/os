@@ -107,5 +107,6 @@ manually collapsed region has the same priority.
   display. Other displays remain usable.
 - For a floating window spanning displays, the current display is the one that
   contains the largest portion of the window.
-- Fullscreen hides desktop chrome only on its display. Chrome remains visible
-  on every other display.
+- Fullscreen hides desktop chrome only while it is the foreground presentation
+  on its display. Chrome returns when a non-fullscreen window comes to the
+  foreground there and remains visible on every other display.
