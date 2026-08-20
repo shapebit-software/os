@@ -3,6 +3,7 @@
 ## General Guidelines
 
 - Keep repository content in English.
+- Run `tests/test-shapebit-agents.sh` after changing the management CLI.
 
 ## ShapeBit OS
 
