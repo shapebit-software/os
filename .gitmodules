@@ -10,3 +10,6 @@
 [submodule ".agents/shared"]
 	path = .agents/shared
 	url = git@github.com:shapebit-software/agents.git
+[submodule "desktop"]
+	path = desktop
+	url = git@github.com:shapebit-software/desktop.git
