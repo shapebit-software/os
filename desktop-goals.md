@@ -126,8 +126,8 @@ The bar is placed at the bottom by default. One per-user setting can move it to
 the top on every display. It has no automatic-hide mode initially; it hides only
 on a display where fullscreen presentation is in the foreground. While visible,
 it reserves screen space so tiled and expanded windows never sit underneath it.
-An open bottom Shelf replaces a bottom-positioned bar; a top-positioned bar
-remains visible.
+A Shelf preview or full Shelf replaces a system bar on the same configured
+edge; a bar on another edge remains visible.
 
 The [Shelf](desktop-shelf.md),
 [assistant chat](desktop-assistant-chat.md), and
