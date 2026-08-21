@@ -22,8 +22,8 @@ remains undecided.
 - Non-empty Workspace names are trimmed and unique without regard to letter
   case. An empty name means the Workspace is unnamed.
 - A Workspace created through the ordinary creation action starts empty and
-  becomes active immediately. Edge-transfer creation is the exception described
-  below.
+  becomes active immediately. Overview and edge-transfer creation are the
+  exceptions described below.
 - There is no user-facing maximum number of Workspaces. Overview adapts through
   scrolling and search.
 - Workspaces form a user-reorderable horizontal sequence.
@@ -118,11 +118,57 @@ unambiguous movement mechanisms.
 
 ## Overview
 
+- Overview opens as one coordinated mode across every display. Each display
+  preserves and presents the windows normally placed there rather than moving
+  all thumbnails onto one screen.
+- The display whose Overview button was clicked contains the search and
+  application controls. The keyboard shortcut uses the focused window's
+  display. Other displays participate without duplicating those main controls.
+- The default main view prioritizes window and stack thumbnails. The full
+  application list opens through a separate **Applications** control, while
+  typing searches Workspaces, windows, and applications immediately.
+- Each display's compact Workspace strip expands into larger previews in the
+  same horizontal order. A preview contains only that display's windows, while
+  Workspace selection remains synchronized across all displays.
+- The selected Workspace preview expands to show usable window thumbnails;
+  inactive Workspaces remain smaller summaries. A single click selects and
+  expands a Workspace without leaving Overview. Enter or double-click activates
+  it and closes Overview.
+- The trailing **+** is always visible in Overview. It creates an unnamed empty
+  Workspace and selects it while Overview remains open; creation here does not
+  activate the Workspace yet.
+- Escape closes Overview and returns to the Workspace that was active when it
+  opened, regardless of the current selection. Preview selection alone never
+  activates a Workspace.
+- Expanded Workspace previews preserve the relative tiled, stacked, collapsed,
+  and floating arrangement rather than packing windows into a separate grid.
+- A stack appears as one tiled-region preview with its active member visible and
+  a row of member icons. Clicking a member selects its preview; Enter or
+  double-click focuses it and closes Overview.
+- A collapsed region remains a spine in the preview. Selecting it highlights
+  the spine; Enter or double-click restores and focuses it, then closes
+  Overview.
+- Dragging a window preview to another Workspace supports the same two transfer
+  modes as the bar and screen edge. A quick drop uses automatic insertion,
+  leaves the source selected, and keeps Overview open. Holding over the target
+  selects and expands it for exact placement; it remains selected after the
+  drop, and Overview stays open.
+- The configurable stack-transfer modifier moves the complete stack when a
+  member preview is dragged.
+- Dropping a window preview on Overview's **+** creates an unnamed target. A
+  quick drop creates it in the background and leaves the source selected;
+  holding creates and selects it for exact placement.
+- A hovered or keyboard-focused window preview exposes a close control; Delete
+  is its keyboard equivalent. An unsaved-work prompt appears above Overview,
+  and cancelling it leaves Overview open.
 - Overview initially selects the active Workspace and presents Workspaces in
   their horizontal order.
 - Typing while Overview is open starts search immediately without first
   focusing a search field. Search initially covers Workspaces, windows, and
   applications.
+- With a non-empty query, the first Escape clears search and restores normal
+  Overview. A second Escape exits Overview and returns to the previously active
+  Workspace.
 - Activating a Workspace result switches to it and closes Overview.
 - Activating a window result switches to its Workspace, restores it if
   collapsed, selects its stack member when necessary, focuses it, and closes

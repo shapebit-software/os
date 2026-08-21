@@ -56,6 +56,15 @@ intended behavior, not implemented or verified desktop behavior.
   automatically. The assistant system-bar control shows completion or attention
   instead. If chat is already open in its passive bubble state, the new response
   may appear there.
+- Assistant responses stream progressively into one bubble. While a response or
+  action is active, the Send control becomes **Stop**. Escape hides chat without
+  stopping the agent.
+- The input remains usable during active work. Sending another message adds it
+  to the visible shared assistant queue rather than interrupting the current
+  operation; queued items identify whether they came from chat or voice.
+- Switching conversations never moves or cancels work. Every queued request and
+  result remains attached to its originating conversation while another
+  conversation may be visible.
 
 ## Conversations
 
@@ -66,6 +75,22 @@ intended behavior, not implemented or verified desktop behavior.
 - The conversation list is ordered by latest activity and supports local search
   across titles and messages.
 - Deletion is immediate and confirmation-free, with a brief **Undo** action.
+
+## Actions and confirmations
+
+- Assistant tool and action requests appear as structured cards between message
+  bubbles. Cards show pending, running, completed, or failed state rather than
+  representing execution as ordinary assistant prose.
+- A capability permission request and an individual action confirmation are
+  separate cards. Granting a capability never also approves a destructive,
+  privileged, or externally communicating action waiting behind it.
+- When confirmation is required while chat is passive, the pending card remains
+  visible among the three passive items and the assistant system-bar control
+  marks attention. Chat does not take focus automatically. If chat is hidden,
+  only the bar attention state appears until the user opens it.
+- A completed action card collapses to a compact result summary with expandable
+  details. The complete event also remains in the central assistant activity
+  log defined by the shared framework.
 
 Chat uses the same global assistant, memory, capabilities, privileges, and
 confirmation rules as voice Assistant mode, all defined by the shared

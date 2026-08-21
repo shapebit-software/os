@@ -14,6 +14,22 @@ not implemented or verified desktop behavior.
   and both channels.
 - Context access, capabilities, privileges, and confirmations do not vary by
   input channel.
+- The global agent has one serialized request queue shared by voice Assistant
+  mode and chat. Requests retain their source channel and run in arrival order.
+- Cancelling the current request stops that operation and then allows the next
+  queued request to begin. Cancellation does not silently discard the queue.
+- Cancellation stops generation and requests cancellation from an active action
+  only when that action supports it. It never rolls back completed effects and
+  clearly reports when an in-progress action cannot be interrupted.
+- A non-interruptible action continues to hold the serialized queue until it
+  finishes; later requests never run concurrently through the same agent.
+- The assistant system-bar control shows current activity and the number of
+  queued requests, including while chat is hidden.
+- Locking the session hides all assistant output. Already-authorized local work
+  may continue, but results are exposed only after unlock. Requests that have
+  not started remain paused in the queue until the session unlocks.
+- Work that reaches a permission or confirmation step while locked pauses and
+  presents the card only after unlock.
 
 ## Permissions and actions
 
@@ -31,6 +47,9 @@ not implemented or verified desktop behavior.
 - Reversible, non-destructive actions may run immediately. Destructive,
   privileged, or externally communicating actions require confirmation every
   time, regardless of persistent capability grants.
+- Capability grants and required action confirmations must be activated through
+  the visible card with pointer or keyboard input. Spoken confirmation is not
+  sufficient in the initial design.
 
 ## History and memory
 

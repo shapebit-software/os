@@ -1,9 +1,10 @@
 ## ShapeBit Docs
 
 - [Home](Home)
-- [System design](system-design)
-- [ShapeBit Desktop](desktop)
-- [Architecture decisions](architecture-decisions)
+- [Architecture](Architecture)
+  - [System design](system-overview)
+  - [Desktop Environment](desktop)
+  - [Architecture decisions](architecture-decisions)
 
 ### Decision records
 
@@ -50,8 +51,3 @@
 - [ADR-0041](adr-0041-release-artifact-and-rootfs-binding)
 - [ADR-0042](adr-0042-production-signing-operations)
 - [ADR template](adr-template)
-
-### Checklists
-
-- [Persistent-state component](checklist-persistent-state-component)
-- [Update release candidate](checklist-update-release-candidate)

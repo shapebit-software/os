@@ -13,6 +13,12 @@ verified desktop behavior.
 - An explicit keyboard key or mouse button moves the pointer to the latest
   stable gaze point without clicking. ShapeBit provides a default trigger that
   the user can reconfigure.
+- With a reliable point, the trigger moves the pointer immediately and shows a
+  brief visual ripple at the destination so it is easy to locate.
+- The destination is the measured gaze point; ShapeBit does not snap to nearby
+  controls by default.
+- The trigger does nothing during an active pointer drag or resize, preventing
+  an object from being moved unexpectedly.
 - The system bar shows a privacy indicator whenever tracking is active. The
   indicator provides direct pause and resume controls.
 
@@ -31,10 +37,18 @@ Camera access and privacy indication remain subject to
 
 - First login with supported hardware offers guided calibration. It may be
   skipped, but tracking remains paused until calibration succeeds.
+- Without supported gaze hardware, the feature remains inactive without
+  repeated prompts or error indicators. Settings shows that it is unavailable.
 - If the trigger is pressed without a reliable point, the pointer remains in
   place and a brief recalibration notice appears.
 - Sustained low confidence pauses tracking and offers recalibration instead of
   repeatedly showing notices.
+- Calibration is stored separately for each display, and the pointer may move
+  directly between calibrated displays. Looking at an uncalibrated display does
+  not move the pointer and offers calibration instead.
+- A display-position, orientation, scaling, or physical-setup change that makes
+  stored calibration unreliable pauses tracking for that display until it is
+  recalibrated.
 
 ## Deferred details
 

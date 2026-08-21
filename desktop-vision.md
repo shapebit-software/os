@@ -132,5 +132,8 @@ edge; a bar on another edge remains visible.
 The [Shelf](desktop-shelf.md),
 [assistant chat](desktop-assistant-chat.md), and
 [voice interaction](desktop-voice-interaction.md) have separate interaction
-designs. The exact bar layout and later attention, notification, and
-background-activity surfaces remain deferred.
+designs. Banner, notification-center, and attention routing are defined in
+[Notifications](desktop-notifications.md). Background-activity behavior is defined in
+[Background Activity](desktop-background-activity.md). Fast system controls are
+defined in [Quick Settings](desktop-quick-settings.md). Exact bar styling remains
+deferred.
