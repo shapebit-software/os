@@ -1,9 +1,6 @@
-# ShapeBit Docs
+# ShapeBit Operating System
 
-ShapeBit OS is an image-based Linux desktop operating system built on Fedora.
-This Wiki is the canonical home for its system design, durable architecture
-decisions, and product architecture documentation.
-
-## Documentation
+A personal desktop operating system designed to help people
+organize their work, stay focused, and finish what they start.
 
 - [Architecture](Architecture.md)

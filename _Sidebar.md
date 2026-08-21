@@ -1,6 +1,6 @@
 ## ShapeBit Docs
 
-- [Home](Home)
+- [Introduction](Home)
 - [Architecture](Architecture)
   - [Base System](base-system)
   - [Boot and System Lifecycle](boot-system-lifecycle)
