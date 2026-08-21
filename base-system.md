@@ -52,13 +52,12 @@ UEFI boot, login, secure boot chain, TPM unlock, working installer, or working
 desktop. The delivery roadmap below remains unchecked until each outcome has
 appropriate build or runtime evidence.
 
-## Architecture topics
+## Core platform
 
-## Fedora + bootc as the System Base
+### Fedora + bootc as the System Base
 
-**Date:** 2026-08-04
 
-### Context
+#### Purpose and constraints
 
 ShapeBit OS requires a modern desktop stack, atomic updates, rollback, systemd, good Wayland support, and the ability to build custom images.
 
@@ -69,11 +68,11 @@ Options considered:
 - Debian + A/B/dm-verity;
 - openSUSE MicroOS.
 
-### Decision
+#### Design
 
 ShapeBit OS will initially be built as a derivative Fedora bootc image.
 
-### Rationale
+#### Why this design
 
 - ready-made image-based model;
 - OCI images;
@@ -83,7 +82,7 @@ ShapeBit OS will initially be built as a derivative Fedora bootc image.
 - lower cost of creating a secure updater than with Arch;
 - ability to focus on the desktop and UX.
 
-### Positive consequences
+#### Benefits
 
 - rapid prototype development;
 - transactional deployments;
@@ -91,33 +90,31 @@ ShapeBit OS will initially be built as a derivative Fedora bootc image.
 - rollback;
 - straightforward image versioning and signing.
 
-### Negative consequences
+#### Tradeoffs
 
 - no native Fedora rolling release;
 - periodic migrations between Fedora base versions;
 - dependency on RPM/DNF, SELinux, and the bootc ecosystem;
 - need to track Fedora Image Mode maturity.
 
-### Decision review
+#### Review conditions
 
 Re-evaluate the decision after reaching M3 or if bootc presents major limitations.
 
-### Boundaries
+#### Ownership boundaries
 
 This section selects the system base and deployment technology. It does not select
 the filesystem, encryption, boot trust, release identity, or user interface.
 
-## Filesystem Ownership Boundaries
+### Filesystem Ownership Boundaries
 
 **Status:** Proposed
-**Date:** 2026-08-04
-**Last updated:** 2026-08-15
 
-### Context
+#### Purpose and constraints
 
 An image-based system requires a clear separation between code, machine configuration, and persistent state. Without it, image rollback may conflict with local changes.
 
-### Decision
+#### Design
 
 - `/usr` and `/opt` belong to the image and are read-only during normal operation.
 - `/etc` stores only device and administrator configuration.
@@ -129,37 +126,35 @@ An image-based system requires a clear separation between code, machine configur
 This section defines logical ownership, not the partition table, filesystem type,
 encryption topology, snapshot policy, or migration mechanism.
 
-### Positive consequences
+#### Benefits
 
 - predictable deployments;
 - auditable changes;
 - simpler image rollback;
 - less configuration drift.
 
-### Negative consequences
+#### Tradeoffs
 
 - some existing software will require changes;
 - persistent host data must obey the forward-migration and trial-rollback
   contract;
 - administrators cannot treat the host like a traditional Fedora installation.
 
-### Review criteria
+#### Review criteria
 
 Review after the first working update + rollback in M2.
 
-## Btrfs for Persistent System State
+### Btrfs for Persistent System State
 
-**Date:** 2026-08-04
-**Last updated:** 2026-08-09
 
-### Context
+#### Purpose and constraints
 
 ShapeBit OS needs a small, understandable set of storage boundaries, checksums,
 and shared-space management for persistent system state. Encryption is a
 separate system-volume decision. Snapshot policy is deliberately not part of
 this decision.
 
-### Decision
+#### Design
 
 Use Btrfs inside the system LUKS2 volume with four structural subvolumes:
 
@@ -199,7 +194,7 @@ without preserving ordinary host state.
 capacity pool. This section still owns only the outer persistent-system-state
 filesystem and its detailed subvolume layout.
 
-### Rationale
+#### Why this design
 
 - encryption of persistent system state;
 - subvolumes without rigid space partitioning;
@@ -207,14 +202,14 @@ filesystem and its detailed subvolume layout.
 - compression;
 - future send/receive capability.
 
-### Risks
+#### Risks
 
 - more complex recovery;
 - behavior when full;
 - need for power-failure testing;
 - a future snapshot feature would add retention and capacity complexity.
 
-### Corruption policy
+#### Corruption policy
 
 Recovery is conservative and export-first:
 
@@ -233,7 +228,7 @@ Scrub validates checksums and may repair data only when another valid copy
 exists. ShapeBit does not present scrub as a guarantee that single-copy data can
 be reconstructed.
 
-### Validation plan
+#### Validation plan
 
 - low-space tests;
 - simulated power loss;
@@ -242,146 +237,25 @@ be reconstructed.
 - independent activation and recovery of multiple encrypted user homes;
 - tests on several NVMe/SATA disks.
 
-### Alternative
+#### Alternative
 
 LUKS2 + ext4/XFS if Btrfs testing does not meet the M7 criteria.
 
-## Platform Scope and Hardware Validation
+## Storage and capacity
 
-**Date:** 2026-08-06
-**Last updated:** 2026-08-15
+### Initial Installation and Storage Profile
 
-### Context
 
-ShapeBit OS needs a reproducible virtual target, a realistic path to physical
-hardware, and hardware claims that do not imply untested generic-PC support.
-Fedora validates the base distribution and many upstream components, but it
-does not validate the ShapeBit boot chain, storage policy, recovery behavior,
-updates, rollback, or exact hardware integration.
-
-### Decision
-
-#### Supported platform scope
-
-- The initial automated target is x86-64 QEMU with OVMF and a software TPM.
-- The official developer host class is Linux x86-64 with KVM. Fedora is the
-  canonical host and the required CI environment.
-- Other Linux distributions may use the same workflow when they provide the
-  required host capabilities and pass the host check.
-- macOS, Windows, WSL, ARM64 hosts, and arbitrary hypervisors are outside the
-  initial official developer-host scope.
-- Physical validation uses existing market-available laptops with upstream
-  Linux support. ShapeBit does not define one reference laptop and does not
-  initially develop custom hardware.
-
-#### Hardware evidence labels
-
-Every physical hardware result uses exactly one of these evidence labels:
-
-- **Officially-tested** — the ShapeBit team completed the mandatory product
-  test suite and published the evidence.
-- **Community-tested** — a community member submitted sufficient hardware and
-  test information, but the ShapeBit team did not complete the official suite.
-- **Unknown** — there is no sufficient current positive evidence. This label
-  does not mean incompatible.
-
-Known failures are recorded separately and do not create a fourth evidence
-label.
-
-Evidence is scoped to a ShapeBit release, exact hardware configuration, and
-firmware version. It does not transfer automatically to a later ShapeBit
-release, a similarly named model, or a different SKU.
-
-#### Official test meaning
-
-`Officially-tested` requires the mandatory integration suite, including:
-
-- full-disk installation and ordinary boot;
-- Microsoft Secure Boot through the ShapeBit shim;
-- TPM2 unlock and device-recovery-key unlock;
-- per-user home activation and recovery;
-- rejection of modified boot artifacts;
-- update, trial boot, acceptance, and pre-acceptance rollback;
-- recovery after an interrupted operation;
-- required laptop graphics, networking, audio, input, battery, suspend, resume,
-  shutdown, and supported firmware behavior.
-
-Results are published as a capability matrix. Optional hardware features may
-carry explicit limitations, but a missing mandatory result is not a pass.
-[Simple Test Evidence](base-system.md) defines the simple YAML record, mandatory QEMU and physical groups,
-overall pass calculation, and minimum community submission.
-
-#### Release gates
-
-- Developer and nightly releases may be published after the complete required
-  QEMU suite passes, even when no physical model is `Officially-tested`.
-- Stable releases and the public alpha require at least one
-  `Officially-tested` laptop for that exact release.
-- A critical emergency security release may be published with
-  `hardware validation pending` after its mandatory QEMU and security tests
-  pass. [Release Cadence and Candidate Aging](boot-system-lifecycle.md) requires physical validation within 72 hours, and the trial
-  rollback baseline must remain available until acceptance.
-
-#### Long-term self-hosting
-
-Using the ShapeBit developer channel as the team's primary daily development
-host is a distant goal, not an initial release requirement. Fedora remains an
-independent bootstrap, CI, and recovery path. ShapeBit must never become the
-only environment capable of rebuilding ShapeBit.
-
-Both hosts will eventually use the same pinned ShapeBit SDK container. Build
-capability does not grant access to production signing keys.
-
-### Rationale
-
-This model obtains broad base-system value from Fedora without claiming that
-Fedora tested the assembled ShapeBit product. Versioned evidence avoids stale
-compatibility claims, while QEMU keeps early development independent of one
-physical laptop.
-
-### Positive consequences
-
-- Hardware claims have an auditable meaning.
-- Early development is not blocked by a specific laptop.
-- The physical test matrix can grow without redefining a reference platform.
-- Fedora remains a reliable bootstrap while later ShapeBit self-hosting enables
-  continuous dogfooding.
-
-### Negative consequences
-
-- Stable promotion requires recurring destructive physical tests.
-- Hardware evidence expires with each release unless it is renewed.
-- Community results cannot carry the same assurance as official results.
-- Supporting multiple Linux development hosts requires capability detection.
-
-### Boundaries
-
-This section owns platform scope, hardware evidence labels, and release-level
-hardware gates. It does not define the Secure Boot chain, disk layout, or the
-detailed test implementation.
-
-### Re-evaluation criteria
-
-- ShapeBit begins developing or shipping custom hardware.
-- macOS, Windows, ARM64, or non-KVM development becomes a product requirement.
-- The project makes a hardware-support promise stronger than published test
-  evidence.
-
-## Initial Installation and Storage Profile
-
-**Date:** 2026-08-06
-**Last updated:** 2026-08-15
-
-### Context
+#### Purpose and constraints
 
 The initial installer needs one storage profile that can be validated safely,
 recovered independently, and tested consistently. Alongside installation,
 manual partitioning, and several home-allocation modes would multiply
 destructive and low-space failure cases before the core lifecycle is proven.
 
-### Decision
+#### Design
 
-#### Disk ownership
+##### Disk ownership
 
 - The initial installer takes exclusive ownership of one explicitly selected
   physical disk.
@@ -396,7 +270,7 @@ destructive and low-space failure cases before the core lifecycle is proven.
 - Same-disk dual boot is deferred even though the Microsoft-signed shim model
   preserves a future compatibility path.
 
-#### Initial layout
+##### Initial layout
 
 ```text
 GPT
@@ -415,7 +289,7 @@ deployment rotation, and able to start without the system LUKS2 or Btrfs. It
 contains no user secrets. The same signed recovery environment is distributable
 as external USB recovery media.
 
-#### Home capacity policy
+##### Home capacity policy
 
 - Human users use the independent LUKS2 containers defined by [Per-User Encrypted Homes](security-identity.md).
 - Btrfs is the filesystem inside every human-user LUKS2 home.
@@ -450,21 +324,21 @@ admission, cleanup, and warning thresholds. [No Managed Snapshots](base-system.m
 not create managed snapshots. A snapshot of an active outer `.home` image is
 not considered a valid backup of the inner filesystem.
 
-### Rationale
+#### Why this design
 
 Exclusive disk ownership gives the installer one safe and testable destructive
 contract. A recovery UKI on the ESP remains bootable after system-filesystem
 damage. Btrfs inside each home provides checksums, compression before
 encryption, and online resizing needed by a dynamic shared pool.
 
-### Positive consequences
+#### Benefits
 
 - The first installer avoids filesystem shrinking and ambiguous layouts.
 - Recovery does not depend on mounting the damaged system volume.
 - Home capacity can adapt to actual use without rigid partitioning.
 - The same recovery image can serve local and external recovery paths.
 
-### Negative consequences
+#### Tradeoffs
 
 - Same-disk dual boot and manual layouts are unavailable.
 - Installation requires erasing a complete selected disk.
@@ -473,7 +347,7 @@ encryption, and online resizing needed by a dynamic shared pool.
 - An attacker may delete an unencrypted ESP recovery image and cause denial of
   service, although modification cannot create a trusted recovery image.
 
-### Boundaries
+#### Ownership boundaries
 
 This section owns the initial installer disk-ownership contract, recovery-image
 placement, per-user filesystem choice, and dynamic home-pool model. [Btrfs for Persistent System State](base-system.md)
@@ -481,27 +355,26 @@ owns the detailed outer Btrfs subvolume layout. [Independent Recovery Environmen
 operations and lifecycle. [Capacity and Low-Space Policy](base-system.md) owns capacity accounting and low-space
 behavior. [No Managed Snapshots](base-system.md) owns snapshot policy.
 
-### Re-evaluation criteria
+#### When to revisit
 
 - Same-disk dual boot becomes an accepted product requirement.
 - The minimal recovery environment no longer fits safely on the ESP.
 - Btrfs-in-LUKS homes fail low-space, recovery, or performance validation.
 - A fixed-allocation or separate-home-partition product profile is introduced.
 
-## Capacity and Low-Space Policy
+### Capacity and Low-Space Policy
 
-**Date:** 2026-08-09
 
-### Context
+#### Purpose and constraints
 
 [Initial Installation and Storage Profile](base-system.md) establishes dynamically sized encrypted homes, a shared burst pool,
 and a protected system reserve. ShapeBit needs exact accounting rules so that
 ordinary home growth cannot consume the space required for updates, trial
 rollback, recovery, and basic system operation.
 
-### Decision
+#### Design
 
-#### Protected system reserve
+##### Protected system reserve
 
 The protected reserve is free outer-filesystem capacity that may be consumed
 only by the system purpose for which it was reserved. It is not a partition and
@@ -536,7 +409,7 @@ An approved system operation may consume its own reserve component and must
 release unused workspace when it completes. Home growth cannot consume any
 reserve component.
 
-#### Home guarantees and limits
+##### Home guarantees and limits
 
 Every human home has a 16 GiB guaranteed minimum. This is an admission-control
 promise, not eager physical preallocation. The initial product does not allow
@@ -565,7 +438,7 @@ per-user limit, but not below 16 GiB or the home's current allocated use,
 whichever is greater. Removing a limit restores access to the shared pool; it
 does not promise additional capacity.
 
-#### Low-space states
+##### Low-space states
 
 ShapeBit calculates user-available headroom after the system reserve and all
 unused home guarantees have been protected. It exposes three states:
@@ -580,7 +453,7 @@ guarantee or hard limit. It does not delete or truncate existing data. An
 application can still fail to save, so the UI must not promise preservation of
 unsaved work.
 
-#### Cleanup and warnings
+##### Cleanup and warnings
 
 Entering the critical state triggers bounded automatic cleanup of system-owned
 data explicitly classified as rebuildable. Examples include abandoned update
@@ -607,7 +480,7 @@ Notifications open storage management but do not authorize deletion. Except
 for the bounded system cleanup above, deletion requires an explicit user
 action.
 
-#### Insufficient space for a system operation
+##### Insufficient space for a system operation
 
 Before downloading or staging an update, ShapeBit checks the signed declared
 space requirement. If the operation cannot complete while preserving the
@@ -619,7 +492,7 @@ is missing and which safe actions are available.
 The rule also applies to security updates. Urgency does not authorize ShapeBit
 to delete user data, revoke occupied capacity, or breach the reserve.
 
-### Consequences
+#### Tradeoffs
 
 - A full home pool does not consume the minimum capacity required for system
   maintenance.
@@ -633,7 +506,7 @@ to delete user data, revoke occupied capacity, or breach the reserve.
 - Correct sparse-file, reflink, and Btrfs physical-allocation accounting is a
   required validation target.
 
-### Boundaries
+#### Ownership boundaries
 
 This section owns numerical reserve inputs, home guarantees and limits, shared-burst
 admission, low-space states, warnings, and safe cleanup boundaries. [Initial Installation and Storage Profile](base-system.md)
@@ -641,11 +514,10 @@ owns the installation storage profile and dynamic-home model. [Btrfs for Persist
 outer Btrfs structure and corruption policy. [No Managed Snapshots](base-system.md) owns snapshot behavior;
 unmanaged snapshots count as real allocated capacity under this policy.
 
-## No Managed Snapshots
+### No Managed Snapshots
 
-**Date:** 2026-08-09
 
-### Context
+#### Purpose and constraints
 
 Btrfs can create cheap copy-on-write snapshots, but cheap creation does not
 make retention, capacity accounting, consistency, or recovery semantics free.
@@ -658,9 +530,9 @@ general file-level recovery point.
 The initial product needs one clear recovery model and predictable low-space
 behavior more than it needs an additional checkpoint mechanism.
 
-### Decision
+#### Design
 
-#### Managed scope
+##### Managed scope
 
 The initial ShapeBit release creates no managed Btrfs snapshots. This applies
 to outer `@root`, `@state`, `@homes`, and `@recovery` subvolumes and to the Btrfs
@@ -677,7 +549,7 @@ automatic snapshot-deletion schedule. A future ShapeBit feature that creates a
 snapshot requires a new accepted decision defining its consistency point,
 owner, capacity budget, retention, deletion, and recovery semantics.
 
-#### Relationship to rollback and backup
+##### Relationship to rollback and backup
 
 Bootc deployment selection and [Trial Boot and Explicit Deployment Acceptance](boot-system-lifecycle.md) trial rollback remain the only managed
 system-version rollback mechanism. They do not restore persistent user or
@@ -688,7 +560,7 @@ defined export, integrity, encryption, retention, and restore contract and must
 survive loss of the source disk. A snapshot of an outer active `.home` container
 is not a valid backup or supported restore point for its inner filesystem.
 
-#### Unmanaged snapshots
+##### Unmanaged snapshots
 
 ShapeBit does not intentionally block an administrator or developer tool from
 creating a Btrfs snapshot outside the supported product interface. When it
@@ -705,7 +577,7 @@ ShapeBit does not accept responsibility for the snapshot's consistency,
 retention, restoration, or deletion. [Host Customization and Integrity Status](base-system.md) determines the resulting support
 status as part of the broader host-customization policy.
 
-### Consequences
+#### Tradeoffs
 
 - Initial rollback, recovery, and low-space behavior remain small and
   understandable.
@@ -717,7 +589,7 @@ status as part of the broader host-customization policy.
 - Externally created snapshots remain possible for development, but ShapeBit
   neither manages nor automatically removes them.
 
-### Boundaries
+#### Ownership boundaries
 
 This section owns managed snapshot scope, the absence of retention and deletion,
 handling of unmanaged snapshots, and the distinction between snapshot,
@@ -726,13 +598,13 @@ deployment rollback. [Capacity and Low-Space Policy](base-system.md) owns capaci
 [Host Customization and Integrity Status](base-system.md) owns the support status of modified host state. A future backup design
 must be recorded separately.
 
-## Platform-Service API Contract
+## Platform services and host integrity
 
-**Date:** 2026-08-10
+### Platform-Service API Contract
 
-**Last updated:** 2026-08-15
 
-### Context
+
+#### Purpose and constraints
 
 ShapeBit desktop components are unprivileged, while updates, storage policy,
 accounts, power management, remote access, trust changes, diagnostics, and
@@ -740,9 +612,9 @@ recovery preparation require narrowly scoped system authority. A stable
 internal contract is needed so that UI restarts and service failures do not
 turn those operations into an implicit root boundary or ambiguous transaction.
 
-### Decision
+#### Design
 
-#### Service boundaries and names
+##### Service boundaries and names
 
 ShapeBit uses separate system-bus services for distinct privilege domains:
 
@@ -773,7 +645,7 @@ components may use NetworkManager, logind, systemd-homed, PipeWire, and other
 upstream interfaces directly where no ShapeBit-specific privileged policy is
 required.
 
-#### Interface versioning and audience
+##### Interface versioning and audience
 
 The well-known service name and primary object path remain stable. The major API
 version is a separate lowercase interface element:
@@ -803,7 +675,7 @@ releases. It may remove that version once no supported component in the image
 uses it. An interface advertised during one boot does not disappear or change
 semantics during that boot.
 
-#### Caller identity and authorization
+##### Caller identity and authorization
 
 Every method belongs to exactly one authorization class:
 
@@ -824,7 +696,7 @@ not identity. Passwords and authentication secrets never become D-Bus method
 arguments; the trusted Polkit agent handles them under [Desktop Session and Authorization Boundaries](desktop.md). Authorization
 is completed before a privileged job is admitted.
 
-#### Synchronous calls and asynchronous jobs
+##### Synchronous calls and asynchronous jobs
 
 Bounded status reads and short non-transactional changes may return directly.
 An operation that can outlive a method call, has progress, or requires durable
@@ -853,7 +725,7 @@ Power-loss-sensitive jobs store the minimum transaction state required by their
 own architecture section in `@state` and reconstruct the same identifier after a service restart.
 A non-durable active job that cannot resume becomes `interrupted`.
 
-#### Common error contract
+##### Common error contract
 
 A rejected synchronous request returns a D-Bus error. Failure after job
 admission is recorded on the job with state `failed`. Both forms provide the
@@ -885,7 +757,7 @@ Services do not expose raw library messages, backtraces, secrets, or arbitrary
 host paths as user-facing errors. A client that does not recognize a code shows
 a safe generic failure. [Diagnostic Reports and Consent](diagnostics-recovery.md) owns diagnostic detail and redaction.
 
-#### Process and job lifecycle
+##### Process and job lifecycle
 
 All services run under systemd and do not self-daemonize. `platform` and
 `power` remain resident. `update` is activated by a timer, network event, or
@@ -906,7 +778,7 @@ early. Removing a D-Bus job object does not remove a required transaction log
 or diagnostic report. [Diagnostic Reports and Consent](diagnostics-recovery.md) owns retention of those records. A UI may hide
 an acknowledged result earlier without deleting the system record.
 
-### Consequences
+#### Tradeoffs
 
 - Privilege and crash domains remain narrow and independently testable.
 - Common identity, job, error, and lifecycle rules reduce custom behavior in
@@ -920,7 +792,7 @@ an acknowledged result earlier without deleting the system record.
 - Upstream services remain visible architectural dependencies rather than being
   hidden behind unnecessary wrappers.
 
-### Boundaries
+#### Ownership boundaries
 
 This section owns ShapeBit platform-service names, API audience, versioning, caller
 identity, authorization classes, asynchronous jobs, common errors, activation,
@@ -930,11 +802,10 @@ and job-object retention. Domain architecture sections own the actual policy of 
 [Boot Health Contract](boot-system-lifecycle.md) owns the boot-health decision that consumes the aggregate readiness
 endpoint.
 
-## Host Customization and Integrity Status
+### Host Customization and Integrity Status
 
-**Date:** 2026-08-12
 
-### Context
+#### Purpose and constraints
 
 Bootc updates the image-owned system while preserving host-specific `/etc` and
 `/var` state. ShapeBit therefore needs to distinguish supported configuration,
@@ -946,9 +817,9 @@ as supported would make diagnostics and recovery misleading.
 The initial mechanism must remain diagnostic and simple. It is not intended to
 defend its own records from an already-authorized malicious root process.
 
-### Decision
+#### Design
 
-#### Configuration layers
+##### Configuration layers
 
 ShapeBit components use these ownership and precedence layers:
 
@@ -970,7 +841,7 @@ defaults from local configuration requires an explicit migration plan with a
 rollback-compatible `prepare` phase; ShapeBit does not assume that bootc will
 semantically merge its configuration.
 
-#### Status model
+##### Status model
 
 The device exposes three current statuses:
 
@@ -990,7 +861,7 @@ through `software.shapebit.trust` is managed state, not an integrity failure.
 its expected state returns the device to `Managed`; it is not a permanent
 record that customization once occurred.
 
-#### Simple customization detection
+##### Simple customization detection
 
 A root-owned manifest in protected system state records the current expected
 configuration produced through ShapeBit and supported upstream APIs. For each
@@ -1022,7 +893,7 @@ differences without copying secret file contents. This mechanism detects
 ordinary drift; root can alter both configuration and the manifest, so it is
 not a security boundary.
 
-#### Behavior of a customized system
+##### Behavior of a customized system
 
 A `Customized` system continues to boot and update. Secure Boot, trial boot,
 rollback, recovery, and other protections remain active. Settings and
@@ -1038,7 +909,7 @@ Update staging is blocked only when a concrete difference prevents safe
 staging or violates a declared compatibility requirement of the new release.
 The diagnostic result must name the blocking requirement and affected path.
 
-#### Integrity-failure behavior
+##### Integrity-failure behavior
 
 Protected image and boot artifacts use their signed manifests, measurements,
 and trust policy rather than the customization manifest. An integrity failure
@@ -1058,7 +929,7 @@ There is no **Ignore** or **Mark trusted** action for a failed artifact. Only an
 explicitly authorized trust-domain operation or installation of a correctly
 verified deployment can establish trust.
 
-#### Restoring managed configuration
+##### Restoring managed configuration
 
 An active local administrator may restore one detected customization or all of
 them. Before authorization, ShapeBit shows the exact files that it will remove,
@@ -1077,7 +948,7 @@ new restoration would exceed the limit, ShapeBit stops before making changes
 and offers manual export; it does not evict an existing entry silently to admit
 the new operation.
 
-### Consequences
+#### Tradeoffs
 
 - Vendor defaults update atomically with `/usr`, while local overrides survive
   bootc deployment changes.
@@ -1092,7 +963,7 @@ the new operation.
 - Confirmed loss of protected-artifact trust prioritizes a trusted restart over
   an active session's unsaved work.
 
-### Boundaries
+#### Ownership boundaries
 
 This section owns ShapeBit configuration layering, host-status classification,
 allowlisted customization detection, support effects, integrity-failure
@@ -1101,11 +972,131 @@ filesystem ownership. [Boot Trust and TPM2 Unlock Policy](boot-system-lifecycle.
 changes. [Boot Health Contract](boot-system-lifecycle.md) owns trial-boot hard-failure transitions. [No Managed Snapshots](base-system.md) owns the
 absence of managed snapshots. [Diagnostic Reports and Consent](diagnostics-recovery.md) owns diagnostic report data handling.
 
-## Simple Test Evidence
+## Hardware scope and validation
 
-**Date:** 2026-08-12
+### Platform Scope and Hardware Validation
 
-### Context
+
+#### Purpose and constraints
+
+ShapeBit OS needs a reproducible virtual target, a realistic path to physical
+hardware, and hardware claims that do not imply untested generic-PC support.
+Fedora validates the base distribution and many upstream components, but it
+does not validate the ShapeBit boot chain, storage policy, recovery behavior,
+updates, rollback, or exact hardware integration.
+
+#### Design
+
+##### Supported platform scope
+
+- The initial automated target is x86-64 QEMU with OVMF and a software TPM.
+- The official developer host class is Linux x86-64 with KVM. Fedora is the
+  canonical host and the required CI environment.
+- Other Linux distributions may use the same workflow when they provide the
+  required host capabilities and pass the host check.
+- macOS, Windows, WSL, ARM64 hosts, and arbitrary hypervisors are outside the
+  initial official developer-host scope.
+- Physical validation uses existing market-available laptops with upstream
+  Linux support. ShapeBit does not define one reference laptop and does not
+  initially develop custom hardware.
+
+##### Hardware evidence labels
+
+Every physical hardware result uses exactly one of these evidence labels:
+
+- **Officially-tested** — the ShapeBit team completed the mandatory product
+  test suite and published the evidence.
+- **Community-tested** — a community member submitted sufficient hardware and
+  test information, but the ShapeBit team did not complete the official suite.
+- **Unknown** — there is no sufficient current positive evidence. This label
+  does not mean incompatible.
+
+Known failures are recorded separately and do not create a fourth evidence
+label.
+
+Evidence is scoped to a ShapeBit release, exact hardware configuration, and
+firmware version. It does not transfer automatically to a later ShapeBit
+release, a similarly named model, or a different SKU.
+
+##### Official test meaning
+
+`Officially-tested` requires the mandatory integration suite, including:
+
+- full-disk installation and ordinary boot;
+- Microsoft Secure Boot through the ShapeBit shim;
+- TPM2 unlock and device-recovery-key unlock;
+- per-user home activation and recovery;
+- rejection of modified boot artifacts;
+- update, trial boot, acceptance, and pre-acceptance rollback;
+- recovery after an interrupted operation;
+- required laptop graphics, networking, audio, input, battery, suspend, resume,
+  shutdown, and supported firmware behavior.
+
+Results are published as a capability matrix. Optional hardware features may
+carry explicit limitations, but a missing mandatory result is not a pass.
+[Simple Test Evidence](base-system.md) defines the simple YAML record, mandatory QEMU and physical groups,
+overall pass calculation, and minimum community submission.
+
+##### Release gates
+
+- Developer and nightly releases may be published after the complete required
+  QEMU suite passes, even when no physical model is `Officially-tested`.
+- Stable releases and the public alpha require at least one
+  `Officially-tested` laptop for that exact release.
+- A critical emergency security release may be published with
+  `hardware validation pending` after its mandatory QEMU and security tests
+  pass. [Release Cadence and Candidate Aging](boot-system-lifecycle.md) requires physical validation within 72 hours, and the trial
+  rollback baseline must remain available until acceptance.
+
+##### Long-term self-hosting
+
+Using the ShapeBit developer channel as the team's primary daily development
+host is a distant goal, not an initial release requirement. Fedora remains an
+independent bootstrap, CI, and recovery path. ShapeBit must never become the
+only environment capable of rebuilding ShapeBit.
+
+Both hosts will eventually use the same pinned ShapeBit SDK container. Build
+capability does not grant access to production signing keys.
+
+#### Why this design
+
+This model obtains broad base-system value from Fedora without claiming that
+Fedora tested the assembled ShapeBit product. Versioned evidence avoids stale
+compatibility claims, while QEMU keeps early development independent of one
+physical laptop.
+
+#### Benefits
+
+- Hardware claims have an auditable meaning.
+- Early development is not blocked by a specific laptop.
+- The physical test matrix can grow without redefining a reference platform.
+- Fedora remains a reliable bootstrap while later ShapeBit self-hosting enables
+  continuous dogfooding.
+
+#### Tradeoffs
+
+- Stable promotion requires recurring destructive physical tests.
+- Hardware evidence expires with each release unless it is renewed.
+- Community results cannot carry the same assurance as official results.
+- Supporting multiple Linux development hosts requires capability detection.
+
+#### Ownership boundaries
+
+This section owns platform scope, hardware evidence labels, and release-level
+hardware gates. It does not define the Secure Boot chain, disk layout, or the
+detailed test implementation.
+
+#### When to revisit
+
+- ShapeBit begins developing or shipping custom hardware.
+- macOS, Windows, ARM64, or non-KVM development becomes a product requirement.
+- The project makes a hardware-support promise stronger than published test
+  evidence.
+
+### Simple Test Evidence
+
+
+#### Purpose and constraints
 
 [Platform Scope and Hardware Validation](base-system.md) defines the QEMU target, physical-hardware labels, and release gates,
 but those claims still need a concrete record and pass rule. The initial project
@@ -1113,9 +1104,9 @@ is maintained by one person and does not need a certification platform,
 cryptographically signed test database, or a separate evidence object for each
 assertion.
 
-### Decision
+#### Design
 
-#### One simple report
+##### One simple report
 
 Every QEMU or physical-hardware run produces one human-readable YAML report.
 It contains:
@@ -1156,7 +1147,7 @@ tests:
 result: fail
 ```
 
-#### Mandatory QEMU groups
+##### Mandatory QEMU groups
 
 The complete QEMU suite reports these eight groups:
 
@@ -1174,7 +1165,7 @@ result. Any failed assertion fails its group. The standard QEMU profile uses
 x86-64 KVM, OVMF, Secure Boot, a software TPM2, the defined virtual storage,
 network, and display devices, and no undeclared host-specific substitutions.
 
-#### Mandatory physical-hardware groups
+##### Mandatory physical-hardware groups
 
 An official physical run reports these eight groups:
 
@@ -1198,7 +1189,7 @@ limitation.
 published by ShapeBit for the exact release, hardware configuration, and
 firmware version. The report is not transferable to a different release or SKU.
 
-#### Community-tested minimum
+##### Community-tested minimum
 
 A community submission uses the same report and fills every group with `pass`,
 `fail`, or `not-tested`. It identifies the exact release digest, model or SKU,
@@ -1223,7 +1214,7 @@ plausibility but does not claim to have reproduced its results.
 Known failures remain separate from the three evidence labels defined in
 [Platform Scope and Hardware Validation](base-system.md); this decision does not create another hardware label.
 
-### Consequences
+#### Tradeoffs
 
 - Reports are easy to read, generate in CI, and fill during manual laptop
   testing.
@@ -1235,7 +1226,7 @@ Known failures remain separate from the three evidence labels defined in
 - Community results are useful for everyday compatibility without being
   presented as official validation.
 
-### Boundaries
+#### Ownership boundaries
 
 This section owns the initial report shape, result vocabulary, mandatory QEMU and
 physical groups, overall pass calculation, and minimum community submission.
@@ -1244,18 +1235,20 @@ release timing. A future need for independent auditors, multiple release
 maintainers, or machine-verifiable certification may justify a more rigorous
 evidence format.
 
-## Architecture work queue
+## Planning and delivery
+
+### Architecture work queue
 
 This is the current planning queue. Complete it before expanding implementation
 scope beyond disposable prototypes.
 
-### Remaining decision backlog
+#### Remaining decision backlog
 
 This is the canonical ordered list of unresolved architecture work. The A0-A5
 sections below retain completed decision history and do not duplicate open
 items. Deferred features in section 17 are not counted here.
 
-#### P0 — product behavior that can be decided now
+##### P0 — product behavior that can be decided now
 
 - [x] **D01 — Inbound file sharing:** use SFTP through configured SSH and
   optional per-user SMB 3 sharing as defined by [Inbound File Sharing](security-identity.md).
@@ -1276,7 +1269,7 @@ items. Deferred features in section 17 are not counted here.
   reminders, explicit actions, and user-controlled restart behavior defined by
   [Staged-Restart UX](boot-system-lifecycle.md).
 
-#### P1 — platform, storage, and release contracts
+##### P1 — platform, storage, and release contracts
 
 - [x] **D08 — Capacity policy:** use the protected reserve, home guarantee,
   opportunistic burst pool, low-space states, and cleanup rules defined by
@@ -1299,7 +1292,7 @@ items. Deferred features in section 17 are not counted here.
   unchanged days in `testing`, and use the bounded emergency-security exception
   defined by [Release Cadence and Candidate Aging](boot-system-lifecycle.md).
 
-#### P1 — installer contract
+##### P1 — installer contract
 
 - [x] **D15 — Installation protocol schemas:** use the private JSON Lines
   protocol, minimal plan, capability snapshot, optional Wi-Fi, common messages,
@@ -1322,7 +1315,7 @@ items. Deferred features in section 17 are not counted here.
   remaining proposed production gates. This is documentation closure rather
   than a new product decision.
 
-#### P1 — release trust and anti-rollback
+##### P1 — release trust and anti-rollback
 
 - [x] **D21 — Release manifest:** use the closed schema-v1 payload, RFC 8785
   JCS, DSSE envelope, computed manifest digest, strict artifact roles, three
@@ -1341,7 +1334,7 @@ items. Deferred features in section 17 are not counted here.
 - [ ] **D25 — Prototype trust migration:** define how early TPM enrollments are
   detected, invalidated, and migrated without preserving an old unlock path.
 
-#### Proposal review gates
+##### Proposal review gates
 
 - [ ] **G01 — [Filesystem Ownership Boundaries](base-system.md):** review and
   revise filesystem ownership after the required update-and-rollback evidence
@@ -1353,14 +1346,14 @@ items. Deferred features in section 17 are not counted here.
   review and revise boot trust after D22-D25 and the required QEMU and physical
   hardware evidence, then remove its `Proposed` label.
 
-### A0 — documentation structure
+#### A0 — documentation structure
 
 - [x] Establish architecture sections as the authority for durable decisions.
 - [x] Add system-area indexes and ownership boundaries.
 - [x] Remove duplicated architecture sources.
 - [x] Consolidate system design, status, roadmap, and task tracking here.
 
-### A1 — deployment lifecycle
+#### A1 — deployment lifecycle
 
 - [x] Select systemd-boot counting and blessing as boot-state authority.
 - [x] Define success, failure, intentional-shutdown, and power-loss rules.
@@ -1375,13 +1368,13 @@ items. Deferred features in section 17 are not counted here.
 - [x] Keep restart user-controlled after automatic background staging.
 - [x] Reconcile accepted lifecycle decisions into [Forward-Only Migrations and Trial-Bounded Rollback](boot-system-lifecycle.md) and [Trial Boot and Explicit Deployment Acceptance](boot-system-lifecycle.md).
 
-### A2 — release and trust lifecycle
+#### A2 — release and trust lifecycle
 
 - [x] Define withdrawal and offline-cached emergency revocation semantics.
 - [x] Select Microsoft-signed ShapeBit shim with factory PK/KEK preserved.
 - [x] Separate development and production trust domains.
 
-### A3 — storage and recovery lifecycle
+#### A3 — storage and recovery lifecycle
 
 - [x] Confirm `@root`, `@state`, `@homes`, and `@recovery` and the inactive
   home-container boundary.
@@ -1395,11 +1388,11 @@ items. Deferred features in section 17 are not counted here.
 - [x] Define rollback, repair, reset, remove-user, and two erase outcomes.
 - [x] Accept [Btrfs for Persistent System State](base-system.md), [Separate Rollback, Backup, and Reset Operations](diagnostics-recovery.md), and [Independent Recovery Environment](diagnostics-recovery.md).
 
-### A4 — installer contract
+#### A4 — installer contract
 
 - [x] Select exclusive whole-disk installation for the initial profile.
 
-### A5 — product and platform contracts
+#### A5 — product and platform contracts
 
 - [x] Define the QEMU profile and versioned physical-hardware evidence labels.
 - [x] Define official Linux x86-64/KVM development scope with Fedora canonical.
@@ -1428,12 +1421,12 @@ items. Deferred features in section 17 are not counted here.
 - [x] Select default-minimal, user-disableable telemetry and consent-only
   detailed reports.
 
-## Delivery roadmap
+### Delivery roadmap
 
 Tasks below are implementation outcomes. They remain unchecked until verified,
 even when supporting scripts or documentation already exist.
 
-### M0 — architecture baseline
+#### M0 — architecture baseline
 
 - [x] Select Fedora bootc.
 - [x] Select Dioxus for the installer frontend.
@@ -1441,7 +1434,7 @@ even when supporting scripts or documentation already exist.
 - [x] Select TPM2-unlocked system-volume encryption.
 - [ ] Complete A1-A5 and review all proposed architecture sections.
 
-### M1 — bootable secure console prototype
+#### M1 — bootable secure console prototype
 
 - [ ] Build and lint the bootc container image reproducibly.
 - [ ] Create a VM disk and boot it through UEFI to a TTY.
@@ -1452,7 +1445,7 @@ even when supporting scripts or documentation already exist.
 - [ ] Add one `systemd-homed` user with one-password TTY login.
 - [ ] Record positive, rejection, recovery, and power-loss evidence.
 
-### M2 — update and rollback prototype
+#### M2 — update and rollback prototype
 
 - [ ] Produce signed releases A and B from immutable artifact sets.
 - [ ] Stage B while preserving A.
@@ -1465,7 +1458,7 @@ even when supporting scripts or documentation already exist.
   post-acceptance commit resumption.
 - [ ] Produce a diagnostic report for every transition.
 
-### M3 — installer backend and protocol
+#### M3 — installer backend and protocol
 
 - [ ] Implement the shared protocol and secret-free installation plan.
 - [ ] Implement validation, dry run, events, and mock operations.
@@ -1473,14 +1466,14 @@ even when supporting scripts or documentation already exist.
 - [ ] Install the M1 system and verify first boot.
 - [ ] Verify recovery keys and interruption reporting.
 
-### M4 — Dioxus installer
+#### M4 — Dioxus installer
 
 - [ ] Connect the UI to the mock backend.
 - [ ] Complete accessibility and destructive-action UX review.
 - [ ] Connect the UI to the real backend.
 - [ ] Install to a virtual disk and boot to a TTY.
 
-### M5 — automated release pipeline
+#### M5 — automated release pipeline
 
 - [ ] Build RPMs and bootc images in CI.
 - [ ] Generate SBOMs, manifests, attestations, and test reports.
@@ -1490,7 +1483,7 @@ even when supporting scripts or documentation already exist.
 - [ ] Produce a production candidate and manually promote the identical artifact
   from testing to stable.
 
-### M6 — desktop platform
+#### M6 — desktop platform
 
 - [ ] Implement versioned platform services.
 - [ ] Implement the nested Smithay compositor.
@@ -1504,7 +1497,7 @@ even when supporting scripts or documentation already exist.
 - [ ] Add AppImage discovery, import, warning, update, and removal flows.
 - [ ] Boot a complete session in a VM.
 
-### M7 — hardware validation and recovery
+#### M7 — hardware validation and recovery
 
 - [ ] Validate the supported hardware matrix.
 - [ ] Validate production key rotation and revocation.
@@ -1512,17 +1505,17 @@ even when supporting scripts or documentation already exist.
 - [ ] Harden recovery, reset, backup export, and installer behavior.
 - [ ] Pass storage corruption, low-space, and power-loss testing.
 
-### M8 — developer preview
+#### M8 — developer preview
 
 - [ ] The team can install, update, recover, and use ShapeBit OS daily.
 
-### M9 — public alpha
+#### M9 — public alpha
 
 - [ ] No persistent device retains prototype trust enrollment.
 - [ ] Stable rollout, diagnostics, recovery, and device erase are operational.
 - [ ] The published hardware scope and security claims match verified evidence.
 
-## Explicitly deferred work
+### Explicitly deferred work
 
 - blanket support claims for arbitrary generic PCs;
 - custom firmware PK/KEK enrollment and owner-managed Secure Boot keys;

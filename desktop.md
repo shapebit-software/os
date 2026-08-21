@@ -32,24 +32,22 @@ cross-area contract.
 - [Assistant chat](desktop-assistant-chat.md)
 - [Voice interaction](desktop-voice-interaction.md)
 
-## System architecture
+## Session and authority
 
-## Desktop Session and Authorization Boundaries
+### Desktop Session and Authorization Boundaries
 
-**Date:** 2026-08-08
 
-**Last updated:** 2026-08-10
 
-### Context
+#### Purpose and constraints
 
 ShapeBit OS needs a custom Wayland desktop that can recover from ordinary UI
 failures without turning display components into privileged policy engines. Its
 per-user encrypted homes also require login, lock, local authorization, and
 remote access to share one coherent session lifecycle.
 
-### Decision
+#### Design
 
-#### Desktop process model
+##### Desktop process model
 
 Each graphical user session contains:
 
@@ -74,7 +72,7 @@ ShapeBit initially permits only one logged-in graphical user session at a time.
 Changing graphical user requires logout; fast user switching is deferred.
 Non-graphical SSH sessions are not counted as graphical sessions.
 
-#### Compositor failure
+##### Compositor failure
 
 Wayland applications are not promised transparent reconnection after a
 compositor failure. ShapeBit terminates the damaged graphical session, closes
@@ -86,7 +84,7 @@ system applications must provide continuous autosave and recovery where their
 data model permits it. ShapeBit does not use process checkpointing and does not
 guarantee recovery for third-party applications.
 
-#### Privilege and account model
+##### Privilege and account model
 
 The compositor, shell, lock UI, authorization UI, and settings UI run without
 root privileges. Narrow system services perform privileged work through
@@ -117,7 +115,7 @@ The system-wide battery charge limit is a specific low-risk exception: only an
 active local administrator may change it, but the trusted confirmation does not
 request a password.
 
-#### Developer mode and SSH
+##### Developer mode and SSH
 
 Developer mode is a per-user presentation and tooling setting. It may expose a
 terminal, advanced application controls, and diagnostic logs, but does not
@@ -142,7 +140,7 @@ does not kill SSH sessions; the home remains active until the user's final
 session ends. The logout UI reports active remote sessions and offers either
 local graphical logout or termination of all sessions owned by that user.
 
-### Consequences
+#### Tradeoffs
 
 - Routine shell and lock-UI failures have bounded effects.
 - A compositor failure may lose unsaved third-party application state even
@@ -154,7 +152,7 @@ local graphical logout or termination of all sessions owned by that user.
   home password.
 - Active SSH work intentionally keeps that user's encrypted home unlocked.
 
-### Boundaries
+#### Ownership boundaries
 
 This section owns desktop process isolation, graphical session cardinality,
 compositor-failure recovery, local authorization, administrator roles,
@@ -162,20 +160,21 @@ developer-mode security invariants, and SSH interaction with encrypted homes.
 [Per-User Encrypted Homes](security-identity.md) remains authoritative for home encryption and PAM-based activation.
 [Network Ownership and Privacy](security-identity.md) defines the network profiles on which SSH is exposed.
 
-## Display, Power, and Thermal Policy
+## Displays and power
 
-**Date:** 2026-08-08
+### Display, Power, and Thermal Policy
 
-### Context
+
+#### Purpose and constraints
 
 ShapeBit OS targets modern laptops without defining one reference model. Its
 display and power design must cover mixed-density and mixed-capability monitors,
 HDR, docking, encrypted-home suspension, battery behavior, and hardware thermal
 limits without guessing model-specific firmware policy.
 
-### Decision
+#### Design
 
-#### Monitor layout and scaling
+##### Monitor layout and scaling
 
 With the laptop lid open, a newly connected monitor extends the desktop and the
 built-in panel remains primary. With the lid closed, an active external monitor
@@ -194,7 +193,7 @@ allowing the compositor to recommend a value from display characteristics.
 Wayland clients that do not render at the preferred fractional scale may be
 compositor-scaled with reduced sharpness.
 
-#### HDR, color, capture, and VRR
+##### HDR, color, capture, and VRR
 
 HDR and color management are initial-release requirements. HDR is enabled
 manually and remembered per monitor. A failed HDR modeset returns safely to SDR.
@@ -215,7 +214,7 @@ enabled automatically for a fullscreen application, can be disabled per
 monitor, and falls back to fixed refresh if the combined monitor, driver, HDR,
 or VRR configuration fails.
 
-#### Suspend, lid, and hibernation
+##### Suspend, lid, and hibernation
 
 Suspend-to-RAM is the initial sleep mechanism. When **Require authentication
 after suspend** is enabled, the session locks and `systemd-homed` removes active
@@ -236,7 +235,7 @@ future design must authenticate and encrypt the resume image and pass a broad
 hardware test matrix. At critical battery, the initial system warns and then
 performs a controlled shutdown, relying on application autosave for recovery.
 
-#### Power and thermal ownership
+##### Power and thermal ownership
 
 A system-level ShapeBit power-policy service observes power supply, lid,
 battery, and kernel/firmware thermal state. It applies policy and requests
@@ -260,7 +259,7 @@ available, an administrator may enable a system-wide conservation limit such as
 UI requires **Yes**/**No** confirmation from an active local administrator but
 does not require a password for this low-risk setting.
 
-### Consequences
+#### Tradeoffs
 
 - Mixed-DPI, SDR/HDR, and variable-refresh setups are part of the initial test
   matrix rather than optional later enhancements.
@@ -272,27 +271,28 @@ does not require a password for this low-risk setting.
 - Hardware-dependent settings appear only when a truthful capability probe
   succeeds.
 
-### Boundaries
+#### Ownership boundaries
 
 This section owns display layout defaults, scaling, HDR, VRR, lid behavior, power
 profiles, initial sleep scope, and thermal policy. [Per-User Encrypted Homes](security-identity.md) owns home encryption
 and the user-visible suspend-authentication setting. [Platform Scope and Hardware Validation](base-system.md) owns hardware
 evidence labels and release gates.
 
-## Media, Privacy, and Notification Policy
+## Media and privacy
 
-**Date:** 2026-08-08
+### Media, Privacy, and Notification Policy
 
-### Context
+
+#### Purpose and constraints
 
 Audio routing, microphone and camera access, screen sharing, remote input, and
 notifications cross application, compositor, portal, and device boundaries.
 ShapeBit needs predictable multimedia behavior and visible privacy controls
 without claiming that an unsandboxed native executable is contained.
 
-### Decision
+#### Design
 
-#### Media architecture and audio policy
+##### Media architecture and audio policy
 
 PipeWire is the common transport for audio, video capture, and screen-sharing
 streams. WirePlumber is the per-user policy and session manager. Both run
@@ -310,7 +310,7 @@ and mute controls remembered by application identity inside the encrypted
 home. The normal UI stops at 100%; software amplification above 100% is
 deferred. Applications cannot raise the session's master volume themselves.
 
-#### Microphone and camera
+##### Microphone and camera
 
 ShapeBit provides global microphone mute and camera-disable controls. Flatpak
 access is granted per application through portals. While a controlled client
@@ -326,7 +326,7 @@ policy apply, but it may also attempt direct user-authorized device access.
 ShapeBit therefore documents microphone and camera enforcement for AppImage as
 best effort rather than a security guarantee.
 
-#### Screen capture and remote control
+##### Screen capture and remote control
 
 The compositor does not expose unrestricted screen-copy authority to ordinary
 clients. Every new screen-share or recording session uses a portal to select a
@@ -348,7 +348,7 @@ whole active-output mix and warns that other applications and notification
 sounds may be included; per-application audio capture is deferred. Initial
 screen image and video capture are SDR as defined by [Display, Power, and Thermal Policy](desktop.md).
 
-#### Notification policy
+##### Notification policy
 
 While a whole monitor is shared, ShapeBit automatically suppresses notification
 banners and queues them in the notification center. The user may allow banners
@@ -372,7 +372,7 @@ not bypass the policy automatically.
 content alone does not enable it. Whole-monitor sharing uses the separate
 automatic privacy behavior above.
 
-### Consequences
+#### Tradeoffs
 
 - Audio continues through ordinary shell restarts.
 - Portal-controlled capture has an enforceable compositor boundary even for an
@@ -383,7 +383,7 @@ automatic privacy behavior above.
 - Lock-screen and presentation notification policy favors privacy over immediate
   delivery.
 
-### Boundaries
+#### Ownership boundaries
 
 This section owns desktop media routing, capture consent, remote-input consent, and
 notification privacy. [Application Platform and System Set](application-platform.md) owns AppImage isolation expectations. [Desktop Session and Authorization Boundaries](desktop.md)
