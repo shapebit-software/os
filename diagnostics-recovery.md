@@ -2,10 +2,7 @@
 
 Rollback, repair, reset, independent recovery, Recovery Kit handling, diagnostic reports, and recovery authorization.
 
-These pages are living architecture, not implementation evidence. Unlabeled
-sections describe the current design. A **Proposed** label marks a section that
-still requires explicit review and validation; remove the label once that review
-is complete.
+These pages are living architecture, not implementation evidence.
 
 Changing a current rule requires updating its owning section and every affected
 cross-area contract.

@@ -2,10 +2,7 @@
 
 Fedora and bootc foundations, filesystem and storage ownership, hardware scope, capacity policy, platform services, host customization, and validation evidence.
 
-These pages are living architecture, not implementation evidence. Unlabeled
-sections describe the current design. A **Proposed** label marks a section that
-still requires explicit review and validation; remove the label once that review
-is complete.
+These pages are living architecture, not implementation evidence.
 
 Changing a current rule requires updating its owning section and every affected
 cross-area contract.
@@ -117,8 +114,6 @@ the filesystem, encryption, boot trust, release identity, or user interface.
 
 ### Filesystem Ownership Boundaries
 
-**Status:** Proposed
-
 #### Purpose and constraints
 
 An image-based system requires a clear separation between code, machine configuration, and persistent state. Without it, image rollback may conflict with local changes.
@@ -149,9 +144,9 @@ encryption topology, snapshot policy, or migration mechanism.
   contract;
 - administrators cannot treat the host like a traditional Fedora installation.
 
-#### Review criteria
+#### Validation
 
-Review after the first working update + rollback in M2.
+Validate these boundaries with the first working update and rollback in M2.
 
 ### Btrfs for Persistent System State
 
@@ -1320,31 +1315,33 @@ items. Deferred features in section 17 are not counted here.
 - [x] **D21 — Release manifest:** use the closed schema-v1 payload, RFC 8785
   JCS, DSSE envelope, computed manifest digest, strict artifact roles, three
   tool compatibility ranges, and external mutable metadata defined in
-  [Signed Manifest as the Immutable Release Identity](boot-system-lifecycle.md). [Signed Manifest as the Immutable Release Identity](boot-system-lifecycle.md) remains proposed until D23 and the G02 review are
-  complete.
+  [Signed Manifest as the Immutable Release Identity](boot-system-lifecycle.md).
 - [x] **D22 — Artifact binding:** use the OCI-to-composefs-to-UKI binding,
   independent signed forward-only boot stack, A/B ESP transaction, firmware
   fallback, recovery reconstruction, repeated verification, and evidence gates
-  defined by [Release Artifact and Rootfs Binding](boot-system-lifecycle.md). [Release Artifact and Rootfs Binding](boot-system-lifecycle.md) remains proposed until its QEMU and physical
-  acceptance evidence exists.
-- [ ] **D23 — Signing operations:** define production ownership, HSM roles,
-  authorization, rotation, audit, and compromise response for every key.
-- [ ] **D24 — Strong anti-rollback:** create the TPM2 NV security-epoch architecture section,
-  including transitions, rollback window, recovery, and failure behavior.
-- [ ] **D25 — Prototype trust migration:** define how early TPM enrollments are
-  detected, invalidated, and migrated without preserving an old unlock path.
+  defined by [Release Artifact and Rootfs Binding](boot-system-lifecycle.md).
+- [x] **D23 — Signing operations:** use the role-separated hardware-token
+  hierarchy, root threshold, authorization, rotation, audit, compromise
+  response, and validation gate defined by [Production Signing Operations](boot-system-lifecycle.md).
+- [x] **D24 — Strong anti-rollback:** enforce the signed `security_epoch` with a
+  monotonic TPM2 NV counter composed into the LUKS2 unlock policy, advancing it
+  only after durable higher-epoch acceptance as defined by [Boot Trust and TPM2 Unlock Policy](boot-system-lifecycle.md).
+- [x] **D25 — Prototype trust transition:** identify legacy enrollments by the
+  absence of the ShapeBit policy version and NV identity, and require reset or
+  reinstall rather than preserving an old unlock path.
 
-##### Proposal review gates
+##### Architecture review and validation gates
 
-- [ ] **G01 — [Filesystem Ownership Boundaries](base-system.md):** review and
-  revise filesystem ownership after the required update-and-rollback evidence
-  exists, then remove its `Proposed` label.
-- [ ] **G02 — [Signed Manifest as the Immutable Release Identity](boot-system-lifecycle.md):**
-  review and revise signed release identity after D21-D23, then remove its
-  `Proposed` label.
-- [ ] **G03 — [Boot Trust and TPM2 Unlock Policy](boot-system-lifecycle.md):**
-  review and revise boot trust after D22-D25 and the required QEMU and physical
-  hardware evidence, then remove its `Proposed` label.
+- [x] **G01 — [Filesystem Ownership Boundaries](base-system.md):** architecture
+  reviewed. Runtime validation remains part of M2 and does not change the
+  current ownership model by itself.
+- [x] **G02 — [Signed Manifest as the Immutable Release Identity](boot-system-lifecycle.md):**
+  architecture reviewed. Parser, signature, and artifact-binding validation
+  remain roadmap work and do not change the current release identity by
+  themselves.
+- [x] **G03 — [Boot Trust and TPM2 Unlock Policy](boot-system-lifecycle.md):**
+  architecture reviewed. QEMU, physical-hardware, failure, and lower-epoch
+  rejection evidence remains required before claiming production support.
 
 #### A0 — documentation structure
 

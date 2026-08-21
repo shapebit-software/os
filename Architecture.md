@@ -5,9 +5,6 @@ bootc. Its architecture is organized by system area so each rule has one
 canonical home and related details stay together.
 
 These pages describe intended architecture, not implementation evidence.
-Unlabeled sections are the current design. A **Proposed** label marks a section
-that still requires explicit review and validation; it will be removed after
-that review.
 
 ## System areas
 

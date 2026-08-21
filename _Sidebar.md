@@ -8,3 +8,4 @@
   - [Application Platform](application-platform)
   - [Desktop Environment](desktop)
   - [Diagnostics and Recovery](diagnostics-recovery)
+- [License](License)

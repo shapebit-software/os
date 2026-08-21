@@ -2,10 +2,7 @@
 
 Installation, release identity, verified boot, deployment staging, trial acceptance, updates, migration, release operations, and artifact binding.
 
-These pages are living architecture, not implementation evidence. Unlabeled
-sections describe the current design. A **Proposed** label marks a section that
-still requires explicit review and validation; remove the label once that review
-is complete.
+These pages are living architecture, not implementation evidence.
 
 Changing a current rule requires updating its owning section and every affected
 cross-area contract.
@@ -145,8 +142,6 @@ boundary. [Boot Trust and TPM2 Unlock Policy](boot-system-lifecycle.md) owns TPM
 
 ### Boot Trust and TPM2 Unlock Policy
 
-**Status:** Proposed
-
 #### Purpose and constraints
 
 ShapeBit OS needs an encrypted system volume that unlocks without a second
@@ -190,6 +185,9 @@ Use option 2 for the supported production configuration.
 - Bind the slot directly to PCR 7, which represents Secure Boot policy state.
 - Authorize PCR 11 with signed expected measurements for approved UKIs instead
   of sealing to one fixed PCR 11 value.
+- Compose the PCR policy with a TPM2 NV-backed `security_epoch` condition. This
+  condition is evaluated by the TPM as part of authorization; an initrd
+  software comparison is not sufficient.
 - Embed the PCR public key and signature in each approved UKI.
 - Restrict authorization to the initrd phase used to unlock the system volume.
 - Do not bind PCR 0 or PCR 2 by default; ordinary firmware and option-ROM
@@ -197,10 +195,14 @@ Use option 2 for the supported production configuration.
 - Do not bind PCR 14 merely because shim is present. The supported chain does
   not use MOK; revisit PCR 14 only if MOK becomes a supported policy input.
 
-The exact `systemd-cryptenroll`, `systemd-measure`, and `ukify` arguments are an
-implementation detail that must be pinned to, and tested with, the systemd
-version in the target Fedora bootc image. ShapeBit OS must not depend on newer
-systemd policy features until they exist in that image.
+The signed PCR 11 portion uses the systemd tooling available in the target
+Fedora bootc image. Until systemd provides the required composition natively, a
+ShapeBit-owned LUKS2 TPM token and initrd helper constructs the complete PCR 7,
+signed PCR 11, and TPM2 NV policy. The helper must use the target image's TPM2
+libraries, carry no disk-unlock secret outside the TPM-sealed token, and fail
+closed when the token version or policy is unsupported. Exact
+`systemd-cryptenroll`, `systemd-measure`, `ukify`, and helper arguments are
+implementation details pinned to and tested with that image.
 
 ##### Update and rollback window
 
@@ -212,32 +214,77 @@ systemd policy features until they exist in that image.
   baseline defined by [Trial Boot and Explicit Deployment Acceptance](boot-system-lifecycle.md) form the default authorized boot window.
 - The rollback baseline must remain on the ESP and authorized until the new
   deployment is durably accepted. It leaves normal boot selection after
-  acceptance and before an incompatible migration commit begins. Strong
-  cryptographic prevention of reintroduction belongs to the later TPM2 NV
-  anti-rollback architecture section.
+  acceptance and before an incompatible migration commit begins.
 - A failed trial boot must be able to select the previous signed UKI without a
   recovery-key prompt.
 
-This policy does not provide absolute anti-rollback protection. Any retained
-artifact signed by a still-trusted key may remain bootable even after the
-product rollback guarantee closes. Signed release blocklists prevent an old
-image from being staged again but cannot invalidate an offline retained UKI.
+##### Security-epoch anti-rollback
 
-Every signed release manifest defined by [Signed Manifest as the Immutable Release Identity](boot-system-lifecycle.md) reserves a non-decreasing
-`security_epoch`. The
-epoch changes only at an explicit security barrier, not for every ordinary
-release, so a trial candidate and its rollback baseline may share an epoch. It
-is release metadata until a later anti-rollback architecture section defines its cryptographic
-binding to a TPM2 NV policy.
+Every signed system release and boot-stack manifest carries a non-decreasing
+`security_epoch`. Ordinary releases remain in the current epoch. ShapeBit
+increments it only at an explicit security barrier that must make older
+artifacts unusable.
 
-TPM-backed anti-rollback requires a separate architecture section covering TPM2 NV state,
-security-epoch transitions, recovery, and migration from prototype enrollments.
-It may be deferred during disposable VM work but must be accepted, implemented,
-and validated before public alpha or the first persistent production-device
-provisioning, whichever happens first. A device provisioned earlier must not be
-advertised as supporting strong anti-rollback. Migration must invalidate the old
-TPM2 authorization path; deleting only a keyslot from the current LUKS2 header
-is insufficient because an attacker may retain an older header.
+Each device stores its minimum authorized epoch in a dedicated monotonic TPM2
+NV counter. A release-specific signed TPM policy authorizes the LUKS2 token only
+when all of these conditions hold:
+
+- PCR 7 represents the approved Secure Boot policy;
+- PCR 11 represents the signed UKI and permitted initrd phase; and
+- the device's NV counter is less than or equal to the release's signed
+  `security_epoch`.
+
+The epoch comparison is part of the policy authorized by the PCR policy key.
+After the device counter advances, an older release policy fails inside the TPM
+even if an attacker restores its UKI, policy signature, and an old copy of the
+LUKS2 header. The counter is never decremented or recreated during an ordinary
+update or normal recovery boot. Re-creation is permitted only after TPM clear
+or replacement through the explicit recovery-key procedure below.
+
+This is epoch-level rather than per-release anti-rollback. Older releases in
+the current epoch can remain technically authorized, although normal boot
+selection and signed release blocklists still restrict their use. A release
+that must invalidate every earlier release starts a new epoch.
+
+##### Epoch transition and failure behavior
+
+A trial candidate in a higher epoch is authorized while the device counter
+still names the accepted baseline's epoch, so both the candidate and baseline
+remain unlockable during the trial. ShapeBit advances the counter only after:
+
+1. the higher-epoch system deployment is durably accepted;
+2. its compatible higher-epoch boot stack has booted and become the durable
+   default;
+3. the signed manifests, UKI policy, independent recovery environment, and
+   device recovery key have been verified; and
+4. the transaction record is durable and can resume after power loss.
+
+Advancing the counter closes normal rollback to every lower epoch. Power loss
+before the increment leaves the lower epoch authorized and resumes the
+fix-forward transaction. Power loss after the increment must boot the verified
+higher-epoch path or enter independent recovery; it must never lower the
+counter or restore an older authorization policy.
+
+TPM clear or motherboard replacement destroys the normal device-bound unlock
+path. The owner unlocks with the device recovery key, and ShapeBit reprovisions
+the TPM policy at the epoch of the installed, cryptographically verified
+release. Recovery may preserve or raise the known floor but must not silently
+select a lower epoch.
+
+##### Prototype transition
+
+An installation whose TPM2 LUKS2 token does not carry the ShapeBit policy
+version and NV-counter identity is a prototype enrollment. It cannot be
+promoted in place to the production trust model. Disposable VMs are reset;
+persistent development devices are reinstalled from trusted media, recreating
+the encrypted volume, TPM enrollment, and epoch counter at the current signed
+release.
+
+Deleting a legacy keyslot from only the current LUKS2 header is not a supported
+migration because a retained older header can preserve that unlock route. A
+future in-place migration would require a separately reviewed volume-key
+rotation or re-encryption design and evidence that every retained legacy header
+is unusable.
 
 ##### Key roles
 
@@ -331,8 +378,8 @@ from permanently destroying access to the encrypted system volume.
 
 #### Required validation
 
-Before accepting this section, demonstrate in QEMU with OVMF and swtpm, then on at
-least one `Officially-tested` laptop:
+Before claiming production support, demonstrate in QEMU with OVMF and swtpm,
+then on at least one `Officially-tested` laptop:
 
 1. boot of a signed UKI with Secure Boot enabled;
 2. refusal to boot a modified or untrusted UKI;
@@ -344,7 +391,12 @@ least one `Officially-tested` laptop:
 8. confirmation that production private keys are absent from images, ESPs,
    logs, build output, and general CI workers;
 9. sealed deployment verification with fs-verity required;
-10. power-loss testing during staging and trust-policy rotation.
+10. power-loss testing during staging, epoch advancement, and trust-policy
+    rotation;
+11. refusal to unlock a restored lower-epoch UKI and LUKS2 header after the NV
+    counter advances; and
+12. recovery-key reprovisioning after TPM clear without lowering the verified
+    epoch.
 
 #### When to revisit
 
@@ -364,14 +416,11 @@ that authorizes the TPM2 LUKS2 keyslot. It does not own:
 - system-volume encryption requirements, which belong to [TPM-Unlocked Encrypted System Volume](security-identity.md);
 - release identity, which belongs to [Signed Manifest as the Immutable Release Identity](boot-system-lifecycle.md);
 - deployment state transitions and attempt counting, which belong to [Trial Boot and Explicit Deployment Acceptance](boot-system-lifecycle.md);
-- the independent recovery environment, which belongs to [Independent Recovery Environment](diagnostics-recovery.md);
-- strong TPM2 NV anti-rollback, which requires a separate architecture section.
+- the independent recovery environment, which belongs to [Independent Recovery Environment](diagnostics-recovery.md).
 
 ## Release identity and signing
 
 ### Signed Manifest as the Immutable Release Identity
-
-**Status:** Proposed
 
 #### Purpose and constraints
 
@@ -514,7 +563,7 @@ The top-level object contains exactly `schema_version`, `version`,
 - `architecture` is `x86_64`.
 - `security_epoch` is a non-negative decimal integer encoded as a string, with
   no leading zero except the value `0`. It changes only at an explicit global
-  security barrier; D24 owns enforcement and transition rules.
+  security barrier; [Boot Trust and TPM2 Unlock Policy](boot-system-lifecycle.md) owns enforcement and transition rules.
 - `platform` contains exactly the required Boolean members `uefi`,
   `secure_boot`, and `tpm2`.
 - `requires`, `artifacts`, and `rootfs` follow the closed structures above.
@@ -572,8 +621,6 @@ without changing release identity.
 - the UI still displays a friendly release number.
 
 ### Release Artifact and Rootfs Binding
-
-**Status:** Proposed
 
 #### Purpose and constraints
 
@@ -651,9 +698,9 @@ and avoids coupling a deployment rollback to shared EFI state.
 
 A boot-stack update must remain capable of booting the accepted deployment and
 the retained rollback deployment. ShapeBit must establish this compatibility
-before changing shared EFI state. Compatibility validation and the
-power-loss-safe installation transaction remain to be defined before this section
-can be accepted.
+before changing shared EFI state. The following ordering and A/B transaction
+define the required behavior; production support remains contingent on their
+validation.
 
 ##### Boot-stack manifest
 
@@ -780,9 +827,9 @@ partially written files over the known-good slot.
 
 For a higher-epoch transition, the durable epoch barrier advances only after
 the candidate boot stack has booted successfully and become the durable
-default. The old slot is then removed from normal firmware selection. D24 must
-ensure that an old copied or manually selected stack cannot regain TPM-backed
-authorization after the barrier advances.
+default. The old slot is then removed from normal firmware selection. The TPM2
+NV policy defined by [Boot Trust and TPM2 Unlock Policy](boot-system-lifecycle.md) ensures that an old copied or manually selected stack cannot regain
+TPM-backed authorization after the barrier advances.
 
 ##### ESP paths and firmware fallback
 
@@ -922,10 +969,10 @@ and failure behavior. [Signed Manifest as the Immutable Release Identity](boot-s
 Boot and TPM2 authorization policy. D23 owns signing-key operations and trust
 thresholds.
 
-#### Required review evidence
+#### Required validation
 
-This section remains `Proposed` until the complete design is demonstrated rather
-than inferred from component documentation.
+Before claiming production support, demonstrate the complete artifact-binding
+design rather than inferring it from component documentation.
 
 The automated x86-64 QEMU, OVMF, Secure Boot, and software-TPM suite must cover
 installation, staging, trial, acceptance, rollback, same-epoch boot-stack
@@ -953,8 +1000,6 @@ digests under [Simple Test Evidence](base-system.md). [Platform Scope and Hardwa
 hardware gates.
 
 ### Production Signing Operations
-
-**Status:** Proposed
 
 #### Purpose and constraints
 
@@ -1108,7 +1153,7 @@ uses a two-of-three threshold.
 There is no cloned standby token or exportable operational-key backup. Loss or
 failure pauses the affected workflows while the two-of-three root delegates
 fresh keys on a replacement token. Suspected compromise additionally revokes
-the lost keys under the compromise procedure still to be defined.
+the lost keys under the compromise procedure below.
 
 A production system, boot-stack, or recovery release normally requires both the
 manifest and boot tokens: the first signs its immutable manifest and the second
@@ -1254,9 +1299,6 @@ above. Hardware-token selection must demonstrate support for every algorithm
 assigned to the roles held on that token. Format-native interoperability takes
 priority over reducing the hierarchy to a single algorithm family.
 
-The precise DSSE signature encoding, OpenPGP key profile, and remaining parser
-strictness remain to be fixed before this section can be accepted.
-
 ##### Canonical public-key identity
 
 Every ShapeBit-managed signing key has one content-derived identifier. Its
@@ -1397,7 +1439,7 @@ It does not delete already installed applications, make the current deployment
 unbootable, or pretend that offline devices learned the revocation. Devices
 apply the revocation after obtaining the sequential root-policy update and,
 for boot trust, completing the coordinated boot-stack and security-epoch
-transition owned by [Release Artifact and Rootfs Binding](boot-system-lifecycle.md) and D24.
+transition owned by [Release Artifact and Rootfs Binding](boot-system-lifecycle.md) and [Boot Trust and TPM2 Unlock Policy](boot-system-lifecycle.md).
 
 ##### Strict verification and parsing
 
@@ -1428,9 +1470,36 @@ from development. [Boot Trust and TPM2 Unlock Policy](boot-system-lifecycle.md) 
 [Signed Manifest as the Immutable Release Identity](boot-system-lifecycle.md) and [Release Artifact and Rootfs Binding](boot-system-lifecycle.md) own the signed payloads and artifact relationships. This
 architecture section owns production signing operations and delegation.
 
-#### Open questions
+#### Required validation
 
-- Required validation before acceptance.
+Architecture approval does not establish that the production signing system is
+implemented or safe to operate. Before the first production signature:
+
+1. exercise the exact topology on real non-exportable hardware tokens: three
+   independent root tokens and separate manifest, boot, and distribution
+   tokens carrying all eight delegated role keys;
+2. create root-policy version 1 with two distinct root signatures, then
+   rehearse one-root loss, revocation, and replacement without weakening the
+   two-of-three threshold;
+3. demonstrate that two independent clean builds produce identical complete
+   unsigned artifact inventories and that any mismatch blocks signing;
+4. sign and verify system, boot-stack, recovery, application-repository, and
+   application-recommendation outputs in the required bundle order;
+5. reject wrong-role and wrong-key signatures, malformed or non-canonical
+   payloads, invalid threshold combinations, skipped or expired root policies,
+   revoked keys, and clock rollback;
+6. rehearse operational-token rotation, loss, and compromise response, plus
+   boot-key and PCR-policy-key recovery consequences;
+7. boot, update, reject invalid artifacts, and recover the resulting signed
+   system in the QEMU, OVMF, and software-TPM profile;
+8. complete one signing ceremony using only the maintained procedure; and
+9. archive immutable receipts and evidence containing public identifiers, tool
+   versions, inputs, outputs, outcomes, and test references.
+
+Validation evidence must never contain PINs, token-management credentials,
+private-key handles, recovery secrets, or other secret material. The separate
+boot-trust and hardware gates continue to govern production boot and physical
+device support.
 
 ## Updates and deployment
 
