@@ -1,7 +1,5 @@
 # Workspaces
 
-**Status:** Draft
-
 Workspaces are persistent user-facing surfaces that group windows and
 compositor-owned layout across all connected displays. This document records
 intended behavior, not implemented or verified desktop behavior.

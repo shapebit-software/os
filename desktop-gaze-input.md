@@ -1,7 +1,5 @@
 # Gaze Input
 
-**Status:** Draft
-
 Gaze input is an optional way to position the pointer at the place where the
 user is looking. This document records intended behavior, not implemented or
 verified desktop behavior.
@@ -31,7 +29,7 @@ verified desktop behavior.
   and resumes only in the unlocked user session.
 
 Camera access and privacy indication remain subject to
-[ADR-0020](adr-0020-media-privacy-and-notifications.md).
+[Media, Privacy, and Notification Policy](desktop.md).
 
 ## Calibration and reliability
 

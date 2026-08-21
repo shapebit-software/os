@@ -1,24 +1,35 @@
-# ADR-0023: Application Platform and System Set
+# Application Platform
 
-**Status:** Accepted
+System applications, Flatpak, AppImage, Distrobox, application ownership, permissions, updates, and recommendations.
+
+These pages are living architecture, not implementation evidence. Unlabeled
+sections describe the current design. A **Proposed** label marks a section that
+still requires explicit review and validation; remove the label once that review
+is complete.
+
+Changing a current rule requires updating its owning section and every affected
+cross-area contract.
+
+## Architecture topics
+
+## Application Platform and System Set
 
 **Date:** 2026-08-09
 
-**Supersedes:** [ADR-0017](adr-0017-application-distribution-and-appimage.md)
 
-## Context
+### Context
 
 ShapeBit OS needs an offline-capable desktop core, a broad independently
 updated application catalog, strong attribution for third-party software, and
-first-class AppImage and developer workflows. The earlier application ADR left
+first-class AppImage and developer workflows. The earlier application architecture section left
 the exact system set open and limited the ShapeBit Flatpak repository to
 first-party applications. Browser integration now also requires a narrow way to
 publish ShapeBit-authored packaging instructions without redistributing
 third-party binaries.
 
-## Decision
+### Decision
 
-### Immutable desktop core
+#### Immutable desktop core
 
 Components required to operate the desktop are part of the immutable OS image,
 shared by all users, and updated and rolled back with the OS. They include the
@@ -50,7 +61,7 @@ networking, boot, Flatpak, systemd, diagnostics, and administration. It does not
 include general-purpose compiler toolchains, language SDKs, development headers,
 or project-specific build dependencies.
 
-### Flatpak sources and integration artifacts
+#### Flatpak sources and integration artifacts
 
 The normal application UI exposes exactly two Flatpak sources:
 
@@ -89,7 +100,7 @@ Recommendations are a manually curated, signed ShapeBit list. Paid promotion
 does not determine inclusion. Detailed review and removal criteria belong to
 D04. No third-party application binary is preinstalled in the OS image.
 
-### Browser choice and integration
+#### Browser choice and integration
 
 First-login onboarding offers these five browsers:
 
@@ -120,7 +131,7 @@ integration tests pass. Installation and updates prepare a new Flatpak
 deployment without damaging the active one. A running browser finishes on its
 old deployment and the UI requests a restart, especially for a security update.
 
-### Per-user Flatpak lifecycle
+#### Per-user Flatpak lifecycle
 
 - Every user has an independent Flatpak installation inside their encrypted
   home.
@@ -140,7 +151,7 @@ and per user. ShapeBit provides no automatic Flatpak application rollback;
 pre-acceptance OS rollback does not change Flatpak versions or application
 data.
 
-### Wayland-only application scope
+#### Wayland-only application scope
 
 The initial desktop supports native Wayland applications only and does not
 include XWayland. The normal application UI hides Flatpaks that declare only X11
@@ -148,7 +159,7 @@ support. If an installed update would remove Wayland support, the updater keeps
 the working version and does not activate the incompatible update. Developer
 tooling may expose the unsupported catalog.
 
-### AppImage model
+#### AppImage model
 
 AppImage is a per-user portable-application path separate from the Flatpak
 catalog. ShapeBit does not operate an AppImage repository, classify AppImages
@@ -173,7 +184,7 @@ home or removable media automatically. ShapeBit adds no AppImage-specific
 restriction around handlers, autostart, user services, or other ordinary
 unsandboxed desktop integration. X11-only AppImages remain unsupported.
 
-### Developer environment
+#### Developer environment
 
 The immutable host contains rootless Podman and Distrobox. Distrobox replaces
 Toolbox as the supported interactive development environment. Compiler
@@ -198,7 +209,7 @@ first default only after it is built, versioned, and validated as a supported
 environment. The matching Fedora image remains a supported reference and
 fallback.
 
-## Consequences
+### Consequences
 
 - Essential desktop operation and basic text and calculation work remain
   available offline.
@@ -214,40 +225,127 @@ fallback.
 - Distrobox keeps development dependencies away from the immutable host but
   does not protect the home from code running inside a developer container.
 
-## Boundaries
+### Boundaries
 
-This ADR owns the system application and command-line set, application sources,
+This section owns the system application and command-line set, application sources,
 third-party integration artifacts, browser onboarding, per-user Flatpak
 lifecycle, Wayland catalog scope, AppImage behavior, and the Podman/Distrobox
-developer environment. ADR-0011 and ADR-0016 own encrypted-home and capacity
-boundaries. ADR-0018 owns developer-mode presentation and authorization.
-ADR-0020 owns media privacy and notification behavior. ADR-0024 owns
-recommendation governance. ADR-0042 owns ShapeBit production signing roles and
+developer environment. [Per-User Encrypted Homes](security-identity.md) and [Initial Installation and Storage Profile](base-system.md) own encrypted-home and capacity
+boundaries. [Desktop Session and Authorization Boundaries](desktop.md) owns developer-mode presentation and authorization.
+[Media, Privacy, and Notification Policy](desktop.md) owns media privacy and notification behavior. [Application Recommendations](application-platform.md) owns
+recommendation governance. [Production Signing Operations](boot-system-lifecycle.md) owns ShapeBit production signing roles and
 does not convert Flathub, upstream package, or AppImage keys into ShapeBit trust
 delegations.
 
-## Open questions
+### Open questions
 
 - Whether and when XWayland becomes a supported compatibility layer.
 
-## Related decisions
+## Application Recommendations
 
-- [ADR-0002](adr-0002-filesystem-ownership.md)
-- [ADR-0040](adr-0040-forward-only-migrations-and-trial-bounded-rollback.md)
-- [ADR-0011](adr-0011-per-user-encrypted-homes.md)
-- [ADR-0016](adr-0016-initial-installation-and-storage-profile.md)
-- [ADR-0018](adr-0018-desktop-session-and-authorization.md)
-- [ADR-0020](adr-0020-media-privacy-and-notifications.md)
-- [ADR-0024](adr-0024-application-recommendations.md)
-- [ADR-0042](adr-0042-production-signing-operations.md)
+**Date:** 2026-08-09
 
-## References
+### Context
 
-- [Flatpak extra-data sources](https://docs.flatpak.org/en/latest/module-sources.html#extra-data)
-- [Flathub application verification](https://docs.flathub.org/docs/for-users/verification)
-- [Google Chrome Flathub manifest](https://github.com/flathub/com.google.Chrome/blob/master/com.google.Chrome.yaml)
-- [Fedora Chromium package](https://packages.fedoraproject.org/pkgs/chromium/chromium/)
-- [Distrobox overview](https://distrobox.it/)
-- [Distrobox compatibility](https://distrobox.it/compatibility/)
-- [AppImage desktop integration](https://docs.appimage.org/reference/desktop-integration.html)
-- [AppImage update information](https://docs.appimage.org/packaging-guide/optional/updates.html)
+The ShapeBit application UI exposes the full supported catalog while also
+offering a much smaller curated recommendation list. A recommendation is a
+stronger product signal than catalog availability, but the project is currently
+managed by one person and must not invent a multi-person approval process that
+does not exist.
+
+### Decision
+
+#### Authority and change record
+
+The ShapeBit project owner is the sole curator and approver of the
+recommendation list. No vote, second reviewer, or external approval is required.
+Every addition, removal, ordering change, or category change has a short public
+rationale in the repository history.
+
+Automation may identify maintenance, permissions, ownership, availability,
+license, or security changes and present a report. It never changes the list or
+approves a recommendation. The approval model may be replaced only after the
+project actually has a team and an explicit architecture update defines its authority.
+
+#### Inclusion criteria
+
+A recommended application must:
+
+- run natively on the supported Wayland-only ShapeBit desktop;
+- come from Flathub or an integration accepted under [Application Platform and System Set](application-platform.md);
+- identify the software author, package maintainer, and binary source
+  accurately;
+- be actively maintained and have a credible path for security fixes;
+- request permissions proportionate to its advertised function;
+- pass installation, launch, update, and removal checks on the current stable
+  ShapeBit release;
+- have no unresolved license or branding issue known to ShapeBit; and
+- provide clear user value, even when a competing application is also listed.
+
+Flathub publisher verification is not mandatory. A community-maintained package
+may be recommended when its community status and actual source remain visible.
+Paid promotion does not determine inclusion.
+
+#### Re-review
+
+There is no calendar-based re-review interval, expiry date, or automatic stale
+status. The curator initiates a review at their discretion or in response to a
+specific signal. Relevant signals include project abandonment or transfer,
+loss of Wayland support, a material permission expansion, a security incident,
+source disappearance, and a license or business-model change.
+
+Automation may report these signals but does not interpret silence or elapsed
+time as a removal decision.
+
+#### Removal
+
+Removal from recommendations requires the curator's decision and a short public
+rationale. It removes only the recommendation signal. ShapeBit does not
+automatically uninstall the application or delete its data, and an existing
+installation continues to receive updates from its configured source.
+
+When the reason is a serious known security risk, ShapeBit may warn users who
+have the application installed. Blocking execution, revoking a package, or
+forcing removal is outside the recommendation mechanism and requires a separate
+security authority and decision.
+
+#### Signed manifest and presentation
+
+Recommendations are distributed as a small signed manifest independently of
+the OS image. It records at least the application ID, source, category, manual
+position, attribution and verification information, license, and short
+rationale. Exact serialization and production key operations belong to the
+release-manifest and signing work in D21-D23.
+
+The system automatically retrieves a newer manifest. A valid signed manifest
+atomically replaces the current one. Download, parsing, or signature failure
+keeps the last valid manifest; ShapeBit never falls back to unsigned data. The
+OS image contains an initial signed copy so the recommendation view works before
+its first refresh. Updating this manifest neither installs nor removes an
+application.
+
+There is one canonical list for all users. The curator manually defines
+categories and ordering. ShapeBit does not personalize recommendations from
+telemetry, launch history, country, or account profile. Flathub popularity or
+ratings may be displayed as external information but do not reorder the list.
+Installed applications remain visible with an installed marker. The complete
+catalog remains searchable, and there is no fixed maximum list length.
+
+### Consequences
+
+- Governance matches the project's actual one-person maintenance model.
+- Every recommendation remains an explicit human decision with a public reason.
+- The absence of a mandatory review interval reduces process overhead but can
+  leave a stale recommendation until the curator or automation notices a
+  relevant change.
+- A signed independently refreshed list permits fast recommendation removal
+  without an OS release.
+- Recommendation removal is not confused with remote application control.
+
+### Boundaries
+
+This section owns recommendation authority, inclusion, re-review, removal,
+distribution behavior, ordering, and personalization. [Application Platform and System Set](application-platform.md) owns application
+sources, installation, updates, permissions, and runtime support. D21-D23 own
+the manifest serialization and production signing system. A future application
+revocation policy is separate from recommendations.

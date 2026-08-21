@@ -1,7 +1,5 @@
 # Background Activity
 
-**Status:** Draft
-
 Background Activity represents long-running work such as downloads, file
 copies, updates, and assistant actions without turning every progress change
 into a notification. This document records intended behavior, not implemented
@@ -39,7 +37,7 @@ or verified desktop behavior.
   completion [notification](desktop-notifications.md).
 - A failed activity remains until handled or dismissed and produces an ordinary
   banner by default. Only the verified critical-system path defined by
-  [ADR-0020](adr-0020-media-privacy-and-notifications.md) may bypass Do Not
+  [Media, Privacy, and Notification Policy](desktop.md) may bypass Do Not
   Disturb.
 - An assistant action appears in Background Activity only after it exceeds a
   short-duration threshold or becomes paused. Its activity entry and chat action

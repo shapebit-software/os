@@ -1,7 +1,5 @@
 # Window Management
 
-**Status:** Draft
-
 ShapeBit Desktop uses tiling by default while retaining explicit stacking and
 floating placement. Placement, presentation, and keyboard focus are separate
 properties. This document records intended behavior, not implemented or

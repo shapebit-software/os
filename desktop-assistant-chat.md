@@ -1,7 +1,5 @@
 # Assistant Chat
 
-**Status:** Draft
-
 Assistant chat is a text interface to the shared local
 [assistant framework](desktop-assistant-framework.md). This document records
 intended behavior, not implemented or verified desktop behavior.

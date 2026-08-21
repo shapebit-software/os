@@ -1,12 +1,10 @@
 # Notifications
 
-**Status:** Draft
-
 ShapeBit notifications provide visible but non-focus-stealing attention across
 [Workspaces](desktop-workspaces.md). This document records intended behavior,
 not implemented or verified desktop behavior. Privacy, lock-screen, sharing,
 critical-notification, and Do Not Disturb constraints remain owned by
-[ADR-0020](adr-0020-media-privacy-and-notifications.md).
+[Media, Privacy, and Notification Policy](desktop.md).
 
 ## Notification panel
 
@@ -72,6 +70,6 @@ focused or the application withdraws that request.
 - **Clear all** excludes unresolved critical system notifications, which must be
   handled or dismissed individually.
 - Do Not Disturb queues ordinary application notifications. Applications cannot
-  bypass it; only the verified critical system path defined by ADR-0020 can.
+  bypass it; only the verified critical system path defined by [Media, Privacy, and Notification Policy](desktop.md) can.
 - Fullscreen alone does not enable Do Not Disturb. Whole-monitor sharing,
-  locking, unlock summaries, and critical-system exceptions follow ADR-0020.
+  locking, unlock summaries, and critical-system exceptions follow [Media, Privacy, and Notification Policy](desktop.md).

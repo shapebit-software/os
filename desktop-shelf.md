@@ -1,7 +1,5 @@
 # Shelf
 
-**Status:** Draft
-
 The Shelf is a temporary, user-controlled place for keeping material close at
 hand while working across [Workspaces](desktop-workspaces.md). This document records
 intended behavior, not implemented or verified desktop behavior.

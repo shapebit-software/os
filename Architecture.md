@@ -1,19 +1,25 @@
 # Architecture
 
-This page is the entry point for ShapeBit OS architecture and product-design
-documentation. Architecture Decision Records (ADRs) remain authoritative for
-durable decisions; overview and product-area pages organize those decisions and
-the related design documents.
+ShapeBit OS is an image-based Linux desktop operating system built on Fedora
+bootc. Its architecture is organized by system area so each rule has one
+canonical home and related details stay together.
 
-## System
+These pages describe intended architecture, not implementation evidence.
+Unlabeled sections are the current design. A **Proposed** label marks a section
+that still requires explicit review and validation; it will be removed after
+that review.
 
-- [System design and delivery tracker](system-overview.md)
-- [Architecture decision records](architecture-decisions.md)
+## System areas
 
-## Product areas
-
-- [Desktop Environment](desktop.md) — desktop vision, window and Workspace
-  behavior, shell surfaces, input, and the local assistant.
-
-Additional product-area indexes will be added here as their documentation is
-reorganized.
+- [Base System](base-system.md) — system foundation, storage, hardware scope,
+  platform services, validation, and the delivery tracker.
+- [Boot and System Lifecycle](boot-system-lifecycle.md) — installation, boot,
+  releases, updates, migrations, and signing operations.
+- [Security and Identity](security-identity.md) — encryption, authentication,
+  authorization, networking, remote access, and credentials.
+- [Application Platform](application-platform.md) — system applications,
+  Flatpak, AppImage, Distrobox, and recommendations.
+- [Desktop Environment](desktop.md) — desktop product design, session
+  boundaries, displays, power, media, and notifications.
+- [Diagnostics and Recovery](diagnostics-recovery.md) — reports, rollback,
+  repair, reset, independent recovery, and Recovery Kit handling.

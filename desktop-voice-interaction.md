@@ -1,7 +1,5 @@
 # Voice Interaction
 
-**Status:** Draft
-
 Voice interaction lets the user work with ShapeBit through local AI agents.
 This document records intended behavior, not implemented or verified desktop
 behavior.
@@ -23,7 +21,7 @@ behavior.
   authentication prompts.
 
 Microphone access and privacy indication remain subject to
-[ADR-0020](adr-0020-media-privacy-and-notifications.md).
+[Media, Privacy, and Notification Policy](desktop.md).
 
 ## Modes
 

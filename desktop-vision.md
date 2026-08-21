@@ -1,10 +1,8 @@
 # ShapeBit Desktop Goals
 
-**Status:** Draft
-
 This document defines the intended product outcomes for ShapeBit Desktop. It
 does not prove implementation, replace the ShapeBit OS roadmap, or override an
-architecture decision record (ADR).
+accepted architecture section.
 
 ## Product vision
 
@@ -36,18 +34,18 @@ architecture:
   a trustworthy application interface.
 - A shell failure preserves applications and authoritative lock state. A
   compositor failure ends the damaged graphical session as defined by
-  ADR-0018; arbitrary application state is not promised recovery.
+  [Desktop Session and Authorization Boundaries](desktop.md); arbitrary application state is not promised recovery.
 - Every essential pointer or touch operation has a keyboard-accessible
   equivalent. Interaction does not depend only on color, animation, hover, or
   precise pointer movement.
 
 The owning decisions are
-[ADR-0018](adr-0018-desktop-session-and-authorization.md),
-[ADR-0019](adr-0019-display-power-and-thermal-policy.md),
-[ADR-0020](adr-0020-media-privacy-and-notifications.md),
-[ADR-0023](adr-0023-application-platform-and-system-set.md),
+[Desktop Session and Authorization Boundaries](desktop.md),
+[Display, Power, and Thermal Policy](desktop.md),
+[Media, Privacy, and Notification Policy](desktop.md),
+[Application Platform and System Set](application-platform.md),
 and
-[ADR-0030](adr-0030-platform-service-api-contract.md).
+[Platform-Service API Contract](base-system.md).
 
 ## Goals
 

@@ -1,7 +1,5 @@
 # Quick Settings
 
-**Status:** Draft
-
 Quick Settings provides fast access to selected system controls without
 replacing the complete Settings application. This document records intended
 behavior, not implemented or verified desktop behavior.
@@ -123,16 +121,16 @@ behavior, not implemented or verified desktop behavior.
   failures and states explicitly that no VPN is active.
   Switching otherwise starts immediately without an additional confirmation;
   the confirmation and authorization requirements in
-  [ADR-0021](adr-0021-network-ownership-and-privacy.md) still apply. Supported
+  [Network Ownership and Privacy](security-identity.md) still apply. Supported
   VPN types and system-wide routing remain governed by
-  [ADR-0025](adr-0025-enterprise-network-authentication.md) and the
-  [system design](system-overview.md).
+  [Enterprise Network Authentication](security-identity.md) and the
+  [architecture index](Architecture.md).
 - Cellular, NFC, and other additional radio controls are deferred until their
   hardware and policy models are designed. Quick Settings does not claim a
   dedicated captive-portal workflow; that remains outside the initial release
-  under ADR-0021.
+  under [Network Ownership and Privacy](security-identity.md).
 - A Camera switch tile exposes the global camera-disable control defined by
-  [ADR-0020](adr-0020-media-privacy-and-notifications.md) and applies to all
+  [Media, Privacy, and Notification Policy](desktop.md) and applies to all
   applications subject to that decision's documented enforcement boundaries.
   Its direct meaning is **On = camera available** and **Off = camera globally
   blocked**. If a controlled client retains an active camera session while
@@ -149,7 +147,7 @@ behavior, not implemented or verified desktop behavior.
   each type. Each entry shows the application, the accessed resource or shared
   scope, and how long the activity has been active. An entry exposes **Stop**
   whenever the controlled capture or remote-control boundary supports immediate
-  revocation, consistent with ADR-0020. Stop acts immediately without
+  revocation, consistent with [Media, Privacy, and Notification Policy](desktop.md). Stop acts immediately without
   confirmation, revokes only the selected activity, and does not change the
   global Camera or microphone-mute controls. Stopping remote control leaves its
   associated screen-sharing session active. Stopping screen sharing also
@@ -175,7 +173,7 @@ behavior, not implemented or verified desktop behavior.
   microphone icon toggles input mute; unmuting restores the previous input
   level. Its direct meaning is **On = input available** and **Muted = input
   globally blocked**. This is the global microphone mute defined by
-  [ADR-0020](adr-0020-media-privacy-and-notifications.md): it affects
+  [Media, Privacy, and Notification Policy](desktop.md): it affects
   applications and local-assistant voice input, subject to that decision's
   documented enforcement boundaries. If a controlled client retains an active
   microphone session while global mute blocks input, the unhideable privacy
@@ -194,10 +192,10 @@ behavior, not implemented or verified desktop behavior.
   for other supported displays. While HDR is active, the detail view provides
   separate sliders for physical display brightness and the reference brightness
   of SDR content. HDR state and safe SDR fallback remain defined by
-  [ADR-0019](adr-0019-display-power-and-thermal-policy.md).
+  [Display, Power, and Thermal Policy](desktop.md).
 - A VRR control appears only when the display containing the panel supports
   variable refresh rate. It shows **Automatic for fullscreen** by default and
-  allows VRR to be disabled for that display, consistent with ADR-0019.
+  allows VRR to be disabled for that display, consistent with [Display, Power, and Thermal Policy](desktop.md).
 - If the current display pipeline cannot safely combine HDR, VRR, Night Light,
   or another selected mode, Quick Settings preserves the working configuration,
   disables the conflicting control, and explains why rather than silently
@@ -224,7 +222,7 @@ behavior, not implemented or verified desktop behavior.
   and are not combined with the system estimate. The overview also shows a
   power-profile selector. The available profiles are **Balanced**, **Power
   Saver**, and **Performance** when the platform supports it, as defined by
-  [ADR-0019](adr-0019-display-power-and-thermal-policy.md). When low battery
+  [Display, Power, and Thermal Policy](desktop.md). When low battery
   automatically activates Power Saver, the selector labels it **Power Saver —
   Automatic** and temporarily disables the other profiles. Connecting external
   power restores the previously selected profile. When thermal policy limits
@@ -232,7 +230,7 @@ behavior, not implemented or verified desktop behavior.
   protection remains informational and cannot be disabled. Battery conservation
   and charging-limit controls remain in the full Settings application because
   they are system-wide and may require administrator confirmation under
-  ADR-0019.
+  [Display, Power, and Thermal Policy](desktop.md).
 - Power actions are presented as commands rather than switches. The Power
   control opens a focused view inside the panel and never performs a command
   immediately. Its initial commands are **Lock**, **Suspend**, **Log Out**,
@@ -244,7 +242,7 @@ behavior, not implemented or verified desktop behavior.
   these destructive confirmations. When an update is staged, the relevant
   command may be labeled **Restart and Update**, while confirmation, recovery,
   and failure behavior remain governed by
-  [ADR-0027](adr-0027-staged-restart-ux.md).
+  [Staged-Restart UX](boot-system-lifecycle.md).
 
 ## System-bar status cluster
 

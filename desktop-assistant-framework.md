@@ -1,7 +1,5 @@
 # Assistant Framework
 
-**Status:** Draft
-
 The assistant framework is the common local foundation for assistant and agent
 interaction across ShapeBit Desktop. This document records intended behavior,
 not implemented or verified desktop behavior.
@@ -66,14 +64,14 @@ not implemented or verified desktop behavior.
 
 The confirmed window-content goal does not yet distinguish semantic data
 exposed by an application from captured screen pixels. Accepted
-[ADR-0020](adr-0020-media-privacy-and-notifications.md)
+[Media, Privacy, and Notification Policy](desktop.md)
 requires a new portal selection for each screen-image capture and does not
 retain that permission. Unrestricted pixel access is therefore not authorized
-unless a later decision supersedes ADR-0020.
+unless a later decision supersedes [Media, Privacy, and Notification Policy](desktop.md).
 
 ## Open decisions
 
 Detailed capability scopes, the semantic-data versus screen-pixel boundary,
 memory selection, and future agent isolation remain undecided. Cross-system
 authorization constraints remain owned by the ShapeBit OS architecture and
-decision records.
+architecture sections.
