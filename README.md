@@ -10,8 +10,7 @@ git clone --recurse-submodules https://github.com/shapebit-software/os.git
 
 ## Documentation
 
-- [System design and delivery tracker](https://github.com/shapebit-software/docs/wiki/system-design)
-- [Architecture decision records](https://github.com/shapebit-software/docs/wiki/architecture-decisions)
+- [Architecture](https://github.com/shapebit-software/docs/wiki/Architecture)
 
 ## Project links
 
