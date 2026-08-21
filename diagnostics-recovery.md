@@ -10,10 +10,14 @@ is complete.
 Changing a current rule requires updating its owning section and every affected
 cross-area contract.
 
+## On this page
+
+- [Recovery model](#recovery-model)
+- [Diagnostics](#diagnostics)
+
 ## Recovery model
 
 ### Separate Rollback, Backup, and Reset Operations
-
 
 #### Purpose and constraints
 
@@ -82,7 +86,6 @@ of deployment rollback.
 The recovery interface must clearly present the three separate operations and their effects.
 
 ### Independent Recovery Environment
-
 
 #### Purpose and constraints
 
@@ -171,7 +174,6 @@ authorization of rollback, repair, system reset, user removal, and device
 erase. [Trial Boot and Explicit Deployment Acceptance](boot-system-lifecycle.md) defines automatic deployment rollback.
 
 ### Recovery Kit Presentation and Lifecycle
-
 
 #### Purpose and constraints
 
@@ -328,7 +330,6 @@ copy belong to the installer UI documentation.
 ## Diagnostics
 
 ### Diagnostic Reports and Consent
-
 
 #### Purpose and constraints
 

@@ -10,6 +10,16 @@ is complete.
 Changing a current rule requires updating its owning section and every affected
 cross-area contract.
 
+## On this page
+
+- [System boundaries](#system-boundaries)
+- [Current implementation evidence](#current-implementation-evidence)
+- [Core platform](#core-platform)
+- [Storage and capacity](#storage-and-capacity)
+- [Platform services and host integrity](#platform-services-and-host-integrity)
+- [Hardware scope and validation](#hardware-scope-and-validation)
+- [Planning and delivery](#planning-and-delivery)
+
 ## System boundaries
 
 ```text
@@ -55,7 +65,6 @@ appropriate build or runtime evidence.
 ## Core platform
 
 ### Fedora + bootc as the System Base
-
 
 #### Purpose and constraints
 
@@ -145,7 +154,6 @@ encryption topology, snapshot policy, or migration mechanism.
 Review after the first working update + rollback in M2.
 
 ### Btrfs for Persistent System State
-
 
 #### Purpose and constraints
 
@@ -244,7 +252,6 @@ LUKS2 + ext4/XFS if Btrfs testing does not meet the M7 criteria.
 ## Storage and capacity
 
 ### Initial Installation and Storage Profile
-
 
 #### Purpose and constraints
 
@@ -363,7 +370,6 @@ behavior. [No Managed Snapshots](base-system.md) owns snapshot policy.
 - A fixed-allocation or separate-home-partition product profile is introduced.
 
 ### Capacity and Low-Space Policy
-
 
 #### Purpose and constraints
 
@@ -516,7 +522,6 @@ unmanaged snapshots count as real allocated capacity under this policy.
 
 ### No Managed Snapshots
 
-
 #### Purpose and constraints
 
 Btrfs can create cheap copy-on-write snapshots, but cheap creation does not
@@ -601,8 +606,6 @@ must be recorded separately.
 ## Platform services and host integrity
 
 ### Platform-Service API Contract
-
-
 
 #### Purpose and constraints
 
@@ -804,7 +807,6 @@ endpoint.
 
 ### Host Customization and Integrity Status
 
-
 #### Purpose and constraints
 
 Bootc updates the image-owned system while preserving host-specific `/etc` and
@@ -976,7 +978,6 @@ absence of managed snapshots. [Diagnostic Reports and Consent](diagnostics-recov
 
 ### Platform Scope and Hardware Validation
 
-
 #### Purpose and constraints
 
 ShapeBit OS needs a reproducible virtual target, a realistic path to physical
@@ -1094,7 +1095,6 @@ detailed test implementation.
   evidence.
 
 ### Simple Test Evidence
-
 
 #### Purpose and constraints
 

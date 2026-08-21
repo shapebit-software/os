@@ -10,10 +10,16 @@ is complete.
 Changing a current rule requires updating its owning section and every affected
 cross-area contract.
 
+## On this page
+
+- [Boot trust](#boot-trust)
+- [Release identity and signing](#release-identity-and-signing)
+- [Updates and deployment](#updates-and-deployment)
+- [Installation](#installation)
+
 ## Boot trust
 
 ### Microsoft-Signed ShapeBit Shim and Separate Trust Domains
-
 
 #### Purpose and constraints
 
@@ -140,8 +146,6 @@ boundary. [Boot Trust and TPM2 Unlock Policy](boot-system-lifecycle.md) owns TPM
 ### Boot Trust and TPM2 Unlock Policy
 
 **Status:** Proposed
-
-
 
 #### Purpose and constraints
 
@@ -1432,7 +1436,6 @@ architecture section owns production signing operations and delegation.
 
 ### Release Cadence and Candidate Aging
 
-
 #### Purpose and constraints
 
 ShapeBit needs a predictable development rhythm without turning a calendar date
@@ -1522,7 +1525,6 @@ promotion, staged rollout, withdrawal, and revocation. [Platform Scope and Hardw
 release gates. [Simple Test Evidence](base-system.md) owns test-report content and pass calculation.
 
 ### Staged Stable Rollout
-
 
 #### Purpose and constraints
 
@@ -1640,7 +1642,6 @@ published after a device became permanently disconnected.
 
 ### Staged-Restart UX
 
-
 #### Purpose and constraints
 
 ShapeBit downloads, verifies, and stages system updates in the background, but
@@ -1726,7 +1727,6 @@ evidence and failure transitions after the updated deployment starts.
 
 ### Trial Boot and Explicit Deployment Acceptance
 
-
 #### Purpose and constraints
 
 Preparing a deployment does not prove that the device will boot correctly and start the desktop.
@@ -1811,8 +1811,6 @@ ShapeBit needs health-check units and diagnostic reporting, but boot counting
 and blessing use the standard systemd interfaces.
 
 ### Boot Health Contract
-
-
 
 #### Purpose and constraints
 
@@ -1990,7 +1988,6 @@ owns platform-service APIs, and D22 owns artifact binding.
 
 ### Forward-Only Migrations and Trial-Bounded Rollback
 
-
 #### Purpose and constraints
 
 The former N/N-1 compatibility design avoided incompatible automatic migrations so that a previously
@@ -2113,7 +2110,6 @@ commit resumption.
 
 ### Dioxus as the ShapeBit OS Installer Frontend
 
-
 #### Purpose and constraints
 
 The first custom ShapeBit OS component under development is an installer written in Dioxus. Installation operations require a privileged execution layer independent of the interface.
@@ -2155,7 +2151,6 @@ encryption, boot, and account policy remain owned by their respective architectu
 - additional accessibility and error-path testing.
 
 ### Minimal Installer Protocol
-
 
 #### Purpose and constraints
 
@@ -2328,7 +2323,6 @@ Recovery Kit presentation and lifecycle.
 
 ### One-Shot Installer Secret Channel
 
-
 #### Purpose and constraints
 
 [Minimal Installer Protocol](boot-system-lifecycle.md) keeps passwords, Wi-Fi credentials, recovery keys, and derived secrets
@@ -2478,7 +2472,6 @@ secret lifetime.
 
 ### Installer Disk Identity and Confirmation
 
-
 #### Purpose and constraints
 
 The initial installer erases one complete selected disk. Linux device names
@@ -2620,7 +2613,6 @@ storage profile. [Minimal Installer Protocol](boot-system-lifecycle.md) owns the
 transaction phases, interruption, and continuation after destruction.
 
 ### Installer Transaction Lifecycle
-
 
 #### Purpose and constraints
 

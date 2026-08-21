@@ -10,6 +10,13 @@ is complete.
 Changing a current rule requires updating its owning section and every affected
 cross-area contract.
 
+## On this page
+
+- [Product design](#product-design)
+- [Session and authority](#session-and-authority)
+- [Displays and power](#displays-and-power)
+- [Media and privacy](#media-and-privacy)
+
 ## Product design
 
 ### Vision and workspace model
@@ -35,8 +42,6 @@ cross-area contract.
 ## Session and authority
 
 ### Desktop Session and Authorization Boundaries
-
-
 
 #### Purpose and constraints
 
@@ -164,7 +169,6 @@ developer-mode security invariants, and SSH interaction with encrypted homes.
 
 ### Display, Power, and Thermal Policy
 
-
 #### Purpose and constraints
 
 ShapeBit OS targets modern laptops without defining one reference model. Its
@@ -281,7 +285,6 @@ evidence labels and release gates.
 ## Media and privacy
 
 ### Media, Privacy, and Notification Policy
-
 
 #### Purpose and constraints
 

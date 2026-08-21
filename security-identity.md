@@ -10,10 +10,14 @@ is complete.
 Changing a current rule requires updating its owning section and every affected
 cross-area contract.
 
+## On this page
+
+- [Identity and encrypted storage](#identity-and-encrypted-storage)
+- [Network security and access](#network-security-and-access)
+
 ## Identity and encrypted storage
 
 ### TPM-Unlocked Encrypted System Volume
-
 
 #### Purpose and constraints
 
@@ -85,7 +89,6 @@ device recovery key unlocks only the outer system volume and never substitutes
 for a user's credential or home recovery key.
 
 ### Per-User Encrypted Homes
-
 
 #### Purpose and constraints
 
@@ -173,7 +176,6 @@ grant the device recovery key access to any user's home.
 ## Network security and access
 
 ### Network Ownership and Privacy
-
 
 #### Purpose and constraints
 
@@ -306,7 +308,6 @@ credential formats.
 
 ### Enterprise Network Authentication
 
-
 #### Purpose and constraints
 
 ShapeBit OS needs a bounded initial set of enterprise Wi-Fi and VPN methods
@@ -432,7 +433,6 @@ VPN behavior, routing, DNS, kill switches, and firewall scope. [Per-User Encrypt
 encrypted-home activation. [Desktop Session and Authorization Boundaries](desktop.md) owns administrator authorization.
 
 ### Inbound File Sharing
-
 
 #### Purpose and constraints
 

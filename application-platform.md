@@ -10,11 +10,14 @@ is complete.
 Changing a current rule requires updating its owning section and every affected
 cross-area contract.
 
+## On this page
+
+- [Application model](#application-model)
+- [Discovery and recommendations](#discovery-and-recommendations)
+
 ## Application model
 
 ### Application Platform and System Set
-
-
 
 #### Purpose and constraints
 
@@ -243,7 +246,6 @@ delegations.
 ## Discovery and recommendations
 
 ### Application Recommendations
-
 
 #### Purpose and constraints
 
