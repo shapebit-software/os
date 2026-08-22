@@ -2177,18 +2177,21 @@ commit resumption.
 
 ## Installation
 
-### Dioxus as the ShapeBit OS Installer Frontend
+### GTK 4 as the ShapeBit OS Installer Frontend
 
 #### Purpose and constraints
 
-The first custom ShapeBit OS component under development is an installer written in Dioxus. Installation operations require a privileged execution layer independent of the interface.
+The ShapeBit OS installer has an unprivileged graphical frontend written in
+Rust with GTK 4 through gtk-rs. Installation operations require a privileged
+execution layer independent of the interface.
 
 #### Design
 
-The installer frontend will be developed in Dioxus.
+**Status: Accepted.** This decision supersedes the earlier Dioxus frontend
+selection. No Dioxus implementation has been verified.
 
 ```text
-Dioxus UI
+GTK 4 UI (Rust through gtk-rs)
 → Installer Backend API
 → storage, bootc, systemd-boot, users, and configuration
 ```
@@ -2206,16 +2209,16 @@ encryption, boot, and account policy remain owned by their respective architectu
 
 #### Benefits
 
-- preservation of existing work;
-- Rust and shared data models;
-- a distinct product identity;
+- one maintained graphical toolkit across ShapeBit system interfaces;
+- Rust and shared data models through gtk-rs;
+- shared accessibility, input, text, styling, and testing knowledge;
 - UI testing without destroying disks;
 - possibility of reusing components in onboarding and recovery.
 
 #### Tradeoffs
 
 - a separate backend to maintain;
-- need to validate the Dioxus renderer in a minimal image;
+- need to validate GTK 4 and gtk-rs in the installer image;
 - the graphical installer precedes the complete custom desktop environment;
 - additional accessibility and error-path testing.
 
@@ -2223,7 +2226,7 @@ encryption, boot, and account policy remain owned by their respective architectu
 
 #### Purpose and constraints
 
-The unprivileged Dioxus frontend and privileged installer backend need one
+The unprivileged GTK frontend and privileged installer backend need one
 testable local protocol. The initial installer has one accepted storage profile
 and should exchange user choices rather than encode partitioning, encryption,
 or command sequences supplied by the UI. Its protocol must also support a mock
@@ -2385,7 +2388,7 @@ report under [Diagnostic Reports and Consent](diagnostics-recovery.md).
 
 This section owns the ordinary installer transport, envelope, versioning,
 InstallationPlan choices, Capabilities snapshot, optional Wi-Fi behavior,
-event shape, and error shape. [Dioxus as the ShapeBit OS Installer Frontend](boot-system-lifecycle.md) owns the Dioxus/frontend privilege
+event shape, and error shape. [GTK 4 as the ShapeBit OS Installer Frontend](boot-system-lifecycle.md) owns the frontend privilege
 boundary. [One-Shot Installer Secret Channel](boot-system-lifecycle.md) owns the secret channel. [Installer Transaction Lifecycle](boot-system-lifecycle.md) owns transaction semantics.
 [Installer Disk Identity and Confirmation](boot-system-lifecycle.md) owns disk identity and destructive confirmation. [Recovery Kit Presentation and Lifecycle](diagnostics-recovery.md) owns
 Recovery Kit presentation and lifecycle.
@@ -2534,7 +2537,7 @@ user to enter and confirm the password again. Wi-Fi passwords are entered once.
 
 This section owns the installer secret transport, direction and purpose binding,
 framing, initial size and expiry limits, input ownership and lifetime,
-cancellation, and local password confirmation. [Dioxus as the ShapeBit OS Installer Frontend](boot-system-lifecycle.md) owns the installer
+cancellation, and local password confirmation. [GTK 4 as the ShapeBit OS Installer Frontend](boot-system-lifecycle.md) owns the installer
 privilege boundary. [Minimal Installer Protocol](boot-system-lifecycle.md) owns ordinary messages. [Installer Transaction Lifecycle](boot-system-lifecycle.md) owns transaction
 waiting and interruption. [Recovery Kit Presentation and Lifecycle](diagnostics-recovery.md) owns Recovery Kit presentation and final
 secret lifetime.

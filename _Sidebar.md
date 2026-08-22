@@ -8,4 +8,5 @@
   - [Application Platform](application-platform)
   - [Desktop Environment](desktop)
   - [Diagnostics and Recovery](diagnostics-recovery)
+- [Desktop Technical Design](desktop-technical-design)
 - [License](License)

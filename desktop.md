@@ -4,6 +4,9 @@ Wayland session boundaries, display and power behavior, media and notification p
 
 These pages are living architecture, not implementation evidence.
 
+Concrete technology choices and lower-level implementation planning are kept
+separately in [Desktop Technical Design](desktop-technical-design.md).
+
 Changing a current rule requires updating its owning section and every affected
 cross-area contract.
 

@@ -1426,7 +1426,7 @@ even when supporting scripts or documentation already exist.
 #### M0 — architecture baseline
 
 - [x] Select Fedora bootc.
-- [x] Select Dioxus for the installer frontend.
+- [x] Select GTK 4 through gtk-rs for the installer frontend.
 - [x] Select per-user encrypted homes.
 - [x] Select TPM2-unlocked system-volume encryption.
 - [ ] Complete A1-A5 and review all proposed architecture sections.
@@ -1463,7 +1463,7 @@ even when supporting scripts or documentation already exist.
 - [ ] Install the M1 system and verify first boot.
 - [ ] Verify recovery keys and interruption reporting.
 
-#### M4 — Dioxus installer
+#### M4 — GTK installer
 
 - [ ] Connect the UI to the mock backend.
 - [ ] Complete accessibility and destructive-action UX review.
