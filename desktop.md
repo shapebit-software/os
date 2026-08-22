@@ -24,6 +24,7 @@ cross-area contract.
 
 ### Shell surfaces
 
+- [Radial context menus](desktop-radial-menus.md)
 - [Notifications](desktop-notifications.md)
 - [Background activity](desktop-background-activity.md)
 - [Quick Settings](desktop-quick-settings.md)
