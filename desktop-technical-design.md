@@ -41,6 +41,30 @@ The technical design must preserve these existing constraints:
 See [Desktop Session and Authorization Boundaries](desktop.md#desktop-session-and-authorization-boundaries)
 for the owning architecture.
 
+## Desktop communication boundary
+
+**Status: Accepted.**
+
+Compositor-owned live graphical state and actions use Wayland protocols. This
+includes outputs and seats, toplevel windows, Workspaces and layouts, focus and
+activation, window arrangement, shell surface roles, input-serial-dependent
+interactions, and trusted-surface coordination. Standard Wayland protocols are
+used when their semantics fit; private ShapeBit protocols cover only missing
+desktop behavior.
+
+Services that exist independently of the compositor use versioned D-Bus APIs.
+This includes power, networking, updates, accounts, persisted settings,
+diagnostics, privileged operations, and long-running jobs.
+
+Each state has one authoritative owner. A compositor-owned state such as the
+active Workspace is not exposed through a competing D-Bus state model. The
+shell may combine Wayland and D-Bus data for presentation, but it does not
+become the authority for either source.
+
+This decision selects the transport boundary. It does not yet define private
+Wayland protocol families, messages, access control, version negotiation, or
+shell reconnection behavior.
+
 ## Component technology map
 
 | Component | Current direction | Status |
@@ -339,8 +363,8 @@ Installer** and are independent from executable and protocol identifiers.
 
 ## Open decisions
 
-1. Define the compositor-shell private Wayland protocol and reconnection
-   contract.
+1. Define the private Wayland protocol families, access control, versioning,
+   and shell reconnection contract.
 2. Define the persistent Workspace and window-layout state model.
 3. Define the dependency baseline and upgrade policy for desktop crates and
    native libraries.
