@@ -80,6 +80,24 @@
       surface. GTK continues to own rendering and the xdg_toplevel lifecycle.
     </description>
 
+    <request name="clear_workspace_drop_targets">
+      <description summary="clear Workspace segment geometry">
+        Start a complete replacement of the GTK-allocated Workspace segment
+        rectangles used for compositor-owned window drops.
+      </description>
+    </request>
+    <request name="set_workspace_drop_target">
+      <description summary="register one Workspace segment rectangle">
+        Coordinates are logical pixels relative to the bar surface. Invalid,
+        empty, or out-of-bounds rectangles are ignored.
+      </description>
+      <arg name="workspace" type="object" interface="shapebit_workspace_v1"
+           summary="Workspace represented by this segment"/>
+      <arg name="x" type="int" summary="left edge"/>
+      <arg name="y" type="int" summary="top edge"/>
+      <arg name="width" type="int" summary="segment width"/>
+      <arg name="height" type="int" summary="segment height"/>
+    </request>
     <request name="destroy" type="destructor"
              summary="remove bar policy"/>
   </interface>
@@ -150,6 +168,14 @@
     </description>
 
     <request name="activate" summary="activate this Workspace"/>
+    <request name="reorder" summary="move this Workspace to a sequence position">
+      <description summary="reorder this Workspace">
+        Move this Workspace to the requested zero-based position without
+        activating it or changing window focus. Values beyond the current
+        sequence are clamped to its final position.
+      </description>
+      <arg name="position" type="uint" summary="requested zero-based position"/>
+    </request>
     <request name="destroy" type="destructor"
              summary="release this client-side Workspace handle"/>
 
@@ -187,6 +213,14 @@
     </description>
 
     <request name="activate" summary="switch to and focus this toplevel"/>
+    <request name="move_to_workspace" summary="move this toplevel to a Workspace">
+      <description summary="transfer this toplevel">
+        Move this toplevel into the requested Workspace using its normal
+        insertion policy without activating the target Workspace.
+      </description>
+      <arg name="workspace" type="object" interface="shapebit_workspace_v1"
+           summary="destination Workspace"/>
+    </request>
     <request name="destroy" type="destructor"
              summary="release this client-side toplevel handle"/>
 
@@ -199,6 +233,10 @@
     </event>
 
     <event name="workspace">
+      <description summary="report the containing Workspace">
+        This event is sent during the initial toplevel snapshot and whenever
+        the compositor moves the toplevel to another Workspace.
+      </description>
       <arg name="workspace" type="object" interface="shapebit_workspace_v1"
            summary="Workspace containing this toplevel"/>
     </event>

@@ -74,6 +74,15 @@ impl WorkspaceProtocolState {
         }
     }
 
+    pub fn broadcast_positions(&mut self, snapshots: &[WorkspaceSnapshot]) {
+        self.workspaces.retain(|(_, resource)| resource.is_alive());
+        for (id, resource) in &self.workspaces {
+            if let Some(snapshot) = snapshots.iter().find(|snapshot| snapshot.id == *id) {
+                resource.position(snapshot.position);
+            }
+        }
+    }
+
     pub fn resource_for_client(
         &mut self,
         client: &Client,
@@ -91,7 +100,7 @@ impl WorkspaceProtocolState {
 
 #[derive(Debug)]
 pub struct WorkspaceData {
-    id: u32,
+    pub(crate) id: u32,
 }
 
 impl GlobalDispatch<ShapebitWorkspaceManagerV1, ()> for Compositor {
@@ -176,6 +185,9 @@ impl Dispatch<ShapebitWorkspaceV1, WorkspaceData> for Compositor {
         }
         match request {
             shapebit_workspace_v1::Request::Activate => state.activate_workspace(data.id),
+            shapebit_workspace_v1::Request::Reorder { position } => {
+                state.reorder_workspace(data.id, position);
+            }
             shapebit_workspace_v1::Request::Destroy => {}
             _ => unreachable!("version 1 requests are exhaustively handled"),
         }

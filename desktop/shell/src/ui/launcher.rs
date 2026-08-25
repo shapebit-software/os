@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use gtk::{
     Align, Box as GtkBox, Button, FlowBox, Image, Label, Orientation, SearchEntry, ToggleButton,
@@ -12,21 +12,19 @@ use super::OverviewControls;
 #[derive(Clone)]
 pub(crate) struct ApplicationLauncher {
     pub widget: GtkBox,
-    #[cfg(feature = "smoke-test")]
     search: SearchEntry,
-    #[cfg(feature = "smoke-test")]
     see_all: ToggleButton,
-    #[cfg(feature = "smoke-test")]
-    quick_buttons: Rc<Vec<Button>>,
-    #[cfg(feature = "smoke-test")]
-    launch_buttons: Rc<Vec<Button>>,
-    #[cfg(feature = "smoke-test")]
-    applications: Rc<Vec<LaunchableApplication>>,
+    quick: GtkBox,
+    all_apps: FlowBox,
+    overview: OverviewControls,
+    search_entries: Rc<RefCell<Vec<(String, Button)>>>,
+    quick_buttons: Rc<RefCell<Vec<Button>>>,
+    launch_buttons: Rc<RefCell<Vec<Button>>>,
+    applications: Rc<RefCell<Vec<LaunchableApplication>>>,
 }
 
 impl ApplicationLauncher {
     pub fn new(catalog: &ApplicationCatalog, overview: &OverviewControls) -> Self {
-        let applications = Rc::new(catalog.launchable_applications().to_vec());
         let widget = GtkBox::new(Orientation::Vertical, 12);
         widget.add_css_class("overview-launcher");
 
@@ -41,7 +39,7 @@ impl ApplicationLauncher {
         label.set_halign(Align::Start);
         let see_all = ToggleButton::with_label("See all");
         see_all.add_css_class("overview-see-all");
-        see_all.set_sensitive(!applications.is_empty());
+        see_all.set_sensitive(false);
         heading.append(&label);
         heading.append(&see_all);
 
@@ -55,34 +53,20 @@ impl ApplicationLauncher {
         all_apps.set_selection_mode(gtk::SelectionMode::None);
         all_apps.set_visible(false);
 
-        let mut quick_buttons = Vec::new();
-        let mut launch_buttons = Vec::new();
-        let mut search_entries = Vec::new();
-        for (position, application) in applications.iter().enumerate() {
-            if position < 5 {
-                let button = application_button(application, overview, "overview-quick-app");
-                quick.append(&button);
-                quick_buttons.push(button);
-            }
-            let button = application_button(application, overview, "overview-app");
-            all_apps.insert(&button, -1);
-            search_entries.push((application.display_name.to_lowercase(), button.clone()));
-            launch_buttons.push(button);
-        }
-
         let all_apps_for_toggle = all_apps.clone();
         see_all.connect_toggled(move |toggle| {
             all_apps_for_toggle.set_visible(toggle.is_active());
         });
 
-        let search_entries = Rc::new(search_entries);
+        let search_entries = Rc::new(RefCell::new(Vec::<(String, Button)>::new()));
+        let search_entries_for_search = Rc::clone(&search_entries);
         let all_apps_for_search = all_apps.clone();
         let quick_for_search = quick.clone();
         let see_all_for_search = see_all.clone();
         search.connect_search_changed(move |entry| {
             let query = entry.text().trim().to_lowercase();
             let mut visible_count = 0;
-            for (name, button) in search_entries.iter() {
+            for (name, button) in search_entries_for_search.borrow().iter() {
                 let visible = query.is_empty() || name.contains(&query);
                 button.set_visible(visible);
                 visible_count += usize::from(visible);
@@ -107,11 +91,58 @@ impl ApplicationLauncher {
         widget.append(&quick);
         widget.append(&all_apps);
 
+        let launcher = Self {
+            widget,
+            search,
+            see_all,
+            quick,
+            all_apps,
+            overview: overview.clone(),
+            search_entries,
+            quick_buttons: Rc::new(RefCell::new(Vec::new())),
+            launch_buttons: Rc::new(RefCell::new(Vec::new())),
+            applications: Rc::new(RefCell::new(Vec::new())),
+        };
+        launcher.refresh(catalog);
+        launcher
+    }
+
+    pub(crate) fn refresh(&self, catalog: &ApplicationCatalog) {
+        while let Some(child) = self.quick.first_child() {
+            self.quick.remove(&child);
+        }
+        while let Some(child) = self.all_apps.first_child() {
+            self.all_apps.remove(&child);
+        }
+
+        let applications = catalog.launchable_applications().to_vec();
+        let mut quick_buttons = Vec::new();
+        let mut launch_buttons = Vec::new();
+        let mut search_entries = Vec::new();
+        for (position, application) in applications.iter().enumerate() {
+            if position < 5 {
+                let button = application_button(application, &self.overview, "overview-quick-app");
+                self.quick.append(&button);
+                quick_buttons.push(button);
+            }
+            let button = application_button(application, &self.overview, "overview-app");
+            self.all_apps.insert(&button, -1);
+            search_entries.push((application.display_name.to_lowercase(), button.clone()));
+            launch_buttons.push(button);
+        }
+        self.see_all.set_sensitive(!applications.is_empty());
+        *self.search_entries.borrow_mut() = search_entries;
+        *self.quick_buttons.borrow_mut() = quick_buttons;
+        *self.launch_buttons.borrow_mut() = launch_buttons;
+        *self.applications.borrow_mut() = applications;
+        self.apply_current_filter();
+
+        let applications = self.applications.borrow();
         eprintln!(
             "ShapeBit shell loaded Overview launcher generation={} application_count={} quick_count={} icon_count={} label_count={}",
             generation(),
             applications.len(),
-            quick_buttons.len(),
+            self.quick_buttons.borrow().len(),
             applications
                 .iter()
                 .filter(|application| application.icon.is_some())
@@ -121,19 +152,20 @@ impl ApplicationLauncher {
                 .filter(|application| !application.display_name.is_empty())
                 .count()
         );
+    }
 
-        Self {
-            widget,
-            #[cfg(feature = "smoke-test")]
-            search,
-            #[cfg(feature = "smoke-test")]
-            see_all,
-            #[cfg(feature = "smoke-test")]
-            quick_buttons: Rc::new(quick_buttons),
-            #[cfg(feature = "smoke-test")]
-            launch_buttons: Rc::new(launch_buttons),
-            #[cfg(feature = "smoke-test")]
-            applications,
+    fn apply_current_filter(&self) {
+        let query = self.search.text().trim().to_lowercase();
+        for (name, button) in self.search_entries.borrow().iter() {
+            button.set_visible(query.is_empty() || name.contains(&query));
+        }
+        if query.is_empty() {
+            self.quick.set_visible(true);
+            self.all_apps.set_visible(self.see_all.is_active());
+        } else {
+            self.quick.set_visible(false);
+            self.see_all.set_active(true);
+            self.all_apps.set_visible(true);
         }
     }
 
@@ -148,6 +180,7 @@ impl ApplicationLauncher {
             && self.see_all.allocated_width() > 0
             && self
                 .quick_buttons
+                .borrow()
                 .first()
                 .is_some_and(|button| button.allocated_width() > 0);
         eprintln!(
@@ -155,7 +188,7 @@ impl ApplicationLauncher {
             generation(),
             self.search.allocated_width(),
             self.see_all.allocated_width(),
-            self.quick_buttons.len()
+            self.quick_buttons.borrow().len()
         );
     }
 
@@ -163,13 +196,14 @@ impl ApplicationLauncher {
     pub(crate) fn launch_for_smoke(&self, desktop_id: &str) {
         let Some(position) = self
             .applications
+            .borrow()
             .iter()
             .position(|application| application.desktop_id == desktop_id)
         else {
             eprintln!("smoke-test application is missing from the Overview launcher");
             return;
         };
-        self.launch_buttons[position].emit_clicked();
+        self.launch_buttons.borrow()[position].emit_clicked();
     }
 }
 

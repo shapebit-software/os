@@ -1,6 +1,12 @@
-use smithay::{desktop::Window, utils::IsAlive};
+use smithay::utils::IsAlive;
 
-use crate::layout::Layout;
+use crate::{layout::Layout, window::Window};
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WorkspaceDirection {
+    Previous,
+    Next,
+}
 
 pub struct WorkspaceSet {
     items: Vec<SessionWorkspace>,
@@ -48,15 +54,69 @@ impl WorkspaceSet {
     }
 
     pub fn create(&mut self) -> (u32, u32) {
+        self.create_at(self.items.len())
+    }
+
+    pub fn create_at(&mut self, position: usize) -> (u32, u32) {
+        let active_id = self.active_id();
         let id = self.next_id;
         self.next_id += 1;
-        let position = self.items.len() as u32;
-        self.items.push(SessionWorkspace::new(id));
-        (id, position)
+        let position = position.min(self.items.len());
+        self.items.insert(position, SessionWorkspace::new(id));
+        self.active = self
+            .items
+            .iter()
+            .position(|workspace| workspace.id == active_id)
+            .expect("background Workspace creation preserves the active Workspace");
+        (id, position as u32)
+    }
+
+    pub fn adjacent_id(&self, direction: WorkspaceDirection) -> Option<u32> {
+        let position = match direction {
+            WorkspaceDirection::Previous => self.active.checked_sub(1)?,
+            WorkspaceDirection::Next => self.active.checked_add(1)?,
+        };
+        self.items.get(position).map(|workspace| workspace.id)
+    }
+
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    pub fn layout_mut(&mut self, id: u32) -> Option<&mut Layout<Window>> {
+        self.items
+            .iter_mut()
+            .find(|workspace| workspace.id == id)
+            .map(|workspace| &mut workspace.layout)
+    }
+
+    pub fn reorder(&mut self, id: u32, position: u32) -> bool {
+        let Some(source) = self.items.iter().position(|workspace| workspace.id == id) else {
+            return false;
+        };
+        let target = usize::try_from(position)
+            .unwrap_or(usize::MAX)
+            .min(self.items.len() - 1);
+        if source == target {
+            return false;
+        }
+        let active_id = self.active_id();
+        let workspace = self.items.remove(source);
+        self.items.insert(target, workspace);
+        self.active = self
+            .items
+            .iter()
+            .position(|workspace| workspace.id == active_id)
+            .expect("the active Workspace remains in the reordered sequence");
+        true
     }
 
     pub fn retain_alive(&mut self) -> bool {
-        self.items[self.active].layout.retain(IsAlive::alive)
+        let mut changed = false;
+        for workspace in &mut self.items {
+            changed |= workspace.layout.retain(IsAlive::alive);
+        }
+        changed
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &SessionWorkspace> {
@@ -111,5 +171,49 @@ mod tests {
 
         assert!(!workspaces.activate(99));
         assert_eq!(workspaces.active_id(), 1);
+    }
+
+    #[test]
+    fn reorders_without_changing_the_active_workspace() {
+        let mut workspaces = WorkspaceSet::default();
+        let (second, _) = workspaces.create();
+        let (third, _) = workspaces.create();
+        assert!(workspaces.activate(second));
+
+        assert!(workspaces.reorder(third, 0));
+        assert_eq!(
+            workspaces
+                .iter()
+                .map(|workspace| workspace.id)
+                .collect::<Vec<_>>(),
+            [third, 1, second]
+        );
+        assert_eq!(workspaces.active_id(), second);
+        assert!(!workspaces.reorder(99, 0));
+    }
+
+    #[test]
+    fn creates_background_workspaces_on_either_side() {
+        let mut workspaces = WorkspaceSet::default();
+        let (right, right_position) = workspaces.create_at(workspaces.len());
+        let (left, left_position) = workspaces.create_at(0);
+
+        assert_eq!((left_position, right_position), (0, 1));
+        assert_eq!(workspaces.active_id(), 1);
+        assert_eq!(
+            workspaces
+                .iter()
+                .map(|workspace| workspace.id)
+                .collect::<Vec<_>>(),
+            [left, 1, right]
+        );
+        assert_eq!(
+            workspaces.adjacent_id(WorkspaceDirection::Previous),
+            Some(left)
+        );
+        assert_eq!(
+            workspaces.adjacent_id(WorkspaceDirection::Next),
+            Some(right)
+        );
     }
 }

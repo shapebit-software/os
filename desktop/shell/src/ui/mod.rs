@@ -10,7 +10,7 @@ use crate::presentation::WorkspacePresentation;
 
 mod launcher;
 
-use launcher::ApplicationLauncher;
+pub(crate) use launcher::ApplicationLauncher;
 
 #[derive(Clone)]
 pub(crate) struct SystemBar {
@@ -44,13 +44,17 @@ pub(crate) fn system_bar() -> SystemBar {
     add.add_css_class("workspace-add");
     workspaces.append(&add);
     let workspace_controls = WorkspaceControls {
+        surface: bar.clone(),
         strip: workspaces.clone(),
         add: add.clone(),
         segments: Rc::new(RefCell::new(Vec::new())),
+        workspace_order: Rc::new(RefCell::new(Vec::new())),
         application_buttons: Rc::new(RefCell::new(Vec::new())),
         activate: Rc::new(RefCell::new(None)),
         activate_application: Rc::new(RefCell::new(None)),
+        reorder: Rc::new(RefCell::new(None)),
         create: Rc::new(RefCell::new(None)),
+        place_drop_targets: Rc::new(RefCell::new(None)),
     };
 
     let right = GtkBox::new(Orientation::Horizontal, 10);
@@ -133,7 +137,6 @@ pub(crate) struct OverviewView {
     #[cfg(feature = "smoke-test")]
     pub(crate) surface: GtkBox,
     pub(crate) controls: OverviewControls,
-    #[cfg(feature = "smoke-test")]
     pub(crate) launcher: ApplicationLauncher,
 }
 
@@ -207,16 +210,17 @@ pub(crate) fn overview_surface(
         #[cfg(feature = "smoke-test")]
         surface,
         controls,
-        #[cfg(feature = "smoke-test")]
         launcher,
     }
 }
 
 type WorkspaceAction = Rc<dyn Fn(u32)>;
 type ApplicationAction = Rc<dyn Fn(u32)>;
+type ReorderAction = Rc<dyn Fn(u32, u32)>;
 type CreateAction = Rc<dyn Fn()>;
 type HideAction = Rc<dyn Fn()>;
 type PreviewAction = Rc<dyn Fn(Vec<PreviewPlacement>)>;
+type BarDropTargetsAction = Rc<dyn Fn(Vec<BarDropTargetPlacement>)>;
 
 #[derive(Clone, Copy, Debug)]
 pub struct PreviewPlacement {
@@ -227,15 +231,28 @@ pub struct PreviewPlacement {
     pub height: i32,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct BarDropTargetPlacement {
+    pub workspace_handle: u32,
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+}
+
 #[derive(Clone)]
 pub struct WorkspaceControls {
+    surface: CenterBox,
     strip: GtkBox,
     add: Button,
-    segments: Rc<RefCell<Vec<GtkBox>>>,
+    segments: Rc<RefCell<Vec<(u32, GtkBox)>>>,
+    workspace_order: Rc<RefCell<Vec<u32>>>,
     application_buttons: Rc<RefCell<Vec<Button>>>,
     activate: Rc<RefCell<Option<WorkspaceAction>>>,
     activate_application: Rc<RefCell<Option<ApplicationAction>>>,
+    reorder: Rc<RefCell<Option<ReorderAction>>>,
     create: Rc<RefCell<Option<CreateAction>>>,
+    place_drop_targets: Rc<RefCell<Option<BarDropTargetsAction>>>,
 }
 
 #[derive(Clone)]
@@ -610,6 +627,46 @@ impl WorkspaceControls {
         *self.activate_application.borrow_mut() = Some(Rc::new(action));
     }
 
+    pub fn set_reorder_action(&self, action: impl Fn(u32, u32) + 'static) {
+        *self.reorder.borrow_mut() = Some(Rc::new(action));
+    }
+
+    pub fn set_drop_targets_action(&self, action: impl Fn(Vec<BarDropTargetPlacement>) + 'static) {
+        *self.place_drop_targets.borrow_mut() = Some(Rc::new(action));
+    }
+
+    fn update_drop_target_placements(&self) {
+        let placements = self
+            .segments
+            .borrow()
+            .iter()
+            .filter_map(|(workspace_handle, segment)| {
+                let bounds = segment.compute_bounds(&self.surface)?;
+                let x = bounds.x().round() as i32;
+                let y = bounds.y().round() as i32;
+                let width = bounds.width().round() as i32;
+                let height = bounds.height().round() as i32;
+                (width > 0 && height > 0).then_some(BarDropTargetPlacement {
+                    workspace_handle: *workspace_handle,
+                    x,
+                    y,
+                    width,
+                    height,
+                })
+            })
+            .collect::<Vec<_>>();
+        if let Some(place_drop_targets) = self.place_drop_targets.borrow().as_ref() {
+            place_drop_targets(placements);
+        }
+    }
+
+    fn queue_drop_target_update(&self) {
+        let controls = self.clone();
+        glib::timeout_add_local_once(Duration::from_millis(16), move || {
+            controls.update_drop_target_placements();
+        });
+    }
+
     #[cfg(feature = "smoke-test")]
     pub(crate) fn click_first_application(&self) {
         if let Some(button) = self.application_buttons.borrow().first() {
@@ -617,17 +674,31 @@ impl WorkspaceControls {
         }
     }
 
+    #[cfg(feature = "smoke-test")]
+    pub(crate) fn reorder_last_workspace_to_start(&self) {
+        let order = self.workspace_order.borrow();
+        if let Some(handle) = order.last()
+            && let Some(reorder) = self.reorder.borrow().as_ref()
+        {
+            reorder(*handle, 0);
+        }
+    }
+
     pub fn render(&self, workspaces: &[WorkspacePresentation]) {
-        for segment in self.segments.borrow_mut().drain(..) {
+        for (_, segment) in self.segments.borrow_mut().drain(..) {
             self.strip.remove(&segment);
         }
         self.application_buttons.borrow_mut().clear();
+        self.workspace_order.borrow_mut().clear();
         self.strip.remove(&self.add);
 
         let mut workspaces = workspaces.to_vec();
         workspaces.sort_by_key(|workspace| workspace.position);
         for workspace in workspaces {
             let number = workspace.position + 1;
+            let workspace_handle = workspace.handle;
+            let workspace_position = workspace.position;
+            self.workspace_order.borrow_mut().push(workspace_handle);
             let segment = GtkBox::new(Orientation::Horizontal, 3);
             segment.add_css_class("workspace-segment");
             if workspace.active {
@@ -643,9 +714,45 @@ impl WorkspaceControls {
             let activate = Rc::clone(&self.activate);
             workspace_button.connect_clicked(move |_| {
                 if let Some(activate) = activate.borrow().as_ref() {
-                    activate(workspace.handle);
+                    activate(workspace_handle);
                 }
             });
+            let drag_source = gtk::DragSource::new();
+            drag_source.set_actions(gdk::DragAction::MOVE);
+            drag_source.connect_prepare(move |_, _, _| {
+                let value = format!("{workspace_handle}:{workspace_position}").to_value();
+                Some(gdk::ContentProvider::for_value(&value))
+            });
+            workspace_button.add_controller(drag_source);
+
+            let drop_target = gtk::DropTarget::new(String::static_type(), gdk::DragAction::MOVE);
+            let reorder = Rc::clone(&self.reorder);
+            let segment_for_drop = segment.clone();
+            drop_target.connect_drop(move |_, value, x, _| {
+                let Ok(payload) = value.get::<String>() else {
+                    return false;
+                };
+                let Some((handle, source_position)) = payload.split_once(':') else {
+                    return false;
+                };
+                let (Ok(handle), Ok(source_position)) =
+                    (handle.parse::<u32>(), source_position.parse::<u32>())
+                else {
+                    return false;
+                };
+                let after = x >= f64::from(segment_for_drop.allocated_width()) / 2.0;
+                let mut position = workspace_position + u32::from(after);
+                if source_position < position {
+                    position -= 1;
+                }
+                if let Some(reorder) = reorder.borrow().as_ref() {
+                    reorder(handle, position);
+                    true
+                } else {
+                    false
+                }
+            });
+            segment.add_controller(drop_target);
             segment.append(&workspace_button);
             for application in workspace.applications {
                 let badge = Button::new();
@@ -680,9 +787,10 @@ impl WorkspaceControls {
                 self.application_buttons.borrow_mut().push(badge);
             }
             self.strip.append(&segment);
-            self.segments.borrow_mut().push(segment);
+            self.segments.borrow_mut().push((workspace_handle, segment));
         }
         self.strip.append(&self.add);
+        self.queue_drop_target_update();
     }
 }
 

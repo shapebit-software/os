@@ -6,6 +6,7 @@ runtime_dir=$(mktemp -d /tmp/shapebit-nested-smoke.XXXXXX)
 weston_pid=
 compositor_pid=
 terminal_pid=
+stack_terminal_pids=()
 
 wait_for_log_count() {
     local pattern=$1
@@ -24,6 +25,10 @@ wait_for_log_count() {
 }
 
 cleanup() {
+    for pid in "${stack_terminal_pids[@]}"; do
+        kill "${pid}" 2>/dev/null || true
+        wait "${pid}" 2>/dev/null || true
+    done
     if [[ -n ${terminal_pid} ]]; then
         kill "${terminal_pid}" 2>/dev/null || true
         wait "${terminal_pid}" 2>/dev/null || true
@@ -43,7 +48,9 @@ trap cleanup EXIT
 chmod 0700 "${runtime_dir}"
 export XDG_RUNTIME_DIR=${runtime_dir}
 export XDG_DATA_HOME=${runtime_dir}/data
+export XDG_DATA_DIRS=${runtime_dir}/data-dirs
 mkdir -p "${XDG_DATA_HOME}/applications"
+mkdir -p "${XDG_DATA_DIRS}"
 install -m 0644 \
     "${repository_root}/tests/fixtures/org.freedesktop.weston.wayland-terminal.desktop" \
     "${XDG_DATA_HOME}/applications/"
@@ -71,7 +78,7 @@ LIBGL_ALWAYS_SOFTWARE=1 \
 GSK_RENDERER=gl \
 SHAPEBIT_WORKSPACE_SMOKE=1 \
 RUST_LOG=info \
-timeout --signal=INT --kill-after=2s 16s \
+timeout --signal=INT --kill-after=2s 22s \
     target/debug/compositor \
     --socket wayland-shapebit-child \
     --shell target/debug/shell \
@@ -118,6 +125,21 @@ if ! wait_for_log_count 'mapped xdg toplevel' 1; then
     echo "The terminal did not map before the shell restart test." >&2
     exit 1
 fi
+if ! wait_for_log_count 'rendered compositor-owned window border' 1; then
+    cat "${runtime_dir}/compositor.log" >&2
+    echo "The compositor did not submit its window border with the terminal mapped." >&2
+    exit 1
+fi
+if ! wait_for_log_count 'kept compositor controls disabled for client-managed window decoration' 1; then
+    cat "${runtime_dir}/compositor.log" >&2
+    echo "The compositor did not suppress duplicate controls for the client-decorated terminal." >&2
+    exit 1
+fi
+if ! wait_for_log_count 'rendered client content without client-side frame' 1; then
+    cat "${runtime_dir}/compositor.log" >&2
+    echo "The compositor did not crop client-side frame geometry from the tiled content." >&2
+    exit 1
+fi
 if ! wait_for_log_count 'updated application toplevel metadata.*app_id=..*' 1 \
     || ! wait_for_log_count 'ShapeBit shell rendered application inventory generation=1 toplevel_count=1 application_count=1 resolved_application_count=1 icon_application_count=1' 1 \
     || ! wait_for_log_count 'ShapeBit shell rendered Overview model generation=1 workspace_count=1 application_count=1' 1 \
@@ -148,11 +170,15 @@ if ! wait_for_log_count 'configured live Overview preview.*width=[1-9][0-9]*.*he
     exit 1
 fi
 if ! wait_for_log_count 'created Workspace.*workspace_id=2' 1 \
+    || ! wait_for_log_count 'ShapeBit shell configured Workspace bar drop targets generation=1 target_count=2' 1 \
+    || ! wait_for_log_count 'configured Workspace bar drop target.*width=[1-9][0-9]*.*height=[1-9][0-9]*' 2 \
+    || ! wait_for_log_count 'ShapeBit shell requested Workspace reorder generation=1 workspace_handle=[1-9][0-9]* position=0' 1 \
+    || ! wait_for_log_count 'reordered Workspace.*workspace_id=2.*position=0' 1 \
     || ! wait_for_log_count 'ShapeBit shell requested application badge activation generation=1 toplevel_handle=[1-9][0-9]*' 2 \
     || ! wait_for_log_count 'activated Workspace.*workspace_id=2.*visible_window_count=0' 2 \
     || ! wait_for_log_count 'activated Workspace.*workspace_id=1.*visible_window_count=1' 2; then
     cat "${runtime_dir}/compositor.log" >&2
-    echo "The shell did not exercise Workspace creation, Overview activation, and application-badge return." >&2
+    echo "The shell did not exercise Workspace creation/reorder, Overview activation, and application-badge return." >&2
     exit 1
 fi
 if ! wait_for_log_count 'ShapeBit shell selected Overview Workspace generation=1 workspace_handle=[1-9][0-9]*' 1 \
@@ -177,6 +203,14 @@ if ! wait_for_log_count 'ShapeBit shell launched Overview application generation
     || ! wait_for_log_count 'ShapeBit shell rendered Overview window miniatures generation=1 window_count=3 resolved_window_count=3 icon_window_count=3' 1; then
     cat "${runtime_dir}/compositor.log" >&2
     echo "Overview did not launch and render two additional controlled applications." >&2
+    exit 1
+fi
+if ! wait_for_log_count 'ShapeBit shell requested toplevel Workspace transfer generation=1.*target_active=false' 1 \
+    || ! wait_for_log_count 'moved toplevel to Workspace.*workspace_id=2' 1 \
+    || ! wait_for_log_count 'ShapeBit shell requested toplevel Workspace transfer generation=1.*target_active=true' 1 \
+    || ! wait_for_log_count 'moved toplevel to Workspace.*workspace_id=1' 1; then
+    cat "${runtime_dir}/compositor.log" >&2
+    echo "The shell and compositor did not transfer a toplevel out of and back into the active Workspace." >&2
     exit 1
 fi
 
@@ -224,7 +258,29 @@ if ! wait_for_log_count 'ShapeBit shell allocated bar controls generation=2 visi
     echo "The replacement GTK shell did not allocate visible bar controls." >&2
     exit 1
 fi
+if ! wait_for_log_count 'ShapeBit shell configured Workspace bar drop targets generation=2 target_count=2' 1; then
+    cat "${runtime_dir}/compositor.log" >&2
+    echo "The replacement GTK shell did not restore Workspace bar drop-target geometry." >&2
+    exit 1
+fi
 kill -0 "${terminal_pid}"
+
+for _ in 1 2; do
+    WAYLAND_DISPLAY=wayland-shapebit-child \
+    LIBGL_ALWAYS_SOFTWARE=1 \
+        weston-terminal \
+        >"${runtime_dir}/stack-terminal-${#stack_terminal_pids[@]}.log" 2>&1 &
+    stack_terminal_pids+=("$!")
+done
+if ! wait_for_log_count 'mapped xdg toplevel' 5 \
+    || ! wait_for_log_count 'mapped xdg toplevel.*placement=Stacked' 1; then
+    cat "${runtime_dir}/compositor.log" >&2
+    echo "The compositor did not stack a window when another split would violate the minimum tile size." >&2
+    exit 1
+fi
+for pid in "${stack_terminal_pids[@]}"; do
+    kill -0 "${pid}"
+done
 
 set +e
 WAYLAND_DISPLAY=wayland-shapebit-parent \
@@ -277,4 +333,4 @@ if [[ -e ${runtime_dir}/wayland-shapebit-child ]]; then
 fi
 
 kill -0 "${weston_pid}"
-echo "Nested compositor smoke test passed with the shell readiness handshake, three-column application launching, icon-and-label quick apps, application search, compositor-rendered live window previews, expanded Overview selection, bounded keyboard navigation and select-then-activate behavior, visible bar controls, clickable application badges, application inventory, Workspace switching, shell recovery, and ${mapped_windows} surviving application window(s)."
+echo "Nested compositor smoke test passed with the shell readiness handshake, compositor-owned window decoration, focused-region tiling, minimum-size stack fallback, tiled-window Workspace transfer, Workspace bar drop-target geometry, draggable Workspace reorder, icon-and-label quick apps, application search, compositor-rendered live window previews, expanded Overview selection, bounded keyboard navigation and select-then-activate behavior, visible bar controls, clickable application badges, application inventory, Workspace switching, shell recovery, and ${mapped_windows} surviving application window(s)."

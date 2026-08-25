@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 calloop.workspace = true
+cairo-rs.workspace = true
 protocol = { workspace = true, features = ["server"] }
 smithay.workspace = true
 tracing.workspace = true

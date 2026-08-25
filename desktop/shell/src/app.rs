@@ -20,9 +20,9 @@ pub fn build(application: &Application) {
         .build();
     window.add_css_class("shell-window");
 
-    let application_catalog = ApplicationCatalog::load();
+    let application_catalog = Rc::new(RefCell::new(ApplicationCatalog::load()));
     let bar = system_bar();
-    let overview = overview_surface(application, &application_catalog);
+    let overview = overview_surface(application, &application_catalog.borrow());
     window.set_child(Some(&bar.widget));
 
     match ShellSession::register(
@@ -31,7 +31,8 @@ pub fn build(application: &Application) {
         bar.workspace_controls.clone(),
         overview.controls.clone(),
         bar.overview.clone(),
-        application_catalog,
+        Rc::clone(&application_catalog),
+        overview.launcher.clone(),
     ) {
         Ok(session) => {
             let session = Rc::new(RefCell::new(session));

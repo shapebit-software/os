@@ -13,6 +13,8 @@ use smithay::{
 
 use crate::state::Compositor;
 
+const PRIMARY_BUTTON: u32 = 0x110;
+
 impl Compositor {
     pub fn process_input_event<I: InputBackend>(&mut self, event: InputEvent<I>) {
         match event {
@@ -36,6 +38,9 @@ impl Compositor {
                 };
                 let position =
                     event.position_transformed(output_geometry.size) + output_geometry.loc.to_f64();
+                self.update_window_chrome_hover(position);
+                self.update_layout_resize(position);
+                self.update_window_drag(position);
                 let pointer = self.seat.get_pointer().expect("pointer is initialized");
                 pointer.motion(
                     self,
@@ -51,6 +56,32 @@ impl Compositor {
             InputEvent::PointerButton { event, .. } => {
                 let pointer = self.seat.get_pointer().expect("pointer is initialized");
                 let serial = SERIAL_COUNTER.next_serial();
+                if event.button_code() == PRIMARY_BUTTON
+                    && event.state() == ButtonState::Pressed
+                    && !pointer.is_grabbed()
+                    && self.press_window_chrome(pointer.current_location())
+                {
+                    pointer.frame(self);
+                    return;
+                }
+                if event.button_code() == PRIMARY_BUTTON
+                    && event.state() == ButtonState::Pressed
+                    && !pointer.is_grabbed()
+                    && self.begin_layout_resize(pointer.current_location())
+                {
+                    pointer.frame(self);
+                    return;
+                }
+                if event.button_code() == PRIMARY_BUTTON
+                    && event.state() == ButtonState::Released
+                    && self.end_layout_resize()
+                {
+                    pointer.frame(self);
+                    return;
+                }
+                if event.button_code() == PRIMARY_BUTTON && event.state() == ButtonState::Released {
+                    self.end_window_drag();
+                }
                 if event.state() == ButtonState::Pressed
                     && !pointer.is_grabbed()
                     && let Some(window) = self

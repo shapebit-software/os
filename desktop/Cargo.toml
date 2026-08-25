@@ -10,6 +10,7 @@ repository = "https://github.com/shapebit-software/desktop"
 
 [workspace.dependencies]
 calloop = { version = "0.14.4", features = ["signals"] }
+cairo-rs = "0.22.0"
 gtk = { package = "gtk4", version = "0.11.4" }
 gdk4-wayland = { version = "0.11.4", features = ["wayland_crate"] }
 protocol = { path = "protocol" }

@@ -1,19 +1,26 @@
 use smithay::{
-    desktop::{
-        PopupKind, PopupManager, Space, Window, find_popup_root_surface, get_popup_toplevel_coords,
+    desktop::{PopupKind, PopupManager, Space, find_popup_root_surface, get_popup_toplevel_coords},
+    input::Seat,
+    reexports::wayland_server::{
+        Resource,
+        protocol::{wl_seat, wl_surface::WlSurface},
     },
-    reexports::wayland_server::protocol::{wl_seat, wl_surface::WlSurface},
     utils::Serial,
     wayland::{
         compositor::with_states,
         shell::xdg::{
             PopupSurface, PositionerState, ToplevelSurface, XdgShellHandler, XdgShellState,
             XdgToplevelSurfaceData,
+            decoration::XdgDecorationHandler,
         },
     },
 };
+use smithay::reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode;
 
-use crate::state::Compositor;
+use crate::{
+    state::{Compositor, Presentation},
+    window::Window,
+};
 
 impl XdgShellHandler for Compositor {
     fn xdg_shell_state(&mut self) -> &mut XdgShellState {
@@ -43,6 +50,51 @@ impl XdgShellHandler for Compositor {
         self.update_toplevel_metadata(&surface);
     }
 
+    fn maximize_request(&mut self, surface: ToplevelSurface) {
+        self.set_presentation(surface.wl_surface(), Presentation::Expanded);
+    }
+
+    fn unmaximize_request(&mut self, surface: ToplevelSurface) {
+        self.set_presentation(surface.wl_surface(), Presentation::Normal);
+    }
+
+    fn fullscreen_request(
+        &mut self,
+        surface: ToplevelSurface,
+        _output: Option<smithay::reexports::wayland_server::protocol::wl_output::WlOutput>,
+    ) {
+        self.set_presentation(surface.wl_surface(), Presentation::Fullscreen);
+    }
+
+    fn unfullscreen_request(&mut self, surface: ToplevelSurface) {
+        self.set_presentation(surface.wl_surface(), Presentation::Normal);
+    }
+
+    fn move_request(&mut self, surface: ToplevelSurface, seat: wl_seat::WlSeat, serial: Serial) {
+        let Some(seat): Option<Seat<Compositor>> = Seat::from_resource(&seat) else {
+            return;
+        };
+        let Some(pointer) = seat.get_pointer() else {
+            return;
+        };
+        if !pointer.has_grab(serial) {
+            return;
+        }
+        let Some(start_data) = pointer.grab_start_data() else {
+            return;
+        };
+        let Some((focus, _)) = start_data.focus.as_ref() else {
+            return;
+        };
+        if !focus.id().same_client_as(&surface.wl_surface().id()) {
+            return;
+        }
+        let Some(window) = self.window_for_surface(surface.wl_surface()) else {
+            return;
+        };
+        self.begin_window_drag(window, start_data.location);
+    }
+
     fn reposition_request(
         &mut self,
         surface: PopupSurface,
@@ -59,6 +111,31 @@ impl XdgShellHandler for Compositor {
 
     fn grab(&mut self, _surface: PopupSurface, _seat: wl_seat::WlSeat, _serial: Serial) {
         // Popup grabs require policy that is outside this foundation milestone.
+    }
+}
+
+impl XdgDecorationHandler for Compositor {
+    fn new_decoration(&mut self, toplevel: ToplevelSurface) {
+        self.configure_server_decoration(toplevel);
+    }
+
+    fn request_mode(&mut self, toplevel: ToplevelSurface, _mode: Mode) {
+        self.configure_server_decoration(toplevel);
+    }
+
+    fn unset_mode(&mut self, toplevel: ToplevelSurface) {
+        self.configure_server_decoration(toplevel);
+    }
+}
+
+impl Compositor {
+    fn configure_server_decoration(&mut self, toplevel: ToplevelSurface) {
+        self.mark_server_decorated(toplevel.wl_surface());
+        toplevel.with_pending_state(|state| {
+            state.decoration_mode = Some(Mode::ServerSide);
+        });
+        toplevel.send_configure();
+        tracing::info!("configured compositor-owned window decoration");
     }
 }
 

@@ -1,6 +1,6 @@
 use std::{
     ffi::{OsStr, OsString},
-    io,
+    io::{self, BufRead, BufReader},
     os::{fd::OwnedFd, unix::net::UnixStream},
     process::{Child, Command, Stdio},
     sync::{
@@ -19,10 +19,49 @@ const RESTART_DELAY: Duration = Duration::from_millis(500);
 #[derive(Default)]
 pub struct DevelopmentShellSupervisor {
     child: Option<Child>,
+    session_bus: Option<DevelopmentSessionBus>,
     command: Option<Vec<OsString>>,
     connection_alive: Option<Arc<AtomicBool>>,
     restart_at: Option<Instant>,
     generation: u64,
+}
+
+struct DevelopmentSessionBus {
+    child: Child,
+    address: String,
+}
+
+impl DevelopmentSessionBus {
+    fn start() -> io::Result<Self> {
+        let mut child = Command::new("dbus-daemon")
+            .args(["--session", "--nofork", "--nopidfile", "--print-address=1"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| io::Error::other("the development session bus has no stdout"))?;
+        let mut address = String::new();
+        BufReader::new(stdout).read_line(&mut address)?;
+        let address = address.trim().to_owned();
+        if address.is_empty() {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(io::Error::other(
+                "the development session bus returned an empty address",
+            ));
+        }
+        Ok(Self { child, address })
+    }
+}
+
+impl Drop for DevelopmentSessionBus {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
 }
 
 impl DevelopmentShellSupervisor {
@@ -35,6 +74,7 @@ impl DevelopmentShellSupervisor {
         if self.command.is_some() {
             return Err(io::Error::other("the development shell is already supervised").into());
         }
+        self.session_bus = Some(DevelopmentSessionBus::start()?);
         self.command = Some(command.to_vec());
         self.start(display, socket_name)
     }
@@ -106,6 +146,12 @@ impl DevelopmentShellSupervisor {
             .split_first()
             .expect("the command was validated by the option parser");
         let generation = self.generation + 1;
+        let session_bus_address = self
+            .session_bus
+            .as_ref()
+            .ok_or_else(|| io::Error::other("the development session bus is unavailable"))?
+            .address
+            .clone();
         let shell_fd = OwnedFd::from(shell_stream);
         let child = Command::new(program)
             .args(arguments)
@@ -113,6 +159,8 @@ impl DevelopmentShellSupervisor {
             .env("WAYLAND_SOCKET", "0")
             .env("SHAPEBIT_APPLICATION_WAYLAND_DISPLAY", socket_name)
             .env("SHAPEBIT_SHELL_GENERATION", generation.to_string())
+            .env("DBUS_SESSION_BUS_ADDRESS", session_bus_address)
+            .env("GDK_DEBUG", "no-portals")
             .env_remove("WAYLAND_DISPLAY")
             .spawn()?;
         self.generation = generation;

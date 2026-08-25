@@ -7,7 +7,10 @@ use smithay::reexports::wayland_server::{
     protocol::wl_surface::WlSurface,
 };
 
-use crate::state::{ClientState, Compositor};
+use crate::{
+    protocols::workspace::WorkspaceData,
+    state::{ClientState, Compositor},
+};
 
 #[derive(Clone, Debug)]
 pub struct ToplevelSnapshot {
@@ -113,6 +116,30 @@ impl ToplevelProtocolState {
         }
     }
 
+    pub fn broadcast_workspace(state: &mut Compositor, surface: &WlSurface, workspace_id: u32) {
+        state
+            .toplevel_protocol_state
+            .toplevels
+            .retain(|(_, resource)| resource.is_alive());
+        let targets: Vec<_> = state
+            .toplevel_protocol_state
+            .toplevels
+            .iter()
+            .filter(|(known_surface, _)| known_surface == surface)
+            .filter_map(|(_, resource)| resource.client().map(|client| (resource.clone(), client)))
+            .collect();
+        for (resource, client) in targets {
+            let Some(workspace) = state
+                .workspace_protocol_state
+                .resource_for_client(&client, workspace_id)
+            else {
+                tracing::warn!(workspace_id, "cannot update toplevel Workspace association");
+                continue;
+            };
+            resource.workspace(&workspace);
+        }
+    }
+
     pub fn remove(&mut self, surface: &WlSurface) {
         self.toplevels.retain(|(known_surface, resource)| {
             if known_surface == surface {
@@ -192,6 +219,11 @@ impl Dispatch<ShapebitToplevelV1, ToplevelData> for Compositor {
         }
         match request {
             shapebit_toplevel_v1::Request::Activate => state.activate_toplevel(&data.surface),
+            shapebit_toplevel_v1::Request::MoveToWorkspace { workspace } => {
+                if let Some(workspace) = workspace.data::<WorkspaceData>() {
+                    state.move_toplevel_to_workspace(&data.surface, workspace.id);
+                }
+            }
             shapebit_toplevel_v1::Request::Destroy => {}
             _ => unreachable!("version 1 requests are exhaustively handled"),
         }

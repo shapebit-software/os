@@ -233,6 +233,7 @@ dependencies = [
 name = "compositor"
 version = "0.1.0"
 dependencies = [
+ "cairo-rs",
  "calloop",
  "protocol",
  "smithay",

@@ -30,6 +30,7 @@ cargo fmt --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --all-features --locked
 ./tests/nested-smoke.sh
+cargo build --locked --workspace && GSK_RENDERER=gl cargo run --locked -p compositor -- --shell target/debug/shell
 ```
 
 Architecture, accepted decisions, proposals, and verified prototype behavior

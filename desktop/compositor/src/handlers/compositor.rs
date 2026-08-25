@@ -36,12 +36,9 @@ impl CompositorHandler for Compositor {
             while let Some(parent) = get_parent(&root) {
                 root = parent;
             }
-            if let Some(window) = self.space.elements().find(|window| {
-                window
-                    .toplevel()
-                    .is_some_and(|toplevel| toplevel.wl_surface() == &root)
-            }) {
-                window.on_commit();
+            let window = self.window_for_surface(&root);
+            if let Some(window) = window {
+                self.commit_window(&window);
             }
         }
         xdg_shell::handle_commit(&mut self.popups, &self.space, surface);

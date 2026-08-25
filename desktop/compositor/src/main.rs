@@ -1,10 +1,12 @@
 mod backend;
+mod chrome;
 mod handlers;
 mod input;
 mod layout;
 mod protocols;
 mod shell_supervisor;
 mod state;
+mod window;
 mod workspaces;
 
 use std::{env, ffi::OsString, process::Command};

@@ -55,6 +55,29 @@ fn configure_workspace_actions(session: &Rc<RefCell<ShellSession>>, bar: &System
         }
     });
 
+    let controls_for_reorder = bar.workspace_controls.clone();
+    glib::timeout_add_local_once(Duration::from_millis(1_600), move || {
+        controls_for_reorder.reorder_last_workspace_to_start();
+    });
+
+    let session_for_transfer_out = Rc::downgrade(session);
+    glib::timeout_add_local_once(Duration::from_millis(1_700), move || {
+        if let Some(session) = session_for_transfer_out.upgrade()
+            && let Err(error) = session.borrow().move_first_toplevel_for_smoke(false)
+        {
+            eprintln!("failed to move a smoke-test toplevel out: {error}");
+        }
+    });
+
+    let session_for_transfer_back = Rc::downgrade(session);
+    glib::timeout_add_local_once(Duration::from_millis(1_900), move || {
+        if let Some(session) = session_for_transfer_back.upgrade()
+            && let Err(error) = session.borrow().move_first_toplevel_for_smoke(true)
+        {
+            eprintln!("failed to move a smoke-test toplevel back: {error}");
+        }
+    });
+
     let controls_for_activation = bar.workspace_controls.clone();
     glib::timeout_add_local_once(Duration::from_millis(950), move || {
         controls_for_activation.click_first_application();

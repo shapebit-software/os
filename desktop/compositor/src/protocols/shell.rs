@@ -9,8 +9,11 @@ use smithay::reexports::wayland_server::{
     protocol::wl_surface::WlSurface,
 };
 
-use super::toplevel::ToplevelData;
-use crate::state::{ClientState, Compositor, RegisterBarError, RegisterOverviewError};
+use super::{toplevel::ToplevelData, workspace::WorkspaceData};
+use crate::{
+    layout::Rect,
+    state::{ClientState, Compositor, RegisterBarError, RegisterOverviewError},
+};
 use smithay::utils::Rectangle;
 
 pub struct ShellState {
@@ -245,6 +248,24 @@ impl Dispatch<ShapebitBarV1, BarData> for Compositor {
         _data_init: &mut DataInit<'_, Self>,
     ) {
         match request {
+            shapebit_bar_v1::Request::ClearWorkspaceDropTargets => {
+                state.clear_bar_workspace_drop_targets(&data.surface);
+            }
+            shapebit_bar_v1::Request::SetWorkspaceDropTarget {
+                workspace,
+                x,
+                y,
+                width,
+                height,
+            } => {
+                if let Some(workspace) = workspace.data::<WorkspaceData>() {
+                    state.set_bar_workspace_drop_target(
+                        &data.surface,
+                        workspace.id,
+                        Rect::new(x, y, width, height),
+                    );
+                }
+            }
             shapebit_bar_v1::Request::Destroy => state.unregister_bar(&data.surface),
             _ => unreachable!("version 1 requests are exhaustively handled"),
         }

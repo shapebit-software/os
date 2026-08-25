@@ -20,7 +20,10 @@ use wayland_client::{
 use crate::{
     application_catalog::ApplicationCatalog,
     presentation::{ToplevelState, WorkspaceState, build_presentations},
-    ui::{OverviewControls, OverviewToggle, PreviewPlacement, WorkspaceControls},
+    ui::{
+        ApplicationLauncher, BarDropTargetPlacement, OverviewControls, OverviewToggle,
+        PreviewPlacement, WorkspaceControls,
+    },
 };
 
 pub struct ShellSession {
@@ -42,7 +45,8 @@ impl ShellSession {
         bar_controls: WorkspaceControls,
         overview_controls: OverviewControls,
         overview_toggle: OverviewToggle,
-        application_catalog: ApplicationCatalog,
+        application_catalog: Rc<RefCell<ApplicationCatalog>>,
+        application_launcher: ApplicationLauncher,
     ) -> Result<Self, Box<dyn Error>> {
         gtk::prelude::WidgetExt::realize(bar_window);
         gtk::prelude::WidgetExt::realize(overview_window);
@@ -108,7 +112,7 @@ impl ShellSession {
             workspace_actions: Rc::clone(&workspace_actions),
             toplevels: BTreeMap::new(),
             toplevel_actions: Rc::clone(&toplevel_actions),
-            application_catalog,
+            application_catalog: Rc::clone(&application_catalog),
             generation: generation.clone(),
         };
 
@@ -122,21 +126,67 @@ impl ShellSession {
         bar_controls.set_create_action(move || manager_for_create.create_workspace());
         let connection_for_application = connection.clone();
         let toplevels_for_activation = Rc::clone(&toplevel_actions);
+        let generation_for_application = generation.clone();
         bar_controls.set_activate_application_action(move |handle| {
             if let Some(toplevel) = toplevels_for_activation.borrow().get(&handle) {
                 eprintln!(
-                    "ShapeBit shell requested application badge activation generation={generation} toplevel_handle={handle}"
+                    "ShapeBit shell requested application badge activation generation={generation_for_application} toplevel_handle={handle}"
                 );
                 toplevel.activate();
                 let _ = connection_for_application.flush();
             }
         });
+        let connection_for_reorder = connection.clone();
+        let workspaces_for_reorder = Rc::clone(&workspace_actions);
+        let generation_for_reorder = generation.clone();
+        bar_controls.set_reorder_action(move |handle, position| {
+            if let Some(workspace) = workspaces_for_reorder.borrow().get(&handle) {
+                eprintln!(
+                    "ShapeBit shell requested Workspace reorder generation={generation_for_reorder} workspace_handle={handle} position={position}"
+                );
+                workspace.reorder(position);
+                let _ = connection_for_reorder.flush();
+            }
+        });
+
+        let bar_for_drop_targets = bar.clone();
+        let workspaces_for_drop_targets = Rc::clone(&workspace_actions);
+        let connection_for_drop_targets = connection.clone();
+        let generation_for_drop_targets = generation.clone();
+        bar_controls.set_drop_targets_action(move |placements: Vec<BarDropTargetPlacement>| {
+            bar_for_drop_targets.clear_workspace_drop_targets();
+            let mut configured = 0;
+            for placement in placements {
+                if let Some(workspace) = workspaces_for_drop_targets
+                    .borrow()
+                    .get(&placement.workspace_handle)
+                {
+                    bar_for_drop_targets.set_workspace_drop_target(
+                        workspace,
+                        placement.x,
+                        placement.y,
+                        placement.width,
+                        placement.height,
+                    );
+                    configured += 1;
+                }
+            }
+            eprintln!(
+                "ShapeBit shell configured Workspace bar drop targets generation={generation_for_drop_targets} target_count={configured}"
+            );
+            let _ = connection_for_drop_targets.flush();
+        });
 
         let overview_for_toggle = overview.clone();
         let overview_controls_for_toggle = overview_controls.clone();
+        let application_catalog_for_toggle = Rc::clone(&application_catalog);
+        let application_launcher_for_toggle = application_launcher.clone();
         let connection_for_toggle = connection.clone();
         overview_toggle.set_action(move |active| {
             if active {
+                let refreshed_catalog = ApplicationCatalog::load();
+                application_launcher_for_toggle.refresh(&refreshed_catalog);
+                *application_catalog_for_toggle.borrow_mut() = refreshed_catalog;
                 overview_controls_for_toggle.reset_selection_to_active();
                 overview_for_toggle.show();
             } else {
@@ -226,6 +276,50 @@ impl ShellSession {
         Ok(())
     }
 
+    #[cfg(feature = "smoke-test")]
+    pub fn move_first_toplevel_for_smoke(
+        &self,
+        target_active: bool,
+    ) -> Result<bool, Box<dyn Error>> {
+        let target_handle = self
+            .state
+            .workspaces
+            .borrow()
+            .iter()
+            .find_map(|(handle, workspace)| (workspace.active == target_active).then_some(*handle));
+        let Some(target_handle) = target_handle else {
+            return Ok(false);
+        };
+        let toplevel_handle = self.state.toplevels.iter().find_map(|(handle, toplevel)| {
+            (toplevel.workspace != Some(target_handle)).then_some(*handle)
+        });
+        let Some(toplevel_handle) = toplevel_handle else {
+            return Ok(false);
+        };
+        let workspace = self
+            .state
+            .workspace_actions
+            .borrow()
+            .get(&target_handle)
+            .cloned();
+        let toplevel = self
+            .state
+            .toplevel_actions
+            .borrow()
+            .get(&toplevel_handle)
+            .cloned();
+        let (Some(workspace), Some(toplevel)) = (workspace, toplevel) else {
+            return Ok(false);
+        };
+        eprintln!(
+            "ShapeBit shell requested toplevel Workspace transfer generation={} toplevel_handle={toplevel_handle} target_workspace_handle={target_handle} target_active={target_active}",
+            self.state.generation
+        );
+        toplevel.move_to_workspace(&workspace);
+        self.connection.flush()?;
+        Ok(true)
+    }
+
     pub fn close(&mut self) {
         if self.closed {
             return;
@@ -253,15 +347,15 @@ struct ProtocolState {
     workspace_actions: Rc<RefCell<BTreeMap<u32, ShapebitWorkspaceV1>>>,
     toplevels: BTreeMap<u32, ToplevelState>,
     toplevel_actions: Rc<RefCell<BTreeMap<u32, ShapebitToplevelV1>>>,
-    application_catalog: ApplicationCatalog,
+    application_catalog: Rc<RefCell<ApplicationCatalog>>,
     generation: String,
 }
 
 impl ProtocolState {
     fn render_workspaces(&self) {
         let workspaces = self.workspaces.borrow();
-        let presentations =
-            build_presentations(&workspaces, &self.toplevels, &self.application_catalog);
+        let application_catalog = self.application_catalog.borrow();
+        let presentations = build_presentations(&workspaces, &self.toplevels, &application_catalog);
         let application_count: usize = presentations
             .iter()
             .map(|workspace| workspace.applications.len())
