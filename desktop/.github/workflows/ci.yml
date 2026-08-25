@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    container: registry.fedoraproject.org/fedora:44
+    timeout-minutes: 30
+
+    steps:
+      - name: Install system dependencies
+        run: >-
+          dnf install -y
+          bash clang curl gcc gcc-c++ git gtk4-devel make mesa-dri-drivers
+          mesa-libEGL-devel libglvnd-devel libxkbcommon-devel
+          pkgconf-pkg-config wayland-devel wayland-protocols-devel weston
+
+      - name: Install Rust toolchain
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+            | sh -s -- -y --profile minimal --default-toolchain 1.97.1 \
+              --component clippy --component rustfmt
+          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+
+      - uses: actions/checkout@v4
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Lint
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace --all-features --locked
+
+      - name: Nested compositor smoke test
+        run: ./tests/nested-smoke.sh

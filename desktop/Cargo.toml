@@ -1,0 +1,22 @@
+[workspace]
+members = ["compositor", "protocol", "shell"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.97"
+license-file = "LICENSE.md"
+repository = "https://github.com/shapebit-software/desktop"
+
+[workspace.dependencies]
+calloop = { version = "0.14.4", features = ["signals"] }
+gtk = { package = "gtk4", version = "0.11.4" }
+gdk4-wayland = { version = "0.11.4", features = ["wayland_crate"] }
+protocol = { path = "protocol" }
+smithay = { git = "https://github.com/Smithay/smithay.git", rev = "92ba0e92c2f8e775cc61a17bdf8a68e122c15610", default-features = false, features = ["backend_winit", "desktop", "wayland_frontend"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+wayland-client = "0.31.15"
+wayland-backend = "0.3.17"
+wayland-scanner = "0.31.11"
+wayland-server = "0.31.14"

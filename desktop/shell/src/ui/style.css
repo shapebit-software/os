@@ -1,0 +1,249 @@
+* {
+  font-family: "Inter", "Cantarell", sans-serif;
+}
+
+.shell-window {
+  background: #12151c;
+  color: #f4f5f7;
+}
+
+.overview-window,
+.overview-surface {
+  background-image: linear-gradient(145deg, #202735, #12161d);
+  color: #f4f5f7;
+}
+
+.overview-surface {
+  padding: 36px 44px 30px;
+}
+
+.overview-title {
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.overview-description,
+.overview-empty {
+  color: #9aa6b8;
+}
+
+.overview-launcher {
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(8, 10, 14, 0.42);
+}
+
+.overview-launcher-label {
+  color: #c9d0da;
+  font-weight: 700;
+}
+
+.overview-search {
+  min-height: 40px;
+  border-radius: 12px;
+}
+
+.overview-see-all {
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 10px;
+}
+
+.overview-quick-apps {
+  min-height: 82px;
+}
+
+.overview-quick-app,
+.overview-app {
+  min-width: 112px;
+  min-height: 76px;
+  padding: 10px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.055);
+  color: #f4f5f7;
+}
+
+.overview-quick-app:hover,
+.overview-app:hover {
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.overview-app-icon {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.overview-app-label {
+  font-weight: 600;
+}
+
+.overview-all-apps {
+  padding: 4px 0;
+}
+
+.overview-workspace {
+  min-width: 220px;
+  min-height: 280px;
+  padding: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 20px;
+  background: rgba(8, 10, 14, 0.42);
+  color: #f4f5f7;
+}
+
+.overview-workspace:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.overview-workspace.active {
+  border-color: rgba(111, 145, 200, 0.52);
+}
+
+.overview-workspace.selected {
+  min-width: 420px;
+  border-color: #6f91c8;
+  box-shadow: 0 0 0 1px rgba(111, 145, 200, 0.4);
+  background: rgba(111, 145, 200, 0.13);
+}
+
+.overview-workspace:focus-visible {
+  box-shadow: 0 0 0 2px rgba(220, 232, 248, 0.9);
+}
+
+.overview-workspace-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.overview-window-miniatures {
+  min-height: 170px;
+}
+
+.overview-window-miniature {
+  min-width: 150px;
+  min-height: 128px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 13px;
+  background: rgba(2, 4, 8, 0.44);
+}
+
+.overview-window-preview {
+  min-width: 150px;
+  min-height: 96px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.overview-window-miniature.focused {
+  border-color: rgba(125, 156, 255, 0.72);
+  background: rgba(82, 108, 176, 0.22);
+}
+
+.overview-window-application {
+  font-weight: 700;
+}
+
+.overview-window-title {
+  color: #aeb9c9;
+  font-size: 0.9em;
+}
+
+.bar-button,
+.workspace-button,
+.workspace-app,
+.workspace-add {
+  border: 0;
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.065);
+  color: #e9ecf1;
+}
+
+.bar-button:hover,
+.workspace-button:hover,
+.workspace-app:hover,
+.workspace-add:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.system-bar {
+  min-height: 42px;
+  padding: 8px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 18, 24, 0.98);
+}
+
+.bar-button,
+.workspace-button,
+.workspace-add {
+  min-height: 32px;
+  border-radius: 10px;
+  padding: 0 12px;
+}
+
+.workspace-strip {
+  padding: 3px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.workspace-button {
+  min-width: 34px;
+  padding: 0;
+}
+
+.workspace-segment {
+  padding: 2px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.workspace-button:checked,
+.bar-button:checked {
+  background: #dce8f8;
+  color: #172033;
+}
+
+.workspace-number {
+  font-weight: 700;
+}
+
+.workspace-app {
+  min-height: 28px;
+  padding: 2px 6px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(245, 247, 255, 0.72);
+  font-size: 0.82em;
+}
+
+.workspace-app:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(220, 232, 248, 0.9);
+}
+
+.workspace-app.focused {
+  background: rgba(125, 156, 255, 0.42);
+  color: #ffffff;
+}
+
+.workspace-app-icon {
+  min-width: 16px;
+  min-height: 16px;
+}
+
+.workspace-add {
+  min-width: 32px;
+  padding: 0;
+  color: #9eadc2;
+}
+
+.indicator,
+.clock {
+  color: #c9d0da;
+  font-size: 13px;
+}
+
+.clock {
+  min-width: 48px;
+  font-weight: 700;
+}

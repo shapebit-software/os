@@ -1,0 +1,17 @@
+[package]
+name = "shell"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license-file.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+smoke-test = []
+
+[dependencies]
+gdk4-wayland.workspace = true
+gtk.workspace = true
+protocol = { workspace = true, features = ["client"] }
+wayland-client.workspace = true

@@ -1,0 +1,15 @@
+[package]
+name = "compositor"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license-file.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+calloop.workspace = true
+protocol = { workspace = true, features = ["server"] }
+smithay.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

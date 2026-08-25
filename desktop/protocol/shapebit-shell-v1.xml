@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="shapebit_shell_v1">
+  <copyright>
+    Copyright (c) 2026 ShapeBit
+
+    This protocol is experimental and has no compatibility guarantee before
+    ShapeBit accepts and releases its version 1 wire contract.
+  </copyright>
+
+  <interface name="shapebit_shell_manager_v1" version="1">
+    <description summary="ShapeBit shell surface manager">
+      This restricted global lets the authorized ShapeBit shell attach trusted
+      compositor policy to GTK-owned Wayland surfaces.
+
+      The initial experimental shell-surface subset implements the system bar
+      and a minimal Overview. It is not the accepted, complete version 1 wire
+      contract.
+    </description>
+
+    <enum name="error">
+      <entry name="already_has_bar" value="0"
+             summary="the output already has a bar"/>
+      <entry name="invalid_surface" value="1"
+             summary="the surface cannot become a bar"/>
+      <entry name="invalid_output" value="2"
+             summary="the output is not managed by this compositor"/>
+      <entry name="already_has_overview" value="3"
+             summary="the output already has an Overview"/>
+      <entry name="already_bound" value="4"
+             summary="a shell manager is already bound"/>
+      <entry name="missing_required_surface" value="5"
+             summary="a required shell surface has not been created"/>
+      <entry name="already_ready" value="6"
+             summary="the shell has already declared readiness"/>
+    </enum>
+
+    <request name="create_bar">
+      <description summary="attach system bar policy to a surface">
+        The surface retains its xdg_toplevel role for GTK compatibility. The
+        compositor removes it from ordinary window layout, positions it on the
+        selected output edge, and reserves its configured area.
+      </description>
+      <arg name="id" type="new_id" interface="shapebit_bar_v1"
+           summary="new bar policy object"/>
+      <arg name="surface" type="object" interface="wl_surface"
+           summary="GTK-owned xdg_toplevel surface"/>
+      <arg name="output" type="object" interface="wl_output"
+           summary="output that owns the bar"/>
+    </request>
+
+    <request name="create_overview">
+      <description summary="attach Overview policy to a surface">
+        The surface retains its xdg_toplevel role for GTK compatibility. The
+        compositor excludes it from ordinary window layout and controls its
+        full-output placement and visibility.
+      </description>
+      <arg name="id" type="new_id" interface="shapebit_overview_v1"
+           summary="new Overview policy object"/>
+      <arg name="surface" type="object" interface="wl_surface"
+           summary="GTK-owned xdg_toplevel surface"/>
+      <arg name="output" type="object" interface="wl_output"
+           summary="output that owns the Overview"/>
+    </request>
+
+    <request name="ready">
+      <description summary="declare the shell ready">
+        The shell sends this request after binding the Workspace and toplevel
+        managers, processing their complete initial snapshots through a
+        wl_display.sync round-trip, and creating its required shell surfaces.
+      </description>
+    </request>
+
+    <request name="destroy" type="destructor"
+             summary="destroy the shell manager"/>
+  </interface>
+
+  <interface name="shapebit_bar_v1" version="1">
+    <description summary="system bar policy object">
+      Destroying this object removes bar policy and reserved space from its
+      surface. GTK continues to own rendering and the xdg_toplevel lifecycle.
+    </description>
+
+    <request name="destroy" type="destructor"
+             summary="remove bar policy"/>
+  </interface>
+
+  <interface name="shapebit_overview_v1" version="1">
+    <description summary="minimal Overview policy object">
+      The compositor owns whether this trusted surface is visible above the
+      selected output's work area. GTK continues to own its rendering and
+      xdg_toplevel lifecycle.
+    </description>
+
+    <request name="show" summary="show and focus the Overview"/>
+    <request name="hide" summary="hide the Overview"/>
+    <request name="clear_window_previews">
+      <description summary="clear the current live-preview placement set">
+        This experimental nested implementation lets GTK describe allocated
+        slots while the compositor retains ownership of rendering window
+        contents. A complete placement set starts with this request.
+      </description>
+    </request>
+    <request name="set_window_preview">
+      <description summary="place one compositor-rendered live preview">
+        Coordinates are logical pixels relative to the Overview output.
+        Invalid or empty rectangles are ignored.
+      </description>
+      <arg name="toplevel" type="object" interface="shapebit_toplevel_v1"
+           summary="ordinary toplevel to render"/>
+      <arg name="x" type="int" summary="left edge"/>
+      <arg name="y" type="int" summary="top edge"/>
+      <arg name="width" type="int" summary="preview width"/>
+      <arg name="height" type="int" summary="preview height"/>
+    </request>
+    <request name="destroy" type="destructor"
+             summary="remove Overview policy"/>
+  </interface>
+
+  <interface name="shapebit_workspace_manager_v1" version="1">
+    <description summary="experimental session Workspace manager">
+      This restricted global exposes the compositor-owned Workspace sequence
+      to the ShapeBit shell. The current subset is session-only and does not
+      define persistence, naming, reordering, or deletion.
+    </description>
+
+    <request name="create_workspace">
+      <description summary="create and activate a Workspace">
+        Create an unnamed Workspace at the end of the sequence and activate it.
+        The new object is delivered through the workspace event.
+      </description>
+    </request>
+
+    <request name="destroy" type="destructor"
+             summary="destroy the Workspace manager"/>
+
+    <event name="workspace">
+      <description summary="announce a Workspace">
+        This event is sent once for each existing Workspace when the manager is
+        bound and whenever a Workspace is created during the session.
+      </description>
+      <arg name="workspace" type="new_id" interface="shapebit_workspace_v1"
+           summary="announced Workspace"/>
+    </event>
+  </interface>
+
+  <interface name="shapebit_workspace_v1" version="1">
+    <description summary="experimental compositor-owned Workspace">
+      The object identifies one Workspace for the lifetime of this shell
+      connection. A replacement shell receives fresh objects.
+    </description>
+
+    <request name="activate" summary="activate this Workspace"/>
+    <request name="destroy" type="destructor"
+             summary="release this client-side Workspace handle"/>
+
+    <event name="position">
+      <arg name="position" type="uint"
+           summary="zero-based position in the Workspace sequence"/>
+    </event>
+
+    <event name="active">
+      <arg name="active" type="uint"
+           summary="one when active and zero otherwise"/>
+    </event>
+  </interface>
+
+  <interface name="shapebit_toplevel_manager_v1" version="1">
+    <description summary="experimental toplevel inventory manager">
+      This restricted global exposes ordinary compositor-managed toplevels to
+      the ShapeBit shell. The current subset provides presentation metadata,
+      Workspace association, focus state, activation, and closure notification.
+    </description>
+
+    <request name="destroy" type="destructor"
+             summary="destroy the toplevel manager"/>
+
+    <event name="toplevel">
+      <arg name="toplevel" type="new_id" interface="shapebit_toplevel_v1"
+           summary="announced ordinary toplevel"/>
+    </event>
+  </interface>
+
+  <interface name="shapebit_toplevel_v1" version="1">
+    <description summary="experimental ordinary toplevel handle">
+      This object represents one ordinary application toplevel for the lifetime
+      of the shell connection. Trusted shell surfaces are excluded.
+    </description>
+
+    <request name="activate" summary="switch to and focus this toplevel"/>
+    <request name="destroy" type="destructor"
+             summary="release this client-side toplevel handle"/>
+
+    <event name="title">
+      <arg name="title" type="string" summary="current window title"/>
+    </event>
+
+    <event name="app_id">
+      <arg name="app_id" type="string" summary="current XDG application ID"/>
+    </event>
+
+    <event name="workspace">
+      <arg name="workspace" type="object" interface="shapebit_workspace_v1"
+           summary="Workspace containing this toplevel"/>
+    </event>
+
+    <event name="active">
+      <arg name="active" type="uint"
+           summary="one when keyboard-focused and zero otherwise"/>
+    </event>
+
+    <event name="closed" summary="the application toplevel no longer exists"/>
+  </interface>
+</protocol>

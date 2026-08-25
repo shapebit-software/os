@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=ShapeBit Smoke Terminal
+Icon=utilities-terminal-symbolic
+Exec=weston-terminal
+NoDisplay=false
