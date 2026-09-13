@@ -10,8 +10,8 @@ ShapeBit OS is an image-based Linux desktop operating system built on Fedora.
   updates, migrations, and signing operations.
 - [Security and Identity](security-identity.md) — encryption, authentication,
   authorization, networking, remote access, and credentials.
-- [Application Platform](application-platform.md) — system applications,
-  Flatpak, AppImage, Distrobox, and recommendations.
+- [Applications](apps.md) — built-in apps, Flatpak, AppImage and
+  recommendations.
 - [Desktop Environment](desktop.md) — desktop product design, session
   boundaries, displays, power, media, and notifications.
 - [Diagnostics and Recovery](diagnostics-recovery.md) — reports, rollback,

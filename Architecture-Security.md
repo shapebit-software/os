@@ -1,4 +1,4 @@
-# Security and Identity
+# Security
 
 ## Machine Encryption
 

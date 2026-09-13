@@ -1,9 +1,5 @@
 # System Lifecycle
 
-## Installer
-
-See [Installer](installer.md).
-
 ## Boot Trust
 
 The system boots through:
