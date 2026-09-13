@@ -1,18 +1,30 @@
 # Security
 
-## Machine Encryption
+This page describes how OS protects data and computer.
 
-The machine volume uses LUKS2.
+## Disk Encryption
 
-Normal boot unlocks it automatically through TPM2. Every device also has an independent recovery key.
+Every machine's volume is encrypted with **LUKS2**.
 
-TPM authorization uses:
+On a normal boot, the volume unlocks itself automatically using the
+device's **TPM2** chip — no password needed. Every device also has an
+independent **recovery key**, kept separately, that can unlock the
+volume if the TPM path ever fails.
 
-PCR 7 for Secure Boot policy;
-signed PCR 11 policy for approved ShapeBit UKIs.
+## TPM Unlock Policy
 
-PCR 11 uses signed expected measurements rather than one fixed value, allowing approved OS updates without TPM re-enrollment after every release.
+The TPM only releases the disk key when the machine's boot state looks
+right. It checks two things, using two **PCRs** (Platform Configuration
+Registers — measurements the firmware takes during boot):
 
-PCR 0, 2, and 14 are not part of the default policy.
+| PCR | Checks | Behavior |
+| --- | --- | --- |
+| **PCR 7** | Secure Boot policy | Must match a fixed, expected value. |
+| **PCR 11** | The running OS UKI (Unified Kernel Image) | Must match one of a set of *signed, approved* measurements. |
 
-ShapeBit v1 uses TPM-policy functionality supported by the selected systemd release. It does not introduce a custom TPM policy engine unless required by a future architecture revision.
+PCR 11 accepts any measurement covered by a valid signature, rather
+than one fixed value. This means an approved OS update can ship a new,
+different measurement without the device needing to be re-enrolled
+with the TPM after every release.
+
+PCR 0, 2, and 14 are **not** checked by the default policy.

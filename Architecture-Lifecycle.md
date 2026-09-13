@@ -1,218 +1,238 @@
 # System Lifecycle
 
+This page explains how the OS establishes trust when it boots, how a
+release is identified and signed, how updates are delivered and verified,
+and what happens when a release turns out to be bad.
+
+## Signing
+
+Production and development builds live in two completely separate trust
+domains. A development key can never sign anything production will accept,
+and vice versa.
+
+The OS v1 uses a small production key hierarchy:
+
+```
+offline root
+ ├── release signing
+ ├── boot + PCR signing
+ └── repository signing
+```
+
+The root key only exists to delegate these operational keys — it is not
+used to sign ordinary releases.
+
+Production private keys must:
+
+- never be stored in Git or baked into OCI images
+- never be installed on a user's system
+- never be exposed to ordinary CI jobs
+- live in hardware-backed (or equivalently protected) storage
+
+Development uses its own, clearly separate, disposable keys.
+
+As the project and its release process grow, finer-grained role separation
+and threshold signing for the root key may be introduced.
+
+### Signing Process
+
+1. CI produces unsigned release artifacts and their digests.
+2. Production signing requires explicit human authorization — it never
+   happens automatically.
+3. A release is only signed once its final OCI image, rootfs identity,
+   UKI, and metadata are all fixed.
+4. Every signing operation leaves an immutable audit record of exactly
+   what went in and what came out.
+
 ## Boot Trust
 
-The system boots through:
+A production system boots through an unbroken chain of signatures:
 
+```
 UEFI Secure Boot
-    ↓
-Microsoft-signed ShapeBit shim
-    ↓
-signed systemd-boot
-    ↓
-signed ShapeBit UKI
-    ↓
-verified system deployment
+  → Microsoft-signed ShapeBit shim
+  → signed systemd-boot
+  → signed ShapeBit UKI
+  → verified system deployment
+```
 
-The UKI contains the kernel, initramfs, kernel command line, and TPM PCR policy. The system does not maintain separate unsigned kernel or initramfs files on the ESP.
+Each step only proceeds once the previous one has been verified.
 
-The ESP is unencrypted and contains no private keys or user data.
+A few things worth knowing about this chain:
 
-Production systems retain the manufacturer's normal UEFI PK/KEK configuration. Custom firmware-key enrollment is not required.
+- The UKI bundles the kernel, initramfs, kernel command line, and TPM PCR
+  policy into a single signed file. There is no separate, unsigned kernel
+  or initramfs sitting on the ESP.
+- The ESP itself is unencrypted and holds no private keys or user data.
+- Production systems keep the manufacturer's normal UEFI PK/KEK setup —
+  ShapeBit does not require enrolling custom firmware keys.
 
 ### Development
 
-OVMF
-→ ShapeBit Dev CA
-→ dev-signed UKI
+Development machines boot through a separate, disposable chain instead:
+
+```
+OVMF → ShapeBit Dev CA → dev-signed UKI
+```
 
 ## Release Identity
 
-Every ShapeBit release is identified by a signed immutable release manifest.
+Every the OS release is identified by one signed, immutable **release
+manifest**. The manifest ties together the exact artifacts that make up
+that release:
 
-The manifest binds the exact artifacts that belong to one release:
+- version
+- architecture
+- OCI image digest
+- signed UKI digest
+- composefs root digest
+- minimum compatible updater and recovery versions
 
-version;
-architecture;
-OCI image digest;
-signed UKI digest;
-composefs root digest;
-minimum compatible updater and recovery versions.
+```
 release manifest
-├── OCI image
-├── composefs root
-└── signed UKI
+ ├── OCI image
+ ├── composefs root
+ └── signed UKI
+```
 
-Channels and tags such as stable or testing are discovery pointers only. They do not identify a release.
+A few rules follow from this:
 
-The updater accepts a deployment only when all referenced digests match the downloaded and locally prepared artifacts.
-
-The manifest is strict and signed. Unknown or malformed fields are rejected.
-
-Mutable data such as rollout state, mirrors, withdrawal, and revocation is stored separately and refers to the immutable release by digest.
+- Channels and tags like `stable` or `testing` are just discovery
+  pointers — they help you *find* a release, they don't *identify* one.
+- The updater only accepts a deployment once every digest it references
+  matches what was actually downloaded and prepared locally.
+- The manifest format is strict: unknown or malformed fields are
+  rejected outright.
+- Mutable data — rollout state, mirrors, withdrawal, revocation — is
+  stored separately and simply refers back to the immutable release by
+  digest.
 
 ### Artifact Binding
 
-The release binds the system image and boot artifact through the composefs root digest:
+The composefs root digest is what ties the system image and the boot
+artifact together into one verified unit:
 
+```
 OCI image
-    ↓
-composefs root
-    ↓
-rootfs digest
-    ↓
-signed UKI
+  → composefs root
+  → rootfs digest
+  → signed UKI
+```
 
-The UKI contains the expected rootfs digest.
+The UKI carries the rootfs digest it expects to find. During boot,
+initrd:
 
-During boot, initrd:
+1. reads the expected digest from the signed UKI
+2. picks the one local deployment that matches it
+3. requires active fs-verity verification
+4. unlocks and switches into that deployment
 
-obtains the expected digest from the signed UKI;
-selects exactly one matching local deployment;
-requires active fs-verity verification;
-unlocks and switches to that deployment.
+If that identity is missing, malformed, or doesn't match, boot fails
+immediately — there is no fallback for this case.
 
-A missing, malformed, or mismatched identity is a hard boot failure.
-
-The release manifest binds the final UKI digest, OCI image digest, and rootfs digest together so independently valid artifacts from different releases cannot be mixed.
+Because the release manifest binds the UKI digest, OCI image digest, and
+rootfs digest together, artifacts from different releases can never be
+mixed, even when each one is individually valid.
 
 ## Release Channels
 
-ShapeBit defines:
+| Channel     | What it holds                     |
+|-------------|------------------------------------|
+| `stable`    | Production releases                |
+| `testing`   | Production-signed candidates       |
+| `developer` | Local development builds           |
 
-stable      production releases
-testing     production-signed candidates
-developer   local development builds
-
-Only unchanged production-signed candidates move from testing to stable.
-
-Developer builds cannot be promoted directly into the production trust domain.
-
-Stable promotion is an explicit release decision rather than an automatic consequence of passing CI.
-
-## Release Withdrawal and Revocation
-
-ShapeBit distinguishes:
-
-### Withdrawn
-
-A release is no longer offered because of a quality problem.
-
-Existing accepted installations may continue running while a replacement release is prepared.
-
-### Revoked
-
-A release must no longer be selected for another boot because continuing to boot it is unsafe.
-
-A revoked pending or trial deployment is abandoned.
-
-If no known-safe normal deployment exists, ShapeBit enters recovery.
-
-Revocation metadata is signed and cached locally so previously learned revocations continue to apply offline.
+- A candidate moves from `testing` to `stable` unchanged — promotion
+  never modifies it.
+- Developer builds cannot be promoted directly into the production trust
+  domain.
+- Promoting a release to `stable` is a deliberate decision, not something
+  that happens automatically just because CI passed.
 
 ## System Updates
 
 ### Update Pipeline
 
-The system downloads and verifies updates in the background.
+Updates are downloaded and verified in the background:
 
-A system update proceeds as:
-
+```
 download
-   ↓
-verify manifest and artifacts
-   ↓
-stage deployment
-   ↓
-stage signed UKI
-   ↓
-user restart
-   ↓
-trial boot
-   ↓
-health verification
-   ├── fail → rollback
-   └── pass → accept
+  → verify manifest and artifacts
+  → stage deployment
+  → stage signed UKI
+  → user restart
+  → trial boot
+  → health verification
+      ├─ fail → rollback
+      └─ pass → accept
+```
 
-The OS never makes a downloaded release bootable until its signed manifest, artifact identities, UKI, rootfs binding, and TPM authorization have been validated.
-
-Updates do not force the user to terminate an active desktop session.
+The OS never makes a downloaded release bootable until it has verified
+the signed manifest, the artifact identities, the UKI, the rootfs
+binding, and TPM authorization. Updates never force the user to end an
+active desktop session.
 
 ### Trial Boot, Rollback, and Health
 
-A newly staged deployment starts as pending.
+A newly staged deployment goes through a few states:
 
-Booting it changes it to trial.
+```
+accepted → pending → trial
+                        ├─ accepted
+                        └─ failed → rollback
+```
 
-ShapeBit uses systemd Automatic Boot Assessment for attempt counting and boot selection rather than maintaining a second authoritative boot database.
+- Staging a deployment makes it **pending**.
+- Booting it moves it to **trial**.
+- ShapeBit uses systemd's Automatic Boot Assessment to count attempts
+  and choose what to boot, rather than keeping a second, separate boot
+  database.
+- By default, a deployment gets two trial attempts.
 
-The default limit is two trial attempts.
+A few more details:
 
-accepted
-   ↓
-pending
-   ↓
-trial
- ┌─┴────────────┐
- ↓              ↓
-accepted       failed
-                ↓
-             rollback
-
-The previous accepted deployment remains available until the new deployment is durably accepted.
-
-A deterministic integrity or structural failure causes immediate rollback.
-
-An ambiguous failure consumes a trial attempt. When attempts are exhausted, systemd-boot selects the previous accepted deployment.
-
-A failed release is locally blocked from automatic restaging until another release supersedes it or recovery explicitly retries it.
+- The previous accepted deployment stays available until the new one is
+  durably accepted.
+- A clear-cut integrity or structural failure causes an immediate
+  rollback.
+- A less clear-cut failure just uses up one trial attempt; once attempts
+  run out, systemd-boot falls back to the previous accepted deployment.
+- A failed release is blocked from being automatically re-staged until
+  either a newer release supersedes it or recovery explicitly retries it.
 
 #### Boot Health
 
-A trial deployment is accepted only when ShapeBit verifies:
+Before a trial deployment is accepted, ShapeBit checks that:
 
-expected release and deployment identity;
-required system storage;
-critical platform services;
-functioning network stack;
-usable graphical login environment.
+- the release and deployment identity match what's expected
+- required system storage is present
+- critical platform services are running
+- the network stack is functioning
+- a usable graphical login environment is available
 
-Internet connectivity and user login are not required.
+Internet access and an actual user login are **not** required.
 
-All mandatory checks must succeed and remain healthy for a short continuous observation period before the deployment is blessed.
+Every one of these checks must pass and stay healthy for a short,
+continuous period before the deployment is "blessed" (accepted). The
+exact services checked, timeouts, retry windows, and diagnostic codes
+are implementation details, not architecture.
 
-Exact units, service lists, timeouts, retry periods, and diagnostic codes are implementation policy rather than architecture.
+## Release Withdrawal and Revocation
 
-## Signing
+ShapeBit distinguishes between a release that's simply no longer offered
+and one that has become unsafe to boot.
 
-Production and development builds use separate trust domains.
+### Withdrawn
 
-ShapeBit v1 uses a small production hierarchy:
+A release is **withdrawn** when it has a quality problem and is no
+longer offered. Systems that already accepted it may keep running it
+while a replacement is prepared.
 
-offline root
-├── release signing
-├── boot + PCR signing
-└── repository signing
+### Revoked
 
-The root key delegates operational keys and is not used for ordinary release signing.
+A release is **revoked** when booting it again would be unsafe.
 
-Production private keys must:
-
-remain outside Git and OCI images;
-never be installed on user systems;
-never be exposed to ordinary CI jobs;
-use hardware-backed or equivalently protected storage.
-
-Development uses clearly distinct disposable keys.
-
-More granular role separation and threshold root signing may be introduced as the project and release organization grow.
-
-### Signing Process
-
-CI produces unsigned release artifacts and their digests.
-
-Production signing requires explicit authorization.
-
-The release is signed only after the final OCI image, rootfs identity, UKI, and metadata are fixed.
-
-Signing operations produce an immutable audit record identifying the inputs and outputs.
+- Any pending or trial deployment of a revoked release is abandoned.
+- If no known-safe normal deployment remains, ShapeBit enters recovery.
+- Revocation records are signed and cached locally, so revocations
+  already learned keep applying even while offline.

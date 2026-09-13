@@ -7,6 +7,7 @@
   - [Security](Architecture-Security)
   - [Installation](Architecture-Installation)
   - [Applications](Architecture-Applications)
-  - [Desktop Environment](Architecture-Desktop)
+  - [Desktop](Architecture-Desktop)
   - [Recovery](Architecture-Recovery)
+- [Development](Development)
 - [License](License)
