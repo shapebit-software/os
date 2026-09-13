@@ -6,8 +6,8 @@ ShapeBit OS is an image-based Linux desktop operating system built on Fedora.
 
 - [Base System](base-system.md) — system foundation, storage, hardware scope,
   platform services, validation, and the delivery tracker.
-- [Boot and System Lifecycle](boot-system-lifecycle.md) — installation, boot,
-  releases, updates, migrations, and signing operations.
+- [System Lifecycle](system-lifecycle.md) — installation, boot, releases,
+  updates, migrations, and signing operations.
 - [Security and Identity](security-identity.md) — encryption, authentication,
   authorization, networking, remote access, and credentials.
 - [Application Platform](application-platform.md) — system applications,

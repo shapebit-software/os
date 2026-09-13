@@ -1,13 +1,11 @@
-# Boot and System Lifecycle
-
-## Installer
+# Installer
 
 The unprivileged frontend and privileged installer backend need one
 testable local protocol.
 
-#### Design
+### Design
 
-##### Transport and common messages
+#### Transport and common messages
 
 The ordinary installer protocol uses JSON Lines over a private local Unix
 socket. Each line is one complete JSON object.
@@ -24,7 +22,7 @@ An error has no `message` field and has at least:
 {"version":1,"code":"disk-changed","payload":{"disk_model":"Example NVMe"}}
 ```
 
-##### Minimal InstallationPlan
+#### Minimal InstallationPlan
 
 The `InstallationPlan` payload contains only choices made by the user:
 
@@ -36,7 +34,7 @@ The `InstallationPlan` payload contains only choices made by the user:
 - an optional installer-created Wi-Fi profile identifier with
   `save_for_owner`.
 
-##### Capabilities
+#### Capabilities
 
 One `Capabilities` response describes the backend snapshot used to build a
 plan. It contains:
@@ -50,7 +48,7 @@ plan. It contains:
 - available Wi-Fi adapters and whether scanning is possible; and
 - supported locale, time zone, and keyboard-layout identifiers.
 
-##### Optional installer Wi-Fi
+#### Optional installer Wi-Fi
 
 When no working Internet connection exists, the frontend offers a Wi-Fi step. The user may connect or skip it; lack of Internet does not block installation.
 
@@ -63,17 +61,17 @@ step-cancelled
 progress
 ```
 
-### One-Shot Installer Secret Channel
+## One-Shot Installer Secret Channel
 
-#### Purpose and constraints
+### Purpose and constraints
 
 Installer keeps passwords, Wi-Fi credentials, recovery keys, and derived secrets out of the serializable installation plan and ordinary JSON Lines protocol. 
 
 The installer still needs a small local mechanism to transfer user-entered secrets o the privileged backend and generated Recovery Kit material in the opposite direction without temporary files, environment variables, event history, or diagnostic capture.
 
-#### Design
+### Design
 
-##### One-shot channel
+#### One-shot channel
 
 The privileged backend creates a unique private Unix socket for one secret
 transfer. The ordinary authenticated installer connection receives an opaque
@@ -92,7 +90,7 @@ ordinary JSON Lines connection, `InstallationPlan`, capability snapshot,
 events, errors, transaction state, logs, diagnostics, analytics, command-line
 arguments, environment variables, or temporary files.
 
-##### Direction and purpose
+#### Direction and purpose
 
 Every request declares one direction:
 
@@ -109,7 +107,7 @@ as independent values.
 New purposes require an explicit protocol extension. There is no unrestricted
 generic `secret` purpose.
 
-##### Binary framing and limits
+#### Binary framing and limits
 
 The one-shot stream contains a fixed-size unsigned length followed by exactly
 that number of bytes. It contains no JSON, field name, log text, or metadata.
@@ -127,7 +125,7 @@ The limits bound memory use without imposing an unnecessarily short Unicode
 password limit. Purpose-specific semantic validation occurs only after the
 complete bounded value has been received.
 
-##### Input ownership and lifetime
+#### Input ownership and lifetime
 
 Before transfer, the frontend owns user-entered plaintext. After successful
 transfer, the backend owns the accepted copy and the frontend immediately
@@ -155,7 +153,7 @@ Loss of a secret does not itself restart a destructive phase or reformat a
 disk. [Installer Transaction Lifecycle](#installer-transaction-lifecycle) determines whether the transaction can wait safely for a
 replacement, must stop, or must continue through recovery.
 
-##### Recovery Kit output
+#### Recovery Kit output
 
 After the backend generates and enrolls the independent device and first-home
 recovery keys, it transfers their presentation package through one
@@ -171,7 +169,7 @@ keys survive a frontend reconnect while the backend remains alive, as defined
 by [Recovery Kit Presentation and Lifecycle](diagnostics-recovery.md). A backend restart before acknowledgement invokes [Recovery Kit Presentation and Lifecycle](diagnostics-recovery.md)'s safe
 key replacement instead of restoring plaintext from persistent state.
 
-##### Owner-password confirmation
+#### Owner-password confirmation
 
 The frontend asks for the owner password twice and compares the two fields
 locally. It transfers one copy only after they match. The backend validates the
@@ -183,7 +181,7 @@ available. Leaving the screen or successful transfer clears both fields and
 their backing buffers on a best-effort basis. A backend rejection requires the
 user to enter and confirm the password again. Wi-Fi passwords are entered once.
 
-#### Tradeoffs
+### Tradeoffs
 
 - Ordinary protocol capture and mock-plan fixtures contain no credentials or
   recovery material.
@@ -200,18 +198,18 @@ user to enter and confirm the password again. Wi-Fi passwords are entered once.
   reconnects; [Recovery Kit Presentation and Lifecycle](diagnostics-recovery.md) closes that lifecycle and defines safe replacement after
   a backend restart.
 
-#### Ownership boundaries
+### Ownership boundaries
 
 This section owns the installer secret transport, direction and purpose binding,
 framing, initial size and expiry limits, input ownership and lifetime,
-cancellation, and local password confirmation. [GTK 4 as the ShapeBit OS Installer Frontend](boot-system-lifecycle.md) owns the installer
-privilege boundary. [Minimal Installer Protocol](boot-system-lifecycle.md) owns ordinary messages. [Installer Transaction Lifecycle](#installer-transaction-lifecycle) owns transaction
+cancellation, and local password confirmation. [GTK 4 as the ShapeBit OS Installer Frontend](installer.md) owns the installer
+privilege boundary. [Minimal Installer Protocol](installer.md) owns ordinary messages. [Installer Transaction Lifecycle](#installer-transaction-lifecycle) owns transaction
 waiting and interruption. [Recovery Kit Presentation and Lifecycle](diagnostics-recovery.md) owns Recovery Kit presentation and final
 secret lifetime.
 
-### Installer Disk Identity and Confirmation
+## Installer Disk Identity and Confirmation
 
-#### Purpose and constraints
+### Purpose and constraints
 
 The initial installer erases one complete selected disk. Linux device names
 such as `/dev/nvme0n1` are enumeration results, not persistent identities, and
@@ -220,9 +218,9 @@ destructive confirmation must therefore remain bound to the actual device the
 user reviewed, including when the target is external or lacks a reliable serial
 number.
 
-#### Design
+### Design
 
-##### Disk identity record
+#### Disk identity record
 
 The privileged backend creates an opaque disk identifier from a captured
 identity record. The record contains every available authoritative hardware
@@ -252,7 +250,7 @@ continues to match. The UI marks the identity as incomplete and requires a
 separate acknowledgement on the final screen. This is a usability concession,
 not a claim of stable identity across arbitrary hardware rearrangement.
 
-##### Eligible targets
+#### Eligible targets
 
 The initial installer may target an internal disk or an eligible external USB,
 Thunderbolt, or eSATA disk. External and hardware-removable targets are clearly
@@ -268,7 +266,7 @@ An external or removable target adds a separate acknowledgement that disconnect
 during installation can leave the disk incomplete and disconnect afterward
 prevents ShapeBit from booting. No target is preselected.
 
-##### Final destructive confirmation
+#### Final destructive confirmation
 
 Immediately before `creating-storage`, the frontend shows one final screen with:
 
@@ -294,7 +292,7 @@ disconnection, or backend restart invalidates it. The token authorizes only the
 single transition into `creating-storage` for that transaction and cannot be
 replayed.
 
-##### Stale plan and rescan rules
+#### Stale plan and rescan rules
 
 The capability snapshot and disk selection become stale when:
 
@@ -308,7 +306,7 @@ The capability snapshot and disk selection become stale when:
 
 An unrelated monitor, input device, or network-state change does not make the
 disk plan stale. Dynamic Wi-Fi results remain outside the storage snapshot as
-defined by [Minimal Installer Protocol](boot-system-lifecycle.md).
+defined by [Minimal Installer Protocol](installer.md).
 
 When a plan becomes stale, the installer preserves unrelated safe form values,
 including locale, time zone, keyboard choice, computer name, and first-owner
@@ -320,7 +318,7 @@ The backend performs one final identity, eligibility, and active-use check
 after consuming the confirmation token and immediately before the first
 destructive write. A failure performs no destructive operation.
 
-##### Interrupted installations
+#### Interrupted installations
 
 A valid [Installer Transaction Lifecycle](#installer-transaction-lifecycle) transaction journal identifies an already modified target with
 the same disk identity record. Continuing that exact transaction does not ask
@@ -329,7 +327,7 @@ every completed checkpoint. Choosing **Start over**, losing reliable target
 identity, or lacking a valid journal requires a new scan and final destructive
 confirmation.
 
-#### Tradeoffs
+### Tradeoffs
 
 - Device enumeration changes cannot silently redirect a confirmed erase to a
   different disk.
@@ -343,17 +341,17 @@ confirmation.
   current-scan-only identity rule.
 - A backend restart cannot reuse an old destructive authorization.
 
-#### Ownership boundaries
+### Ownership boundaries
 
 This section owns target-disk identity, eligibility checks related to identity and
 active use, external-target warnings, final destructive confirmation, token
 expiry, and stale-plan behavior. [Initial Installation and Storage Profile](base-system.md) owns whole-disk installation and the
-storage profile. [Minimal Installer Protocol](boot-system-lifecycle.md) owns the capability and plan envelopes. [Installer Transaction Lifecycle](#installer-transaction-lifecycle) owns
+storage profile. [Minimal Installer Protocol](installer.md) owns the capability and plan envelopes. [Installer Transaction Lifecycle](#installer-transaction-lifecycle) owns
 transaction phases, interruption, and continuation after destruction.
 
-### Installer Transaction Lifecycle
+## Installer Transaction Lifecycle
 
-#### Purpose and constraints
+### Purpose and constraints
 
 Once the installer starts erasing the selected disk, closing the UI, losing
 power, or retrying an unsafe step must not create a second uncontrolled
@@ -361,9 +359,9 @@ operation or a false success result. The initial lifecycle needs understandable
 phases, one explicit destructive boundary, durable progress without secrets,
 and conservative recovery rather than a general rollback mechanism.
 
-#### Design
+### Design
 
-##### Installation phases
+#### Installation phases
 
 One installation transaction advances through these ordered phases:
 
@@ -392,7 +390,7 @@ The backend is the authority for phase and step state. The frontend presents
 events but cannot skip, reorder, or mark a phase complete. There is only one
 active transaction for a selected target disk.
 
-##### Destructive boundary and stopping
+#### Destructive boundary and stopping
 
 `validating` and `preparing` are non-destructive and expose ordinary **Cancel**.
 [Installer Disk Identity and Confirmation](#installer-disk-identity-and-confirmation)'s final disk confirmation authorizes one transition into
@@ -412,7 +410,7 @@ Power loss, backend termination, or loss of the live environment is an
 interruption, not cancellation. Cancelling or stopping invalidates all
 unneeded secret requests and plaintext according to [One-Shot Installer Secret Channel](#one-shot-installer-secret-channel).
 
-##### Durable transaction journal and checkpoints
+#### Durable transaction journal and checkpoints
 
 Before the destructive boundary, transaction state is temporary because the
 target has not changed and the plan can be started again. After the boundary,
@@ -439,7 +437,7 @@ checkpoint do not prove completion. If interruption happens before a valid
 journal can be established, the disk is treated as an incomplete target that
 can only be started again after [Installer Disk Identity and Confirmation](#installer-disk-identity-and-confirmation) confirmation.
 
-##### Resume and start over
+#### Resume and start over
 
 On startup, the installer scans eligible disks for a valid incomplete ShapeBit
 installation journal. It offers:
@@ -460,7 +458,7 @@ or the recorded operation is incompatible with the running installer, resume
 is blocked. The UI explains the stable reason and may offer start over, not an
 unsafe conversion of the old transaction.
 
-##### Waiting, failure, and retry
+#### Waiting, failure, and retry
 
 The backend classifies each step in advance as safely retryable or terminal
 under specified preconditions. The frontend does not infer this classification.
@@ -479,7 +477,7 @@ A failed transaction retains its diagnostic reference and journal until the
 user chooses a permitted retry, resumes later, or confirms start over. Failure
 does not initiate another format operation by itself.
 
-##### Verification and completion
+#### Verification and completion
 
 The `verifying` phase confirms at minimum:
 
@@ -506,7 +504,7 @@ Installer completion means that required disk state was verified. It is not
 evidence that the particular physical computer completed its first real boot;
 that remains part of the QEMU and hardware test contracts in [Simple Test Evidence](base-system.md).
 
-#### Tradeoffs
+### Tradeoffs
 
 - The user can cancel freely before data loss and receives a distinct warning
   for emergency stopping afterward.
@@ -521,228 +519,11 @@ that remains part of the QEMU and hardware test contracts in [Simple Test Eviden
 - Success is stronger than command completion but does not overclaim evidence
   of an actual first boot.
 
-#### Ownership boundaries
+### Ownership boundaries
 
 This section owns installer phases, the destructive boundary, cancellation and
 controlled stop behavior, durable checkpoints, resume, retry, failure, and
-completion verification. [Minimal Installer Protocol](boot-system-lifecycle.md) owns message and event envelopes. [One-Shot Installer Secret Channel](#one-shot-installer-secret-channel)
+completion verification. [Minimal Installer Protocol](installer.md) owns message and event envelopes. [One-Shot Installer Secret Channel](#one-shot-installer-secret-channel)
 owns secret lifetime. [Installer Disk Identity and Confirmation](#installer-disk-identity-and-confirmation) owns disk identity and final destructive
 confirmation. [Recovery Kit Presentation and Lifecycle](diagnostics-recovery.md) owns Recovery Kit presentation after the credentials
 have been enrolled and tested.
-
-## Boot Trust
-
-The system boots through:
-
-UEFI Secure Boot
-    ↓
-Microsoft-signed ShapeBit shim
-    ↓
-signed systemd-boot
-    ↓
-signed ShapeBit UKI
-    ↓
-verified system deployment
-
-The UKI contains the kernel, initramfs, kernel command line, and TPM PCR policy. The system does not maintain separate unsigned kernel or initramfs files on the ESP.
-
-The ESP is unencrypted and contains no private keys or user data.
-
-Production systems retain the manufacturer's normal UEFI PK/KEK configuration. Custom firmware-key enrollment is not required.
-
-### Development
-
-OVMF
-→ ShapeBit Dev CA
-→ dev-signed UKI
-
-## Release Identity
-
-Every ShapeBit release is identified by a signed immutable release manifest.
-
-The manifest binds the exact artifacts that belong to one release:
-
-version;
-architecture;
-OCI image digest;
-signed UKI digest;
-composefs root digest;
-minimum compatible updater and recovery versions.
-release manifest
-├── OCI image
-├── composefs root
-└── signed UKI
-
-Channels and tags such as stable or testing are discovery pointers only. They do not identify a release.
-
-The updater accepts a deployment only when all referenced digests match the downloaded and locally prepared artifacts.
-
-The manifest is strict and signed. Unknown or malformed fields are rejected.
-
-Mutable data such as rollout state, mirrors, withdrawal, and revocation is stored separately and refers to the immutable release by digest.
-
-### Artifact Binding
-
-The release binds the system image and boot artifact through the composefs root digest:
-
-OCI image
-    ↓
-composefs root
-    ↓
-rootfs digest
-    ↓
-signed UKI
-
-The UKI contains the expected rootfs digest.
-
-During boot, initrd:
-
-obtains the expected digest from the signed UKI;
-selects exactly one matching local deployment;
-requires active fs-verity verification;
-unlocks and switches to that deployment.
-
-A missing, malformed, or mismatched identity is a hard boot failure.
-
-The release manifest binds the final UKI digest, OCI image digest, and rootfs digest together so independently valid artifacts from different releases cannot be mixed.
-
-## Release Channels
-
-ShapeBit defines:
-
-stable      production releases
-testing     production-signed candidates
-developer   local development builds
-
-Only unchanged production-signed candidates move from testing to stable.
-
-Developer builds cannot be promoted directly into the production trust domain.
-
-Stable promotion is an explicit release decision rather than an automatic consequence of passing CI.
-
-## Release Withdrawal and Revocation
-
-ShapeBit distinguishes:
-
-### Withdrawn
-
-A release is no longer offered because of a quality problem.
-
-Existing accepted installations may continue running while a replacement release is prepared.
-
-### Revoked
-
-A release must no longer be selected for another boot because continuing to boot it is unsafe.
-
-A revoked pending or trial deployment is abandoned.
-
-If no known-safe normal deployment exists, ShapeBit enters recovery.
-
-Revocation metadata is signed and cached locally so previously learned revocations continue to apply offline.
-
-## System Updates
-
-### Update Pipeline
-
-The system downloads and verifies updates in the background.
-
-A system update proceeds as:
-
-download
-   ↓
-verify manifest and artifacts
-   ↓
-stage deployment
-   ↓
-stage signed UKI
-   ↓
-user restart
-   ↓
-trial boot
-   ↓
-health verification
-   ├── fail → rollback
-   └── pass → accept
-
-The OS never makes a downloaded release bootable until its signed manifest, artifact identities, UKI, rootfs binding, and TPM authorization have been validated.
-
-Updates do not force the user to terminate an active desktop session.
-
-### Trial Boot, Rollback, and Health
-
-A newly staged deployment starts as pending.
-
-Booting it changes it to trial.
-
-ShapeBit uses systemd Automatic Boot Assessment for attempt counting and boot selection rather than maintaining a second authoritative boot database.
-
-The default limit is two trial attempts.
-
-accepted
-   ↓
-pending
-   ↓
-trial
- ┌─┴────────────┐
- ↓              ↓
-accepted       failed
-                ↓
-             rollback
-
-The previous accepted deployment remains available until the new deployment is durably accepted.
-
-A deterministic integrity or structural failure causes immediate rollback.
-
-An ambiguous failure consumes a trial attempt. When attempts are exhausted, systemd-boot selects the previous accepted deployment.
-
-A failed release is locally blocked from automatic restaging until another release supersedes it or recovery explicitly retries it.
-
-#### Boot Health
-
-A trial deployment is accepted only when ShapeBit verifies:
-
-expected release and deployment identity;
-required system storage;
-critical platform services;
-functioning network stack;
-usable graphical login environment.
-
-Internet connectivity and user login are not required.
-
-All mandatory checks must succeed and remain healthy for a short continuous observation period before the deployment is blessed.
-
-Exact units, service lists, timeouts, retry periods, and diagnostic codes are implementation policy rather than architecture.
-
-## Signing
-
-Production and development builds use separate trust domains.
-
-ShapeBit v1 uses a small production hierarchy:
-
-offline root
-├── release signing
-├── boot + PCR signing
-└── repository signing
-
-The root key delegates operational keys and is not used for ordinary release signing.
-
-Production private keys must:
-
-remain outside Git and OCI images;
-never be installed on user systems;
-never be exposed to ordinary CI jobs;
-use hardware-backed or equivalently protected storage.
-
-Development uses clearly distinct disposable keys.
-
-More granular role separation and threshold root signing may be introduced as the project and release organization grow.
-
-### Signing Process
-
-CI produces unsigned release artifacts and their digests.
-
-Production signing requires explicit authorization.
-
-The release is signed only after the final OCI image, rootfs identity, UKI, and metadata are fixed.
-
-Signing operations produce an immutable audit record identifying the inputs and outputs.
