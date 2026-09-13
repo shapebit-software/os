@@ -4,5 +4,5 @@ ShapeBit OS is a source-available Linux operating system based on Fedora.
 
 ## Read More
 
-- [Architecture](Architecture.md)
-- [License](License.md)
+- [Architecture](architecture.md)
+- [License](license.md)

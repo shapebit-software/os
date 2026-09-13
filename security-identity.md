@@ -1,4 +1,6 @@
-# Machine Encryption
+# Security and Identity
+
+## Machine Encryption
 
 The machine volume uses LUKS2.
 
