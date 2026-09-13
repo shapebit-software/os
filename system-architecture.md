@@ -1,10 +1,6 @@
 # Architecture
 
-ShapeBit OS is an image-based Linux desktop operating system built on Fedora
-bootc. Its architecture is organized by system area so each rule has one
-canonical home and related details stay together.
-
-These pages describe intended architecture, not implementation evidence.
+ShapeBit OS is an image-based Linux desktop operating system built on Fedora.
 
 ## System areas
 

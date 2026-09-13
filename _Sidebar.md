@@ -1,7 +1,7 @@
 ## ShapeBit Docs
 
 - [Introduction](Home)
-- [Architecture](Architecture)
+- [Architecture](architecture)
   - [Base System](base-system)
   - [Boot and System Lifecycle](boot-system-lifecycle)
   - [Security and Identity](security-identity)
@@ -9,4 +9,4 @@
   - [Desktop Environment](desktop)
   - [Diagnostics and Recovery](diagnostics-recovery)
 - [Desktop Technical Design](desktop-technical-design)
-- [License](License)
+- [License](license)

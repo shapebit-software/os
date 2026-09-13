@@ -1,0 +1,2 @@
+- The initial automated target is x86-64 QEMU with OVMF and a software TPM.
+- The official developer host class is Linux x86-64 with KVM. Fedora is the canonical host and the required CI environment.
