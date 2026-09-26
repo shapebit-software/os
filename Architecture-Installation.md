@@ -1,3 +1,9 @@
+# Installation
+
+This page describes how the installer prepares a device: capability
+discovery, network setup, credential handling, disk selection, and the
+installation itself.
+
 ## Capabilities
 
 Before showing any choices, the frontend asks the backend what's possible — which disks are eligible, whether UEFI, Secure Boot, and TPM2 are available, connectivity, Wi-Fi, and the supported locales, time zones, and keyboard layouts.

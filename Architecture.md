@@ -4,15 +4,16 @@ ShapeBit OS is an image-based Linux desktop operating system built on Fedora.
 
 ## System areas
 
-- [Base System](base-system.md) — system foundation, storage, hardware scope,
-  platform services, validation, and the delivery tracker.
-- [System Lifecycle](system-lifecycle.md) — installation, boot, releases,
-  updates, migrations, and signing operations.
-- [Security and Identity](security-identity.md) — encryption, authentication,
-  authorization, networking, remote access, and credentials.
-- [Applications](apps.md) — built-in apps, Flatpak, AppImage and
-  recommendations.
-- [Desktop Environment](desktop.md) — desktop product design, session
-  boundaries, displays, power, media, and notifications.
-- [Diagnostics and Recovery](diagnostics-recovery.md) — reports, rollback,
-  repair, reset, independent recovery, and Recovery Kit handling.
+- [Base System](Architecture-Base) — supported hardware, disk layout, and home
+  storage.
+- [Installation](Architecture-Installation) — installer capabilities, disk
+  selection, credential handling, and installation verification.
+- [System Lifecycle](Architecture-Lifecycle) — signing, boot trust, release
+  identity, channels, updates, rollback, and release withdrawal.
+- [Security](Architecture-Security) — disk encryption and the TPM unlock
+  policy.
+- [Recovery](Architecture-Recovery) — the recovery key and when it is needed.
+- [Applications](Architecture-Applications) — built-in apps, third-party app
+  installation, browsers, and AppImage.
+- [Desktop Environment](Architecture-Desktop) — window management, menus,
+  shelf, notifications, Quick Settings, and assistant and input features.

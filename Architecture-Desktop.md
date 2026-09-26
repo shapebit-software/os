@@ -300,7 +300,7 @@ hand while working across Workspaces.
 ShapeBit notifications give visible, non-focus-stealing attention across
 Workspaces. Privacy, lock-screen, sharing, critical-notification, and Do Not
 Disturb constraints are owned by
-[Media, Privacy, and Notification Policy](desktop.md).
+Media, Privacy, and Notification Policy.
 
 ### Notification panel
 
@@ -364,7 +364,7 @@ Disturb constraints are owned by
   system notifications, which need individual handling.
 - Do Not Disturb queues ordinary app notifications; apps can't bypass it —
   only the verified critical system path defined by
-  [Media, Privacy, and Notification Policy](desktop.md) can. Fullscreen
+  Media, Privacy, and Notification Policy can. Fullscreen
   alone doesn't enable Do Not Disturb; sharing, locking, unlock summaries,
   and critical-system exceptions follow that same policy.
 
@@ -459,19 +459,19 @@ replacing the full Settings app.
   failures if that also fails, stating explicitly that no VPN is active.
   Switching starts immediately, subject to the confirmation and
   authorization rules in
-  [Network Ownership and Privacy](security-identity.md). Supported VPN
+  Network Ownership and Privacy. Supported VPN
   types and system-wide routing are governed by
-  [Enterprise Network Authentication](security-identity.md) and the
-  [architecture index](architecture.md).
+  Enterprise Network Authentication and the
+  [architecture overview](Architecture).
 - Cellular, NFC, other radio controls, and a dedicated captive-portal
   workflow are deferred; see
-  [Network Ownership and Privacy](security-identity.md).
+  Network Ownership and Privacy.
 
 ### Privacy
 
 - **Camera** switch tile: **On** = camera available, **Off** = camera
   globally blocked for all covered apps, per
-  [Media, Privacy, and Notification Policy](desktop.md). If a controlled
+  Media, Privacy, and Notification Policy. If a controlled
   client keeps an active session while blocked, the unhideable privacy
   indicator stays visible, names the client, and shows it's blocked.
 - Hardware microphone-mute and camera-shutter states override the software
@@ -483,7 +483,7 @@ replacing the full Settings app.
   sharing, camera, microphone; newest first within each type). Each entry
   shows the app, the resource or shared scope, and how long it's been
   active, with **Stop** wherever immediate revocation is supported per
-  [Media, Privacy, and Notification Policy](desktop.md). Stop acts
+  Media, Privacy, and Notification Policy. Stop acts
   instantly, revokes only that activity, and doesn't change the global
   Camera or microphone-mute controls. Stopping remote control leaves its
   screen-sharing session active; stopping screen sharing also revokes any
@@ -505,7 +505,7 @@ replacing the full Settings app.
   not just the audio detail view. Clicking the microphone icon toggles
   mute (**On** = input available, **Muted** = input globally blocked) —
   this is the same global mute defined by
-  [Media, Privacy, and Notification Policy](desktop.md), affecting apps and
+  Media, Privacy, and Notification Policy, affecting apps and
   local-assistant voice input. As with Camera, an active client during a
   global mute keeps the unhideable indicator visible, naming the client.
 - **Brightness** slider controls the display holding the panel; its detail
@@ -521,11 +521,11 @@ replacing the full Settings app.
   control in the detail view. While HDR is active, the detail view offers
   separate sliders for physical display brightness and SDR reference
   brightness. HDR state and safe SDR fallback are defined by
-  [Display, Power, and Thermal Policy](desktop.md).
+  Display, Power, and Thermal Policy.
 - **VRR** control appears only if the panel's display supports variable
   refresh rate. Defaults to **Automatic for fullscreen** and can be
   disabled per display, per
-  [Display, Power, and Thermal Policy](desktop.md).
+  Display, Power, and Thermal Policy.
 - If HDR, VRR, Night Light, or another selected mode can't safely combine
   on the current display pipeline, Quick Settings keeps the working
   configuration, disables the conflicting control, and explains why —
@@ -540,13 +540,13 @@ replacing the full Settings app.
   its own device controls instead. Alongside that sits a power-profile
   selector: **Balanced**, **Power Saver**, and **Performance** where the
   platform supports it, per
-  [Display, Power, and Thermal Policy](desktop.md). Low battery can
+  Display, Power, and Thermal Policy. Low battery can
   auto-select **Power Saver — Automatic**, temporarily disabling the other
   profiles until external power restores the previous selection. Thermal
   throttling shows **Performance limited by temperature** (informational,
   can't be disabled). Battery conservation and charging-limit controls stay
   in full Settings because they're system-wide and may need administrator
-  confirmation, per [Display, Power, and Thermal Policy](desktop.md).
+  confirmation, per Display, Power, and Thermal Policy.
 - **Power** opens a focused view of commands, not switches: **Lock** and
   **Suspend** act immediately; **Log Out**, **Restart**, and **Shut Down**
   require explicit confirmation that names known blocking apps and other
@@ -554,7 +554,7 @@ replacing the full Settings app.
   reliably detected or preserved, with **Cancel** focused by default. When
   an update is staged, the relevant command may read **Restart and
   Update**, with confirmation and recovery behavior governed by
-  [Staged-Restart UX](system-lifecycle.md).
+  Staged-Restart UX.
 
 ### System-bar status cluster
 
@@ -638,7 +638,7 @@ agent interaction across ShapeBit Desktop.
 
 - Window-content access doesn't yet distinguish an app's semantic data from
   captured screen pixels. The accepted
-  [Media, Privacy, and Notification Policy](desktop.md) requires a fresh
+  Media, Privacy, and Notification Policy requires a fresh
   portal grant for every screen-image capture, with no retention — so
   unrestricted pixel access isn't authorized unless a later decision
   supersedes that policy.
@@ -757,7 +757,7 @@ Voice interaction lets the user work with ShapeBit through local AI agents.
 - Unavailable on the login screen, lock screen, and authentication prompts.
 
 Microphone access and privacy indication remain subject to
-[Media, Privacy, and Notification Policy](desktop.md).
+Media, Privacy, and Notification Policy.
 
 ### Modes
 
@@ -825,7 +825,7 @@ user is looking.
   prompts, and resumes only in the unlocked user session.
 
 Camera access and privacy indication remain subject to
-[Media, Privacy, and Notification Policy](desktop.md).
+Media, Privacy, and Notification Policy.
 
 ### Calibration and reliability
 

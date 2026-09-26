@@ -1,3 +1,5 @@
+# Vision
+
 ## Built for how people actually work
 
 Not a reskin of 1995 metaphors. Interfaces should reflect how people actually use computers today — or could use them tomorrow.

@@ -1,6 +1,6 @@
 # Security
 
-This page describes how OS protects data and computer.
+This page describes how the OS protects the device and its data.
 
 ## Disk Encryption
 
@@ -28,3 +28,5 @@ different measurement without the device needing to be re-enrolled
 with the TPM after every release.
 
 PCR 0, 2, and 14 are **not** checked by the default policy.
+
+If the TPM path fails, the recovery key is required; see [Recovery](Architecture-Recovery).

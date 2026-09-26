@@ -1,13 +1,14 @@
 ## ShapeBit Docs
 
 - [Introduction](Home)
+- [Vision](Vision)
 - [Architecture](Architecture)
   - [Base System](Architecture-Base)
+  - [Installation](Architecture-Installation)
   - [Lifecycle](Architecture-Lifecycle)
   - [Security](Architecture-Security)
-  - [Installation](Architecture-Installation)
+  - [Recovery](Architecture-Recovery)
   - [Applications](Architecture-Applications)
   - [Desktop](Architecture-Desktop)
-  - [Recovery](Architecture-Recovery)
 - [Development](Development)
 - [License](License)
