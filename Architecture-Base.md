@@ -31,10 +31,14 @@ subvolumes:
 LUKS2
 └── Btrfs
     ├── @base       system code, read-only     (/usr, /boot, ...)
-    ├── @machine    this device's own state    (/etc, /var)
+    ├── @machine    this device's own state    (/var)
     ├── @people     user home data             (/home)
     └── @recovery   minimal recovery data
 ```
+
+Machine configuration in `/etc` stays in `@base`: each system version keeps its
+own `/etc` and carries local changes forward on update, so a reset restores it
+through the update system rather than by wiping `@machine`.
 
 Homes live in `@people` rather than `@machine` on purpose: resetting a device
 wipes `@machine`, but a reset can still leave home data untouched.
