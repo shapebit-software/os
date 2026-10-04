@@ -1,0 +1,36 @@
+# The installer UI, alone on the first virtual terminal: cage is a Wayland
+# compositor that shows one application full screen. It runs as the
+# unprivileged user "installer" in a logind session, which gives cage the
+# display and input devices.
+[Unit]
+Description=Installer
+After=systemd-user-sessions.service installer-backend.service plymouth-quit-wait.service
+Wants=installer-backend.service
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+
+[Service]
+User=installer
+PAMName=login
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty-fail
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty1
+UtmpMode=user
+# The user has no home on disk; Qt keeps its caches in memory.
+RuntimeDirectory=installer-ui
+Environment=HOME=%t/installer-ui
+Environment=XDG_SESSION_TYPE=wayland
+Environment=QT_QPA_PLATFORM=wayland
+# cage shows the window full screen; a title bar would only add dead controls.
+Environment=QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+ExecStart=/usr/bin/cage -- /usr/bin/installer
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=graphical.target
