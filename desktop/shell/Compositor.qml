@@ -26,6 +26,14 @@ Singleton {
         dispatch(`hl.dsp.focus({ window = "address:0x${address}" })`);
     }
 
+    function setGaps(gap: int) {
+        dispatch(`function() hl.config({ general = { gaps_in = ${gap / 2}, gaps_out = ${gap} } }) end`);
+    }
+
+    function setScale(output: string, scale: real) {
+        dispatch(`function() hl.monitor({ output = "${output}", mode = "preferred", position = "auto", scale = ${scale} }) end`);
+    }
+
     function layoutOf(id: int): string {
         return layouts[id] ?? "lead";
     }

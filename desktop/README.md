@@ -8,7 +8,9 @@ the demo decides.
 
 The session starts Hyprland with the configuration in `compositor/`, which
 starts the shell in `shell/`. So far the shell draws the wallpaper, the bar,
-and the strip with Apps and the workspaces.
+the strip with Apps and the workspaces, and Settings. Settings are kept in
+`~/.config/desktop/settings.json`; the shell applies them to itself and to the
+compositor.
 
 ## Development
 
@@ -46,9 +48,13 @@ ignores the others.
 - The session in the OS image; the image repository does not install the
   desktop yet.
 - Everything in the demo but the wallpaper, the tile look, the bar and its
-  panels, the strip, Apps, the layouts, quick actions with capture, and two key
-  bindings (Alt+Q closes a window, Alt+F maximizes it): Overview, Settings,
+  panels, the strip, Apps, the layouts, quick actions with capture, Settings,
+  and two key bindings (Alt+Q closes a window, Alt+F maximizes it): Overview,
   the lock screen, and the assistant.
+- Settings has only what works: no password, automatic lock, or fingerprint
+  (they come with the lock screen), no light theme, no night light, no VPN, no
+  alert sounds, and no Assistant section. Values such as the resolution
+  cannot be changed yet.
 - Quick actions have no Dictate, and their button does not open the
   assistant; both come with the assistant. A click keeps the actions shown.
 - The account panel has no Lock and no Settings, which come with the lock

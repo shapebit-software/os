@@ -2,23 +2,10 @@
 // it. The connection in use is lit; Wi-Fi and Bluetooth have switches.
 pragma ComponentBehavior: Bound
 import QtQuick
-import Quickshell.Bluetooth
 import Quickshell.Networking
 
 BarPanel {
     id: panel
-
-    // Wired devices by their kernel names; the others without Wi-Fi are
-    // virtual, such as bridges and loopback.
-    readonly property var wired: Networking.devices.values
-        .filter(d => d.type !== DeviceType.Wifi && /^(en|eth)/.test(d.name))
-    readonly property bool wiredConnected: wired.some(d => d.connected)
-    readonly property WifiDevice wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
-    readonly property WifiNetwork wifiNetwork: wifi?.networks.values.find(n => n.connected) ?? null
-    // Untyped, since the Bluetooth module does not declare these types to
-    // tooling.
-    readonly property var adapter: Bluetooth.defaultAdapter // qmllint disable unresolved-type
-    readonly property var bluetoothDevice: adapter?.devices.values.find(d => d.connected) ?? null
 
     spacing: 2
 
@@ -78,27 +65,27 @@ BarPanel {
     }
 
     Entry {
-        visible: panel.wired.length > 0
+        visible: Connectivity.wired.length > 0
         title: "Ethernet"
-        detail: panel.wiredConnected ? "Connected" : "Disconnected"
-        lit: panel.wiredConnected
+        detail: Connectivity.wiredConnected ? "Connected" : "Disconnected"
+        lit: Connectivity.wiredConnected
 
         Rectangle {
             anchors.fill: parent
             color: "transparent"
             border.width: 1.5
-            border.color: panel.wiredConnected ? Theme.accent : "#a3a8ae"
+            border.color: Connectivity.wiredConnected ? Theme.accent : "#a3a8ae"
         }
     }
 
     Entry {
-        visible: panel.wifi !== null
+        visible: Connectivity.wifi !== null
         title: "Wi-Fi"
-        detail: !Networking.wifiEnabled ? "Off" : panel.wifiNetwork?.name ?? "Not connected"
-        lit: panel.wifiNetwork !== null
+        detail: Connectivity.wifiDetail
+        lit: Connectivity.wifiNetwork !== null
         switchable: true
         on: Networking.wifiEnabled
-        onToggled: Networking.wifiEnabled = !Networking.wifiEnabled
+        onToggled: Connectivity.toggleWifi()
 
         Row {
             anchors.bottom: parent.bottom
@@ -119,13 +106,13 @@ BarPanel {
     }
 
     Entry {
-        visible: panel.adapter !== null
+        visible: Connectivity.adapter !== null
         title: "Bluetooth"
-        detail: !panel.adapter?.enabled ? "Off" : panel.bluetoothDevice?.name ?? "On"
-        lit: panel.bluetoothDevice !== null
+        detail: Connectivity.bluetoothDetail
+        lit: Connectivity.bluetoothDevice !== null
         switchable: true
-        on: panel.adapter?.enabled ?? false
-        onToggled: panel.adapter.enabled = !panel.adapter.enabled
+        on: Connectivity.adapter?.enabled ?? false
+        onToggled: Connectivity.toggleBluetooth()
 
         Rectangle {
             anchors.centerIn: parent
@@ -139,7 +126,7 @@ BarPanel {
     }
 
     Text {
-        visible: panel.wired.length === 0 && panel.wifi === null && panel.adapter === null
+        visible: Connectivity.wired.length === 0 && Connectivity.wifi === null && Connectivity.adapter === null
         width: panel.panelWidth - 20
         padding: 10
         text: "No network devices"

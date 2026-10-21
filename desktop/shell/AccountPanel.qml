@@ -1,16 +1,11 @@
-// The account panel: who is signed in, on which computer, and the power
-// actions. Lock and Settings come with the lock screen and Settings.
+// The account panel: who is signed in and on which computer, Settings, and
+// the power actions. Lock comes with the lock screen.
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
-import Quickshell.Io
 
 BarPanel {
     id: panel
-
-    readonly property string user: Quickshell.env("USER") ?? ""
-    property string fullName
-    readonly property string displayName: fullName || user
 
     // Run from a source tree (make run), the session is a window on the
     // developer's own desktop; powering off would end theirs.
@@ -24,51 +19,92 @@ BarPanel {
             Quickshell.execDetached(["systemctl", action]);
     }
 
+    function openSettings(section: string) {
+        dismissed();
+        Settings.open(screen.name, section);
+    }
+
     panelWidth: 250
 
-    // The full name is the first field of the account's comment.
-    Process {
-        command: ["getent", "passwd", panel.user]
-        running: panel.user !== ""
-        stdout: StdioCollector {
-            onStreamFinished: panel.fullName = (text.split(":")[4] ?? "").split(",")[0]
+    // Who: opens the account's settings.
+    Rectangle {
+        width: panel.panelWidth - 20
+        height: who.height
+        color: whoHover.hovered ? Theme.panelHover : "transparent"
+
+        TapHandler {
+            onTapped: panel.openSettings("account")
         }
-    }
-    FileView {
-        id: hostname
-        path: "/etc/hostname"
-    }
+        HoverHandler {
+            id: whoHover
+            cursorShape: Qt.PointingHandCursor
+        }
 
-    Row {
-        padding: 8
-        spacing: 11
+        Row {
+            id: who
+            padding: 8
+            spacing: 11
 
-        Rectangle {
-            width: 32
-            height: 32
-            color: Theme.accent
+            Rectangle {
+                width: 32
+                height: 32
+                color: Theme.accent
 
-            Text {
-                anchors.centerIn: parent
-                text: panel.displayName.charAt(0).toUpperCase()
-                color: "#f5feff"
-                font { family: Theme.font; pixelSize: 15; weight: Font.DemiBold }
+                Text {
+                    anchors.centerIn: parent
+                    text: Account.displayName.charAt(0).toUpperCase()
+                    color: "#f5feff"
+                    font { family: Theme.font; pixelSize: 15; weight: Font.DemiBold }
+                }
+            }
+            Column {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 2
+
+                Text {
+                    text: Account.displayName
+                    color: "#e7ecf0"
+                    font { family: Theme.font; pixelSize: 13; weight: Font.DemiBold }
+                }
+                Text {
+                    text: [Account.user, Account.hostname].filter(s => s).join(" · ")
+                    color: "#94999e"
+                    font { family: Theme.mono; pixelSize: 10 }
+                }
             }
         }
-        Column {
+    }
+
+    // Settings.
+    Rectangle {
+        width: panel.panelWidth - 20
+        height: 36
+        color: settingsHover.hovered ? Theme.panelHover : "transparent"
+
+        Icon {
+            x: 10
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 2
+            height: 12
+            gridWidth: 12
+            gridHeight: 12
+            color: "#a3a8ae"
+            strokes: "M0.5 2.5h11M0.5 6h11M0.5 9.5h11"
+            fills: "M7 1h3v3H7zM2 4.5h3v3H2zM6 8h3v3H6z"
+        }
+        Text {
+            x: 31
+            anchors.verticalCenter: parent.verticalCenter
+            text: "Settings"
+            color: "#dadee3"
+            font { family: Theme.font; pixelSize: 13 }
+        }
 
-            Text {
-                text: panel.displayName
-                color: "#e7ecf0"
-                font { family: Theme.font; pixelSize: 13; weight: Font.DemiBold }
-            }
-            Text {
-                text: [panel.user, hostname.text().trim()].filter(s => s).join(" · ")
-                color: "#94999e"
-                font { family: Theme.mono; pixelSize: 10 }
-            }
+        TapHandler {
+            onTapped: panel.openSettings("appearance")
+        }
+        HoverHandler {
+            id: settingsHover
+            cursorShape: Qt.PointingHandCursor
         }
     }
 
