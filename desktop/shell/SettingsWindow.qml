@@ -21,7 +21,10 @@ PanelWindow {
     // switch { on, toggle() }.
     readonly property var sections: [
         { id: "account", name: "Account", rows: [
-            { label: "Name", detail: "Shown in the system menu", value: Account.displayName },
+            { label: "Name", detail: "Shown on the lock screen and in the system menu", value: Account.displayName },
+            { label: "Lock automatically", detail: "After the computer has been idle",
+              options: Object.keys(Settings.lockTimes), selected: Settings.autolock,
+              select: o => Settings.autolock = o },
         ] },
         { id: "appearance", name: "Appearance", rows: [
             { label: "Accent", detail: "Used for focus, selection and switches",

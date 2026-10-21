@@ -1,9 +1,13 @@
 // The shell of ShapeBit Desktop: every surface that is not an application
 // window: the wallpaper, the bar, the strip with Apps and the workspaces,
-// and Settings.
+// Settings, and the lock screen.
 import Quickshell
 
 ShellRoot {
+    // The lock screen locks by itself after idle time, so it starts with the
+    // shell rather than when first used.
+    readonly property bool locked: Lock.locked
+
     Variants {
         model: Quickshell.screens
 

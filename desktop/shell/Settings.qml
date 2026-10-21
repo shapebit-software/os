@@ -23,6 +23,11 @@ Singleton {
     property alias accent: adapter.accent
     property alias gaps: adapter.gaps
     property alias reduceTransparency: adapter.reduceTransparency
+    // When to lock after the computer has been idle: "1 min", "5 min", or
+    // "Never"; lockAfter is that in seconds, 0 for never.
+    property alias autolock: adapter.autolock
+    readonly property var lockTimes: ({ "1 min": 60, "5 min": 300, "Never": 0 })
+    readonly property int lockAfter: lockTimes[autolock] ?? 300
     // Display scales by output name, such as { "eDP-1": 1.25 }; outputs not
     // listed are scaled automatically.
     property alias scales: adapter.scales
@@ -71,6 +76,7 @@ Singleton {
             property string accent: "Cyan"
             property string gaps: "Normal"
             property bool reduceTransparency: false
+            property string autolock: "5 min"
             property var scales: ({})
         }
     }

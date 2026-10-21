@@ -8,9 +8,9 @@ the demo decides.
 
 The session starts Hyprland with the configuration in `compositor/`, which
 starts the shell in `shell/`. So far the shell draws the wallpaper, the bar,
-the strip with Apps and the workspaces, and Settings. Settings are kept in
-`~/.config/desktop/settings.json`; the shell applies them to itself and to the
-compositor.
+the strip with Apps and the workspaces, Settings, and the lock screen.
+Settings are kept in `~/.config/desktop/settings.json`; the shell applies them
+to itself and to the compositor.
 
 ## Development
 
@@ -30,6 +30,11 @@ through the shared home, the host's exported ones; the bar's panels change the
 host's volume, Wi-Fi, and Bluetooth; captures go to the host's Pictures and
 Videos. Only the power actions are held back: they log instead of suspending,
 restarting, or shutting down the host.
+
+The lock screen checks the password of the container's account, which
+distrobox leaves empty, so any password unlocks it. Set one with
+`sudo passwd $USER` in the container to try it for real.
+
 `make install DESTDIR=<directory>` installs the files as the image does.
 
 Every QML file in `shell/` must be listed in `shell/qmldir`; Quickshell
@@ -49,17 +54,15 @@ ignores the others.
   desktop yet.
 - Everything in the demo but the wallpaper, the tile look, the bar and its
   panels, the strip, Apps, the layouts, quick actions with capture, Settings,
-  and two key bindings (Alt+Q closes a window, Alt+F maximizes it): Overview,
-  the lock screen, and the assistant.
-- Settings has only what works: no password, automatic lock, or fingerprint
-  (they come with the lock screen), no light theme, no night light, no VPN, no
-  alert sounds, and no Assistant section. Values such as the resolution
-  cannot be changed yet.
+  the lock screen, and two key bindings (Alt+Q closes a window, Alt+F
+  maximizes it): Overview and the assistant.
+- Settings has only what works: no password change or fingerprint setup, no
+  light theme, no night light, no VPN, no alert sounds, and no Assistant
+  section. Values such as the resolution cannot be changed yet.
 - Quick actions have no Dictate, and their button does not open the
   assistant; both come with the assistant. A click keeps the actions shown.
-- The account panel has no Lock and no Settings, which come with the lock
-  screen and Settings. The bar shows keyboard layout codes (US), where the
-  demo shows language codes (EN).
+- The bar shows keyboard layout codes (US), where the demo shows language
+  codes (EN).
 - The strip has no dragging and no workspace menu; Apps has no dragging to a
   workspace and no page arrows.
 - Layouts have no tab bar in Tabs, no resizing, and no moving windows between

@@ -1,5 +1,5 @@
-// The account panel: who is signed in and on which computer, Settings, and
-// the power actions. Lock comes with the lock screen.
+// The account panel: who is signed in and on which computer, Settings,
+// locking, and the power actions.
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
@@ -13,6 +13,9 @@ BarPanel {
 
     function power(action: string) {
         dismissed();
+        // Whoever wakes the computer finds it locked.
+        if (action === "suspend")
+            Lock.lock();
         if (development)
             console.info("Not running", action, "in development");
         else
@@ -120,6 +123,7 @@ BarPanel {
 
         Repeater {
             model: [
+                { label: "Lock", action: "lock", icon: "M4 5.5V3.6a2 2 0 0 1 4 0v1.9M2.5 5.5h7v5.5h-7z" },
                 { label: "Suspend", action: "suspend", icon: "M0.5 6h11" },
                 { label: "Restart", action: "reboot", icon: "M10.6 3.4A5 5 0 1 1 6 1" },
                 { label: "Shut down", action: "poweroff", icon: "M3.2 2.6a4.8 4.8 0 1 0 5.6 0M6 0.6v5" },
@@ -153,7 +157,14 @@ BarPanel {
                 }
 
                 TapHandler {
-                    onTapped: panel.power(entry.modelData.action)
+                    onTapped: {
+                        if (entry.modelData.action === "lock") {
+                            panel.dismissed();
+                            Lock.lock();
+                        } else {
+                            panel.power(entry.modelData.action);
+                        }
+                    }
                 }
                 HoverHandler {
                     id: entryHover

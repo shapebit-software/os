@@ -5,6 +5,7 @@ singleton Compositor Compositor.qml
 singleton Connectivity Connectivity.qml
 singleton Keyboard Keyboard.qml
 singleton Layouts Layouts.qml
+singleton Lock Lock.qml
 singleton Settings Settings.qml
 singleton Theme Theme.qml
 AccountPanel AccountPanel.qml
@@ -18,6 +19,7 @@ CapturePanel CapturePanel.qml
 Icon Icon.qml
 LanguagePanel LanguagePanel.qml
 LayoutMenu LayoutMenu.qml
+LockSurface LockSurface.qml
 NetworkPanel NetworkPanel.qml
 QuickActions QuickActions.qml
 SettingsWindow SettingsWindow.qml
