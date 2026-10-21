@@ -42,11 +42,11 @@ ignores the others.
 
 ## Layout
 
-| Path          | Purpose                                                                       |
-| ------------- | ----------------------------------------------------------------------------- |
-| `compositor/` | The Hyprland configuration (Lua): look, key bindings, layouts (`layouts.lua`). |
-| `shell/`      | The Quickshell configuration (QML): every shell surface.                      |
-| `session/`    | The session entry that the login screen starts.                               |
+| Path          | Purpose                                                                                                              |
+| ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `compositor/` | The Hyprland configuration (Lua): look, key bindings, layouts (`layouts.lua`), moving workspaces (`workspaces.lua`). |
+| `shell/`      | The Quickshell configuration (QML): every shell surface.                                                             |
+| `session/`    | The session entry that the login screen starts.                                                                      |
 
 ## Not yet implemented
 
@@ -63,9 +63,10 @@ ignores the others.
   assistant; both come with the assistant. A click keeps the actions shown.
 - The bar shows keyboard layout codes (US), where the demo shows language
   codes (EN).
-- The strip has no dragging and no workspace menu; Apps has no dragging to a
-  workspace and no page arrows.
-- Layouts have no tab bar in Tabs, no resizing, and no moving windows between
-  cells.
+- The strip has no workspace menu, and no place to drop a window or an
+  application for a new workspace; Apps has no page arrows. While dragging,
+  maps of Tabs and Accordion workspaces show no free cell.
+- Layouts have no tab bar in Tabs, no resizing, and no dragging windows
+  between cells on the screen; that works on the maps.
   There are always five workspaces; adding, removing, and renaming them comes
   with Overview.

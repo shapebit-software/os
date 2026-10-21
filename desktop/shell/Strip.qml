@@ -1,7 +1,8 @@
 // The strip of one screen, floating at the bottom: the Apps button, then a
 // small map of each workspace's windows, and the quick actions in the corner. A click on a map goes to that
 // workspace, a click on a window in it focuses that window, and the wheel
-// steps through them.
+// steps through them. Windows, applications from Apps, and workspaces can be
+// dragged onto the maps (WorkspaceMap.qml).
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
@@ -20,22 +21,6 @@ Scope {
         .sort((a, b) => a.id - b.id)
     property bool appsOpen
     property bool captureOpen
-
-    // Window positions come from the compositor on request, so ask again
-    // after anything changes there.
-    Connections {
-        target: Hyprland
-        function onRawEvent() { refresh.restart(); }
-    }
-    Timer {
-        id: refresh
-        interval: 30
-        onTriggered: {
-            Hyprland.refreshMonitors();
-            Hyprland.refreshToplevels();
-        }
-    }
-    Component.onCompleted: refresh.start()
 
     PanelWindow {
         id: strip

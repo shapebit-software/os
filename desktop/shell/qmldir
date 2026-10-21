@@ -3,6 +3,7 @@ singleton Audio Audio.qml
 singleton Capture Capture.qml
 singleton Compositor Compositor.qml
 singleton Connectivity Connectivity.qml
+singleton Dragging Dragging.qml
 singleton Keyboard Keyboard.qml
 singleton Layouts Layouts.qml
 singleton Lock Lock.qml

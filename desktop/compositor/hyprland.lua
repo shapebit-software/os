@@ -26,9 +26,11 @@ hl.monitor({
     scale    = 1,
 })
 
--- The layouts (layouts.lua), next to this file. The shell calls this global
--- through dispatch requests.
-layouts = dofile(debug.getinfo(1, "S").source:match("^@(.*/)") .. "layouts.lua")
+-- The layouts (layouts.lua) and moving workspaces (workspaces.lua), next to
+-- this file. The shell calls these globals through dispatch requests.
+local here = debug.getinfo(1, "S").source:match("^@(.*/)")
+layouts = dofile(here .. "layouts.lua")
+workspaces = dofile(here .. "workspaces.lua")
 
 -- Windows are plain tiles: straight corners, no border, no shadow, and one
 -- gap everywhere. Blur is only for the shell's glass (the layer rules below);

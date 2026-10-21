@@ -1,7 +1,10 @@
 // The layouts a workspace can have, as the shell shows them: the compositor
 // places the windows (compositor/layouts.lua); these are the names, the icons
 // on the layout button, and the pictures in the layout menu, from the demo.
+// The pictures follow the compositor's templates, so maps can show where
+// windows would go (place).
 pragma Singleton
+import QtQuick
 import Quickshell
 
 Singleton {
@@ -27,5 +30,49 @@ Singleton {
 
     function byId(id: string): var {
         return all.find(l => l.id === id) ?? all[0];
+    }
+
+    // Where a layout puts `count` windows in a width × height area, as the
+    // compositor does: one rectangle per window, in the order windows fill
+    // the cells. The pictures are the compositor's templates, but for Tabs
+    // and Accordion, which follow focus and have none here (an empty list).
+    function place(id: string, count: int, width: real, height: real): list<rect> {
+        if (count < 1 || id === "tabs" || id === "accordion")
+            return [];
+        const template = id === "grid" && count <= 2 ? [[1, [[1, true]]], [1, [[1]]]] : byId(id).picture;
+        // The cells, and again with the active one first.
+        const slots = [], ranked = [];
+        template.forEach(([, cells], column) => cells.forEach(([height, active]) => {
+            const slot = { column, height, window: -1 };
+            slots.push(slot);
+            ranked.splice(active ? 0 : ranked.length, 0, slot);
+        }));
+        ranked.forEach((slot, i) => slot.window = i < count ? i : -1);
+        // Columns without windows go away; windows beyond the cells join the
+        // last column.
+        const used = [];
+        template.forEach(([weight], column) => {
+            const cells = slots.filter(s => s.column === column && s.window >= 0);
+            if (cells.length)
+                used.push({ weight, cells });
+        });
+        for (let i = slots.length; i < count; i++)
+            used[used.length - 1].cells.push({ height: 1, window: i });
+
+        const split = (length, weights) => {
+            const total = weights.reduce((a, b) => a + b, 0);
+            let at = 0;
+            return weights.map(w => {
+                const part = [at, length * w / total];
+                at += part[1];
+                return part;
+            });
+        };
+        const rects = [];
+        split(width, used.map(c => used.length === 1 ? 1 : c.weight)).forEach(([x, w], c) => {
+            const cells = used[c].cells;
+            split(height, cells.map(s => s.height)).forEach(([y, h], k) => rects[cells[k].window] = Qt.rect(x, y, w, h));
+        });
+        return rects;
     }
 }

@@ -1,6 +1,7 @@
 // Apps: the installed applications above the Apps button, twelve to a page,
 // with a search field. A click, or Enter for the first match, opens an
-// application on the current workspace. Escape or a click elsewhere closes it.
+// application on the current workspace; dragged to a map in the strip, it
+// opens there. Escape or a click elsewhere closes it.
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
@@ -175,8 +176,25 @@ PanelWindow {
                                 font { family: Theme.font; pixelSize: 11; weight: Font.Medium }
                             }
 
+                            Drag.dragType: Drag.Automatic
+                            Drag.supportedActions: Qt.CopyAction
+                            Drag.imageSource: Quickshell.iconPath(app.modelData.icon, "application-x-executable")
+                            Drag.imageSourceSize: Qt.size(38, 38)
+                            Drag.onDragFinished: Dragging.clear()
+
                             TapHandler {
                                 onTapped: panel.launch(app.modelData)
+                            }
+                            // Dragged to a map in the strip, the application
+                            // opens there (WorkspaceMap.qml).
+                            DragHandler {
+                                target: null
+                                onActiveChanged: {
+                                    if (active) {
+                                        Dragging.app = app.modelData;
+                                        app.Drag.active = true;
+                                    }
+                                }
                             }
                             HoverHandler {
                                 id: appHover

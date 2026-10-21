@@ -26,6 +26,10 @@ local gridOfTwo = { { 1, { { 1, true } } }, { 1, { { 1 } } } }
 -- The width of a window that Accordion folds to the side.
 local folded = 34
 
+-- The windows of each workspace in the order they fill its cells, as last
+-- placed (layouts.windows).
+local order = {}
+
 layouts.names = { "lead", "dwindle", "columns", "center", "grid", "tabs", "rows", "accordion" }
 layouts.default = "lead"
 
@@ -118,6 +122,12 @@ for _, name in ipairs(layouts.names) do
     hl.layout.register(name, {
         recalculate = function(ctx)
             if #ctx.targets == 0 then return end
+            local first = ctx.targets[1].window
+            if first and first.workspace then
+                local windows = {}
+                for i, target in ipairs(ctx.targets) do windows[i] = target.window end
+                order[first.workspace.id] = windows
+            end
             if special[name] then return special[name](ctx) end
             local template = templates[name]
             if name == "grid" and #ctx.targets <= 2 then template = gridOfTwo end
@@ -130,6 +140,21 @@ end
 
 -- The layout of each workspace the shell changed, and the rule that sets it.
 local current, rules = {}, {}
+
+-- The windows of a workspace, those it places in their order first.
+function layouts.windows(workspace)
+    local windows, seen = {}, {}
+    for _, window in ipairs(order[workspace] or {}) do
+        if window.workspace and window.workspace.id == workspace then
+            windows[#windows + 1] = window
+            seen[window.address] = true
+        end
+    end
+    for _, window in ipairs(hl.get_workspace_windows(workspace)) do
+        if not seen[window.address] then windows[#windows + 1] = window end
+    end
+    return windows
+end
 
 function layouts.of(workspace)
     return current[workspace] or layouts.default
