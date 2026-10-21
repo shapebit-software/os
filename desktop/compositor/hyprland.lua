@@ -62,6 +62,8 @@ hl.config({
 -- what is mostly transparent.
 hl.layer_rule({ match = { namespace = "^(bar|apps)$" }, blur = true, ignore_alpha = 0 })
 hl.layer_rule({ match = { namespace = "^(panel|capture)$" }, blur = true, ignore_alpha = 0.5 })
+-- The tabs of Tabs and Accordion cover the screen, so only their glass is blurred.
+hl.layer_rule({ match = { namespace = "^tabs$" }, blur = true, ignore_alpha = 0.05 })
 
 -- The capture panel leaves at once, so it is not in the capture.
 hl.layer_rule({ match = { namespace = "^capture$" }, no_anim = true })

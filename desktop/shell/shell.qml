@@ -1,6 +1,6 @@
 // The shell of ShapeBit Desktop: every surface that is not an application
-// window: the wallpaper, the bar, the strip with Apps and the workspaces,
-// Settings, and the lock screen.
+// window: the wallpaper, the tabs of Tabs and Accordion, the bar, the strip
+// with Apps and the workspaces, Settings, and the lock screen.
 import Quickshell
 
 ShellRoot {
@@ -12,6 +12,11 @@ ShellRoot {
         model: Quickshell.screens
 
         Wallpaper {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        WindowTabs {}
     }
     Variants {
         model: Quickshell.screens

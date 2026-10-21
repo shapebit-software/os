@@ -1,12 +1,16 @@
 -- The layouts of ShapeBit Desktop, following the demo. Each workspace has one;
 -- the shell changes it with layouts.set and learns it from "layout <workspace>
--- <name>" events.
+-- <name>" events. It also learns each workspace's windows in order, and the
+-- one Tabs or Accordion shows, from "tiles <workspace> <shown> <windows>"
+-- events, with addresses separated by commas.
 --
 -- Most layouts are templates: columns of cells, one of them active. Windows
 -- fill the cells in the order they opened, the first in the active cell, so a
 -- window keeps its place when focus moves. Columns without windows go away,
--- and windows beyond the cells join the last column. Tabs and Accordion follow
--- focus instead.
+-- and windows beyond the cells join the last column. Tabs and Accordion show
+-- the focused window and hide the others behind it; the shell draws a tab
+-- bar above it, or a folded strip beside it for each of the others
+-- (WindowTabs.qml).
 
 local layouts = {}
 
@@ -23,7 +27,9 @@ local templates = {
 -- Two windows in a grid sit side by side, not one above the other.
 local gridOfTwo = { { 1, { { 1, true } } }, { 1, { { 1 } } } }
 
--- The width of a window that Accordion folds to the side.
+-- The height of Tabs' tab bar, and the width of a window that Accordion
+-- folds to the side; the shell draws them as large.
+local tabBar = 30
 local folded = 34
 
 -- The windows of each workspace in the order they fill its cells, as last
@@ -84,6 +90,25 @@ local function placeTemplate(ctx, template)
     end
 end
 
+-- A visible window's box: place() takes half the gap off every edge of a
+-- box that is not on the area's edge, so this adds it back.
+local function boxFor(area, rect)
+    local half = hl.get_config("general.gaps_in").top
+    local left = rect.x > area.x and half or 0
+    local top = rect.y > area.y and half or 0
+    local right = rect.x + rect.w < area.x + area.w and half or 0
+    local bottom = rect.y + rect.h < area.y + area.h and half or 0
+    return { x = rect.x - left, y = rect.y - top, w = rect.w + left + right, h = rect.h + top + bottom }
+end
+
+-- Places the shown window in a box, and the others behind it.
+local function showOnly(ctx, shown, box)
+    for _, target in ipairs(ctx.targets) do
+        if target ~= shown then target:place(box) end
+    end
+    shown:place(box)
+end
+
 -- The target with the focused window, or the workspace's last focused one.
 local function focusedTarget(ctx)
     local last
@@ -95,43 +120,61 @@ local function focusedTarget(ctx)
     return last or ctx.targets[1]
 end
 
+-- Tabs and Accordion return the target they show.
 local special = {
-    -- One window at a time, the focused one on top of the others.
+    -- The focused window under the tab bar.
     tabs = function(ctx)
-        local focused = focusedTarget(ctx)
-        for _, target in ipairs(ctx.targets) do
-            if target ~= focused then target:place(ctx.area) end
-        end
-        if focused then focused:place(ctx.area) end
+        local area, focused = ctx.area, focusedTarget(ctx)
+        showOnly(ctx, focused, boxFor(area, { x = area.x, y = area.y + tabBar, w = area.w, h = area.h - tabBar }))
+        return focused
     end,
-    -- A column for each window; the focused one takes the space the others
-    -- leave when folded.
+    -- A column for each window, a gap apart: the focused one takes the space
+    -- the others leave when folded.
     accordion = function(ctx)
-        local focused = focusedTarget(ctx)
-        local widths = {}
-        for i, target in ipairs(ctx.targets) do
-            widths[i] = target == focused and math.max(1, ctx.area.w - folded * (#ctx.targets - 1)) or folded
+        local area, focused = ctx.area, focusedTarget(ctx)
+        local gap = 2 * hl.get_config("general.gaps_in").top
+        local x = area.x
+        for _, target in ipairs(ctx.targets) do
+            if target == focused then break end
+            x = x + folded + gap
         end
-        for i, x in ipairs(split(ctx.area.x, ctx.area.w, widths)) do
-            ctx.targets[i]:place({ x = x[1], y = ctx.area.y, w = x[2], h = ctx.area.h })
-        end
+        local width = math.max(1, area.w - (folded + gap) * (#ctx.targets - 1))
+        showOnly(ctx, focused, boxFor(area, { x = x, y = area.y, w = width, h = area.h }))
+        return focused
     end,
 }
+
+-- What the shell last learned of each workspace (the "tiles" event).
+local announced = {}
+
+local function announceTiles(workspace, shown, windows)
+    local addresses = {}
+    for i, window in ipairs(windows) do addresses[i] = window.address end
+    local tiles = ("%s %s"):format(shown and shown.address or "-", table.concat(addresses, ","))
+    if announced[workspace] == tiles then return end
+    announced[workspace] = tiles
+    hl.dispatch(hl.dsp.event(("tiles %d %s"):format(workspace, tiles)))
+end
 
 for _, name in ipairs(layouts.names) do
     hl.layout.register(name, {
         recalculate = function(ctx)
             if #ctx.targets == 0 then return end
+            local shown
+            if special[name] then
+                shown = special[name](ctx)
+            else
+                local template = templates[name]
+                if name == "grid" and #ctx.targets <= 2 then template = gridOfTwo end
+                placeTemplate(ctx, template)
+            end
             local first = ctx.targets[1].window
             if first and first.workspace then
                 local windows = {}
                 for i, target in ipairs(ctx.targets) do windows[i] = target.window end
                 order[first.workspace.id] = windows
+                announceTiles(first.workspace.id, shown and shown.window, windows)
             end
-            if special[name] then return special[name](ctx) end
-            local template = templates[name]
-            if name == "grid" and #ctx.targets <= 2 then template = gridOfTwo end
-            placeTemplate(ctx, template)
         end,
         -- "refresh" only asks for the windows to be placed again.
         layout_msg = function(_, msg) return msg == "refresh" end,
@@ -172,10 +215,15 @@ function layouts.set(workspace, name)
     announce(workspace)
 end
 
--- Announces the layout of every workspace, for a shell that just started.
+-- Announces the layout and the windows of every workspace, for a shell that
+-- just started.
 function layouts.report()
     for _, workspace in ipairs(hl.get_workspaces()) do
-        if workspace.id > 0 then announce(workspace.id) end
+        if workspace.id > 0 then
+            announce(workspace.id)
+            local tiles = announced[workspace.id]
+            if tiles then hl.dispatch(hl.dsp.event(("tiles %d %s"):format(workspace.id, tiles))) end
+        end
     end
 end
 

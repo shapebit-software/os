@@ -8,9 +8,10 @@ the demo decides.
 
 The session starts Hyprland with the configuration in `compositor/`, which
 starts the shell in `shell/`. So far the shell draws the wallpaper, the bar,
-the strip with Apps and the workspaces, Settings, and the lock screen.
-Settings are kept in `~/.config/desktop/settings.json`; the shell applies them
-to itself and to the compositor.
+the strip with Apps and the workspaces, the tabs of the Tabs and Accordion
+layouts, Settings, and the lock screen. Settings are kept in
+`~/.config/desktop/settings.json`; the shell applies them to itself and to the
+compositor.
 
 Unlike the demo, the desktop has no Overview: workspaces come and go with
 their windows. The session starts with one; dropping a window or an
@@ -69,6 +70,7 @@ ignores the others.
 - The bar shows keyboard layout codes (US), where the demo shows language
   codes (EN).
 - The strip has no workspace menu; Apps has no page arrows. While dragging,
-  maps of Tabs and Accordion workspaces show no free cell.
-- Layouts have no tab bar in Tabs, no resizing, and no dragging windows
-  between cells on the screen; that works on the maps.
+  maps of Tabs and Accordion workspaces show the free cell beside the others,
+  where the demo shows tab chips and Accordion's columns.
+- Layouts have no resizing and no dragging windows between cells on the
+  screen; that works on the maps. Tabs cannot be dragged.

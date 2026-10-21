@@ -28,4 +28,5 @@ Strip Strip.qml
 Switch Switch.qml
 VolumePanel VolumePanel.qml
 Wallpaper Wallpaper.qml
+WindowTabs WindowTabs.qml
 WorkspaceMap WorkspaceMap.qml

@@ -2,12 +2,15 @@
 // are on the screen, each with its application's icon. Under the pointer, a
 // button above the map opens the layout menu.
 //
+// Tabs and Accordion show one window at a time, so their maps show the first
+// window large and the others beside it instead.
+//
 // Maps take drops (Dragging.qml). An application from Apps or a window from a
 // map lands in a cell: on a window's cell it takes that window's place, which
 // moves after the others; elsewhere it goes after the others. Meanwhile, maps
-// whose layout has a picture show where the windows would be with one more,
-// and the free cell. The layout button drags the workspace, which takes the
-// place of the one it is dropped on.
+// show where the windows would be with one more, and the free cell. The
+// layout button drags the workspace, which takes the place of the one it is
+// dropped on.
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
@@ -25,7 +28,15 @@ Item {
     signal activated
 
     readonly property bool current: modelData.active
+    readonly property string layout: Compositor.layoutOf(modelData.id)
     readonly property list<HyprlandToplevel> windows: modelData.toplevels.values
+    // The windows in the order the layout fills its cells.
+    readonly property list<HyprlandToplevel> order: {
+        const known = (Compositor.tiles[modelData.id]?.order ?? [])
+            .map(address => windows.find(w => w.address === address))
+            .filter(w => w);
+        return known.concat(windows.filter(w => !known.includes(w)));
+    }
     // The space between cells on the map.
     readonly property int cellGap: 4
     // The area the tiles cover on the screen, grown by half the gap between
@@ -36,11 +47,13 @@ Item {
     readonly property real areaWidth: screen.width - reserved[0] - reserved[2] - Theme.gap
     readonly property real areaHeight: screen.height - reserved[1] - reserved[3] - Theme.gap
 
-    // While an application or a window is dragged: where the windows would
-    // be with one more, the last place being the free cell.
+    // Where the windows are drawn, if not where they are: while an
+    // application or a window is dragged, where they would be with one more,
+    // the last place being the free cell; for Tabs and Accordion, always.
     readonly property list<rect> preview: Dragging.tile
-        ? Layouts.place(Compositor.layoutOf(modelData.id), windows.length + 1, areaWidth, areaHeight) : []
-    readonly property list<HyprlandToplevel> order: preview.length ? ordered() : []
+        ? Layouts.place(layout, windows.length + 1, areaWidth, areaHeight)
+        : layout === "tabs" || layout === "accordion" ? Layouts.place(layout, windows.length, areaWidth, areaHeight) : []
+    readonly property bool free: Dragging.tile && preview.length > 0
 
     // Where a window is on the area.
     function placeOf(window: HyprlandToplevel): rect {
@@ -49,23 +62,6 @@ Item {
         const size = ipc.size ?? [0, 0];
         return Qt.rect(at[0] - Theme.gap / 2 - areaX, at[1] - Theme.gap / 2 - areaY,
             size[0] + Theme.gap, size[1] + Theme.gap);
-    }
-
-    // The windows in the order they fill the layout's cells, told by the cell
-    // each one is in; any other window, such as a floating one, comes last.
-    function ordered(): list<HyprlandToplevel> {
-        const cells = Layouts.place(Compositor.layoutOf(modelData.id), windows.length, areaWidth, areaHeight);
-        const placed = [], rest = [];
-        for (const window of windows) {
-            const r = placeOf(window);
-            const x = r.x + r.width / 2, y = r.y + r.height / 2;
-            const i = cells.findIndex((c, k) => !placed[k] && x >= c.x && x < c.x + c.width && y >= c.y && y < c.y + c.height);
-            if (i >= 0)
-                placed[i] = window;
-            else
-                rest.push(window);
-        }
-        return windows.map((_, k) => placed[k] ?? rest.shift());
     }
 
     function dropTile(target: HyprlandToplevel) {
@@ -82,7 +78,6 @@ Item {
                 Compositor.swapWindows(window.address, target.address);
             } else if (here) {
                 // Past each window after it.
-                const order = ordered();
                 for (const other of order.slice(order.indexOf(window) + 1))
                     Compositor.swapWindows(window.address, other.address);
             }
@@ -130,7 +125,7 @@ Item {
 
         // An empty workspace is one plain cell.
         Rectangle {
-            visible: map.windows.length === 0 && !map.preview.length
+            visible: map.windows.length === 0 && !map.free
             anchors.fill: parent
             color: map.current ? Qt.rgba(0.89, 0.9, 0.92, 0.4) : Qt.rgba(0.6, 0.62, 0.65, 0.28)
         }
@@ -233,7 +228,7 @@ Item {
             Rectangle {
                 readonly property rect area: map.preview[map.preview.length - 1] ?? Qt.rect(0, 0, 0, 0)
 
-                visible: map.preview.length > 0
+                visible: map.free
                 x: area.x * cells.sx + map.cellGap / 2
                 y: area.y * cells.sy + map.cellGap / 2
                 width: Math.max(2, area.width * cells.sx - map.cellGap)

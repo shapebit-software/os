@@ -13,6 +13,10 @@ Singleton {
     // The layout of each workspace by id; a workspace not listed has the
     // default (compositor/layouts.lua).
     property var layouts: ({})
+    // The windows of each workspace by id, in the order its layout fills its
+    // cells, and the one Tabs or Accordion shows: { order: [address],
+    // shown: address or "" }, addresses as Quickshell has them.
+    property var tiles: ({})
     // Where the window of an application that launch() opened goes, until it
     // opens or time runs out: { workspace, address, until }.
     property var placing: null
@@ -32,6 +36,16 @@ Singleton {
 
     function focusWindow(address: string) {
         dispatch(`hl.dsp.focus({ window = "address:0x${address}" })`);
+    }
+
+    function closeWindow(address: string) {
+        dispatch(`hl.dsp.window.close({ window = "address:0x${address}" })`);
+    }
+
+    // Maximizes a window, or ends that, as Alt+F does.
+    function toggleMaximized(address: string) {
+        focusWindow(address);
+        dispatch(`hl.dsp.window.fullscreen({ mode = "maximized", window = "address:0x${address}" })`);
     }
 
     function moveWindow(address: string, workspace: int) {
@@ -86,12 +100,18 @@ Singleton {
             if (event.name === "openwindow")
                 compositor.place(event.data.split(","));
             // The compositor announces layouts as custom events:
-            // "layout <id> <name>".
+            // "layout <id> <name>" and "tiles <id> <shown> <windows>".
             if (event.name !== "custom")
                 return;
-            const [kind, id, layout] = event.data.split(" ");
+            const [kind, id, value, windows] = event.data.split(" ");
+            const address = a => a.replace(/^0x/, "");
             if (kind === "layout")
-                compositor.layouts = Object.assign({}, compositor.layouts, { [id]: layout });
+                compositor.layouts = Object.assign({}, compositor.layouts, { [id]: value });
+            else if (kind === "tiles")
+                compositor.tiles = Object.assign({}, compositor.tiles, { [id]: {
+                    shown: value === "-" ? "" : address(value),
+                    order: (windows ?? "").split(",").filter(a => a).map(address)
+                } });
         }
     }
 

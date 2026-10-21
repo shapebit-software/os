@@ -34,12 +34,15 @@ Singleton {
 
     // Where a layout puts `count` windows in a width × height area, as the
     // compositor does: one rectangle per window, in the order windows fill
-    // the cells. The pictures are the compositor's templates, but for Tabs
-    // and Accordion, which follow focus and have none here (an empty list).
+    // the cells. The pictures are the compositor's templates. Tabs and
+    // Accordion show one window at a time, so for maps they put the first
+    // window large and the others beside it, as the demo does.
     function place(id: string, count: int, width: real, height: real): list<rect> {
-        if (count < 1 || id === "tabs" || id === "accordion")
+        if (count < 1)
             return [];
-        const template = id === "grid" && count <= 2 ? [[1, [[1, true]]], [1, [[1]]]] : byId(id).picture;
+        const template = id === "tabs" || id === "accordion"
+            ? (count === 1 ? [[1, [[1, true]]]] : [[1.5, [[1, true]]], [1, Array(count - 1).fill([1])]])
+            : id === "grid" && count <= 2 ? [[1, [[1, true]]], [1, [[1]]]] : byId(id).picture;
         // The cells, and again with the active one first.
         const slots = [], ranked = [];
         template.forEach(([, cells], column) => cells.forEach(([height, active]) => {
