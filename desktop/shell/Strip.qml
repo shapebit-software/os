@@ -2,7 +2,9 @@
 // small map of each workspace's windows, and the quick actions in the corner. A click on a map goes to that
 // workspace, a click on a window in it focuses that window, and the wheel
 // steps through them. Windows, applications from Apps, and workspaces can be
-// dragged onto the maps (WorkspaceMap.qml).
+// dragged onto the maps (WorkspaceMap.qml); while a window or an application
+// is dragged, a "+" after the maps makes a new workspace for it. Workspaces
+// without windows go away (compositor/workspaces.lua).
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
@@ -21,6 +23,22 @@ Scope {
         .sort((a, b) => a.id - b.id)
     property bool appsOpen
     property bool captureOpen
+    // The most workspaces the "+" makes, as in the demo.
+    readonly property int maxWorkspaces: 8
+
+    // Opens the dragged application, or moves the dragged window, to a new
+    // workspace after all others, and goes there.
+    function dropOnNew() {
+        const id = Math.max(0, ...Hyprland.workspaces.values.map(w => w.id)) + 1;
+        if (Dragging.app) {
+            Compositor.launch(Dragging.app, id, "");
+        } else if (Dragging.window) {
+            Compositor.moveWindow(Dragging.window.address, id);
+            Compositor.focusWorkspace(id);
+        }
+        Dragging.clear();
+        appsOpen = false;
+    }
 
     PanelWindow {
         id: strip
@@ -75,6 +93,33 @@ Scope {
                         screen: scope.modelData
                         monitor: scope.monitor
                         onActivated: scope.appsOpen = false
+                    }
+                }
+
+                // The "+", where a drop makes a new workspace.
+                Rectangle {
+                    visible: Dragging.tile && scope.workspaces.length < scope.maxWorkspaces
+                    width: 84
+                    height: Theme.stripHeight
+                    color: Qt.rgba(1, 1, 1, newDrop.containsDrag ? 0.2 : 0.08)
+                    border.width: newDrop.containsDrag ? 2 : 1
+                    border.color: newDrop.containsDrag ? Theme.accent : Qt.rgba(1, 1, 1, 0.3)
+
+                    Icon {
+                        anchors.centerIn: parent
+                        height: 12
+                        gridWidth: 12
+                        gridHeight: 12
+                        strokeWidth: 1.6
+                        strokes: "M6 1v10M1 6h10"
+                        color: "#f6f9fb"
+                        opacity: newDrop.containsDrag ? 1 : 0.7
+                    }
+
+                    DropArea {
+                        id: newDrop
+                        anchors.fill: parent
+                        onDropped: scope.dropOnNew()
                     }
                 }
 

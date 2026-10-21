@@ -12,6 +12,11 @@ the strip with Apps and the workspaces, Settings, and the lock screen.
 Settings are kept in `~/.config/desktop/settings.json`; the shell applies them
 to itself and to the compositor.
 
+Unlike the demo, the desktop has no Overview: workspaces come and go with
+their windows. The session starts with one; dropping a window or an
+application on the "+" that the strip shows while dragging makes another, up
+to eight; a workspace goes away once it has no windows.
+
 ## Development
 
 Create and enter the Fedora development environment, then run the checks:
@@ -42,11 +47,11 @@ ignores the others.
 
 ## Layout
 
-| Path          | Purpose                                                                                                              |
-| ------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `compositor/` | The Hyprland configuration (Lua): look, key bindings, layouts (`layouts.lua`), moving workspaces (`workspaces.lua`). |
-| `shell/`      | The Quickshell configuration (QML): every shell surface.                                                             |
-| `session/`    | The session entry that the login screen starts.                                                                      |
+| Path          | Purpose                                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------------------- |
+| `compositor/` | The Hyprland configuration (Lua): look, key bindings, layouts (`layouts.lua`), workspaces (`workspaces.lua`). |
+| `shell/`      | The Quickshell configuration (QML): every shell surface.                                                      |
+| `session/`    | The session entry that the login screen starts.                                                               |
 
 ## Not yet implemented
 
@@ -55,7 +60,7 @@ ignores the others.
 - Everything in the demo but the wallpaper, the tile look, the bar and its
   panels, the strip, Apps, the layouts, quick actions with capture, Settings,
   the lock screen, and two key bindings (Alt+Q closes a window, Alt+F
-  maximizes it): Overview and the assistant.
+  maximizes it): the assistant.
 - Settings has only what works: no password change or fingerprint setup, no
   light theme, no night light, no VPN, no alert sounds, and no Assistant
   section. Values such as the resolution cannot be changed yet.
@@ -63,10 +68,7 @@ ignores the others.
   assistant; both come with the assistant. A click keeps the actions shown.
 - The bar shows keyboard layout codes (US), where the demo shows language
   codes (EN).
-- The strip has no workspace menu, and no place to drop a window or an
-  application for a new workspace; Apps has no page arrows. While dragging,
+- The strip has no workspace menu; Apps has no page arrows. While dragging,
   maps of Tabs and Accordion workspaces show no free cell.
 - Layouts have no tab bar in Tabs, no resizing, and no dragging windows
   between cells on the screen; that works on the maps.
-  There are always five workspaces; adding, removing, and renaming them comes
-  with Overview.

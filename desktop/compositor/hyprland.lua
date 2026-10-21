@@ -26,7 +26,7 @@ hl.monitor({
     scale    = 1,
 })
 
--- The layouts (layouts.lua) and moving workspaces (workspaces.lua), next to
+-- The layouts (layouts.lua) and the workspaces (workspaces.lua), next to
 -- this file. The shell calls these globals through dispatch requests.
 local here = debug.getinfo(1, "S").source:match("^@(.*/)")
 layouts = dofile(here .. "layouts.lua")
@@ -57,12 +57,6 @@ hl.config({
         disable_hyprland_logo   = true,
     },
 })
-
--- Workspaces stay when they empty, like the demo's; it starts with five.
--- Adding and removing them comes with Overview.
-for id = 1, 5 do
-    hl.workspace_rule({ workspace = tostring(id), persistent = true })
-end
 
 -- The bar and the panels are glass. A panel's shadow is not: the blur skips
 -- what is mostly transparent.
