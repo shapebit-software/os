@@ -22,9 +22,11 @@ make run     # run the desktop in a window, inside the current Wayland session
 make help    # all targets
 ```
 
-`make run` needs a Wayland session and a GPU on the host. Apps lists the
-applications of the container and, through the shared home, the host's
-exported ones.
+`make run` needs a Wayland session and a GPU on the host. The desktop then
+works on the host's real devices: Apps lists the container's applications and,
+through the shared home, the host's exported ones; the bar's panels change the
+host's volume, Wi-Fi, and Bluetooth. Only the power actions are held back:
+they log instead of suspending, restarting, or shutting down the host.
 `make install DESTDIR=<directory>` installs the files as the image does.
 
 Every QML file in `shell/` must be listed in `shell/qmldir`; Quickshell
@@ -42,12 +44,13 @@ ignores the others.
 
 - The session in the OS image; the image repository does not install the
   desktop yet.
-- Everything in the demo but the wallpaper, the tile look, the bar, the strip,
-  Apps, the layouts, and two key bindings (Alt+Q closes a window, Alt+F
-  maximizes it): the bar's panels and quick actions, Overview, Settings, and
-  the assistant.
-- The bar's buttons do nothing yet, and its language code comes from the
-  locale, not the keyboard layout.
+- Everything in the demo but the wallpaper, the tile look, the bar and its
+  panels, the strip, Apps, the layouts, and two key bindings (Alt+Q closes a
+  window, Alt+F maximizes it): quick actions, Overview, Settings, the lock
+  screen, and the assistant.
+- The account panel has no Lock and no Settings, which come with the lock
+  screen and Settings. The bar shows keyboard layout codes (US), where the
+  demo shows language codes (EN).
 - The strip has no dragging and no workspace menu; Apps has no dragging to a
   workspace and no page arrows.
 - Layouts have no tab bar in Tabs, no resizing, and no moving windows between

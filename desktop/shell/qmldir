@@ -1,13 +1,21 @@
+singleton Audio Audio.qml
 singleton Compositor Compositor.qml
+singleton Keyboard Keyboard.qml
 singleton Layouts Layouts.qml
 singleton Theme Theme.qml
+AccountPanel AccountPanel.qml
 AppsButton AppsButton.qml
 AppsPanel AppsPanel.qml
 Backdrop Backdrop.qml
 Bar Bar.qml
 BarButton BarButton.qml
+BarPanel BarPanel.qml
 Icon Icon.qml
+LanguagePanel LanguagePanel.qml
 LayoutMenu LayoutMenu.qml
+NetworkPanel NetworkPanel.qml
 Strip Strip.qml
+Switch Switch.qml
+VolumePanel VolumePanel.qml
 Wallpaper Wallpaper.qml
 WorkspaceMap WorkspaceMap.qml

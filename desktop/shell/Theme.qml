@@ -9,8 +9,14 @@ QtObject {
     readonly property color accent: "#007890"
     // The bar's glass; the compositor blurs what shows through.
     readonly property color barGlass: Qt.rgba(0.047, 0.047, 0.094, 0.5)
-    // The edge of panels and of fields in them.
+    // Panels: their body, edge (also of fields in them), and entries under
+    // the pointer.
+    readonly property color panel: Qt.rgba(0.153, 0.157, 0.188, 0.96)
     readonly property color panelBorder: "#45484d"
+    readonly property color panelHover: "#35383e"
+    // Warnings, such as muted devices: lines, and areas behind light text.
+    readonly property color danger: "#f05653"
+    readonly property color dangerFill: "#b63132"
     // The space between tiles, and between tiles and the screen edges; the
     // compositor uses the same value (compositor/hyprland.lua).
     readonly property int gap: 10

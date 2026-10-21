@@ -62,8 +62,10 @@ for id = 1, 5 do
     hl.workspace_rule({ workspace = tostring(id), persistent = true })
 end
 
--- The bar and Apps are glass.
+-- The bar and the panels are glass. A panel's shadow is not: the blur skips
+-- what is mostly transparent.
 hl.layer_rule({ match = { namespace = "^(bar|apps)$" }, blur = true, ignore_alpha = 0 })
+hl.layer_rule({ match = { namespace = "^panel$" }, blur = true, ignore_alpha = 0.5 })
 
 hl.bind("ALT + Q", hl.dsp.window.close())
 hl.bind("ALT + F", hl.dsp.window.fullscreen({ mode = "maximized" }))
