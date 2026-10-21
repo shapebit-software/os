@@ -32,23 +32,25 @@ ignores the others.
 
 ## Layout
 
-| Path          | Purpose                                                       |
-| ------------- | ------------------------------------------------------------- |
-| `compositor/` | The Hyprland configuration (Lua): look, layouts, key bindings. |
-| `shell/`      | The Quickshell configuration (QML): every shell surface.      |
-| `session/`    | The session entry that the login screen starts.               |
+| Path          | Purpose                                                                       |
+| ------------- | ----------------------------------------------------------------------------- |
+| `compositor/` | The Hyprland configuration (Lua): look, key bindings, layouts (`layouts.lua`). |
+| `shell/`      | The Quickshell configuration (QML): every shell surface.                      |
+| `session/`    | The session entry that the login screen starts.                               |
 
 ## Not yet implemented
 
 - The session in the OS image; the image repository does not install the
   desktop yet.
 - Everything in the demo but the wallpaper, the tile look, the bar, the strip,
-  Apps, and two key bindings (Alt+Q closes a window, Alt+F maximizes it): the
-  bar's panels and quick actions, layouts, Overview, Settings, and the
-  assistant.
+  Apps, the layouts, and two key bindings (Alt+Q closes a window, Alt+F
+  maximizes it): the bar's panels and quick actions, Overview, Settings, and
+  the assistant.
 - The bar's buttons do nothing yet, and its language code comes from the
   locale, not the keyboard layout.
-- The strip has no layout button, no dragging, and no menus; Apps has no
-  dragging to a workspace and no page arrows.
+- The strip has no dragging and no workspace menu; Apps has no dragging to a
+  workspace and no page arrows.
+- Layouts have no tab bar in Tabs, no resizing, and no moving windows between
+  cells.
   There are always five workspaces; adding, removing, and renaming them comes
   with Overview.

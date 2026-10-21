@@ -26,6 +26,10 @@ hl.monitor({
     scale    = 1,
 })
 
+-- The layouts (layouts.lua), next to this file. The shell calls this global
+-- through dispatch requests.
+layouts = dofile(debug.getinfo(1, "S").source:match("^@(.*/)") .. "layouts.lua")
+
 -- Windows are plain tiles: straight corners, no border, no shadow, and one
 -- gap everywhere. Blur is only for the shell's glass (the layer rules below);
 -- tiles are opaque, so nothing shows through them.
@@ -36,17 +40,13 @@ hl.config({
         gaps_in     = gap / 2,
         gaps_out    = gap,
         border_size = 0,
-        layout      = "master",
+        layout      = "lua:" .. layouts.default,
     },
 
     decoration = {
         rounding = 0,
         shadow   = { enabled = false },
         blur     = { enabled = true },
-    },
-
-    master = {
-        new_status = "slave",
     },
 
     misc = {

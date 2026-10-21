@@ -1,5 +1,5 @@
-// A line icon drawn from SVG path data on a 16 by 16 grid, like the demo's
-// icons: `strokes` are outlined, `fills` are solid.
+// A line icon drawn from SVG path data on a grid, 16 by 16 unless set, like
+// the demo's icons: `strokes` are outlined, `fills` are solid.
 import QtQuick
 import QtQuick.Shapes
 
@@ -10,22 +10,24 @@ Item {
     property string fills
     property color color: Theme.text
     property int capStyle: ShapePath.FlatCap
-    // The width of the grid; wider icons (the input language) use 20.
+    property real strokeWidth: 1.4
+    // The grid; wider icons (the input language) are 20 wide.
     property real gridWidth: 16
+    property real gridHeight: 16
 
-    implicitWidth: 18 * gridWidth / 16
+    implicitWidth: implicitHeight * gridWidth / gridHeight
     implicitHeight: 18
 
     Shape {
         width: icon.gridWidth
-        height: 16
-        scale: icon.height / 16
+        height: icon.gridHeight
+        scale: icon.height / icon.gridHeight
         transformOrigin: Item.TopLeft
         preferredRendererType: Shape.CurveRenderer
 
         ShapePath {
             strokeColor: icon.strokes ? icon.color : "transparent"
-            strokeWidth: 1.4
+            strokeWidth: icon.strokeWidth
             capStyle: icon.capStyle
             joinStyle: ShapePath.RoundJoin
             fillColor: "transparent"

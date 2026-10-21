@@ -44,11 +44,17 @@ Scope {
         WlrLayershell.namespace: "strip"
         anchors { bottom: true; left: true; right: true }
         // The tiles stop a gap above the strip; the compositor adds that gap.
-        implicitHeight: Theme.stripHeight + Theme.gap
+        exclusiveZone: Theme.stripHeight + Theme.gap
+        // The window reaches into that gap for the layout buttons.
+        implicitHeight: Theme.stripHeight + 2 * Theme.gap
         color: "transparent"
-        // Only the strip's content takes input; the rest of its band passes
-        // through.
-        mask: Region { item: content }
+        // Only the strip's content and the gap above it take input; the rest
+        // of its band passes through.
+        mask: Region {
+            x: content.x
+            width: content.width
+            height: content.y + content.height
+        }
 
         Row {
             id: content

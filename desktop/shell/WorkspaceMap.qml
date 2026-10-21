@@ -1,5 +1,6 @@
-// The map of one workspace in the strip (Strip.qml): its windows where they are on the
-// screen, each with its application's icon.
+// The map of one workspace in the strip (Strip.qml): its windows where they
+// are on the screen, each with its application's icon. Under the pointer, a
+// button above the map opens the layout menu.
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
@@ -30,9 +31,6 @@ Item {
     width: 84
     height: Theme.stripHeight
 
-    layer.enabled: hover.hovered
-    layer.effect: MultiEffect { brightness: 0.12 }
-
     TapHandler {
         onTapped: {
             Compositor.focusWorkspace(map.modelData.id);
@@ -43,6 +41,12 @@ Item {
         id: hover
         cursorShape: Qt.PointingHandCursor
     }
+
+    // The picture, brighter under the pointer.
+    Item {
+        anchors.fill: parent
+        layer.enabled: hover.hovered
+        layer.effect: MultiEffect { brightness: 0.12 }
 
     // An empty workspace is one plain cell.
     Rectangle {
@@ -107,5 +111,47 @@ Item {
                 }
             }
         }
+    }
+    }
+
+    // The layout button, showing the workspace's layout.
+    Rectangle {
+        id: layoutButton
+
+        visible: hover.hovered || buttonHover.hovered || menu.visible
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: -10
+        width: 32
+        height: 18
+        radius: 9
+        color: buttonHover.hovered ? "#2c3240" : "#1c2029"
+        border.color: Qt.rgba(1, 1, 1, 0.45)
+
+        Icon {
+            anchors.centerIn: parent
+            height: 12
+            gridWidth: 12
+            gridHeight: 12
+            strokeWidth: 1.1
+            color: "#f6f9fb"
+            strokes: "M1 1h10v10H1z" + Layouts.byId(Compositor.layoutOf(map.modelData.id)).icon
+        }
+
+        TapHandler {
+            // Takes the click from the map below.
+            gesturePolicy: TapHandler.WithinBounds
+            onTapped: menu.visible ? menu.visible = false : menu.open()
+        }
+        HoverHandler {
+            id: buttonHover
+            cursorShape: Qt.PointingHandCursor
+        }
+    }
+
+    LayoutMenu {
+        id: menu
+        map: map
+        workspace: map.modelData.id
+        screenWidth: map.screen.width
     }
 }
