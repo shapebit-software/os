@@ -1,6 +1,11 @@
+singleton Compositor Compositor.qml
 singleton Theme Theme.qml
+AppsButton AppsButton.qml
+AppsPanel AppsPanel.qml
 Backdrop Backdrop.qml
 Bar Bar.qml
 BarButton BarButton.qml
 Icon Icon.qml
+Strip Strip.qml
 Wallpaper Wallpaper.qml
+WorkspaceMap WorkspaceMap.qml

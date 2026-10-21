@@ -56,8 +56,14 @@ hl.config({
     },
 })
 
--- The bar is glass.
-hl.layer_rule({ match = { namespace = "^bar$" }, blur = true, ignore_alpha = 0 })
+-- Workspaces stay when they empty, like the demo's; it starts with five.
+-- Adding and removing them comes with Overview.
+for id = 1, 5 do
+    hl.workspace_rule({ workspace = tostring(id), persistent = true })
+end
+
+-- The bar and Apps are glass.
+hl.layer_rule({ match = { namespace = "^(bar|apps)$" }, blur = true, ignore_alpha = 0 })
 
 hl.bind("ALT + Q", hl.dsp.window.close())
 hl.bind("ALT + F", hl.dsp.window.fullscreen({ mode = "maximized" }))

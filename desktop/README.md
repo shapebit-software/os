@@ -7,8 +7,8 @@ and [Quickshell](https://quickshell.org) as the shell, following the
 the demo decides.
 
 The session starts Hyprland with the configuration in `compositor/`, which
-starts the shell in `shell/`. So far the shell draws the wallpaper and the
-bar.
+starts the shell in `shell/`. So far the shell draws the wallpaper, the bar,
+and the strip with Apps and the workspaces.
 
 ## Development
 
@@ -22,10 +22,13 @@ make run     # run the desktop in a window, inside the current Wayland session
 make help    # all targets
 ```
 
-`make run` needs a Wayland session and a GPU on the host. To open a window
-in it, run `WAYLAND_DISPLAY=wayland-1 foot` in a second shell in the
-container (`ls $XDG_RUNTIME_DIR` shows the socket if `wayland-1` is taken).
+`make run` needs a Wayland session and a GPU on the host. Apps lists the
+applications of the container and, through the shared home, the host's
+exported ones.
 `make install DESTDIR=<directory>` installs the files as the image does.
+
+Every QML file in `shell/` must be listed in `shell/qmldir`; Quickshell
+ignores the others.
 
 ## Layout
 
@@ -39,8 +42,13 @@ container (`ls $XDG_RUNTIME_DIR` shows the socket if `wayland-1` is taken).
 
 - The session in the OS image; the image repository does not install the
   desktop yet.
-- Everything in the demo but the wallpaper, the tile look, the bar, and two
-  key bindings (Alt+Q closes a window, Alt+F maximizes it): the bar's panels
-  and quick actions, workspaces, layouts, Apps, Overview, Settings, and the
-  assistant. The bar's buttons do nothing yet, and its language code comes
-  from the locale, not the keyboard layout.
+- Everything in the demo but the wallpaper, the tile look, the bar, the strip,
+  Apps, and two key bindings (Alt+Q closes a window, Alt+F maximizes it): the
+  bar's panels and quick actions, layouts, Overview, Settings, and the
+  assistant.
+- The bar's buttons do nothing yet, and its language code comes from the
+  locale, not the keyboard layout.
+- The strip has no layout button, no dragging, and no menus; Apps has no
+  dragging to a workspace and no page arrows.
+  There are always five workspaces; adding, removing, and renaming them comes
+  with Overview.
