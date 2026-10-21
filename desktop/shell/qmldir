@@ -1,0 +1,6 @@
+singleton Theme Theme.qml
+Backdrop Backdrop.qml
+Bar Bar.qml
+BarButton BarButton.qml
+Icon Icon.qml
+Wallpaper Wallpaper.qml
