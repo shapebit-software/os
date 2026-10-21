@@ -1,5 +1,5 @@
 // The strip of one screen, floating at the bottom: the Apps button, then a
-// small map of each workspace's windows. A click on a map goes to that
+// small map of each workspace's windows, and the quick actions in the corner. A click on a map goes to that
 // workspace, a click on a window in it focuses that window, and the wheel
 // steps through them.
 pragma ComponentBehavior: Bound
@@ -19,6 +19,7 @@ Scope {
         .filter(w => w.id > 0 && w.monitor === monitor)
         .sort((a, b) => a.id - b.id)
     property bool appsOpen
+    property bool captureOpen
 
     // Window positions come from the compositor on request, so ask again
     // after anything changes there.
@@ -48,12 +49,23 @@ Scope {
         // The window reaches into that gap for the layout buttons.
         implicitHeight: Theme.stripHeight + 2 * Theme.gap
         color: "transparent"
-        // Only the strip's content and the gap above it take input; the rest
-        // of its band passes through.
+        // Only the strip's content, the gap above it, and the quick actions
+        // take input; the rest of its band passes through.
         mask: Region {
             x: content.x
             width: content.width
             height: content.y + content.height
+
+            Region { item: quickActions }
+        }
+
+        QuickActions {
+            id: quickActions
+            anchors.right: parent.right
+            anchors.rightMargin: Theme.gap
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Theme.gap
+            onCaptureClicked: scope.captureOpen = !scope.captureOpen
         }
 
         Row {
@@ -99,6 +111,13 @@ Scope {
                 }
             }
         }
+    }
+
+    CapturePanel {
+        screen: scope.modelData
+        visible: scope.captureOpen
+        grabWindows: [strip]
+        onDismissed: scope.captureOpen = false
     }
 
     AppsPanel {

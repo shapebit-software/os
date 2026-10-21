@@ -25,8 +25,9 @@ make help    # all targets
 `make run` needs a Wayland session and a GPU on the host. The desktop then
 works on the host's real devices: Apps lists the container's applications and,
 through the shared home, the host's exported ones; the bar's panels change the
-host's volume, Wi-Fi, and Bluetooth. Only the power actions are held back:
-they log instead of suspending, restarting, or shutting down the host.
+host's volume, Wi-Fi, and Bluetooth; captures go to the host's Pictures and
+Videos. Only the power actions are held back: they log instead of suspending,
+restarting, or shutting down the host.
 `make install DESTDIR=<directory>` installs the files as the image does.
 
 Every QML file in `shell/` must be listed in `shell/qmldir`; Quickshell
@@ -45,9 +46,11 @@ ignores the others.
 - The session in the OS image; the image repository does not install the
   desktop yet.
 - Everything in the demo but the wallpaper, the tile look, the bar and its
-  panels, the strip, Apps, the layouts, and two key bindings (Alt+Q closes a
-  window, Alt+F maximizes it): quick actions, Overview, Settings, the lock
-  screen, and the assistant.
+  panels, the strip, Apps, the layouts, quick actions with capture, and two key
+  bindings (Alt+Q closes a window, Alt+F maximizes it): Overview, Settings,
+  the lock screen, and the assistant.
+- Quick actions have no Dictate, and their button does not open the
+  assistant; both come with the assistant. A click keeps the actions shown.
 - The account panel has no Lock and no Settings, which come with the lock
   screen and Settings. The bar shows keyboard layout codes (US), where the
   demo shows language codes (EN).

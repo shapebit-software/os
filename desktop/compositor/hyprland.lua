@@ -65,7 +65,10 @@ end
 -- The bar and the panels are glass. A panel's shadow is not: the blur skips
 -- what is mostly transparent.
 hl.layer_rule({ match = { namespace = "^(bar|apps)$" }, blur = true, ignore_alpha = 0 })
-hl.layer_rule({ match = { namespace = "^panel$" }, blur = true, ignore_alpha = 0.5 })
+hl.layer_rule({ match = { namespace = "^(panel|capture)$" }, blur = true, ignore_alpha = 0.5 })
+
+-- The capture panel leaves at once, so it is not in the capture.
+hl.layer_rule({ match = { namespace = "^capture$" }, no_anim = true })
 
 hl.bind("ALT + Q", hl.dsp.window.close())
 hl.bind("ALT + F", hl.dsp.window.fullscreen({ mode = "maximized" }))

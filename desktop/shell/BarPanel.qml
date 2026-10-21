@@ -21,7 +21,10 @@ PanelWindow {
 
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "panel"
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+    // Not Exclusive: Hyprland then holds back clicks everywhere else, so a
+    // click outside could not close the panel. The focus grab gives it the
+    // keyboard.
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
     exclusionMode: ExclusionMode.Ignore
     // The window covers the corner down to the panel; only the panel takes
     // input. The space left of the panel holds its shadow.
