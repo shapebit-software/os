@@ -20,11 +20,14 @@ to eight; a workspace goes away once it has no windows.
 
 ## Development
 
-Create and enter the Fedora development environment, then run the checks:
+From the monorepo root, create and enter the shared Fedora development
+environment (see the [setup instructions](https://github.com/shapebit-software/os#development)).
+Then run the checks:
 
 ```sh
 DBX_CONTAINER_MANAGER=docker distrobox assemble create --file distrobox.ini
-DBX_CONTAINER_MANAGER=docker distrobox enter desktop
+DBX_CONTAINER_MANAGER=docker distrobox enter shapebit-dev
+cd desktop
 make check   # verify the compositor configuration and lint the shell
 make run     # run the desktop in a window, inside the current Wayland session
 make help    # all targets
