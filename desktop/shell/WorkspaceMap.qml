@@ -294,8 +294,12 @@ Item {
         width: 32
         height: 18
         radius: 9
-        color: buttonHover.hovered ? "#2c3240" : "#1c2029"
-        border.color: Qt.rgba(1, 1, 1, 0.45)
+        // The demo's popover glass, white under the pointer.
+        border.color: Theme.popoverRing
+        gradient: Gradient {
+            GradientStop { position: 0; color: buttonHover.hovered ? "white" : Theme.popoverTop }
+            GradientStop { position: 1; color: buttonHover.hovered ? "white" : Theme.popoverBottom }
+        }
 
         Drag.dragType: Drag.Automatic
         Drag.supportedActions: Qt.MoveAction
@@ -307,7 +311,7 @@ Item {
             gridWidth: 12
             gridHeight: 12
             strokeWidth: 1.1
-            color: "#f6f9fb"
+            color: buttonHover.hovered ? Theme.ink : Theme.inkSoft
             strokes: "M1 1h10v10H1z" + Layouts.byId(Compositor.layoutOf(map.modelData.id)).icon
         }
 

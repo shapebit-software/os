@@ -17,7 +17,8 @@ Item {
     property real gridWidth: 16
     property real gridHeight: 16
 
-    implicitWidth: implicitHeight * gridWidth / gridHeight
+    // As wide as the grid's shape at the height drawn, so it centers.
+    implicitWidth: height * gridWidth / gridHeight
     implicitHeight: 18
 
     Shape {

@@ -70,6 +70,17 @@ hl.layer_rule({ match = { namespace = "^tabs$" }, blur = true, ignore_alpha = 0.
 -- The capture panel leaves at once, so it is not in the capture.
 hl.layer_rule({ match = { namespace = "^capture$" }, no_anim = true })
 
+-- Animations are short and ease out, as on macOS: about a fifth of a second
+-- (speeds are in tenths of a second).
+hl.curve("out", { type = "bezier", points = { { 0.23, 1 }, { 0.32, 1 } } })
+hl.animation({ leaf = "global",     enabled = true, speed = 2.5, bezier = "out" })
+hl.animation({ leaf = "windows",    enabled = true, speed = 2.5, bezier = "out" })
+hl.animation({ leaf = "windowsIn",  enabled = true, speed = 2,   bezier = "out", style = "popin 92%" })
+hl.animation({ leaf = "windowsOut", enabled = true, speed = 1.5, bezier = "out", style = "popin 92%" })
+hl.animation({ leaf = "fade",       enabled = true, speed = 1.5, bezier = "out" })
+hl.animation({ leaf = "layers",     enabled = true, speed = 1.5, bezier = "out", style = "fade" })
+hl.animation({ leaf = "workspaces", enabled = true, speed = 2.5, bezier = "out", style = "slide" })
+
 hl.bind("ALT + Q", hl.dsp.window.close())
 -- The next keyboard layout (Settings > Language > Keyboards).
 hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("hyprctl switchxkblayout all next"))

@@ -10,11 +10,9 @@ QtObject {
     readonly property color accent: oklch(0.52, 0.11, Settings.accentHueShown)
     readonly property color accentSoft: oklch(0.94, 0.03, Settings.accentHueShown)
     // The bars' fill (Settings.barBackground): glass, which the compositor
-    // blurs what shows through, a solid color, or nothing, with a shadow
-    // under what is on them instead.
+    // blurs what shows through, a solid color, or nothing.
     readonly property color barFill: Settings.barBackground === "Solid" ? "#1c1826"
         : Settings.barBackground === "Glass" ? Qt.rgba(0.047, 0.047, 0.094, 0.5) : "transparent"
-    readonly property bool barShadow: Settings.barBackground === "None"
     // Popovers, the panels that open from the bars, as in the demo: light
     // glass from top to bottom with a thin ring, text in a dark violet, and
     // a violet veil for tiles, fields, and what is under the pointer.
@@ -29,7 +27,6 @@ QtObject {
     }
     // Warnings, such as muted devices: lines, and areas behind light text.
     readonly property color danger: "#f05653"
-    readonly property color dangerFill: "#b63132"
     // The space between tiles, and between tiles and the screen edges; the
     // shell sets the compositor's to the same (Settings.qml).
     readonly property int gap: Settings.gapSize

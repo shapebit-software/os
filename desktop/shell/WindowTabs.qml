@@ -1,8 +1,7 @@
 // What Tabs and Accordion draw besides the window they show (compositor/
 // layouts.lua leaves room for it): Tabs a tab bar above it, a tab for each
 // window; Accordion a folded strip beside it for each other window, with its
-// icon and name. A click on a tab or a strip shows that window; under the
-// pointer, a tab also shows buttons for full screen and to close its window.
+// icon and name. A click on a tab or a strip shows that window.
 // Windows cover the surface, which sits under them.
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -86,7 +85,6 @@ PanelWindow {
                 color: Qt.rgba(1, 1, 1, shown ? 0.3 : 0.12)
                 border.color: Qt.rgba(1, 1, 1, 0.14)
 
-                HoverHandler { id: tabHover }
                 TapHandler {
                     onTapped: Compositor.focusWindow(tab.modelData.address)
                 }
@@ -100,29 +98,11 @@ PanelWindow {
                 Text {
                     x: 31
                     anchors.verticalCenter: parent.verticalCenter
-                    width: (buttons.visible ? buttons.x : parent.width) - x - 4
+                    width: parent.width - x - 10
                     elide: Text.ElideRight
                     text: surface.nameOf(tab.modelData)
                     color: tab.shown ? "#fafbfc" : Qt.rgba(0.9, 0.91, 0.93, 0.75)
                     font { family: Theme.font; pixelSize: 11; weight: Font.Bold }
-                }
-
-                Row {
-                    id: buttons
-
-                    visible: tabHover.hovered
-                    anchors.right: parent.right
-
-                    TabButton {
-                        hoverColor: "#f2c133"
-                        strokes: "M1 3.5V1h2.5M6.5 1H9v2.5M9 6.5V9H6.5M3.5 9H1V6.5"
-                        onClicked: Compositor.toggleFullscreen(tab.modelData.address)
-                    }
-                    TabButton {
-                        hoverColor: Theme.dangerFill
-                        strokes: "M1.5 1.5l6 6M7.5 1.5l-6 6"
-                        onClicked: Compositor.closeWindow(tab.modelData.address)
-                    }
                 }
             }
         }
@@ -201,33 +181,4 @@ PanelWindow {
     }
 
     // A button on a tab, 30 square, colored under the pointer.
-    component TabButton: Rectangle {
-        id: button
-
-        property color hoverColor
-        property string strokes
-        signal clicked
-
-        width: 30
-        height: 30
-        color: buttonHover.hovered ? hoverColor : "transparent"
-
-        Icon {
-            anchors.centerIn: parent
-            height: 10
-            gridWidth: 10
-            gridHeight: 10
-            strokeWidth: 1.4
-            strokes: button.strokes
-            color: "#fafbfc"
-        }
-
-        HoverHandler {
-            id: buttonHover
-            cursorShape: Qt.PointingHandCursor
-        }
-        TapHandler {
-            onTapped: button.clicked()
-        }
-    }
 }

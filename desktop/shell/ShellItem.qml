@@ -66,22 +66,32 @@ Loader {
                 anchors.fill: parent
                 visible: item.tile
             }
-            Text {
+            // Across a bar, the day lighter, then the time; along a side,
+            // the time in two lines.
+            Row {
                 id: text
 
                 anchors.centerIn: parent
-                horizontalAlignment: Text.AlignHCenter
-                textFormat: Text.StyledText
-                // Across a bar, the date and the time; along a side, the time
-                // in two lines.
-                text: item.bar.vertical
-                    ? Qt.formatTime(time.date, Settings.timePattern).replace(/:/, "<br>").replace(" ", "<br>")
-                    : `<span style="color: ${Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.72)}; font-weight: 500">`
-                        + `${Qt.formatDate(time.date, Settings.datePattern)}</span>&nbsp;&nbsp;`
-                        + Qt.formatTime(time.date, Settings.timePattern)
-                color: Theme.text
-                lineHeight: 0.95
-                font { family: Theme.font; pixelSize: 12; weight: Font.DemiBold }
+                spacing: 8
+
+                Text {
+                    visible: !item.bar.vertical
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: Qt.formatDate(time.date, Settings.datePattern)
+                    color: Theme.text
+                    opacity: 0.72
+                    font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
+                }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    horizontalAlignment: Text.AlignHCenter
+                    text: item.bar.vertical
+                        ? Qt.formatTime(time.date, Settings.timePattern).replace(/[: ]/, "\n")
+                        : Qt.formatTime(time.date, Settings.timePattern)
+                    color: Theme.text
+                    lineHeight: 0.95
+                    font { family: Theme.font; pixelSize: 12; weight: Font.DemiBold }
+                }
             }
         }
     }

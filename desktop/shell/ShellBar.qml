@@ -5,7 +5,6 @@
 // middle, the end zone at the right or bottom.
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Effects
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
@@ -72,8 +71,7 @@ PanelWindow {
         color: Theme.barFill
     }
 
-    // The zones, a gap off the edge for the dock; without a fill, the system
-    // bar's items cast a shadow to stand out from the wallpaper.
+    // The zones, a gap off the edge for the dock.
     Item {
         id: zones
 
@@ -83,14 +81,6 @@ PanelWindow {
         y: window.edge === "Bottom" ? window.height - inset - height : !window.vertical ? inset : 0
         width: window.vertical ? window.size : window.width
         height: window.vertical ? window.height : window.size
-
-        layer.enabled: !window.dock && Theme.barShadow
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowColor: Qt.rgba(0.05, 0.03, 0.12, 0.7)
-            shadowBlur: 0.25
-            shadowVerticalOffset: 1
-        }
 
         Repeater {
             model: Shell.zoneNames
