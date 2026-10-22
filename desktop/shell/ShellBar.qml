@@ -71,6 +71,19 @@ PanelWindow {
         color: Theme.barFill
     }
 
+    // A click on the bar but off its items closes the open panel; panels
+    // stay open for clicks on the bars otherwise (Popout.qml).
+    TapHandler {
+        onTapped: point => {
+            for (const zone of zones.children) {
+                const at = zone.mapFromItem(null, point.position.x, point.position.y);
+                if (zone.childAt?.(at.x, at.y))
+                    return;
+            }
+            Shell.close();
+        }
+    }
+
     // The zones, a gap off the edge for the dock.
     Item {
         id: zones

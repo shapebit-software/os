@@ -17,8 +17,9 @@ check: ## Verify the compositor configuration and lint the shell
 	qmllint-qt6 --max-warnings 0 --uncreatable-type disable -I shell shell/*.qml
 
 # The host session's desktop name is not this one's; Hyprland sets its own.
+# The fonts include the OS image's (fonts.conf).
 run: ## Run the desktop in a window, inside the current Wayland session
-	env -u XDG_CURRENT_DESKTOP DESKTOP_SHELL=$(CURDIR)/shell \
+	env -u XDG_CURRENT_DESKTOP DESKTOP_SHELL=$(CURDIR)/shell FONTCONFIG_FILE=$(CURDIR)/fonts.conf \
 	$(if $(wildcard $(host_bus)),DBUS_SYSTEM_BUS_ADDRESS=unix:path=$(host_bus)) \
 	start-hyprland -- --config compositor/hyprland.lua
 

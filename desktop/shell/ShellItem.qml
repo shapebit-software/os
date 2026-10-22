@@ -75,6 +75,7 @@ Loader {
                 spacing: 8
 
                 Text {
+                    id: day
                     visible: !item.bar.vertical
                     anchors.verticalCenter: parent.verticalCenter
                     text: Qt.formatDate(time.date, Settings.datePattern)
@@ -82,8 +83,9 @@ Loader {
                     opacity: 0.72
                     font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
                 }
+                // On the day's baseline, so both sit on one line.
                 Text {
-                    anchors.verticalCenter: parent.verticalCenter
+                    y: day.visible ? day.y + day.baselineOffset - baselineOffset : (parent.height - height) / 2
                     horizontalAlignment: Text.AlignHCenter
                     text: item.bar.vertical
                         ? Qt.formatTime(time.date, Settings.timePattern).replace(/[: ]/, "\n")

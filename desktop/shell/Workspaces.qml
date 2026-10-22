@@ -48,6 +48,9 @@ GridLayout {
         model: strip.workspaces
 
         WorkspaceMap {
+            // A workspace without windows has no map, but while something is
+            // dragged it takes drops.
+            visible: windows.length > 0 || Dragging.tile
             bar: strip.bar
             monitor: strip.monitor
             implicitWidth: strip.mapWidth

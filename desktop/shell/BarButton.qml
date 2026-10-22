@@ -15,7 +15,8 @@ Item {
     signal clicked
     signal rightClicked
 
-    implicitWidth: Math.max(size, holder.childrenRect.width + 12)
+    // Wide enough for the widest content shown, such as the input language.
+    implicitWidth: Math.max(size, ...holder.children.filter(c => c.visible).map(c => c.width + 12))
     implicitHeight: size
 
     Glass {
@@ -41,11 +42,14 @@ Item {
         color: button.fill
     }
 
+    // The content, each piece centered, whatever else is hidden beside it.
     Item {
         id: holder
-        anchors.centerIn: parent
-        width: childrenRect.width
-        height: childrenRect.height
+        anchors.fill: parent
+    }
+    Component.onCompleted: {
+        for (const child of holder.children)
+            child.anchors.centerIn = holder;
     }
 
     TapHandler {

@@ -138,19 +138,6 @@ PanelWindow {
                 height: strips.height
                 color: Qt.rgba(1, 1, 1, 0.12)
 
-                // A light left edge and a dark right one, as in the demo.
-                Rectangle {
-                    width: 1
-                    height: parent.height
-                    color: Qt.rgba(1, 1, 1, 0.5)
-                }
-                Rectangle {
-                    anchors.right: parent.right
-                    width: 1
-                    height: parent.height
-                    color: Qt.rgba(0.1, 0.1, 0.12, 0.08)
-                }
-
                 IconImage {
                     y: 10
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -179,6 +166,4 @@ PanelWindow {
             }
         }
     }
-
-    // A button on a tab, 30 square, colored under the pointer.
 }

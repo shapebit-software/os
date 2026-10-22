@@ -334,11 +334,15 @@ function layouts.report()
     end
 end
 
--- Tabs and Accordion follow focus, which does not place windows again by itself.
+-- Tabs and Accordion follow focus, which does not place windows again by
+-- itself. The shown window goes first among the windows, where the compositor
+-- looks for the one under the pointer, so clicks reach it and not one hidden
+-- behind it.
 hl.on("window.active", function()
     local workspace = hl.get_active_workspace()
     if workspace and (layouts.of(workspace.id) == "tabs" or layouts.of(workspace.id) == "accordion") then
         hl.dispatch(hl.dsp.layout("refresh"))
+        hl.dispatch(hl.dsp.window.alter_zorder({ mode = "bottom" }))
     end
 end)
 

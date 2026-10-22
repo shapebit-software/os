@@ -53,6 +53,10 @@ hl.config({
         blur     = { enabled = true },
     },
 
+    -- Windows take the keyboard when clicked, not when the pointer passes
+    -- over them, as on macOS.
+    input = { follow_mouse = 2 },
+
     misc = {
         -- The shell owns the background.
         force_default_wallpaper = 0,
@@ -63,6 +67,8 @@ hl.config({
 -- The system bar and the panels are glass. Panels cover the screen, and a
 -- panel's shadow is not glass: the blur skips what is mostly transparent.
 hl.layer_rule({ match = { namespace = "^bar$" }, blur = true, ignore_alpha = 0 })
+-- The dock's items are glass too; the blur skips the faint shadows around them.
+hl.layer_rule({ match = { namespace = "^dock$" }, blur = true, ignore_alpha = 0.12 })
 hl.layer_rule({ match = { namespace = "^(panel|capture|corner)$" }, blur = true, ignore_alpha = 0.5 })
 -- The tabs of Tabs and Accordion cover the screen, so only their glass is blurred.
 hl.layer_rule({ match = { namespace = "^tabs$" }, blur = true, ignore_alpha = 0.05 })
