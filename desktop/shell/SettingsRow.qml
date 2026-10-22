@@ -255,7 +255,7 @@ Item {
                 Swatch {
                     required property string modelData
 
-                    color: Settings.accents[modelData]
+                    color: Theme.oklch(0.52, 0.11, Settings.accents[modelData])
                     current: Settings.accent === modelData
                     onClicked: Settings.accent = modelData
                 }

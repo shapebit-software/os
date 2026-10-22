@@ -31,6 +31,7 @@ LayoutMenu LayoutMenu.qml
 LockSurface LockSurface.qml
 NetworkPanel NetworkPanel.qml
 Panels Panels.qml
+PopoverFrame PopoverFrame.qml
 Popout Popout.qml
 QuickActions QuickActions.qml
 Resizer Resizer.qml
@@ -41,7 +42,6 @@ SettingsWindow SettingsWindow.qml
 ShellBar ShellBar.qml
 ShellEditor ShellEditor.qml
 ShellItem ShellItem.qml
-Switch Switch.qml
 VolumePanel VolumePanel.qml
 Wallpaper Wallpaper.qml
 WindowTabs WindowTabs.qml

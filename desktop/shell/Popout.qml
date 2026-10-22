@@ -21,10 +21,14 @@ PanelWindow {
 
     // How far the panel is from the bar and from the screen's edges.
     property real margin: Theme.gap
-    // An arrow from the panel to what opened it, in the panel's colors.
-    property bool arrow
-    property color arrowColor
-    property color arrowBorder
+    // An arrow from the panel to what opened it, in the panel's colors: those
+    // of PopoverFrame unless set.
+    property bool arrow: true
+    property color arrowColor: edge === "Top" ? Theme.popoverTop : Theme.popoverBottom
+    property color arrowBorder: Theme.popoverRing
+    // Whether the panel stands on its own near the top of the screen,
+    // centered, rather than beside what opened it.
+    property bool floating
     readonly property rect anchor: Shell.anchor
     readonly property string edge: Shell.edge
 
@@ -55,10 +59,12 @@ PanelWindow {
             return Math.max(popout.margin, Math.min(length - popout.margin - size, at - size / 2));
         }
 
-        x: popout.edge === "Left" ? Shell.depth + popout.margin
+        x: popout.floating ? (popout.width - width) / 2
+            : popout.edge === "Left" ? Shell.depth + popout.margin
             : popout.edge === "Right" ? popout.width - Shell.depth - popout.margin - width
             : clamp(popout.anchor.x + popout.anchor.width / 2, width, popout.width)
-        y: popout.edge === "Top" ? Shell.depth + popout.margin
+        y: popout.floating ? Theme.barHeight + popout.margin + popout.height * 0.12
+            : popout.edge === "Top" ? Shell.depth + popout.margin
             : popout.edge === "Bottom" ? popout.height - Shell.depth - popout.margin - height
             : clamp(popout.anchor.y + popout.anchor.height / 2, height, popout.height)
         width: childrenRect.width
@@ -71,26 +77,26 @@ PanelWindow {
     // the other edges, at what opened the panel as far as the panel reaches.
     Item {
         readonly property bool across: popout.edge === "Top" || popout.edge === "Bottom"
-        readonly property real centerX: popout.edge === "Left" ? body.x - 3
-            : popout.edge === "Right" ? body.x + body.width + 3
-            : Math.max(body.x + 8, Math.min(body.x + body.width - 8, popout.anchor.x + popout.anchor.width / 2))
-        readonly property real centerY: popout.edge === "Top" ? body.y - 3
-            : popout.edge === "Bottom" ? body.y + body.height + 3
-            : Math.max(body.y + 8, Math.min(body.y + body.height - 8, popout.anchor.y + popout.anchor.height / 2))
+        readonly property real centerX: popout.edge === "Left" ? body.x - 3.5
+            : popout.edge === "Right" ? body.x + body.width + 3.5
+            : Math.max(body.x + 10, Math.min(body.x + body.width - 10, popout.anchor.x + popout.anchor.width / 2))
+        readonly property real centerY: popout.edge === "Top" ? body.y - 3.5
+            : popout.edge === "Bottom" ? body.y + body.height + 3.5
+            : Math.max(body.y + 10, Math.min(body.y + body.height - 10, popout.anchor.y + popout.anchor.height / 2))
 
-        visible: popout.arrow
+        visible: popout.arrow && !popout.floating
         x: centerX - width / 2
         y: centerY - height / 2
-        width: 14
-        height: 8
+        width: 18
+        height: 9
         rotation: ({ "Bottom": 0, "Top": 180, "Left": 90, "Right": -90 })[popout.edge] ?? 0
         clip: true
 
         Rectangle {
-            x: 7 - width / 2
+            x: 9 - width / 2
             y: -width / 2
-            width: 10
-            height: 10
+            width: 12.7
+            height: 12.7
             rotation: 45
             color: popout.arrowColor
             border.color: popout.arrowBorder

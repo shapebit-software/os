@@ -22,7 +22,7 @@ BarPanel {
 
         width: panel.panelWidth - 20
         height: 46
-        color: lit ? Qt.alpha(Theme.accent, 0.32) : entryHover.hovered ? Theme.panelHover : "transparent"
+        color: lit ? Theme.accentSoft : entryHover.hovered ? Theme.veil(0.07) : "transparent"
 
         Item {
             id: iconHolder
@@ -40,24 +40,44 @@ BarPanel {
                 width: parent.width
                 elide: Text.ElideRight
                 text: entry.title
-                color: entry.lit ? "#f0f2f4" : "#dadee3"
+                color: Theme.ink
                 font { family: Theme.font; pixelSize: 13; weight: Font.Medium }
             }
             Text {
                 width: parent.width
                 elide: Text.ElideRight
                 text: entry.detail
-                color: entry.lit ? "#a0a5ab" : "#94999e"
+                color: Theme.inkFaint
                 font { family: Theme.font; pixelSize: 10 }
             }
         }
-        Switch {
+        // The switch, as on Settings: the accent with the knob right when on.
+        Rectangle {
             visible: entry.switchable
             anchors.right: parent.right
             anchors.rightMargin: 10
             anchors.verticalCenter: parent.verticalCenter
-            checked: entry.on
-            onToggled: entry.toggled()
+            width: 30
+            height: 17
+            radius: 9
+            color: entry.on ? Theme.accent : Theme.veil(0.12)
+
+            Rectangle {
+                x: entry.on ? 15 : 2
+                y: 2
+                width: 13
+                height: 13
+                radius: 7
+                color: "#fbfbfd"
+
+                Behavior on x { NumberAnimation { duration: 120 } }
+            }
+            TapHandler {
+                onTapped: entry.toggled()
+            }
+            HoverHandler {
+                cursorShape: Qt.PointingHandCursor
+            }
         }
         HoverHandler {
             id: entryHover
@@ -74,7 +94,7 @@ BarPanel {
             anchors.fill: parent
             color: "transparent"
             border.width: 1.5
-            border.color: Connectivity.wiredConnected ? Theme.accent : "#a3a8ae"
+            border.color: Connectivity.wiredConnected ? Theme.accent : Theme.inkFaint
         }
     }
 
@@ -99,7 +119,7 @@ BarPanel {
                     anchors.bottom: parent.bottom
                     width: 2
                     height: modelData
-                    color: "#a3a8ae"
+                    color: Theme.inkFaint
                 }
             }
         }
@@ -121,7 +141,7 @@ BarPanel {
             radius: 4.5
             color: "transparent"
             border.width: 1.5
-            border.color: "#a3a8ae"
+            border.color: Theme.inkFaint
         }
     }
 
@@ -130,7 +150,7 @@ BarPanel {
         width: panel.panelWidth - 20
         padding: 10
         text: "No network devices"
-        color: "#94999e"
+        color: Theme.inkFaint
         font { family: Theme.font; pixelSize: 12 }
     }
 }

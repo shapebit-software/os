@@ -62,7 +62,7 @@ hl.config({
 
 -- The system bar and the panels are glass. Panels cover the screen, and a
 -- panel's shadow is not glass: the blur skips what is mostly transparent.
-hl.layer_rule({ match = { namespace = "^(bar|apps)$" }, blur = true, ignore_alpha = 0 })
+hl.layer_rule({ match = { namespace = "^bar$" }, blur = true, ignore_alpha = 0 })
 hl.layer_rule({ match = { namespace = "^(panel|capture|corner)$" }, blur = true, ignore_alpha = 0.5 })
 -- The tabs of Tabs and Accordion cover the screen, so only their glass is blurred.
 hl.layer_rule({ match = { namespace = "^tabs$" }, blur = true, ignore_alpha = 0.05 })

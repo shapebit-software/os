@@ -1,13 +1,16 @@
-// The input language panel: the keyboard layouts, each with its language,
-// name, and arrangement of keys; the active one's language on the accent.
+// The input language panel: the keyboard layouts, each with its language on
+// a chip, its name, and its arrangement of keys; the active one's chip is on
+// the accent, with a check mark.
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Shapes
 
 BarPanel {
     id: panel
 
-    panelWidth: 240
-    spacing: 1
+    panelWidth: 236
+    padding: 8
+    spacing: 2
 
     Repeater {
         model: Keyboard.layouts
@@ -19,42 +22,55 @@ BarPanel {
             required property int index
             readonly property bool active: index === Keyboard.active
 
-            width: panel.panelWidth - 20
-            height: 32
-            color: entryHover.hovered ? Theme.panelHover : "transparent"
+            width: panel.panelWidth - 2 * panel.padding
+            height: 40
+            color: entryHover.hovered ? Theme.veil(0.07) : "transparent"
 
             Rectangle {
-                x: 8
+                x: 6
                 anchors.verticalCenter: parent.verticalCenter
-                width: 26
-                height: 18
+                width: 28
+                height: 22
                 color: entry.active ? Theme.accent : "transparent"
-                border.color: entry.active ? "transparent" : Qt.rgba(1, 1, 1, 0.24)
+                border.color: entry.active ? "transparent" : Theme.veil(0.2)
 
                 Text {
                     anchors.centerIn: parent
                     text: Keyboard.languageOf(entry.modelData)
-                    color: "#f2f5f7"
-                    font { family: Theme.font; pixelSize: 10; weight: Font.Bold; letterSpacing: 0.4 }
+                    color: entry.active ? "#fbfbfd" : Theme.inkSoft
+                    font { family: Theme.font; pixelSize: 10; weight: Font.Bold; letterSpacing: 0.6 }
                 }
             }
-            Text {
+            Column {
                 x: 44
-                width: parent.width - x - arrangement.width - 16
                 anchors.verticalCenter: parent.verticalCenter
-                elide: Text.ElideRight
-                text: Keyboard.nameOf(entry.modelData)
-                color: "#d4d8dd"
-                font { family: Theme.font; pixelSize: 12 }
+                width: parent.width - x - 30
+                spacing: 1
+
+                Text {
+                    width: parent.width
+                    elide: Text.ElideRight
+                    text: Keyboard.nameOf(entry.modelData)
+                    color: Theme.ink
+                    font { family: Theme.font; pixelSize: 13; weight: Font.Medium }
+                }
+                Text {
+                    visible: text !== ""
+                    text: Keyboard.arrangementOf(entry.modelData)
+                    color: Theme.inkFaint
+                    font { family: Theme.mono; pixelSize: 10 }
+                }
             }
-            Text {
-                id: arrangement
+            Icon {
+                visible: entry.active
                 anchors.right: parent.right
                 anchors.rightMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
-                text: Keyboard.arrangementOf(entry.modelData)
-                color: "#94999e"
-                font { family: Theme.mono; pixelSize: 10 }
+                height: 14
+                strokeWidth: 1.8
+                capStyle: ShapePath.RoundCap
+                color: Theme.accent
+                strokes: "M3.5 8.4l3 3 6-6.6"
             }
 
             TapHandler {

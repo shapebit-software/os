@@ -1,11 +1,16 @@
 // The account's picture (Account.picture), or the first letter of its name on
-// the accent.
+// the accent; square, or round.
+pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Effects
 
 Rectangle {
     id: avatar
 
+    property bool round
+
     color: Theme.accent
+    radius: round ? width / 2 : 0
     clip: true
 
     Text {
@@ -23,5 +28,18 @@ Rectangle {
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
         cache: false
+        // Round, the picture is cut to the circle.
+        layer.enabled: avatar.round
+        layer.effect: MultiEffect {
+            maskEnabled: true
+            maskSource: mask
+        }
+    }
+    Rectangle {
+        id: mask
+        anchors.fill: parent
+        radius: width / 2
+        visible: false
+        layer.enabled: true
     }
 }

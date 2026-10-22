@@ -64,13 +64,9 @@ Singleton {
     property alias scales: adapter.scales
     property alias modes: adapter.modes
 
-    readonly property var accents: ({
-        "Cyan": "#007890",
-        "Indigo": "#4966a8",
-        "Green": "#317a45",
-        "Amber": "#9c522e",
-        "Plum": "#8f4e82",
-    })
+    // The accents' hues, as in the demo (Theme.accent).
+    readonly property var accents: ({ "Cyan": 215, "Indigo": 265, "Green": 150, "Amber": 45, "Plum": 335 })
+    readonly property int accentHueShown: accent === "Custom" ? accentHue : accents[accent] ?? 215
     readonly property var gapSizes: ({ "Tight": 4, "Normal": 10, "Wide": 18 })
     readonly property int gapSize: gaps === "Custom" ? gapPixels : gapSizes[gaps] ?? 10
 

@@ -31,18 +31,18 @@ BarPanel {
 
             width: 36
             height: 36
-            color: panel.muted ? Theme.dangerFill : Qt.rgba(1, 1, 1, muteHover.hovered ? 0.16 : 0.1)
+            color: panel.muted ? Theme.oklch(0.52, 0.17, 25) : Theme.veil(muteHover.hovered ? 0.12 : 0.08)
 
             Icon {
                 anchors.centerIn: parent
-                color: "#f0f2f4"
+                color: panel.muted ? "#fbfbfd" : Theme.ink
                 strokes: panel.muted && !panel.wavesWhenMuted ? "" : panel.strokes
                 fills: panel.fills
             }
             Icon {
                 anchors.centerIn: parent
                 visible: panel.muted
-                color: "#f0f2f4"
+                color: "#fbfbfd"
                 strokeWidth: 1.6
                 strokes: panel.mutedStroke
             }
@@ -73,7 +73,7 @@ BarPanel {
                     width: parent.width - percent.width - 8
                     elide: Text.ElideRight
                     text: panel.node?.description || panel.node?.nickname || "No device"
-                    color: "#d4d8dd"
+                    color: Theme.inkSoft
                     font { family: Theme.font; pixelSize: 12 }
                 }
                 Text {
@@ -81,7 +81,7 @@ BarPanel {
                     anchors.right: parent.right
                     anchors.baseline: name.baseline
                     text: Math.round(panel.volume * 100) + "%"
-                    color: "#a0a5ab"
+                    color: Theme.inkFaint
                     font { family: Theme.mono; pixelSize: 10 }
                 }
             }
@@ -95,7 +95,7 @@ BarPanel {
                 Rectangle {
                     anchors.fill: parent
                     radius: 2
-                    color: "#191b1c"
+                    color: Theme.veil(0.07)
                 }
                 Rectangle {
                     width: parent.width * Math.min(1, panel.volume)
@@ -109,8 +109,8 @@ BarPanel {
                     width: 16
                     height: 16
                     radius: 8
-                    color: "#121212"
-                    border.color: Theme.panelBorder
+                    color: "#fbfbfd"
+                    border.color: Theme.veil(0.12)
                 }
                 MouseArea {
                     anchors.fill: parent

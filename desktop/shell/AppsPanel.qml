@@ -1,18 +1,17 @@
-// Apps: the installed applications beside the Apps button, twelve to a page,
-// with a search field. A click, or Enter for the first match, opens an
+// Apps, as in the demo: the installed applications beside the Apps button, a
+// row of ten to a page, with a search field and the pages' arrows and marks. A click, or Enter for the first match, opens an
 // application on the current workspace; dragged to a map in the strip, it
 // opens there. Escape or a click elsewhere closes it.
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
 import Quickshell
-import Quickshell.Wayland
 import Quickshell.Widgets
 
 Popout {
     id: panel
 
-    readonly property int perPage: 12
+    readonly property int perPage: 10
     readonly property list<DesktopEntry> apps: DesktopEntries.applications.values
         .filter(a => !a.noDisplay)
         .sort((a, b) => a.name.localeCompare(b.name))
@@ -30,8 +29,6 @@ Popout {
     }
 
     name: "apps"
-    // The compositor blurs behind this namespace (compositor/hyprland.lua).
-    WlrLayershell.namespace: "apps"
 
     onVisibleChanged: {
         search.text = "";
@@ -40,49 +37,46 @@ Popout {
             search.forceActiveFocus();
     }
 
-    Rectangle {
-        id: frame
+    // As wide as the demo's, or as the screen allows.
+    readonly property real frameWidth: Math.min(720, width - 2 * Theme.gap - 12)
 
-        width: 372
-        height: implicitHeight
-        implicitHeight: column.implicitHeight + 2
-        color: Qt.rgba(0.153, 0.157, 0.188, 0.97)
-        border.color: Theme.panelBorder
+    function step(by: int) {
+        page = Math.max(0, Math.min(pages - 1, shownPage + by));
+    }
+
+    PopoverFrame {
+        padding: 0
 
         Column {
-            id: column
+            width: panel.frameWidth
 
-            x: 1
-            y: 1
-            width: parent.width - 2
-
-            // The search field.
+            // The search field, and the pages.
             Item {
                 width: parent.width
-                height: 52
+                height: 46
 
                 Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    color: "#121212"
-                    border.color: Theme.panelBorder
+                    x: 12
+                    y: 12
+                    width: Math.min(320, parent.width - pager.width - 40)
+                    height: 32
+                    color: Theme.veil(0.06)
 
                     Icon {
-                        x: 10
+                        x: 11
                         anchors.verticalCenter: parent.verticalCenter
-                        width: 13
                         height: 13
-                        strokes: "M2.4 7a4.6 4.6 0 1 0 9.2 0a4.6 4.6 0 1 0-9.2 0zM10.4 10.4L14 14"
-                        color: "#bbbec1"
+                        strokeWidth: 1.5
                         capStyle: ShapePath.RoundCap
+                        color: Theme.inkFaint
+                        strokes: "M2.4 7a4.6 4.6 0 1 0 9.2 0a4.6 4.6 0 1 0-9.2 0zM10.4 10.4L14 14"
                     }
-
                     TextInput {
                         id: search
 
-                        anchors { left: parent.left; right: parent.right; leftMargin: 31; rightMargin: 10 }
+                        anchors { left: parent.left; right: parent.right; leftMargin: 33; rightMargin: 10 }
                         anchors.verticalCenter: parent.verticalCenter
-                        color: Theme.text
+                        color: Theme.ink
                         selectionColor: Theme.accent
                         font { family: Theme.font; pixelSize: 13 }
                         clip: true
@@ -97,30 +91,95 @@ Popout {
                         Text {
                             visible: !search.text
                             text: "Search apps"
-                            color: "#bbbec1"
+                            color: Theme.inkFaint
                             font: search.font
                         }
                     }
                 }
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    width: parent.width
-                    height: 1
-                    color: "#232426"
+
+                Row {
+                    id: pager
+
+                    anchors.right: parent.right
+                    anchors.rightMargin: 12
+                    y: 14
+                    spacing: 8
+
+                    component Arrow: Rectangle {
+                        id: arrow
+
+                        property string strokes
+                        property bool enabled_
+                        signal clicked
+
+                        width: 28
+                        height: 28
+                        color: arrowHover.hovered && enabled_ ? Theme.veil(0.07) : "transparent"
+                        opacity: enabled_ ? 1 : 0.3
+
+                        Icon {
+                            anchors.centerIn: parent
+                            height: 10
+                            strokeWidth: 2
+                            capStyle: ShapePath.SquareCap
+                            color: Theme.ink
+                            strokes: arrow.strokes
+                        }
+                        TapHandler {
+                            onTapped: arrow.clicked()
+                        }
+                        HoverHandler {
+                            id: arrowHover
+                            cursorShape: Qt.PointingHandCursor
+                        }
+                    }
+
+                    Arrow {
+                        strokes: "M10 3L5 8l5 5"
+                        enabled_: panel.shownPage > 0
+                        onClicked: panel.step(-1)
+                    }
+                    Row {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 4
+
+                        Repeater {
+                            model: panel.pages
+
+                            Rectangle {
+                                required property int index
+
+                                width: index === panel.shownPage ? 18 : 10
+                                height: 3
+                                color: index === panel.shownPage ? Theme.accent : Theme.veil(0.2)
+
+                                Behavior on width { NumberAnimation { duration: 160 } }
+
+                                TapHandler {
+                                    onTapped: panel.page = parent.index
+                                }
+                            }
+                        }
+                    }
+                    Arrow {
+                        strokes: "M6 3l5 5-5 5"
+                        enabled_: panel.shownPage < panel.pages - 1
+                        onClicked: panel.step(1)
+                    }
                 }
             }
 
-            // The page of applications; the page keeps its height while a
-            // search narrows it.
+            // The page of applications.
             Item {
+                visible: panel.results.length > 0
                 width: parent.width
-                height: 288
+                height: 106
 
-                Grid {
-                    id: grid
+                Row {
+                    id: row
 
-                    padding: 6
-                    columns: 4
+                    x: 8
+                    y: 10
                     spacing: 2
 
                     Repeater {
@@ -132,9 +191,9 @@ Popout {
 
                             required property DesktopEntry modelData
 
-                            width: (column.width - 2 * grid.padding - 3 * grid.spacing) / 4
-                            height: 90
-                            color: appHover.hovered ? "#35383e" : "transparent"
+                            width: (panel.frameWidth - 16 - 9 * row.spacing) / 10
+                            height: 86
+                            color: appHover.hovered ? Theme.veil(0.07) : "transparent"
 
                             IconImage {
                                 y: 10
@@ -149,7 +208,7 @@ Popout {
                                 horizontalAlignment: Text.AlignHCenter
                                 elide: Text.ElideRight
                                 text: app.modelData.name
-                                color: "#f3f5f8"
+                                color: Theme.ink
                                 font { family: Theme.font; pixelSize: 11; weight: Font.Medium }
                             }
 
@@ -162,7 +221,7 @@ Popout {
                             TapHandler {
                                 onTapped: panel.launch(app.modelData)
                             }
-                            // Dragged to a map in the strip, the application
+                            // Dragged to a map on the dock, the application
                             // opens there (WorkspaceMap.qml).
                             DragHandler {
                                 target: null
@@ -190,51 +249,20 @@ Popout {
                         if (now - lastStep < 350 || Math.abs(delta) < 8)
                             return;
                         lastStep = now;
-                        panel.page = Math.max(0, Math.min(panel.pages - 1, panel.shownPage + (delta < 0 ? 1 : -1)));
+                        panel.step(delta < 0 ? 1 : -1);
                     }
                 }
             }
 
             Text {
-                id: none
-
                 visible: panel.results.length === 0
                 width: parent.width
                 topPadding: 18
                 bottomPadding: 22
                 horizontalAlignment: Text.AlignHCenter
                 text: `No apps match “${search.text.trim()}”`
-                color: "#acb2b7"
+                color: Theme.inkFaint
                 font { family: Theme.font; pixelSize: 12 }
-            }
-
-            // The page dots, when there is more than one page.
-            Row {
-                visible: panel.pages > 1
-                height: 34
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 6
-
-                Repeater {
-                    model: panel.pages
-
-                    Rectangle {
-                        required property int index
-
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: index === panel.shownPage ? 18 : 6
-                        height: 6
-                        radius: 3
-                        color: "#f0f2f4"
-                        opacity: index === panel.shownPage ? 1 : 0.35
-
-                        Behavior on width { NumberAnimation { duration: 160 } }
-
-                        TapHandler {
-                            onTapped: panel.page = parent.index
-                        }
-                    }
-                }
             }
         }
     }

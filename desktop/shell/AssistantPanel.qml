@@ -1,36 +1,41 @@
 // What the assistant's and dictation's buttons open until the assistant
-// comes: a word that it is coming.
+// comes: the demo's command line near the top of the screen, saying that it
+// is coming.
 import QtQuick
 
-BarPanel {
+Popout {
     id: panel
 
     name: "assistant"
-    panelWidth: 260
+    floating: true
 
-    Row {
-        spacing: 10
-        padding: 4
+    PopoverFrame {
+        padding: 0
 
-        Icon {
-            height: 18
-            color: Theme.accent
-            strokes: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z"
-        }
-        Column {
-            spacing: 4
+        Row {
+            width: Math.min(540, panel.width - 40)
+            height: 50
+            leftPadding: 14
+            spacing: 10
 
-            Text {
-                text: "Assistant"
-                color: "#f0f2f4"
-                font { family: Theme.font; pixelSize: 13; weight: Font.DemiBold }
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 20
+                height: 20
+                color: Theme.accent
+
+                Icon {
+                    anchors.centerIn: parent
+                    height: 13
+                    color: "#fbfbfd"
+                    strokes: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z"
+                }
             }
             Text {
-                width: panel.panelWidth - 56
-                wrapMode: Text.Wrap
-                text: "Coming in a future update: ask about what is on the screen, act on it, and dictate."
-                color: "#acb2b7"
-                font { family: Theme.font; pixelSize: 12 }
+                anchors.verticalCenter: parent.verticalCenter
+                text: "The assistant is coming in a future update"
+                color: Theme.inkFaint
+                font { family: Theme.font; pixelSize: 15 }
             }
         }
     }

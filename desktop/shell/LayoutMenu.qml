@@ -1,9 +1,9 @@
-// The layout menu of a workspace (Shell.workspace): a picture of each layout
-// that suits its number of windows (Layouts.suits), beside its map, with an
-// arrow to it. A click on one sets it; a click elsewhere closes the menu.
+// The layout menu of a workspace (Shell.workspace), as in the demo: a picture
+// of each layout that suits its number of windows (Layouts.suits), four to a
+// row and centered, beside its map with an arrow to it. A click on one sets
+// it; a click elsewhere closes the menu.
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Effects
 import Quickshell.Hyprland
 
 Popout {
@@ -11,119 +11,128 @@ Popout {
 
     readonly property int workspace: Shell.workspace
     readonly property int windows: Hyprland.workspaces.values.find(w => w.id === workspace)?.toplevels.values.length ?? 0
+    readonly property string current: Compositor.layoutOf(workspace)
 
-    // The layouts shown, the workspace's own always among them, at most four
-    // to a row.
-    readonly property var choices: Layouts.all.filter(l =>
-        l.id === Compositor.layoutOf(workspace) || Layouts.suits(l.id, windows))
-    readonly property int columns: Math.min(4, choices.length)
-    readonly property real choiceWidth: 49.5
+    // The layouts shown, the workspace's own always among them, in rows of
+    // at most four.
+    readonly property var choices: Layouts.all.filter(l => l.id === current || Layouts.suits(l.id, windows))
+    readonly property var rows: {
+        const rows = [];
+        for (let i = 0; i < choices.length; i += 4)
+            rows.push(choices.slice(i, i + 4));
+        return rows;
+    }
+    readonly property real rowWidth: Math.min(4, choices.length) * 68 - 12
 
     name: "layout"
     margin: 16
-    arrow: true
-    arrowColor: frame.color
-    arrowBorder: frame.border.color
 
-    RectangularShadow {
-        anchors.fill: frame
-        offset.y: 14
-        blur: 17
-        color: Qt.rgba(0.02, 0.05, 0.07, 0.32)
-    }
-
-    Rectangle {
-        id: frame
-
-        width: grid.width + 16
-        height: grid.height + 16
-        color: Qt.rgba(0.153, 0.157, 0.188, 0.96)
-        border.color: Theme.panelBorder
-
-        Grid {
-            id: grid
-
-            x: 8
-            y: 8
-            columns: menu.columns
-            rowSpacing: 8
-            columnSpacing: 6
+    PopoverFrame {
+        Column {
+            spacing: 10
 
             Repeater {
-                model: menu.choices
+                model: menu.rows
 
-                Column {
-                    id: choice
+                Row {
+                    id: row
 
                     required property var modelData
-                    readonly property bool current: Compositor.layoutOf(menu.workspace) === modelData.id
 
-                    width: menu.choiceWidth
-                    spacing: 5
+                    x: (menu.rowWidth - width) / 2
+                    spacing: 12
 
-                    // The picture: the layout's cells, the active one lit.
-                    Rectangle {
-                        width: parent.width
-                        height: 28
-                        color: "#232a36"
-                        border.color: choice.current ? Theme.accent : "transparent"
+                    Repeater {
+                        model: row.modelData
 
-                        Row {
-                            id: picture
+                        Column {
+                            id: choice
 
-                            x: 3
-                            y: 3
-                            width: parent.width - 6
-                            height: parent.height - 6
-                            spacing: 3
+                            required property var modelData
+                            readonly property bool current: menu.current === modelData.id
+                            // The picture's columns: [width, [[height, active, split?], ...]],
+                            // a split cell being two side by side.
+                            readonly property var picture: modelData.glyph ?? modelData.picture
 
-                            Repeater {
-                                model: choice.modelData.picture
+                            width: 56
+                            spacing: 5
 
-                                Column {
-                                    id: column
+                            Rectangle {
+                                width: parent.width
+                                height: 30
+                                color: Theme.veil(0.1)
+                                border.color: choice.current ? Theme.accent : "transparent"
 
-                                    required property var modelData
-                                    readonly property real total: choice.modelData.picture
-                                        .reduce((sum, c) => sum + c[0], 0)
+                                Row {
+                                    id: picture
 
-                                    width: (picture.width - picture.spacing * (choice.modelData.picture.length - 1))
-                                        * modelData[0] / total
-                                    height: picture.height
+                                    x: 3
+                                    y: 3
+                                    width: parent.width - 6
+                                    height: parent.height - 6
                                     spacing: 3
 
                                     Repeater {
-                                        model: column.modelData[1]
+                                        model: choice.picture
 
-                                        Rectangle {
+                                        Column {
+                                            id: column
+
                                             required property var modelData
 
-                                            width: column.width
-                                            height: (column.height - column.spacing * (column.modelData[1].length - 1))
-                                                * modelData[0] / column.modelData[1].reduce((sum, c) => sum + c[0], 0)
-                                            color: !modelData[1] ? "#a3a6aa"
-                                                : choice.current ? Theme.accent : "#e2e5e9"
+                                            width: (picture.width - picture.spacing * (choice.picture.length - 1))
+                                                * modelData[0] / choice.picture.reduce((sum, c) => sum + c[0], 0)
+                                            height: picture.height
+                                            spacing: 3
+
+                                            Repeater {
+                                                model: column.modelData[1]
+
+                                                Row {
+                                                    id: cell
+
+                                                    required property var modelData
+                                                    readonly property color color: modelData[1]
+                                                        ? (choice.current ? Theme.accent : Theme.oklch(0.42, 0.07, 290, 0.72))
+                                                        : Theme.oklch(0.42, 0.07, 290, 0.36)
+
+                                                    width: column.width
+                                                    height: (column.height - column.spacing * (column.modelData[1].length - 1))
+                                                        * modelData[0] / column.modelData[1].reduce((sum, c) => sum + c[0], 0)
+                                                    spacing: 3
+
+                                                    Repeater {
+                                                        model: cell.modelData[2] ? 2 : 1
+
+                                                        Rectangle {
+                                                            width: cell.modelData[2] ? (cell.width - 3) / 2 : cell.width
+                                                            height: cell.height
+                                                            color: cell.color
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                    }
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: choice.modelData.name
-                        color: choice.current ? Theme.accent : "#a8adb2"
-                        font { family: Theme.font; pixelSize: 10; weight: Font.Medium }
-                    }
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: choice.modelData.name
+                                color: choice.current ? Theme.accent : Theme.oklch(0.45, 0.07, 290)
+                                font { family: Theme.font; pixelSize: 10; weight: Font.Medium }
+                            }
 
-                    TapHandler {
-                        onTapped: {
-                            Compositor.setLayout(menu.workspace, choice.modelData.id);
-                            menu.dismissed();
+                            TapHandler {
+                                onTapped: {
+                                    Compositor.setLayout(menu.workspace, choice.modelData.id);
+                                    menu.dismissed();
+                                }
+                            }
+                            HoverHandler {
+                                cursorShape: Qt.PointingHandCursor
+                            }
                         }
-                    }
-                    HoverHandler {
-                        cursorShape: Qt.PointingHandCursor
                     }
                 }
             }
