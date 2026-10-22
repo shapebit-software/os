@@ -72,7 +72,5 @@ ignores the others.
   hot corner say they are coming.
 - Settings has only what works: no password change, no system language,
   automatic time, or first day of the week. The time zone is shown, not set.
-- While dragging, maps of Tabs and Accordion workspaces show the free cell
-  beside the others, where the demo shows tab chips and Accordion's columns.
-  Tabs cannot be dragged. Apps has no page arrows.
+- Tabs cannot be dragged.
 - Tile sizes last while the workspace keeps its layout, not across sessions.

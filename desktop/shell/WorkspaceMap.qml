@@ -5,8 +5,9 @@
 // screen's middle opens the layout menu under the pointer (LayoutMenu.qml);
 // so does a right click on the map.
 //
-// Tabs and Accordion show one window at a time, so their maps show the first
-// window large and the others beside it instead.
+// Tabs and Accordion show one window at a time, so their maps are drawn as in
+// the demo (Layouts.place): Tabs a tab bar above the shown window, Accordion
+// the shown window wide between the others folded thin.
 //
 // Maps take drops (Dragging.qml). An application from Apps or a window from a
 // map lands in a cell: on a window's cell it takes that window's place, which
@@ -56,8 +57,10 @@ Item {
     // application or a window is dragged, where they would be with one more,
     // the last place being the free cell; for Tabs and Accordion, always.
     readonly property list<rect> preview: Dragging.tile
-        ? Layouts.place(layout, windows.length + 1, areaWidth, areaHeight)
-        : layout === "tabs" || layout === "accordion" ? Layouts.place(layout, windows.length, areaWidth, areaHeight) : []
+        ? Layouts.place(layout, windows.length + 1, areaWidth, areaHeight, shownIndex)
+        : layout === "tabs" || layout === "accordion" ? Layouts.place(layout, windows.length, areaWidth, areaHeight, shownIndex) : []
+    // The window Tabs or Accordion shows, by its place in `order`.
+    readonly property int shownIndex: Math.max(0, order.findIndex(w => w.address === Compositor.tiles[modelData.id]?.shown))
     readonly property bool free: Dragging.tile && preview.length > 0
 
     // Where a window is on the area.
@@ -177,7 +180,7 @@ Item {
                         void DesktopEntries.applications.values;
                         return ipc.class ? DesktopEntries.heuristicLookup(ipc.class) : null;
                     }
-                    readonly property string iconSource: Quickshell.iconPath(entry?.icon ?? "", true)
+                    readonly property string iconSource: Quickshell.iconPath(entry?.icon ?? "", "application-x-executable")
 
                     visible: ipc.at !== undefined
                     x: area.x * cells.sx + map.cellGap / 2
@@ -246,6 +249,19 @@ Item {
                         onDropped: map.dropTile(cell.modelData)
                     }
                 }
+            }
+
+            // On a Tabs map, the shown window's own tab.
+            Rectangle {
+                readonly property rect area: Layouts.tab(map.shownIndex, map.preview.length, map.areaWidth, map.areaHeight)
+
+                visible: map.layout === "tabs" && map.preview.length > 1
+                x: area.x * cells.sx + map.cellGap / 2
+                y: area.y * cells.sy + map.cellGap / 2
+                width: Math.max(2, area.width * cells.sx - map.cellGap)
+                height: Math.max(2, area.height * cells.sy - map.cellGap)
+                radius: Theme.rounded ? 2.5 : 0
+                color: map.current ? Qt.rgba(0.98, 0.99, 1, 0.98) : Qt.rgba(0.6, 0.62, 0.65, 0.55)
             }
 
             // The free cell.

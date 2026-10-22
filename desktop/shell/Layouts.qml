@@ -32,6 +32,16 @@ Singleton {
           glyph: [[0.16, [[1]]], [0.16, [[1]]], [1, [[1, true]]], [0.16, [[1]]]] },
     ]
 
+    // The height of a Tabs map's tab bar, the gap below it included, as the
+    // demo's, and the place of the tab of window `i` of `count` on it.
+    function tabBar(height: real): real {
+        return height * 0.18;
+    }
+
+    function tab(i: int, count: int, width: real, height: real): rect {
+        return Qt.rect(width * i / count, 0, width / count, tabBar(height));
+    }
+
     function byId(id: string): var {
         return all.find(l => l.id === id) ?? all[0];
     }
@@ -49,14 +59,31 @@ Singleton {
     // Where a layout puts `count` windows in a width × height area, as the
     // compositor does: one rectangle per window, in the order windows fill
     // the cells. The pictures are the compositor's templates. Tabs and
-    // Accordion show one window at a time, so for maps they put the first
-    // window large and the others beside it, as the demo does.
-    function place(id: string, count: int, width: real, height: real): list<rect> {
+    // Accordion show one window, `shown`; for maps they are drawn as in the
+    // demo: Tabs as a tab bar (tabBar) above the shown window, the others
+    // having their tab's place; Accordion as a column for each window in
+    // order, the shown one wide and the others folded thin.
+    function place(id: string, count: int, width: real, height: real, shown: int): list<rect> {
         if (count < 1)
             return [];
-        const template = id === "tabs" || id === "accordion"
-            ? (count === 1 ? [[1, [[1, true]]]] : [[1.5, [[1, true]]], [1, Array(count - 1).fill([1])]])
-            : id === "grid" && count <= 2 ? [[1, [[1, true]]], [1, [[1]]]] : byId(id).picture;
+        shown = Math.max(0, Math.min(count - 1, shown ?? 0));
+        if (id === "tabs" && count > 1) {
+            const bar = tabBar(height);
+            return Array.from({ length: count }, (_, i) => i === shown
+                ? Qt.rect(0, bar, width, height - bar)
+                : tab(i, count, width, height));
+        }
+        if (id === "accordion") {
+            const weights = Array.from({ length: count }, (_, i) => i === shown ? 1 : 0.07);
+            const total = weights.reduce((a, b) => a + b, 0);
+            let at = 0;
+            return weights.map(w => {
+                const part = Qt.rect(at, 0, width * w / total, height);
+                at += part.width;
+                return part;
+            });
+        }
+        const template = id === "grid" && count <= 2 ? [[1, [[1, true]]], [1, [[1]]]] : byId(id).picture;
         // The cells, and again with the active one first.
         const slots = [], ranked = [];
         template.forEach(([, cells], column) => cells.forEach(([height, active]) => {
