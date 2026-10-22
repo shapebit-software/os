@@ -8,7 +8,7 @@ Distrobox exists for convenience and compatibility. It is **not** a security san
 
 ## Default container image
 
-New containers start from the Fedora Toolbox image matching the Fedora major version of your OS base.
+New containers start from the Fedora image matching the Fedora major version of your OS base.
 
 ## What's next
 
