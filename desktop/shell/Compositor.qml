@@ -17,6 +17,11 @@ Singleton {
     // cells, and the one Tabs or Accordion shows: { order: [address],
     // shown: address or "" }, addresses as Quickshell has them.
     property var tiles: ({})
+    // Where each workspace's tiles can be resized, by id: lines between
+    // columns { kind: "c", column, cell: 0, x, y, length } running down, and
+    // between cells { kind: "r", column, cell, x, y, length } running across,
+    // in the compositor's coordinates (compositor/layouts.lua).
+    property var splits: ({})
     // Where the window of an application that launch() opened goes, until it
     // opens or time runs out: { workspace, address, until }.
     property var placing: null
@@ -42,10 +47,20 @@ Singleton {
         dispatch(`hl.dsp.window.close({ window = "address:0x${address}" })`);
     }
 
-    // Maximizes a window, or ends that, as Alt+F does.
-    function toggleMaximized(address: string) {
+    // Puts a window in full screen, or ends that, as Alt+F does.
+    function toggleFullscreen(address: string) {
         focusWindow(address);
-        dispatch(`hl.dsp.window.fullscreen({ mode = "maximized", window = "address:0x${address}" })`);
+        dispatch(`hl.dsp.window.fullscreen({ mode = "fullscreen", window = "address:0x${address}" })`);
+    }
+
+    // Ends full screen on a workspace.
+    function exitFullscreen(workspace: int) {
+        dispatch(`function()
+            local window = hl.get_workspace(${workspace}).fullscreen_window
+            if window then
+                hl.dispatch(hl.dsp.window.fullscreen({ mode = "fullscreen", action = "unset", window = "address:" .. window.address }))
+            end
+        end`);
     }
 
     function moveWindow(address: string, workspace: int) {
@@ -80,12 +95,43 @@ Singleton {
         dispatch(`function() hl.config({ general = { gaps_in = ${gap / 2}, gaps_out = ${gap} } }) end`);
     }
 
-    function setScale(output: string, scale: real) {
-        dispatch(`function() hl.monitor({ output = "${output}", mode = "preferred", position = "auto", scale = ${scale} }) end`);
+    // Sets an output's mode, such as "2560x1600@120" or "preferred", and its
+    // scale, a number or "auto".
+    function setMonitor(output: string, mode: string, scale: var) {
+        dispatch(`function() hl.monitor({ output = ${quote(output)}, mode = ${quote(mode)}, position = "auto", scale = ${typeof scale === "number" ? scale : quote(String(scale))} }) end`);
+    }
+
+    // The look of the tiles (Settings.windowCorners, windowDecoration), as
+    // in the demo: a hairline is a thin dark border, a shadow lifts the tile,
+    // and soft corners are slightly rounded with both, the border lighter.
+    function setDecoration(corners: string, decoration: string) {
+        const rounding = corners === "Rounded" ? 9 : decoration === "Soft" ? 4 : 0;
+        const border = decoration === "Hairline" ? "rgba(0b08127a)" : decoration === "Soft" ? "rgba(ffffff14)" : "";
+        const shadow = decoration === "Shadow" || decoration === "Soft";
+        dispatch(`function() hl.config({
+            general = { border_size = ${border ? 1 : 0}, col = { active_border = "${border || "rgba(00000000)"}", inactive_border = "${border || "rgba(00000000)"}" } },
+            decoration = { rounding = ${rounding}, shadow = { enabled = ${shadow}, range = 18, render_power = 2, offset = "0 6", color = "rgba(05030a38)" } },
+        }) end`);
+    }
+
+    // The layout of new workspaces (compositor/layouts.lua).
+    function setDefaultLayout(layout: string) {
+        dispatch(`function() layouts.setDefault(${quote(layout)}) end`);
+    }
+
+    // The keyboard layouts to switch between, by code.
+    function setKeyboards(codes: list<string>) {
+        dispatch(`function() hl.config({ input = { kb_layout = ${quote(codes.join(","))} } }) end`);
+    }
+
+    // Moves a line between tiles of a workspace to a position on the screen
+    // (compositor/layouts.lua).
+    function resize(workspace: int, kind: string, column: int, cell: int, at: real) {
+        dispatch(`function() layouts.resize(${workspace}, "${kind}", ${column}, ${cell}, ${Math.round(at)}) end`);
     }
 
     function layoutOf(id: int): string {
-        return layouts[id] ?? "lead";
+        return layouts[id] ?? Settings.defaultLayout;
     }
 
     function setLayout(id: int, layout: string) {
@@ -99,14 +145,20 @@ Singleton {
             refresh.restart();
             if (event.name === "openwindow")
                 compositor.place(event.data.split(","));
-            // The compositor announces layouts as custom events:
-            // "layout <id> <name>" and "tiles <id> <shown> <windows>".
+            // The compositor announces layouts as custom events: "layout <id>
+            // <name>", "tiles <id> <shown> <windows>", and "splits <id> <splits>".
             if (event.name !== "custom")
                 return;
             const [kind, id, value, windows] = event.data.split(" ");
             const address = a => a.replace(/^0x/, "");
             if (kind === "layout")
                 compositor.layouts = Object.assign({}, compositor.layouts, { [id]: value });
+            else if (kind === "splits")
+                compositor.splits = Object.assign({}, compositor.splits, { [id]: value === "-" ? []
+                    : value.split(";").map(split => {
+                        const [kind, column, cell, x, y, length] = split.split(",");
+                        return { kind, column: +column, cell: +cell, x: +x, y: +y, length: +length };
+                    }) });
             else if (kind === "tiles")
                 compositor.tiles = Object.assign({}, compositor.tiles, { [id]: {
                     shown: value === "-" ? "" : address(value),

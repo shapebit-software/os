@@ -7,11 +7,18 @@ and [Quickshell](https://quickshell.org) as the shell, following the
 the demo decides.
 
 The session starts Hyprland with the configuration in `compositor/`, which
-starts the shell in `shell/`. So far the shell draws the wallpaper, the bar,
-the strip with Apps and the workspaces, the tabs of the Tabs and Accordion
-layouts, Settings, and the lock screen. Settings are kept in
-`~/.config/desktop/settings.json`; the shell applies them to itself and to the
-compositor.
+starts the shell in `shell/`. The shell draws the wallpaper, the system bar
+and the dock (Apps, the workspace maps, and the quick actions) with their
+panels, the tabs of the Tabs and Accordion layouts, the handles that resize
+tiles, the way out of full screen, Settings, and the lock screen. Settings are
+kept in `~/.config/desktop/settings.json`; the shell applies them to itself
+and to the compositor.
+
+Each bar can sit on any edge, and its items can move between the bars' zones
+(Settings > Shell). Windows move only on the maps: drag a window's cell onto
+another cell or map; double-click it for full screen (Alt+F), which covers
+the bars and ends from the button in the top right corner; right-click it to
+close it (Alt+Q).
 
 Unlike the demo, the desktop has no Overview: workspaces come and go with
 their windows. The session starts with one; dropping a window or an
@@ -51,29 +58,21 @@ ignores the others.
 
 ## Layout
 
-| Path          | Purpose                                                                                                       |
-| ------------- | ------------------------------------------------------------------------------------------------------------- |
-| `compositor/` | The Hyprland configuration (Lua): look, key bindings, layouts (`layouts.lua`), workspaces (`workspaces.lua`). |
-| `shell/`      | The Quickshell configuration (QML): every shell surface.                                                      |
-| `session/`    | The session entry that the login screen starts.                                                               |
+| Path          | Purpose                                                                                                                    |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `compositor/` | The Hyprland configuration (Lua): look, key bindings, layouts and resizing (`layouts.lua`), workspaces (`workspaces.lua`). |
+| `shell/`      | The Quickshell configuration (QML): every shell surface.                                                                   |
+| `session/`    | The session entry that the login screen starts.                                                                            |
 
 ## Not yet implemented
 
 - The session in the OS image; the image repository does not install the
   desktop yet.
-- Everything in the demo but the wallpaper, the tile look, the bar and its
-  panels, the strip, Apps, the layouts, quick actions with capture, Settings,
-  the lock screen, and two key bindings (Alt+Q closes a window, Alt+F
-  maximizes it): the assistant.
-- Settings has only what works: no password change or fingerprint setup, no
-  light theme, no night light, no VPN, no alert sounds, and no Assistant
-  section. Values such as the resolution cannot be changed yet.
-- Quick actions have no Dictate, and their button does not open the
-  assistant; both come with the assistant. A click keeps the actions shown.
-- The bar shows keyboard layout codes (US), where the demo shows language
-  codes (EN).
-- The strip has no workspace menu; Apps has no page arrows. While dragging,
-  maps of Tabs and Accordion workspaces show the free cell beside the others,
-  where the demo shows tab chips and Accordion's columns.
-- Layouts have no resizing and no dragging windows between cells on the
-  screen; that works on the maps. Tabs cannot be dragged.
+- The assistant and dictation: their buttons, the Settings section, and the
+  hot corner say they are coming.
+- Settings has only what works: no password change, no system language,
+  automatic time, or first day of the week. The time zone is shown, not set.
+- While dragging, maps of Tabs and Accordion workspaces show the free cell
+  beside the others, where the demo shows tab chips and Accordion's columns.
+  Tabs cannot be dragged. Apps has no page arrows.
+- Tile sizes last while the workspace keeps its layout, not across sessions.

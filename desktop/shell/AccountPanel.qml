@@ -24,7 +24,7 @@ BarPanel {
 
     function openSettings(section: string) {
         dismissed();
-        Settings.open(screen.name, section);
+        Settings.open(screenName, section);
     }
 
     panelWidth: 250
@@ -48,17 +48,9 @@ BarPanel {
             padding: 8
             spacing: 11
 
-            Rectangle {
+            Avatar {
                 width: 32
                 height: 32
-                color: Theme.accent
-
-                Text {
-                    anchors.centerIn: parent
-                    text: Account.displayName.charAt(0).toUpperCase()
-                    color: "#f5feff"
-                    font { family: Theme.font; pixelSize: 15; weight: Font.DemiBold }
-                }
             }
             Column {
                 anchors.verticalCenter: parent.verticalCenter

@@ -1,6 +1,9 @@
-// The map of one workspace in the strip (Strip.qml): its windows where they
-// are on the screen, each with its application's icon. Under the pointer, a
-// button above the map opens the layout menu.
+// The map of one workspace on a bar (Workspaces.qml): its windows where they
+// are on the screen, each with its application's icon. A click on a window
+// focuses it, a double click puts it in full screen, and a right click closes
+// it. With two windows or more, a button on the map's side toward the
+// screen's middle opens the layout menu under the pointer (LayoutMenu.qml);
+// so does a right click on the map.
 //
 // Tabs and Accordion show one window at a time, so their maps show the first
 // window large and the others beside it instead.
@@ -22,8 +25,10 @@ Item {
     id: map
 
     required property HyprlandWorkspace modelData
-    required property ShellScreen screen
+    required property ShellBar bar
     required property HyprlandMonitor monitor
+    readonly property ShellScreen screen: bar.modelData
+    readonly property bool menuOpen: Shell.isOpen("layout", screen?.name ?? "") && Shell.workspace === modelData.id
     // A click or a drop went to this workspace or one of its windows.
     signal activated
 
@@ -42,10 +47,10 @@ Item {
     // The area the tiles cover on the screen, grown by half the gap between
     // tiles on every side, so the tiles cover it without gaps.
     readonly property var reserved: monitor?.lastIpcObject.reserved ?? [0, 0, 0, 0]
-    readonly property real areaX: screen.x + reserved[0] + Theme.gap / 2
-    readonly property real areaY: screen.y + reserved[1] + Theme.gap / 2
-    readonly property real areaWidth: screen.width - reserved[0] - reserved[2] - Theme.gap
-    readonly property real areaHeight: screen.height - reserved[1] - reserved[3] - Theme.gap
+    readonly property real areaX: (screen?.x ?? 0) + reserved[0] + Theme.gap / 2
+    readonly property real areaY: (screen?.y ?? 0) + reserved[1] + Theme.gap / 2
+    readonly property real areaWidth: (screen?.width ?? 1) - reserved[0] - reserved[2] - Theme.gap
+    readonly property real areaHeight: (screen?.height ?? 1) - reserved[1] - reserved[3] - Theme.gap
 
     // Where the windows are drawn, if not where they are: while an
     // application or a window is dragged, where they would be with one more,
@@ -62,6 +67,15 @@ Item {
         const size = ipc.size ?? [0, 0];
         return Qt.rect(at[0] - Theme.gap / 2 - areaX, at[1] - Theme.gap / 2 - areaY,
             size[0] + Theme.gap, size[1] + Theme.gap);
+    }
+
+    function toggleMenu() {
+        const open = menuOpen;
+        Shell.close();
+        if (!open) {
+            Shell.workspace = modelData.id;
+            bar.open("layout", map);
+        }
     }
 
     function dropTile(target: HyprlandToplevel) {
@@ -84,8 +98,6 @@ Item {
         }
     }
 
-    width: 84
-    height: Theme.stripHeight
     opacity: Dragging.workspace === modelData.id ? 0.4 : 1
 
     TapHandler {
@@ -93,6 +105,10 @@ Item {
             Compositor.focusWorkspace(map.modelData.id);
             map.activated();
         }
+    }
+    TapHandler {
+        acceptedButtons: Qt.RightButton
+        onTapped: map.toggleMenu()
     }
     HoverHandler {
         id: hover
@@ -169,6 +185,7 @@ Item {
                     width: Math.max(2, area.width * cells.sx - map.cellGap)
                     height: Math.max(2, area.height * cells.sy - map.cellGap)
                     opacity: Dragging.window === modelData ? 0.35 : 1
+                    radius: Theme.rounded ? 2.5 : 0
                     color: !map.current ? Qt.rgba(0.6, 0.62, 0.65, 0.55)
                         : modelData.activated ? Qt.rgba(0.98, 0.99, 1, 0.98)
                         : Qt.rgba(0.77, 0.79, 0.83, 0.8)
@@ -204,6 +221,13 @@ Item {
                             Compositor.focusWindow(cell.modelData.address);
                             map.activated();
                         }
+                        onDoubleTapped: Compositor.toggleFullscreen(cell.modelData.address)
+                    }
+                    TapHandler {
+                        acceptedButtons: Qt.RightButton
+                        // Takes the click from the map below.
+                        gesturePolicy: TapHandler.WithinBounds
+                        onTapped: Compositor.closeWindow(cell.modelData.address)
                     }
                     DragHandler {
                         target: null
@@ -257,14 +281,16 @@ Item {
         border.color: Theme.accent
     }
 
-    // The layout button, showing the workspace's layout; dragging it drags
-    // the workspace.
+    // The layout button, showing the workspace's layout, half over the map's
+    // edge toward the screen's middle; dragging it drags the workspace.
     Rectangle {
         id: layoutButton
 
-        visible: hover.hovered || buttonHover.hovered || menu.visible
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: -10
+        readonly property string edge: map.bar.edge
+
+        visible: map.windows.length >= 2 && (hover.hovered || buttonHover.hovered) || map.menuOpen
+        x: edge === "Left" ? map.width - width + 10 : edge === "Right" ? -10 : (map.width - width) / 2
+        y: edge === "Bottom" ? -10 : edge === "Top" ? map.height - height + 10 : (map.height - height) / 2
         width: 32
         height: 18
         radius: 9
@@ -288,7 +314,7 @@ Item {
         TapHandler {
             // Takes the click from the map below.
             gesturePolicy: TapHandler.WithinBounds
-            onTapped: menu.visible ? menu.visible = false : menu.open()
+            onTapped: map.toggleMenu()
         }
         HoverHandler {
             id: buttonHover
@@ -304,18 +330,11 @@ Item {
             target: null
             onActiveChanged: {
                 if (active) {
-                    menu.visible = false;
+                    Shell.close();
                     Dragging.workspace = map.modelData.id;
                     layoutButton.Drag.active = true;
                 }
             }
         }
-    }
-
-    LayoutMenu {
-        id: menu
-        map: map
-        workspace: map.modelData.id
-        screenWidth: map.screen.width
     }
 }

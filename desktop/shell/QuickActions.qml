@@ -1,56 +1,110 @@
-// The quick actions in the strip's corner: a glass button that shows the
-// actions beside it under the pointer. While recording, it is red with the
-// time, and a click stops the recording. A click otherwise keeps the actions
-// shown; it opens the assistant once there is one.
+// The quick actions on a bar (Settings.quickActions "Buttons"): the
+// assistant's button, and beside it the buttons to capture and to dictate.
+// On the dock, the assistant's is a large glass tile with the other two
+// stacked small beside it; on the system bar, all three are plain buttons.
+// While recording, the capture button is red, and so is the assistant's,
+// with the time; a click on either stops the recording. The assistant and
+// dictation are still to come: their buttons say so (AssistantPanel.qml).
+pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Effects
+import QtQuick.Layouts
 
-Row {
+GridLayout {
     id: actions
 
-    property bool pinned
-    readonly property bool expanded: (hover.hovered || pinned) && !Capture.recording
-    signal captureClicked
+    required property ShellBar bar
 
-    layoutDirection: Qt.RightToLeft
-    spacing: 4
+    readonly property bool tile: bar.dock
+    // The small buttons, across the bar from the large one on the dock.
+    readonly property int small: tile ? (bar.size - 4) / 2 : bar.size
 
-    HoverHandler {
-        id: hover
-        onHoveredChanged: {
-            if (!hovered)
-                actions.pinned = false;
+    readonly property string sparkle: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z"
+    readonly property string frame: "M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3"
+        + "M5.8 8a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0-4.4 0z"
+    readonly property string wave: "M2 7v2M5 5v6M8 2.5v11M11 5v6M14 7v2"
+
+    function capture(button: Item) {
+        if (Capture.recording)
+            Capture.stop();
+        else
+            bar.open("capture", button);
+    }
+
+    flow: bar.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
+    rowSpacing: 4
+    columnSpacing: 4
+
+    // A small button: a glass tile on the dock, a plain one on the system bar.
+    component Small: BarButton {
+        id: small
+
+        property string strokes
+        property bool red
+
+        tile: actions.tile
+        size: actions.small
+        fill: red ? "#d23a3a" : "transparent"
+
+        Rectangle {
+            visible: small.red
+            width: 9
+            height: 9
+            radius: 1
+            color: "#fbfcfd"
+        }
+        Icon {
+            visible: !small.red
+            height: actions.tile ? 14 : 18
+            color: "#f6f7f9"
+            strokeWidth: 1.5
+            strokes: small.strokes
         }
     }
 
-    // The button.
-    Item {
-        width: Theme.stripHeight
-        height: Theme.stripHeight
+    // On the dock, the small buttons share the bar's depth.
+    GridLayout {
+        visible: actions.tile
+        flow: actions.bar.vertical ? GridLayout.LeftToRight : GridLayout.TopToBottom
+        rowSpacing: 4
+        columnSpacing: 4
 
-        layer.enabled: buttonHover.hovered
-        layer.effect: MultiEffect { brightness: 0.2 }
+        Small {
+            id: captureTile
+            strokes: actions.frame
+            red: Capture.recording
+            onClicked: actions.capture(captureTile)
+        }
+        Small {
+            id: dictateTile
+            strokes: actions.wave
+            onClicked: actions.bar.open("assistant", dictateTile)
+        }
+    }
+    Small {
+        id: captureButton
+        visible: !actions.tile
+        strokes: actions.frame
+        red: Capture.recording
+        onClicked: actions.capture(captureButton)
+    }
+    Small {
+        id: dictateButton
+        visible: !actions.tile
+        strokes: actions.wave
+        onClicked: actions.bar.open("assistant", dictateButton)
+    }
 
-        RectangularShadow {
-            anchors.fill: parent
-            offset.y: 6
-            blur: 16
-            color: Qt.rgba(0.01, 0.01, 0.04, 0.3)
-        }
-        Rectangle {
-            anchors.fill: parent
-            color: Capture.recording ? "#d23a3a" : Qt.rgba(1, 1, 1, actions.expanded ? 0.26 : 0.14)
-        }
+    // The assistant's button; while recording, the recording's.
+    BarButton {
+        id: assistant
 
-        Icon {
-            anchors.centerIn: parent
-            visible: !Capture.recording
-            height: 20
-            color: "#fbfcfd"
-            strokes: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z"
-        }
+        tile: actions.tile
+        size: actions.bar.size
+        open: Shell.isOpen("assistant", actions.bar.modelData?.name ?? "")
+        onClicked: Capture.recording ? Capture.stop() : actions.bar.open("assistant", assistant)
+        fill: Capture.recording ? "#d23a3a" : "transparent"
+
         Column {
-            anchors.centerIn: parent
             visible: Capture.recording
             spacing: 6
 
@@ -71,72 +125,17 @@ Row {
                 }
             }
             Text {
+                visible: actions.tile
                 text: Capture.elapsed
                 color: "#fbfcfd"
                 font { family: Theme.mono; pixelSize: 11; weight: Font.DemiBold }
             }
         }
-
-        TapHandler {
-            onTapped: {
-                if (Capture.recording)
-                    Capture.stop();
-                else
-                    actions.pinned = !actions.pinned;
-            }
-        }
-        HoverHandler {
-            id: buttonHover
-            cursorShape: Qt.PointingHandCursor
-        }
-    }
-
-    // The actions.
-    Item {
-        visible: actions.expanded
-        width: row.width + 16
-        height: Theme.stripHeight
-
-        RectangularShadow {
-            anchors.fill: parent
-            offset.y: 6
-            blur: 16
-            color: Qt.rgba(0.01, 0.01, 0.04, 0.3)
-        }
-        Rectangle {
-            anchors.fill: parent
-            color: Qt.rgba(1, 1, 1, 0.14)
-        }
-
-        Row {
-            id: row
-            x: 8
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 2
-
-            Rectangle {
-                width: 44
-                height: 44
-                color: captureHover.hovered ? Qt.rgba(1, 1, 1, 0.16) : "transparent"
-
-                Icon {
-                    anchors.centerIn: parent
-                    color: "#f0f2f4"
-                    strokes: "M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3"
-                        + "M5.8 8a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0-4.4 0z"
-                }
-
-                TapHandler {
-                    onTapped: {
-                        actions.pinned = false;
-                        actions.captureClicked();
-                    }
-                }
-                HoverHandler {
-                    id: captureHover
-                    cursorShape: Qt.PointingHandCursor
-                }
-            }
+        Icon {
+            visible: !Capture.recording
+            height: actions.tile ? 20 : 18
+            color: "#fbfcfd"
+            strokes: actions.sparkle
         }
     }
 }

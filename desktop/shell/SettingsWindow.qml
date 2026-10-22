@@ -1,11 +1,13 @@
-// Settings, over the whole screen it was opened on: sections on the left, the
-// open section's settings on the right, and a search across all of them.
-// Escape or the close button closes it.
+// Settings, over the whole screen it was opened on, as in the demo: sections
+// in groups on the left with a search across all of them, and the open
+// section's settings on the right (SettingsRow.qml). Some settings lead to a
+// page of their own, such as choosing a picture. Escape or the close button
+// closes it; on a page, Escape goes back.
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import Quickshell.Networking
 import Quickshell.Wayland
 
@@ -15,57 +17,115 @@ PanelWindow {
     required property ShellScreen modelData
 
     readonly property HyprlandMonitor monitor: Hyprland.monitorFor(modelData)
+    // The output's modes, such as "2560x1600@120.00Hz", as sizes and rates.
+    readonly property var modes: (monitor?.lastIpcObject.availableModes ?? []).map(m => {
+        const [size, rate] = m.replace(/Hz$/, "").split("@");
+        return { size, rate: Math.round(parseFloat(rate)) };
+    })
+    readonly property string size: monitor ? `${monitor.width}x${monitor.height}` : ""
+    readonly property int rate: Math.round(monitor?.lastIpcObject.refreshRate ?? 0)
+    property string timeZone
 
-    // Each section: { id, name, rows }. Each row: { label, detail } and one of
-    // a value { value }, a choice { options, selected, select(option) }, or a
-    // switch { on, toggle() }.
+    // The open page, or none: "picture", "wallpaper", or "keyboards".
+    property string page
+
+    // Each section: { id, name, icon, rows }, rows as in SettingsRow.qml.
     readonly property var sections: [
-        { id: "account", name: "Account", rows: [
+        { id: "account", name: "Account", icon: "M5.2 5.6a2.8 2.8 0 1 0 5.6 0a2.8 2.8 0 1 0-5.6 0zM2.6 14.2a5.4 5.4 0 0 1 10.8 0", rows: [
+            { label: "Picture", detail: "Shown on the lock screen and in the system menu", kind: "picture",
+              open: () => page = "picture" },
             { label: "Name", detail: "Shown on the lock screen and in the system menu", value: Account.displayName },
-            { label: "Lock automatically", detail: "After the computer has been idle",
+            { label: "Lock automatically", detail: "After the screen has been idle", kind: "choice",
               options: Object.keys(Settings.lockTimes), selected: Settings.autolock,
               select: o => Settings.autolock = o },
         ] },
-        { id: "appearance", name: "Appearance", rows: [
-            { label: "Accent", detail: "Used for focus, selection and switches",
-              options: Object.keys(Settings.accents), selected: Settings.accent,
-              select: o => Settings.accent = o },
-            { label: "Window gaps", detail: "Space between tiled windows",
-              options: Object.keys(Settings.gapSizes), selected: Settings.gaps,
-              select: o => Settings.gaps = o },
-            { label: "Reduce transparency", detail: "Solid backgrounds for the bar and menus",
-              on: Settings.reduceTransparency,
-              toggle: () => Settings.reduceTransparency = !Settings.reduceTransparency },
+        { id: "assistant", name: "Assistant", icon: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z", rows: [
+            { label: "Coming soon", detail: "Assistant settings will be available in a future update.", kind: "info" },
         ] },
-        { id: "display", name: "Display", rows: [
-            { label: "Resolution", detail: monitor?.name ?? "",
-              value: monitor ? `${monitor.width} × ${monitor.height}` : "" },
-            { label: "Scale", detail: "Size of text and interface",
+        { id: "language", name: "Language", icon: "M2 8a6 6 0 1 0 12 0a6 6 0 1 0-12 0zM2 8h12M8 2c-2.2 2.4-2.2 9.6 0 12M8 2c2.2 2.4 2.2 9.6 0 12", rows: [
+            { label: "Region format", detail: "Dates in the bar and on the lock screen", kind: "choice",
+              options: ["US", "UK", "EU"], selected: Settings.regionShown, select: o => Settings.region = o },
+            { label: "Keyboards", value: "Manage", open: () => page = "keyboards",
+              detail: `${(Settings.keyboards.length ? Settings.keyboards : Keyboard.layouts).map(k => Keyboard.nameOf(k)).join(", ")} · switch with Super+Space` },
+        ] },
+        { id: "time", name: "Time", icon: "M2 8a6 6 0 1 0 12 0a6 6 0 1 0-12 0zM8 4.5V8l2.4 1.6", rows: [
+            { label: "Time zone", detail: "Set by the system", value: timeZone },
+            { label: "Time format", detail: "Shown in the top bar and lock screen", kind: "choice",
+              options: ["12-hour", "24-hour"], selected: Settings.timeFormat, select: o => Settings.timeFormat = o },
+        ] },
+        { id: "desktop", name: "Desktop", icon: "M1.8 2.8h12.4v10.4H1.8zM1.8 11l3.6-3.4 3 2.6 2.2-1.8 3.6 2.8M9.6 5.8a1 1 0 1 0 2 0a1 1 0 1 0-2 0z", rows: [
+            { label: "Accent color", detail: "Focus, selection and toggles", kind: "swatches" },
+            { label: "Wallpaper", detail: "Choose a preset or your own image", kind: "wallpapers",
+              open: () => page = "wallpaper" },
+        ] },
+        { id: "shell", name: "Shell", icon: "M1.8 2.8h12.4v10.4H1.8zM1.8 5.4h12.4M4.6 10.6h6.8", rows: [
+            { label: "Layout", detail: "Drag items to reorder them or move them between zones", kind: "shell" },
+            { label: "System bar", detail: "Clock and status icons", kind: "choice",
+              options: Shell.edges, selected: Settings.systemBar, select: o => Shell.place("system", o) },
+            { label: "Dock", detail: "Apps, workspaces and quick actions", kind: "choice",
+              options: Shell.edges, selected: Settings.dock, select: o => Shell.place("dock", o) },
+            { label: "Bar background", detail: "Fill behind the bars", kind: "choice",
+              options: ["None", "Glass", "Solid"], selected: Settings.barBackground,
+              select: o => Settings.barBackground = o },
+            { label: "Quick actions", detail: "How the screenshot and record actions open", kind: "choice",
+              options: ["Buttons", "Hot corner"], selected: Settings.quickActions,
+              select: o => Settings.quickActions = o },
+        ] },
+        { id: "windows", name: "Windows", icon: "M1.8 2.8h7v10.4h-7zM10.4 2.8h3.8v4.4h-3.8zM10.4 8.8h3.8v4.4h-3.8z", rows: [
+            { label: "Corners", detail: "Shape of tiled windows", kind: "choice",
+              options: ["Straight", "Rounded"], selected: Settings.windowCorners,
+              select: o => Settings.windowCorners = o },
+            { label: "Decoration", detail: "Edge treatment around windows", kind: "choice",
+              options: ["None", "Hairline", "Shadow", "Soft"], selected: Settings.windowDecoration,
+              select: o => Settings.windowDecoration = o },
+            { label: "Gaps", detail: "Space between tiled windows", kind: "gaps" },
+            { label: "Default layout", detail: "Used for new workspaces", kind: "select",
+              options: ["columns", "tabs", "rows"].map(id => [Layouts.byId(id).name, id]),
+              selected: Settings.defaultLayout, select: o => Settings.defaultLayout = o },
+        ] },
+        { id: "display", name: "Display", icon: "M1.8 2.6h12.4v8.4H1.8zM5.5 13.8h5M8 11v2.8", rows: [
+            { label: "Resolution", detail: monitor?.name ?? "", kind: "select",
+              options: [...new Set(modes.map(m => m.size))].map(s => [s.replace("x", " × "), s]),
+              selected: size,
+              select: s => Settings.setMode(monitor.name, `${s}@${Math.max(...modes.filter(m => m.size === s).map(m => m.rate))}`) },
+            { label: "Scale", detail: "Size of text and interface", kind: "choice",
               options: ["100%", "125%", "150%", "200%"],
               selected: `${Math.round((monitor?.scale ?? 1) * 100)}%`,
               select: o => Settings.setScale(monitor.name, parseInt(o) / 100) },
-            { label: "Refresh rate", detail: monitor?.name ?? "",
-              value: `${Math.round(monitor?.lastIpcObject.refreshRate ?? 0)} Hz` },
+            { label: "Refresh rate", detail: monitor?.name ?? "", kind: "select",
+              options: [...new Set(modes.filter(m => m.size === size).map(m => m.rate))].map(r => [`${r} Hz`, r]),
+              selected: rate, select: r => Settings.setMode(monitor.name, `${size}@${r}`) },
         ] },
-        { id: "network", name: "Network", rows: [
+        { id: "network", name: "Network", icon: "M2.4 6.2a8 8 0 0 1 11.2 0M4.7 8.7a4.9 4.9 0 0 1 6.6 0M7.1 11.6a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0-1.8 0z", rows: [
             ...(Connectivity.wired.length ? [{ label: "Ethernet", detail: "Wired connection",
               value: Connectivity.wiredConnected ? "Connected" : "Disconnected" }] : []),
-            ...(Connectivity.wifi ? [{ label: "Wi-Fi", detail: Connectivity.wifiDetail,
+            ...(Connectivity.wifi ? [{ label: "Wi-Fi", detail: Connectivity.wifiDetail, kind: "toggle",
               on: Networking.wifiEnabled, toggle: () => Connectivity.toggleWifi() }] : []),
-            ...(Connectivity.adapter ? [{ label: "Bluetooth", detail: Connectivity.bluetoothDetail,
+            ...(Connectivity.adapter ? [{ label: "Bluetooth", detail: Connectivity.bluetoothDetail, kind: "toggle",
               on: Connectivity.adapter.enabled, toggle: () => Connectivity.toggleBluetooth() }] : []),
         ] },
-        { id: "sound", name: "Sound", rows: [
+        { id: "sound", name: "Sound", icon: "M10.8 5.9a3 3 0 0 1 0 4.2M12.7 4.2a5.6 5.6 0 0 1 0 7.6M3 6.2h2.2L8.6 3.4v9.2L5.2 9.8H3z", rows: [
             { label: "Output", detail: Audio.output?.description ?? "No device",
               value: `${Math.round((Audio.output?.audio?.volume ?? 0) * 100)}%` },
             { label: "Input", detail: Audio.input?.description ?? "No device",
               value: `${Math.round((Audio.input?.audio?.volume ?? 0) * 100)}%` },
         ] },
     ]
+    // The sections in the sidebar's groups.
+    readonly property var groups: [
+        ["account", "assistant", "language", "time"],
+        ["desktop", "shell", "windows"],
+        ["display", "network", "sound"],
+    ]
+    // The pages: their title, and the section they belong to.
+    readonly property var pages: ({
+        "picture": ["Choose a picture", "account"],
+        "wallpaper": ["Choose a wallpaper", "desktop"],
+        "keyboards": ["Keyboards", "language"],
+    })
 
     readonly property string query: search.text.trim().toLowerCase()
     readonly property var section: sections.find(s => s.id === Settings.section) ?? sections[0]
-    readonly property string title: query ? "Results" : section.name
     readonly property var rows: query
         ? sections.flatMap(s => s.rows).filter(r => (r.label + " " + r.detail).toLowerCase().includes(query))
         : section.rows
@@ -74,8 +134,14 @@ PanelWindow {
         Settings.openOn = "";
     }
 
+    function show(id: string) {
+        search.text = "";
+        page = "";
+        Settings.section = id;
+    }
+
     screen: modelData
-    visible: Settings.openOn === modelData.name
+    visible: Settings.openOn === (modelData?.name ?? "")
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "settings"
     // It covers the screen, so taking the keyboard holds back nothing.
@@ -86,13 +152,24 @@ PanelWindow {
 
     onVisibleChanged: {
         search.text = "";
-        if (visible)
+        page = "";
+        if (visible) {
             search.forceActiveFocus();
+            zone.running = true;
+        }
+    }
+
+    Process {
+        id: zone
+        command: ["timedatectl", "show", "--property=Timezone", "--value"]
+        stdout: StdioCollector {
+            onStreamFinished: window.timeZone = text.trim()
+        }
     }
 
     Shortcut {
         sequence: "Escape"
-        onActivated: window.close()
+        onActivated: window.page ? window.page = "" : window.close()
     }
 
     // The sections.
@@ -116,28 +193,11 @@ PanelWindow {
             width: parent.width - 20
             spacing: 14
 
-            Row {
+            Text {
                 leftPadding: 8
-                spacing: 10
-
-                Rectangle {
-                    width: 26
-                    height: 26
-                    color: Theme.accent
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: Account.displayName.charAt(0).toUpperCase()
-                        color: "#f5feff"
-                        font { family: Theme.font; pixelSize: 12; weight: Font.DemiBold }
-                    }
-                }
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Settings"
-                    color: "#1d2022"
-                    font { family: Theme.font; pixelSize: 15; weight: Font.DemiBold }
-                }
+                text: "Settings"
+                color: "#1d2022"
+                font { family: Theme.font; pixelSize: 15; weight: Font.DemiBold }
             }
 
             Rectangle {
@@ -164,6 +224,10 @@ PanelWindow {
                     selectionColor: Theme.accent
                     font { family: Theme.font; pixelSize: 12 }
                     clip: true
+                    onTextChanged: {
+                        if (text)
+                            window.page = "";
+                    }
 
                     Text {
                         visible: !search.text
@@ -174,79 +238,73 @@ PanelWindow {
                 }
             }
 
-            Column {
-                width: parent.width
-                spacing: 2
+            Repeater {
+                model: window.groups
 
-                Repeater {
-                    model: window.sections
+                Column {
+                    id: group
+
+                    required property var modelData
+                    required property int index
+
+                    width: parent.width
+                    topPadding: index > 0 ? 14 : 0
+                    spacing: 2
 
                     Rectangle {
-                        id: entry
-
-                        required property var modelData
-                        required property int index
-                        readonly property bool current: !window.query && Settings.section === modelData.id
-
+                        visible: group.index > 0
+                        y: 0
                         width: parent.width
-                        height: 36
-                        color: current ? "white" : entryHover.hovered ? "#dfe1e4" : "transparent"
+                        height: 1
+                        color: "#d8dbde"
+                    }
 
-                        Text {
-                            x: 10
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: entry.modelData.name
-                            color: entry.current ? "#181b1e" : "#3e4348"
-                            font { family: Theme.font; pixelSize: 13; weight: entry.current ? Font.DemiBold : Font.Normal }
-                        }
-                        Text {
-                            anchors.right: parent.right
-                            anchors.rightMargin: 10
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: String(entry.index + 1).padStart(2, "0")
-                            color: "#65696f"
-                            font { family: Theme.mono; pixelSize: 10 }
-                        }
+                    Repeater {
+                        model: group.modelData
 
-                        TapHandler {
-                            onTapped: {
-                                search.text = "";
-                                Settings.section = entry.modelData.id;
+                        Rectangle {
+                            id: entry
+
+                            required property string modelData
+                            readonly property var section: window.sections.find(s => s.id === modelData)
+                            readonly property bool current: !window.query && Settings.section === modelData
+
+                            width: group.width
+                            height: 36
+                            color: current ? "white" : entryHover.hovered ? "#e1e3e6" : "transparent"
+
+                            Icon {
+                                x: 10
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 15
+                                color: entry.current ? "#181b1e" : "#3e4348"
+                                strokes: entry.section.icon
                             }
-                        }
-                        HoverHandler {
-                            id: entryHover
-                            cursorShape: Qt.PointingHandCursor
+                            Text {
+                                x: 35
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: entry.section.name
+                                color: entry.current ? "#181b1e" : "#3e4348"
+                                font { family: Theme.font; pixelSize: 13; weight: entry.current ? Font.DemiBold : Font.Normal }
+                            }
+
+                            TapHandler {
+                                onTapped: window.show(entry.modelData)
+                            }
+                            HoverHandler {
+                                id: entryHover
+                                cursorShape: Qt.PointingHandCursor
+                            }
                         }
                     }
                 }
             }
         }
-
-        Text {
-            x: 20
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 18
-            width: parent.width - 40
-            wrapMode: Text.Wrap
-            text: [Account.system, Account.hostname].filter(s => s).join(" · ")
-            color: "#5f6469"
-            font { family: Theme.mono; pixelSize: 10 }
-            lineHeight: 1.5
-        }
     }
 
-    // The open section.
+    // The open section, or page.
     Item {
         anchors { left: sidebar.right; right: parent.right; top: parent.top; bottom: parent.bottom }
-
-        Text {
-            x: 36
-            y: 22
-            text: `Settings / ${window.title}`.toUpperCase()
-            color: "#5f6469"
-            font { family: Theme.mono; pixelSize: 11; letterSpacing: 1.3 }
-        }
 
         Rectangle {
             anchors.right: parent.right
@@ -287,15 +345,65 @@ PanelWindow {
                 id: content
 
                 width: parent.width
-                spacing: 22
+                spacing: 16
 
-                Text {
-                    text: window.title
-                    color: "#1d2022"
-                    font { family: Theme.font; pixelSize: 26; weight: Font.DemiBold; letterSpacing: -0.5 }
+                // A page: the way back, and its title.
+                Row {
+                    visible: window.page !== ""
+                    spacing: 10
+
+                    Rectangle {
+                        width: 26
+                        height: 26
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: backHover.hovered ? "#e6e8ea" : "transparent"
+
+                        Icon {
+                            anchors.centerIn: parent
+                            height: 10
+                            gridWidth: 10
+                            gridHeight: 10
+                            strokeWidth: 1.4
+                            color: "#44484d"
+                            strokes: "M6.5 2l-3 3 3 3"
+                        }
+                        TapHandler {
+                            onTapped: window.page = ""
+                        }
+                        HoverHandler {
+                            id: backHover
+                            cursorShape: Qt.PointingHandCursor
+                        }
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: window.pages[window.page]?.[0] ?? ""
+                        color: "#1d2022"
+                        font { family: Theme.font; pixelSize: 15; weight: Font.DemiBold }
+                    }
+                }
+
+                ImagePicker {
+                    visible: window.page === "picture" || window.page === "wallpaper"
+                    width: parent.width
+                    onPicked: path => {
+                        if (window.page === "picture") {
+                            Account.setPicture(path);
+                        } else {
+                            Settings.wallpaperImage = path;
+                            Settings.wallpaper = "Image";
+                        }
+                        window.page = "";
+                    }
+                }
+
+                KeyboardsPage {
+                    visible: window.page === "keyboards"
+                    width: parent.width
                 }
 
                 Rectangle {
+                    visible: window.page === "" && window.rows.length > 0
                     width: parent.width
                     height: list.height + 2
                     color: "white"
@@ -313,14 +421,12 @@ PanelWindow {
                         Repeater {
                             model: window.rows.length
 
-                            Item {
+                            Column {
                                 id: row
 
                                 required property int index
-                                readonly property var modelData: window.rows[index] ?? {}
 
                                 width: list.width
-                                height: Math.max(56, labels.height + 20)
 
                                 Rectangle {
                                     visible: row.index > 0
@@ -328,130 +434,10 @@ PanelWindow {
                                     height: 1
                                     color: "#e6e8ea"
                                 }
-
-                                Column {
-                                    id: labels
-
-                                    x: 16
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - 32 - control.width - 16
-                                    spacing: 3
-
-                                    Text {
-                                        width: parent.width
-                                        text: row.modelData.label
-                                        color: "#1d2022"
-                                        font { family: Theme.font; pixelSize: 13; weight: Font.Medium }
-                                    }
-                                    Text {
-                                        width: parent.width
-                                        wrapMode: Text.Wrap
-                                        text: row.modelData.detail
-                                        color: "#5f6469"
-                                        font { family: Theme.font; pixelSize: 12 }
-                                    }
-                                }
-
-                                Item {
-                                    id: control
-
-                                    anchors.right: parent.right
-                                    anchors.rightMargin: 16
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: childrenRect.width
-                                    height: childrenRect.height
-
-                                    // A value.
-                                    Text {
-                                        visible: row.modelData.value !== undefined
-                                        text: row.modelData.value ?? ""
-                                        color: "#44484d"
-                                        font { family: Theme.font; pixelSize: 12 }
-                                    }
-
-                                    // A switch.
-                                    Rectangle {
-                                        visible: row.modelData.toggle !== undefined
-                                        width: 30
-                                        height: 17
-                                        radius: 9
-                                        color: row.modelData.on ? Theme.accent : "#d5d8db"
-
-                                        Rectangle {
-                                            x: row.modelData.on ? 15 : 2
-                                            y: 2
-                                            width: 13
-                                            height: 13
-                                            radius: 7
-                                            color: "white"
-
-                                            Behavior on x { NumberAnimation { duration: 120 } }
-                                        }
-
-                                        TapHandler {
-                                            onTapped: row.modelData.toggle()
-                                        }
-                                        HoverHandler {
-                                            cursorShape: Qt.PointingHandCursor
-                                        }
-                                    }
-
-                                    // A choice.
-                                    Rectangle {
-                                        visible: row.modelData.options !== undefined
-                                        width: options.width + 4
-                                        height: options.height + 4
-                                        color: "#eceff1"
-
-                                        Row {
-                                            id: options
-
-                                            x: 2
-                                            y: 2
-                                            spacing: 2
-
-                                            Repeater {
-                                                model: row.modelData.options?.length ?? 0
-
-                                                Item {
-                                                    id: option
-
-                                                    required property int index
-                                                    readonly property string modelData: row.modelData.options?.[index] ?? ""
-                                                    readonly property bool selected: row.modelData.selected === modelData
-
-                                                    width: optionText.width + 20
-                                                    height: 26
-
-                                                    RectangularShadow {
-                                                        visible: option.selected
-                                                        anchors.fill: parent
-                                                        offset.y: 1
-                                                        blur: 2
-                                                        color: Qt.rgba(0, 0, 0, 0.14)
-                                                    }
-                                                    Rectangle {
-                                                        anchors.fill: parent
-                                                        color: option.selected ? "white" : "transparent"
-                                                    }
-                                                    Text {
-                                                        id: optionText
-                                                        anchors.centerIn: parent
-                                                        text: option.modelData
-                                                        color: option.selected ? "#181b1e" : "#54595e"
-                                                        font { family: Theme.font; pixelSize: 12 }
-                                                    }
-
-                                                    TapHandler {
-                                                        onTapped: row.modelData.select(option.modelData)
-                                                    }
-                                                    HoverHandler {
-                                                        cursorShape: Qt.PointingHandCursor
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                                SettingsRow {
+                                    width: parent.width
+                                    height: implicitHeight
+                                    modelData: window.rows[row.index] ?? {}
                                 }
                             }
                         }
@@ -459,8 +445,8 @@ PanelWindow {
                 }
 
                 Text {
-                    visible: window.rows.length === 0
-                    text: window.query ? `No settings match “${search.text.trim()}”` : ""
+                    visible: window.page === "" && window.rows.length === 0
+                    text: `No settings match “${search.text.trim()}”`
                     color: "#5f6469"
                     font { family: Theme.font; pixelSize: 13 }
                 }

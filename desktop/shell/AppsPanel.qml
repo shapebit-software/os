@@ -1,4 +1,4 @@
-// Apps: the installed applications above the Apps button, twelve to a page,
+// Apps: the installed applications beside the Apps button, twelve to a page,
 // with a search field. A click, or Enter for the first match, opens an
 // application on the current workspace; dragged to a map in the strip, it
 // opens there. Escape or a click elsewhere closes it.
@@ -6,16 +6,11 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Wayland
 import Quickshell.Widgets
 
-PanelWindow {
+Popout {
     id: panel
-
-    // Windows besides this one whose clicks do not close it.
-    property list<QtObject> grabWindows
-    signal dismissed
 
     readonly property int perPage: 12
     readonly property list<DesktopEntry> apps: DesktopEntries.applications.values
@@ -34,20 +29,9 @@ PanelWindow {
         dismissed();
     }
 
-    WlrLayershell.layer: WlrLayer.Top
+    name: "apps"
+    // The compositor blurs behind this namespace (compositor/hyprland.lua).
     WlrLayershell.namespace: "apps"
-    // Not Exclusive: Hyprland then holds back clicks everywhere else, so a
-    // click outside could not close the panel. The focus grab gives it the
-    // keyboard.
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
-    exclusionMode: ExclusionMode.Ignore
-    // The window covers the corner up to the panel, which sits above the
-    // strip; only the panel takes input.
-    anchors { bottom: true; left: true }
-    implicitWidth: body.x + body.width
-    implicitHeight: body.implicitHeight + Theme.stripHeight + 2 * Theme.gap
-    color: "transparent"
-    mask: Region { item: body }
 
     onVisibleChanged: {
         search.text = "";
@@ -56,16 +40,9 @@ PanelWindow {
             search.forceActiveFocus();
     }
 
-    HyprlandFocusGrab {
-        active: panel.visible
-        windows: [panel, ...panel.grabWindows]
-        onCleared: panel.dismissed()
-    }
-
     Rectangle {
-        id: body
+        id: frame
 
-        x: Theme.gap
         width: 372
         height: implicitHeight
         implicitHeight: column.implicitHeight + 2

@@ -26,13 +26,13 @@ Item {
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: Qt.formatTime(clock.date, "hh:mm")
+            text: Qt.formatTime(clock.date, Settings.timePattern)
             color: Theme.text
             font { family: Theme.font; pixelSize: 84; weight: Font.DemiBold; letterSpacing: -2 }
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: Qt.formatDate(clock.date, "dddd d MMMM")
+            text: Qt.formatDate(clock.date, Settings.longDatePattern)
             color: Theme.text
             opacity: 0.72
             font { family: Theme.font; pixelSize: 15; weight: Font.Medium }
@@ -44,18 +44,10 @@ Item {
         y: parent.height * 0.56
         spacing: 14
 
-        Rectangle {
+        Avatar {
             anchors.horizontalCenter: parent.horizontalCenter
             width: 56
             height: 56
-            color: Theme.accent
-
-            Text {
-                anchors.centerIn: parent
-                text: Account.displayName.charAt(0).toUpperCase()
-                color: "#f5feff"
-                font { family: Theme.font; pixelSize: 24; weight: Font.DemiBold }
-            }
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter

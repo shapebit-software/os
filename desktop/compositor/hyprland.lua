@@ -32,8 +32,9 @@ local here = debug.getinfo(1, "S").source:match("^@(.*/)")
 layouts = dofile(here .. "layouts.lua")
 workspaces = dofile(here .. "workspaces.lua")
 
--- Windows are plain tiles: straight corners, no border, no shadow, and one
--- gap everywhere. Blur is only for the shell's glass (the layer rules below);
+-- Windows are tiles with one gap everywhere: straight corners and a hairline
+-- border until the shell applies the person's settings (Compositor.qml
+-- setDecoration). Blur is only for the shell's glass (the layer rules below);
 -- tiles are opaque, so nothing shows through them.
 local gap = 10
 
@@ -41,7 +42,8 @@ hl.config({
     general = {
         gaps_in     = gap / 2,
         gaps_out    = gap,
-        border_size = 0,
+        border_size = 1,
+        col         = { active_border = "rgba(0b08127a)", inactive_border = "rgba(0b08127a)" },
         layout      = "lua:" .. layouts.default,
     },
 
@@ -58,10 +60,10 @@ hl.config({
     },
 })
 
--- The bar and the panels are glass. A panel's shadow is not: the blur skips
--- what is mostly transparent.
+-- The system bar and the panels are glass. Panels cover the screen, and a
+-- panel's shadow is not glass: the blur skips what is mostly transparent.
 hl.layer_rule({ match = { namespace = "^(bar|apps)$" }, blur = true, ignore_alpha = 0 })
-hl.layer_rule({ match = { namespace = "^(panel|capture)$" }, blur = true, ignore_alpha = 0.5 })
+hl.layer_rule({ match = { namespace = "^(panel|capture|corner)$" }, blur = true, ignore_alpha = 0.5 })
 -- The tabs of Tabs and Accordion cover the screen, so only their glass is blurred.
 hl.layer_rule({ match = { namespace = "^tabs$" }, blur = true, ignore_alpha = 0.05 })
 
@@ -69,4 +71,8 @@ hl.layer_rule({ match = { namespace = "^tabs$" }, blur = true, ignore_alpha = 0.
 hl.layer_rule({ match = { namespace = "^capture$" }, no_anim = true })
 
 hl.bind("ALT + Q", hl.dsp.window.close())
-hl.bind("ALT + F", hl.dsp.window.fullscreen({ mode = "maximized" }))
+-- The next keyboard layout (Settings > Language > Keyboards).
+hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("hyprctl switchxkblayout all next"))
+-- Full screen covers the bar and the strip; the shell shows a button to end
+-- it in the top right corner (FullscreenExit.qml).
+hl.bind("ALT + F", hl.dsp.window.fullscreen({ mode = "fullscreen" }))

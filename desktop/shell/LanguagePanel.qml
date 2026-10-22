@@ -1,11 +1,12 @@
-// The input language panel: the keyboard layouts, the active one marked.
+// The input language panel: the keyboard layouts, each with its language,
+// name, and arrangement of keys; the active one's language on the accent.
 pragma ComponentBehavior: Bound
 import QtQuick
 
 BarPanel {
     id: panel
 
-    panelWidth: 220
+    panelWidth: 240
     spacing: 1
 
     Repeater {
@@ -20,19 +21,26 @@ BarPanel {
 
             width: panel.panelWidth - 20
             height: 32
-            color: entryHover.hovered ? Theme.panelHover : active ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+            color: entryHover.hovered ? Theme.panelHover : "transparent"
 
-            Text {
+            Rectangle {
                 x: 8
-                width: 22
                 anchors.verticalCenter: parent.verticalCenter
-                text: entry.modelData.toUpperCase()
-                color: "#e7ecf0"
-                font { family: Theme.font; pixelSize: 11; weight: Font.Bold; letterSpacing: 0.4 }
+                width: 26
+                height: 18
+                color: entry.active ? Theme.accent : "transparent"
+                border.color: entry.active ? "transparent" : Qt.rgba(1, 1, 1, 0.24)
+
+                Text {
+                    anchors.centerIn: parent
+                    text: Keyboard.languageOf(entry.modelData)
+                    color: "#f2f5f7"
+                    font { family: Theme.font; pixelSize: 10; weight: Font.Bold; letterSpacing: 0.4 }
+                }
             }
             Text {
-                x: 40
-                width: parent.width - x - 24
+                x: 44
+                width: parent.width - x - arrangement.width - 16
                 anchors.verticalCenter: parent.verticalCenter
                 elide: Text.ElideRight
                 text: Keyboard.nameOf(entry.modelData)
@@ -40,11 +48,11 @@ BarPanel {
                 font { family: Theme.font; pixelSize: 12 }
             }
             Text {
+                id: arrangement
                 anchors.right: parent.right
                 anchors.rightMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
-                visible: entry.active
-                text: "●"
+                text: Keyboard.arrangementOf(entry.modelData)
                 color: "#94999e"
                 font { family: Theme.mono; pixelSize: 10 }
             }

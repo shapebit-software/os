@@ -2,7 +2,7 @@
 // layouts.lua leaves room for it): Tabs a tab bar above it, a tab for each
 // window; Accordion a folded strip beside it for each other window, with its
 // icon and name. A click on a tab or a strip shows that window; under the
-// pointer, a tab also shows buttons to maximize and to close its window.
+// pointer, a tab also shows buttons for full screen and to close its window.
 // Windows cover the surface, which sits under them.
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -116,7 +116,7 @@ PanelWindow {
                     TabButton {
                         hoverColor: "#f2c133"
                         strokes: "M1 3.5V1h2.5M6.5 1H9v2.5M9 6.5V9H6.5M3.5 9H1V6.5"
-                        onClicked: Compositor.toggleMaximized(tab.modelData.address)
+                        onClicked: Compositor.toggleFullscreen(tab.modelData.address)
                     }
                     TabButton {
                         hoverColor: Theme.dangerFill

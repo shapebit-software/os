@@ -32,6 +32,16 @@ Singleton {
         return all.find(l => l.id === id) ?? all[0];
     }
 
+    // Whether a layout suits a workspace with `count` windows, as in the
+    // demo: Grid needs four, and the layouts around a large window three.
+    function suits(id: string, count: int): bool {
+        if (id === "grid")
+            return count >= 4;
+        if (["lead", "dwindle", "center", "accordion"].includes(id))
+            return count >= 3;
+        return true;
+    }
+
     // Where a layout puts `count` windows in a width × height area, as the
     // compositor does: one rectangle per window, in the order windows fill
     // the cells. The pictures are the compositor's templates. Tabs and

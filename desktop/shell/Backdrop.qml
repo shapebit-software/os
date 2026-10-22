@@ -1,120 +1,68 @@
-// The backdrop: dusk behind soft ridges. It is drawn, not a picture, so it
-// fits every screen size.
+// The wallpaper (Settings.wallpaper): Dusk, which is drawn, one of the demo's
+// gradients, or a picture.
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Effects
-import QtQuick.Shapes
 
-Rectangle {
+Item {
     id: backdrop
 
+    property string preset: Settings.wallpaper
+    property string image: Settings.wallpaperImage
+
+    // The gradients: a CSS angle, and stops of [position, OKLCH lightness,
+    // chroma, hue].
+    readonly property var gradients: ({
+        "Slate": [160, [[0, 0.42, 0.02, 250], [1, 0.22, 0.015, 250]]],
+        "Dune": [170, [[0, 0.82, 0.05, 70], [0.6, 0.62, 0.08, 45], [1, 0.38, 0.05, 30]]],
+        "Fjord": [175, [[0, 0.70, 0.05, 220], [0.55, 0.42, 0.07, 210], [1, 0.24, 0.04, 230]]],
+        "Moss": [165, [[0, 0.58, 0.06, 140], [1, 0.32, 0.05, 155]]],
+    })
+    readonly property var gradient: gradients[preset] ?? null
+    readonly property bool showsImage: preset === "Image" && image !== "" && picture.status !== Image.Error
+
     clip: true
-    gradient: Gradient {
-        GradientStop { position: 0.00; color: "#1f1a3c" }
-        GradientStop { position: 0.34; color: "#342351" }
-        GradientStop { position: 0.44; color: "#4c2943" }
-        GradientStop { position: 0.535; color: "#653035" }
-        GradientStop { position: 0.63; color: "#7c3829" }
-        GradientStop { position: 0.72; color: "#85482d" }
+
+    Dusk {
+        anchors.fill: parent
+        visible: !backdrop.gradient && !backdrop.showsImage
     }
 
-    // A soft light, placed by its center and radii as fractions of the screen.
-    component Glow: Shape {
-        id: glow
+    // A gradient along a CSS angle: 180 runs from top to bottom. A vertical
+    // gradient, turned to the angle, as long as CSS makes it, so its ends
+    // touch the corners, and wide enough to cover the screen.
+    Rectangle {
+        id: gradientFill
 
-        property real centerX
-        property real centerY
-        property real radiusX
-        property real radiusY
-        property color tint
+        readonly property real angle: backdrop.gradient?.[0] ?? 180
+        readonly property real radians: angle * Math.PI / 180
 
-        x: (centerX - radiusX) * backdrop.width
-        y: (centerY - radiusY) * backdrop.height
-        width: 200
-        height: 200
-        transform: Scale {
-            xScale: glow.radiusX * backdrop.width / 100
-            yScale: glow.radiusY * backdrop.height / 100
+        function stop(i: int): var {
+            const stops = backdrop.gradient?.[1] ?? [[0, 0, 0, 0]];
+            return stops[Math.min(i, stops.length - 1)];
         }
 
-        ShapePath {
-            strokeColor: "transparent"
-            fillGradient: RadialGradient {
-                centerX: 100
-                centerY: 100
-                centerRadius: 100
-                focalX: 100
-                focalY: 100
-                GradientStop { position: 0.0; color: glow.tint }
-                GradientStop { position: 0.5; color: Qt.rgba(glow.tint.r, glow.tint.g, glow.tint.b, glow.tint.a * 0.55) }
-                GradientStop { position: 1.0; color: Qt.rgba(glow.tint.r, glow.tint.g, glow.tint.b, 0) }
-            }
-            PathAngleArc { centerX: 100; centerY: 100; radiusX: 100; radiusY: 100; sweepAngle: 360 }
+        visible: backdrop.gradient !== null && !backdrop.showsImage
+        anchors.centerIn: parent
+        width: backdrop.width + backdrop.height
+        height: Math.abs(backdrop.width * Math.sin(radians)) + Math.abs(backdrop.height * Math.cos(radians))
+        rotation: angle - 180
+        // Two stops or three; with two, the last repeats.
+        gradient: Gradient {
+            GradientStop { position: gradientFill.stop(0)[0]; color: Theme.oklch(...gradientFill.stop(0).slice(1)) }
+            GradientStop { position: gradientFill.stop(1)[0]; color: Theme.oklch(...gradientFill.stop(1).slice(1)) }
+            GradientStop { position: gradientFill.stop(2)[0]; color: Theme.oklch(...gradientFill.stop(2).slice(1)) }
         }
     }
 
-    // Haze at the top, and the sun low in the sky.
-    Glow { centerX: 0.17; centerY: 0.02; radiusX: 0.55; radiusY: 0.4; tint: Qt.rgba(0.66, 0.6, 0.86, 0.13) }
-    Glow { centerX: 0.88; centerY: 0.06; radiusX: 0.4; radiusY: 0.3; tint: Qt.rgba(0.75, 0.62, 0.8, 0.09) }
-    Glow { centerX: 0.63; centerY: 0.67; radiusX: 0.42; radiusY: 0.22; tint: Qt.rgba(0.82, 0.62, 0.3, 0.75) }
+    Image {
+        id: picture
 
-    // The ridges are drawn small and blurred there, then stretched over the
-    // screen, so the blur costs the same on every screen. The drawing reaches
-    // a tenth past each edge of the screen, because the blur fades at its own
-    // edges. Paths use a 1000 by 1000 grid for the screen.
-    Item {
-        id: ridges
-        width: 600
-        height: 600
-        visible: false
-
-        Shape {
-            x: 50
-            y: 50
-            scale: 0.5
-            transformOrigin: Item.TopLeft
-
-            ShapePath {
-                strokeColor: "transparent"
-                fillGradient: LinearGradient {
-                    y1: 660
-                    y2: 1000
-                    GradientStop { position: 0.0; color: "#5e4144" }
-                    GradientStop { position: 0.45; color: "#503a43" }
-                    GradientStop { position: 0.65; color: "#463444" }
-                    GradientStop { position: 0.85; color: "#342a40" }
-                }
-                PathSvg {
-                    path: "M-100 725 C0 715 80 745 120 730 C160 715 190 665 235 667 C285 670 300 715 360 730 "
-                        + "C420 745 450 735 510 755 C570 775 610 785 660 760 C710 735 730 745 790 760 "
-                        + "C850 775 910 720 1100 715 V1100 H-100 Z"
-                }
-            }
-            ShapePath {
-                strokeColor: "transparent"
-                fillColor: "#1e1a35"
-                PathSvg {
-                    path: "M-100 965 C50 950 150 960 220 935 C290 910 330 950 420 955 C500 960 540 930 600 935 "
-                        + "C680 940 720 965 800 950 C880 935 950 960 1100 950 V1100 H-100 Z"
-                }
-            }
-        }
+        anchors.fill: parent
+        visible: backdrop.showsImage
+        source: backdrop.preset === "Image" && backdrop.image ? "file://" + backdrop.image : ""
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        // A picture as large as the screen at most.
+        sourceSize.width: backdrop.width
     }
-    MultiEffect {
-        source: ridges
-        x: -0.1 * backdrop.width
-        y: -0.1 * backdrop.height
-        width: ridges.width
-        height: ridges.height
-        transform: Scale {
-            xScale: 1.2 * backdrop.width / ridges.width
-            yScale: 1.2 * backdrop.height / ridges.height
-        }
-        blurEnabled: true
-        blur: 1
-        blurMax: 24
-    }
-
-    // The sun's light on the haze in front of the ridges.
-    Glow { centerX: 0.63; centerY: 0.76; radiusX: 0.28; radiusY: 0.1; tint: Qt.rgba(0.82, 0.62, 0.3, 0.3) }
 }

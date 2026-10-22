@@ -1,6 +1,5 @@
 // The keyboard layouts of the session and the active one, from the
-// compositor. The layouts themselves are set in the compositor's input
-// settings; this only switches between them.
+// compositor, which has them from Settings (Language > Keyboards).
 pragma Singleton
 import QtQuick
 import Quickshell
@@ -13,12 +12,35 @@ Singleton {
     // Layout codes, such as "us" or "de".
     property list<string> layouts
     property int active
-    readonly property string code: active < layouts.length ? layouts[active].toUpperCase() : ""
-    // Layout names by code, such as "English (US)", from the xkb rules.
+    // The active layout's language, such as "EN" for "us", as the bar shows it.
+    readonly property string code: active < layouts.length ? languageOf(layouts[active]) : ""
+    // Layout names and languages by code, such as "English (US)" and "en",
+    // from the xkb rules.
     property var names: ({})
+    property var languages: ({})
 
     function nameOf(layout: string): string {
         return names[layout] ?? layout;
+    }
+
+    function languageOf(layout: string): string {
+        return (languages[layout] ?? layout).toUpperCase();
+    }
+
+    // How the letter keys are arranged, for the layouts of Latin script.
+    function arrangementOf(layout: string): string {
+        if (["de", "at", "ch", "cz", "sk", "hu", "si", "hr", "ba"].includes(layout))
+            return "QWERTZ";
+        if (["fr", "be"].includes(layout))
+            return "AZERTY";
+        if (["ru", "ua", "by", "bg", "mk", "gr", "il", "ara", "ir", "jp", "kr", "cn", "th", "in", "am", "ge"].includes(layout))
+            return "";
+        return "QWERTY";
+    }
+
+    // Reads the layouts again, after Settings changed them.
+    function refresh() {
+        devices.running = true;
     }
 
     function select(index: int) {
@@ -53,17 +75,19 @@ Singleton {
     }
 
     FileView {
-        path: "/usr/share/X11/xkb/rules/evdev.lst"
+        path: "/usr/share/X11/xkb/rules/evdev.xml"
         onLoaded: {
-            // The "! layout" section lists "  <code>  <name>" lines.
-            const section = text().split("\n! ").find(s => s.startsWith("layout"));
-            const names = {};
-            for (const line of section?.split("\n").slice(1) ?? []) {
-                const match = line.match(/^\s+(\S+)\s+(.+)$/);
-                if (match)
-                    names[match[1]] = match[2];
+            // Each layout: <layout><configItem><name>, maybe a comment,
+            // <shortDescription> (the language), and <description>.
+            const pattern = /<layout>\s*<configItem>\s*<name>([^<]+)<\/name>\s*(?:<!--.*?-->\s*)?<shortDescription>([^<]+)<\/shortDescription>\s*<description>([^<]+)<\/description>/g;
+            const names = {}, languages = {};
+            const xml = text();
+            for (let match = pattern.exec(xml); match; match = pattern.exec(xml)) {
+                names[match[1]] = match[3];
+                languages[match[1]] = match[2];
             }
             keyboard.names = names;
+            keyboard.languages = languages;
         }
     }
 }

@@ -1,19 +1,14 @@
-// The capture panel above the strip: what to capture (an area, a window, or
-// the screen), then a screenshot or a recording. Escape or a click outside it
-// and the strip closes it.
+// The capture panel beside the quick actions: what to capture (an area, a
+// window, or the screen), then a screenshot or a recording.
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
-import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Wayland
 
-PanelWindow {
+Popout {
     id: panel
 
-    property list<QtObject> grabWindows
     property string mode: "Area"
-    signal dismissed
 
     // Closes the panel, then captures once it is gone from the screen.
     function capture(record: bool) {
@@ -23,20 +18,10 @@ PanelWindow {
     }
     property bool pendingRecord
 
-    WlrLayershell.layer: WlrLayer.Top
+    name: "capture"
+    // The compositor leaves this namespace out of captures' way
+    // (compositor/hyprland.lua).
     WlrLayershell.namespace: "capture"
-    // Not Exclusive: Hyprland then holds back clicks everywhere else, so a
-    // click outside could not close the panel. The focus grab gives it the
-    // keyboard.
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
-    exclusionMode: ExclusionMode.Ignore
-    // The window rises from the screen's bottom edge, centered, to the
-    // panel; only the panel takes input.
-    anchors.bottom: true
-    implicitWidth: body.width + 2 * shadow.blur
-    implicitHeight: body.height + Theme.stripHeight + 2 * Theme.gap + 24 + shadow.blur
-    color: "transparent"
-    mask: Region { item: body }
 
     Timer {
         id: afterClose
@@ -44,33 +29,22 @@ PanelWindow {
         onTriggered: Capture.start(panel.mode, panel.pendingRecord, panel.screen)
     }
 
-    HyprlandFocusGrab {
-        active: panel.visible
-        windows: [panel, ...panel.grabWindows]
-        onCleared: panel.dismissed()
-    }
-
     RectangularShadow {
-        id: shadow
-        anchors.fill: body
+        anchors.fill: frame
         offset.y: 8
         blur: 24
-        radius: body.radius
+        radius: frame.radius
         color: Qt.rgba(0.01, 0.01, 0.04, 0.28)
     }
 
     Rectangle {
-        id: body
+        id: frame
 
-        x: shadow.blur
-        y: shadow.blur
         width: 320
         height: column.height + 20
         radius: 14
         color: Qt.rgba(0.12, 0.12, 0.15, 0.82)
         border.color: Qt.rgba(1, 1, 1, 0.1)
-        focus: true
-        Keys.onEscapePressed: panel.dismissed()
 
         Column {
             id: column
