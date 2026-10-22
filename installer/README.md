@@ -43,11 +43,14 @@ checks the result and unlocks the volume once with each key.
 
 ## Development
 
-Create and enter the Fedora development environment, then build and test:
+From the monorepo root, create and enter the shared Fedora development
+environment (see the [setup instructions](https://github.com/shapebit-software/os#development)).
+Then build and test:
 
 ```sh
 DBX_CONTAINER_MANAGER=docker distrobox assemble create --file distrobox.ini
-DBX_CONTAINER_MANAGER=docker distrobox enter installer
+DBX_CONTAINER_MANAGER=docker distrobox enter shapebit-dev
+cd installer
 cmake -S . -B build -G Ninja
 cmake --build build
 ctest --test-dir build --output-on-failure
