@@ -6,8 +6,10 @@ and [Quickshell](https://quickshell.org) as the shell, following the
 [Desktop Environment](https://shapebit.software/docs/) architecture disagree,
 the demo decides.
 
-The session starts Hyprland with the configuration in `compositor/`, which
-starts the shell in `shell/`. The shell draws the wallpaper, the system bar
+The session starts Hyprland through [UWSM](https://github.com/Vladimir-csp/uwsm),
+which runs the session's systemd units (`graphical-session.target` and the
+applications that start with every session, XDG autostart), with the
+configuration in `compositor/`, which starts the shell in `shell/`. The shell draws the wallpaper, the system bar
 and the dock (Apps, the workspace maps, and the quick actions) with their
 panels, the tabs of the Tabs and Accordion layouts, the handles that resize
 tiles, the way out of full screen, Settings, and the lock screen. It runs

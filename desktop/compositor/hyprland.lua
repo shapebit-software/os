@@ -8,6 +8,13 @@ local shell = os.getenv("DESKTOP_SHELL") or "/usr/share/desktop/shell"
 
 hl.on("hyprland.start", function()
     hl.exec_cmd("qs --path " .. shell)
+    -- UWSM runs the session (session/desktop.desktop) and waits for the
+    -- compositor to give systemd its environment; then the session's units
+    -- start, such as XDG autostart. UWSM sets NOTIFY_SOCKET; make run does
+    -- not, since there the systemd user manager is the developer's own.
+    if os.getenv("NOTIFY_SOCKET") then
+        hl.exec_cmd("uwsm finalize HYPRLAND_INSTANCE_SIGNATURE")
+    end
 end)
 
 hl.monitor({

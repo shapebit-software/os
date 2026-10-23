@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=ShapeBit
 Comment=ShapeBit Desktop
-Exec=start-hyprland -- --config /usr/share/desktop/compositor/hyprland.lua
-TryExec=start-hyprland
+Exec=uwsm start -e -D ShapeBit -- start-hyprland -- --config /usr/share/desktop/compositor/hyprland.lua
+TryExec=uwsm
 Type=Application
 DesktopNames=ShapeBit
