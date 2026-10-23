@@ -15,5 +15,6 @@ ShapeBit OS is an image-based Linux desktop operating system built on Fedora.
 - [Recovery](Architecture-Recovery) — the recovery key and when it is needed.
 - [Applications](Architecture-Applications) — built-in apps, third-party app
   installation, browsers, and AppImage.
-- [Desktop Environment](Architecture-Desktop) — window management, menus,
-  shelf, notifications, Quick Settings, and assistant and input features.
+- [Desktop Environment](Architecture-Desktop) — the session, bars and
+  panels, workspaces and windows, notifications, and Settings as built; the
+  future design of menus, the Shelf, and assistant and input features.

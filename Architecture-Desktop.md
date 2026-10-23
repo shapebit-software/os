@@ -1,118 +1,147 @@
 # Desktop Environment
 
-ShapeBit's desktop runs on **Hyprland** (the window manager and compositor)
-and **Quickshell** (the shell that builds the bar, panels, menus, and
-overlays). This document covers ShapeBit-specific design on top of that
-foundation — not Hyprland's or Quickshell's own default behavior.
+ShapeBit's desktop runs on **Hyprland** (the compositor) and **Quickshell**
+(the shell: the bars, panels, Settings, and the lock screen), in a session run
+by **UWSM**. Its design follows the
+[demo](https://shapebit.software/demo/); where this page and the demo
+disagree, the demo decides. The source is the
+[desktop repository](https://github.com/shapebit-software/desktop).
 
-## Window Management
+This page has two parts: the [desktop as built](#the-desktop-as-built), and
+the [future design](#future-design) of features that are not built yet.
 
-ShapeBit tiles by default but keeps explicit stacking and floating as first-class
-options; placement, presentation, and keyboard focus are separate properties.
-Hyprland already handles the core mechanics — inserting and splitting tiles,
-floating windows, window groups (tabs), and fullscreen. This section covers
-only what ShapeBit adds on top.
+## The desktop as built
 
-### Collapsing tiles into spines
+### Session
 
-- A tiled window can be manually collapsed into a narrow spine at its original
-  position; neighbors temporarily take its space. Activating the spine
-  restores the saved size and focuses the window.
-- Collapsing the focused window moves focus to the most recently focused
-  visible window, or to the desktop if none remain.
-- A stack collapses as one spine; restoring it brings back every member and
-  the previously active one.
-- Spines stay in layout order and share one consistent thin size (exact
-  dimensions and styling are deferred).
-- A window can request attention on its spine without being restored,
-  focused, or switching Workspaces. For a stack, the spine identifies which
-  inactive member wants attention without selecting it.
-- A manually collapsed window stays collapsed until the user restores it.
+- The login screen (SDDM) offers one session, ShapeBit. UWSM starts Hyprland
+  and runs the session's systemd units: `graphical-session.target` and the
+  applications that start with every session (XDG autostart).
+- Homes are systemd-homed homes; the login password unlocks the home and the
+  secret service (gnome-keyring).
+- The shell is the session's notification server and polkit agent: when an
+  application asks for an action that needs an administrator, the shell asks
+  for the password, in the lock screen's style.
+- Screen sharing and screenshots for applications go through Hyprland's
+  portal. The session offers no other portal, so no portal file chooser.
+- Copied text stays available after the application it came from closes;
+  only the last copy is kept, in memory for the session, never on disk.
 
-### Auto-collapse under constrained space
+### Bars
 
-When a display can't fit the saved layout's minimum sizes, ShapeBit
-temporarily auto-collapses eligible regions, least recently focused first.
-The focused window and any window with an open modal are never eligible.
-This never changes the saved layout.
+- Two bars: the **system bar** (the clock and the status items) and the
+  **dock** (Apps, the workspace maps, and the quick actions). Each sits on
+  any edge of the screen, and each has three zones — start, center, and end
+  — whose items can move between the bars (Settings > Shell).
+- The system bar's items each open a panel beside them:
+  - **Notifications** — the notifications kept, newest first, with Do Not
+    Disturb and **Clear all**. A dot on the bell marks new ones.
+  - **Microphone** and **Sound** — the device, its volume, and mute; a right
+    click on the item mutes it.
+  - **Brightness** — the built-in display's brightness, shown only where the
+    computer has a backlight. The brightness keys change it too.
+  - **Network** — the connection in use, Wi-Fi, and Bluetooth.
+  - **Input language** — the keyboard layouts to switch between
+    (Super+Space).
+  - **Battery** — shown only on computers with a battery: the charge on the
+    item, its percentage beside it (Settings > Shell), the time left on
+    hover, and the power profile (Power Saver, Balanced, and Performance
+    where available) in its panel.
+  - **System menu** — who is signed in, Settings, and Lock, Suspend,
+    Restart, Shut down, and Log out. Restart, Shut down, and Log out ask
+    first, with Cancel focused.
+- One panel is open at a time. Escape or a click outside closes it.
 
-- Auto-collapsed regions restore automatically once space allows.
-- Activating one while space is still tight expands it and collapses the
-  next least-recently-focused region instead. Restoring a manually collapsed
-  region follows the same priority.
+### Notifications
 
-### Stacks
+- New notifications show as banners in the top right corner of the focused
+  screen, below a top system bar, newest on top. A banner goes after the
+  application's time or five seconds and stays while the pointer is on it;
+  critical notifications stay until dismissed. Banners are hidden while a
+  panel is open.
+- A click on a notification runs its default action; its cross dismisses it.
+  Notifications whose banner has gone stay in the panel until dismissed.
+- Do Not Disturb holds back the banners of all but critical notifications;
+  the notifications are kept all the same.
 
-Hyprland's window groups already behave like tabs. ShapeBit adds:
+### Workspaces
 
-- A window the user actively adds becomes the stack's visible, active
-  member. An unsolicited background window stays inactive and requests
-  attention instead.
-- Closing the visible member reveals the most recently used remaining
-  member; focus follows only if focus was already in the stack. Closing an
-  inactive member changes neither.
-- Members keep a stable, user-reorderable sequence — independent of recency
-  — for Next/Previous navigation.
-- Dragging a member out creates a normal tile at the drop point and leaves
-  the rest of the stack in place.
-- **Move stack to Workspace** moves the whole stack as one tiled region,
-  keeping member order and the active member.
+- There is no Overview. The session starts with one workspace. While a
+  window or an application is dragged, the dock shows a "+" after the
+  workspace maps; a drop there makes a new workspace, up to eight. A
+  workspace without windows goes away: when the one on screen loses its last
+  window, the screen moves to the next one.
+- Each workspace has a **map** on the dock: its windows where they are on
+  the screen, with their applications' icons.
 
-### Floating windows
+### Windows
 
-- A transient dialog floats centered over its parent, stays in the parent's
-  Workspace, and moves with it. A modal blocks only its parent window or
-  stack, unless the app declares a valid app-wide modal.
-- Floating windows sit above tiled windows and below system UI; the focused
-  floating window rises above other floating windows.
-- An explicitly floated window keeps its size and position in the Workspace
-  layout; temporary dialogs don't create persistent layout entries.
-- A parentless floating window opens centered on the display holding the
-  focused window (or under the pointer if nothing is focused), with a small
-  cascade offset if that spot is occupied.
-- A resizable window that won't fit shrinks to the usable area; a
-  fixed-size window may extend off-display, but its title bar and controls
-  stay reachable. Users can likewise place a floating window partly
-  off-screen as long as a portion with the title bar or move control stays
-  reachable.
-- Returning a floating window to tiled placement restores its previous
-  tiled position if it still exists, otherwise normal insertion applies.
-- Making a tiled window floating restores its last floating geometry if
-  known; otherwise ShapeBit derives a size from the current tile and
-  centers it on the same display.
+- Windows tile in the workspace's layout: **Lead**, **Dwindle**,
+  **Columns** (the default for new workspaces, Settings > Windows),
+  **Center**, **Grid**, **Rows**, **Tabs**, and **Accordion**. The layout
+  menu on a map shows the layouts that suit its number of windows.
+- Tabs and Accordion show one window at a time: Tabs with a tab bar above
+  it, Accordion with the others folded thin beside it.
+- Windows move only on the maps: a window's cell dragged onto another cell
+  swaps them, and onto another map moves the window there. There are no
+  window title bars to drag.
+- The handles between tiles resize them.
+- A window takes the keyboard when clicked.
+- Full screen (Alt+F, or a double click on its cell) covers the bars; a
+  button in the top right corner ends it. Alt+Q, or a right click on its
+  cell, closes a window.
 
-### Expanded and fullscreen presentation
+### Apps and quick actions
 
-- Tiled, stacked, and floating windows can go expanded or fullscreen
-  without losing their underlying placement; restoring returns the previous
-  tile, stack, or floating geometry.
-- Presentation belongs to each window and survives while it's inactive —
-  the window returns in that state when revisited.
-- Focusing another window on the same display shows it above an inactive
-  fullscreen window; moving focus to another display leaves the fullscreen
-  window visible there.
-- Each stack member keeps its own presentation state. Switching from a
-  fullscreen member to a normal one returns the stack to its tiled region;
-  returning to the fullscreen member restores it.
-- A dialog appears above its fullscreen parent, which stays fullscreen
-  behind it.
-- Expanded/fullscreen only affects the window's own display — other
-  displays stay usable. For a floating window spanning displays, its
-  "current" display is whichever contains the largest portion of it.
-- Fullscreen hides desktop chrome only while it's the foreground
-  presentation on its display. Chrome returns when a non-fullscreen window
-  comes forward there, and stays visible on every other display.
+- **Apps** lists the installed applications ten to a page, with a search. A
+  click opens an application on the current workspace; dragged onto a map,
+  it opens there.
+- The **quick actions** capture an area, a window, or the screen, as a
+  screenshot or a recording, into Pictures or Videos. They open from
+  buttons on a bar or from a hot corner (Settings > Shell). The assistant
+  and dictation buttons are placeholders that say the features are coming.
 
-## Radial Context Menus
+### Lock, idle, and sleep
+
+- The lock screen shows the time, who is signed in, and the password field.
+- The screen locks after the idle time set in Settings > Account (1 or 5
+  minutes, or never) and before the computer sleeps; sleep waits for the
+  lock. The screens turn off after their own idle time (2 or 10 minutes, or
+  never) and come back on with input or after sleep. hypridle carries this
+  out.
+
+### Settings
+
+- Settings covers the screen it opens on, with sections in groups and a
+  search across them: **Account** (picture, name, password, idle times),
+  **Assistant** (a placeholder), **Language** (the system language, the
+  region format, keyboards), **Time** (time zone, automatic time, time
+  format), **Desktop** (accent color, wallpaper), **Shell** (the bars and
+  their items, the bar background, the quick actions, the battery
+  percentage), **Windows** (corners, decoration, gaps, the default layout),
+  **Display** (resolution, scale, refresh rate), **Network**, and
+  **Sound**.
+- Settings for the whole computer — the system language, the time zone, and
+  automatic time — ask for an administrator's password. The system language
+  applies from the next sign-in.
+- Settings has only what works. Not built yet: the first day of the week,
+  dragging tabs, and keeping tile sizes across sessions.
+
+## Future design
+
+Nothing in this part is built yet. The assistant, dictation, and their
+Settings section are placeholders in the desktop as built.
+
+### Radial Context Menus
 
 ShapeBit-owned context menus use a radial ("pie") layout instead of a
 traditional vertical list.
 
-### Scope and ownership
+#### Scope and ownership
 
 - Required across the ShapeBit shell and first-party apps.
 - The shell owns menus for Workspaces, window chrome, the system bar,
-  Overview, Shelf, notifications, and other shell surfaces.
+  the Shelf, notifications, and other shell surfaces.
 - First-party apps use a shared ShapeBit radial-menu component but own
   their own actions.
 - Third-party Wayland apps keep their own in-surface context menus; ShapeBit
@@ -122,7 +151,7 @@ traditional vertical list.
   that target before running an action, so a stale menu can't act on
   something since removed or changed into an incompatible state.
 
-### Activation and execution
+#### Activation and execution
 
 - Opens on the configured secondary pointer button. Releasing without
   leaving the center keeps it open for inspection.
@@ -142,7 +171,7 @@ traditional vertical list.
   the normal confirmation, authorization, or portal flow — the radial menu
   never replaces those.
 
-### Layout and stable positions
+#### Layout and stable positions
 
 - One level holds at most eight wedges. Each wedge has a fixed direction
   for a given object type — menus never reorder by recent use or
@@ -155,7 +184,7 @@ traditional vertical list.
 - Common actions live in the root ring; related or less-frequent actions
   can move to a secondary level (at most two secondary levels per menu).
 
-### Secondary levels
+#### Secondary levels
 
 - A category wedge shows a visible outward indicator. Clicking it swaps the
   current ring for its secondary level at the same center.
@@ -167,7 +196,7 @@ traditional vertical list.
   pressing Backspace returns to the parent level. Escape closes the whole
   menu. Opening a secondary level never depends on a hover delay.
 
-### Screen-edge placement
+#### Screen-edge placement
 
 - The ring normally opens around the click point. If it would cross a
   display edge, the whole ring shifts inward just enough to stay visible —
@@ -178,7 +207,7 @@ traditional vertical list.
   offset can't accidentally select something — this can mean one extra
   movement near an edge.
 
-### Keyboard, touch, pen, and accessibility
+#### Keyboard, touch, pen, and accessibility
 
 - Touch and pen open the menu via long-press; holding, moving into a
   wedge, and releasing works the same as pointer gestures.
@@ -197,7 +226,7 @@ traditional vertical list.
   selection may give subtle haptic feedback if the hardware supports it;
   there's no sound by default.
 
-### Visual feedback
+#### Visual feedback
 
 - The center shows the captured target or current category, plus
   **Cancel** or **Back**. The selected wedge gets a clear outline and
@@ -209,12 +238,12 @@ traditional vertical list.
 - Exact radius, typography, spacing, target size, colors, and animation
   timing belong to the ShapeBit visual-system spec, not this document.
 
-## Shelf
+### Shelf
 
 The Shelf is a temporary, user-controlled place to keep material close at
 hand while working across Workspaces.
 
-### Scope and contents
+#### Scope and contents
 
 - Global to the user, not owned by any Workspace, and cleared at logout.
 - Items enter only through an explicit action (drag, **Send to Shelf**) —
@@ -224,7 +253,7 @@ hand while working across Workspaces.
 - Text, images, and URLs become Shelf-owned snapshots. Removing a Shelf
   item never touches the source data.
 
-### Presentation and capacity
+#### Presentation and capacity
 
 - No system-bar icon initially. Uses the bottom edge by default; a
   power-user setting can move it to top, left, or right, independent of the
@@ -275,8 +304,7 @@ hand while working across Workspaces.
   layout. A foreground fullscreen window disables edge activation on that
   display, but the explicit keyboard shortcut still opens the Shelf above
   fullscreen.
-- Stays open across Workspace switches, but closes (without losing
-  contents) when Overview opens.
+- Stays open across Workspace switches.
 - Chat and the Shelf are independent and can stay open together, so items
   can be dragged into a conversation. With the default bottom Shelf on the
   same display, chat floats above its left side instead of becoming part of
@@ -287,7 +315,7 @@ hand while working across Workspaces.
   explanation and a link to Shelf settings — file and folder references can
   still be added.
 
-### Removal
+#### Removal
 
 - Removing one item is immediate and confirmation-free, with a brief
   **Undo**. Hovered or focused items show **Remove**; Delete removes the
@@ -295,292 +323,12 @@ hand while working across Workspaces.
 - **Clear Shelf** removes everything immediately, also with a brief
   **Undo**.
 
-## Notifications
-
-ShapeBit notifications give visible, non-focus-stealing attention across
-Workspaces. Privacy, lock-screen, sharing, critical-notification, and Do Not
-Disturb constraints are owned by
-Media, Privacy, and Notification Policy.
-
-### Notification panel
-
-- One global panel opens from an indicator on the right of the system bar.
-  A click opens it on that button's display; the keyboard shortcut uses the
-  focused window's display. Only one panel at a time.
-- Clicking outside, Escape, or the indicator again closes it without
-  clearing notifications.
-- Grouped by app, newest group activity first, newest notification first
-  within a group. A group shows its newest notification plus a count and
-  expands to reveal older ones.
-- The indicator badge counts unseen notifications; opening the panel marks
-  the listed ones as seen without dismissing them.
-- The header has a **Do Not Disturb** toggle; secondary-clicking the
-  indicator gives the same quick toggle. Schedules are configured in
-  Settings.
-- Undismissed notifications persist locally across logout and restart,
-  subject to a configurable retention period.
-
-### Workspace routing
-
-- A notification tied to a window belongs to that window's Workspace.
-  Without a window, it belongs to the app's Workspace if all of that app's
-  windows are in one Workspace.
-- If the app spans several Workspaces or has no window, the notification is
-  global — it doesn't mark every Workspace, and its banner shows on the
-  focused window's display by default.
-- A notification for the active Workspace shows a brief, non-focus-stealing
-  banner by default. One for an inactive Workspace queues silently, marking
-  its app icon and Workspace segment instead; per-app settings may allow a
-  banner anyway. Banner behavior has a global default plus per-app
-  overrides.
-- Notification markers and app attention requests are separate: seeing a
-  notification in the panel (or focusing its window) clears the marker, but
-  a window's attention request stays until it's focused or the app
-  withdraws it.
-
-### Banners
-
-- Appear beside the notification indicator — upward from a bottom bar,
-  downward from a top bar, or (with the bar hidden by fullscreen) at the
-  same configured corner.
-- Up to three visible at once; extra notifications go straight to the panel
-  until space frees up.
-- Ordinary banners close after a configurable duration; hover or focus
-  pauses the timer, and the notification stays in the panel afterward.
-- Verified critical system notifications stay visible until explicitly
-  handled or dismissed.
-
-### Dismissal and policy
-
-- Clicking a notification body runs its app-provided default action; for a
-  window target, that switches to and focuses the window's Workspace
-  without moving it.
-- Inline actions leave the panel open; an action that opens or focuses a
-  window closes the panel automatically.
-- A banner's close control dismisses it from both banner and panel; an
-  automatic timeout only hides the banner.
-- Dismissing one notification, a whole app group, or **Clear all** acts
-  immediately with a brief Undo. **Clear all** skips unresolved critical
-  system notifications, which need individual handling.
-- Do Not Disturb queues ordinary app notifications; apps can't bypass it —
-  only the verified critical system path defined by
-  Media, Privacy, and Notification Policy can. Fullscreen
-  alone doesn't enable Do Not Disturb; sharing, locking, unlock summaries,
-  and critical-system exceptions follow that same policy.
-
-## Quick Settings
-
-Quick Settings gives fast access to common system controls without
-replacing the full Settings app.
-
-### Panel basics
-
-- One global panel. Clicking a system-bar status cluster opens it on that
-  cluster's display; the keyboard shortcut uses the focused window's
-  display. Only one instance at a time.
-- Clicking outside, Escape, or the originating cluster again closes it
-  without changing settings — applied changes stay, unsaved form edits are
-  discarded.
-- Always opens as one overview, never jumping to a section based on which
-  icon opened it, with fixed groups **Connectivity**, **Privacy**, **Sound
-  & Display**, and **Power**, each with its own heading. Reordering,
-  search, pinning, and custom tiles are deferred to a future version,
-  configured through the full Settings app.
-- Bounded by display height — groups scroll inside the panel while the
-  **Settings** button stays fixed and visible.
-- Controls always reflect live system state, including changes from
-  hardware, other apps, or other sessions.
-- Tab/Shift+Tab move between controls; arrow keys work sliders and choices
-  within a control; Enter/Space activates it. Closing the panel returns
-  focus to whatever opened it. Every control has an accessible label, no
-  distinction depends on color alone, and the panel supports text scaling,
-  high contrast, reduced motion, and screen readers.
-- Switches, sliders, and device choices apply immediately. A view with
-  editable values needs an explicit **Save**, **Start**, or equivalent
-  action — closing it discards unsaved edits, and any revealed secrets or
-  QR codes hide again until explicitly reopened.
-- A failed change reverts its control to the actual system state and shows
-  an inline explanation that stays until the next attempt succeeds or the
-  panel closes.
-- An in-progress change shows a progress state and blocks repeat
-  activation; closing the panel doesn't cancel it, and reopening shows its
-  current or final state. A failure while the panel is closed becomes a
-  normal [notification](#notifications); success stays silent.
-- Unsupported hardware hides its control; a supported-but-temporarily-
-  unavailable control stays visible, disabled, with an explanation.
-- A persistent **Settings** button closes the panel and opens the full
-  Settings app — switching to its window if one's already open, or opening
-  one in the active Workspace otherwise.
-- In a detail view, Escape returns to the overview; Escape again closes the
-  panel.
-
-### Connectivity
-
-- **Wi-Fi**, **Bluetooth**, and **Airplane Mode** are switch tiles (Airplane
-  Mode only where supported wireless hardware exists). Airplane Mode only
-  touches wireless radios: it disables Wi-Fi and Bluetooth and stops an
-  active hotspot, while Ethernet stays usable and VPN follows the remaining
-  transport. Turning it off restores each radio's prior individual state
-  without restarting the hotspot; radios can't be re-enabled individually
-  while it's active.
-- A wired connection shows a read-only Ethernet status row (state and
-  network name); detailed configuration stays in full Settings.
-- **Wi-Fi detail**: connect or disconnect without leaving the panel; a
-  simple password enters inline, while certificate-based or advanced setup
-  hands off to full Settings. Order: connected network, then saved
-  networks, then others by signal strength. Each row shows connection
-  state, signal strength, and security — no speed estimate, and no
-  **Forget** action (that stays in full Settings).
-- **Bluetooth detail**: connected devices, then paired, then newly
-  discovered. Pairing, connect/disconnect, and PIN or passkey entry stay in
-  the panel; a pairing failure shows an inline error without closing it.
-  Discovery runs while the view is open; battery level shows only when
-  reliably reported. No unpair action (full Settings).
-- **Mobile Hotspot** (only on supporting Wi-Fi hardware): first use opens a
-  detail view with a generated name and password; broadcasting starts only
-  after **Start**. Name and password stay editable afterward, the password
-  masked with reveal and **Copy** controls, and a QR code hidden until
-  **Show QR code**. Changing the name or password while active requires
-  confirming that connected devices will be dropped, then the hotspot
-  restarts with the new credentials. The detail view lists connected
-  devices with a per-device **Disconnect** (temporary — device blocking
-  needs full Settings) and the overview tile shows a connected-device
-  count. The hotspot keeps running through a locked session but stops at
-  logout or restart.
-- **VPN** tile appears once at least one VPN is configured. Its switch
-  connects or disconnects the most recently selected VPN; the detail view
-  picks another configured VPN. The tile shows the active profile name, a
-  read-only **Kill switch** badge if enabled, and — depending on kill-switch
-  status — a prominent **Reconnecting — network blocked** or **Reconnecting
-  — traffic not protected** state (the compact system-bar VPN indicator
-  mirrors these, plus hover text with the exact state). Only one active VPN
-  at a time — selecting another disconnects the current one first; on
-  failure, ShapeBit tries to restore the previous VPN and reports both
-  failures if that also fails, stating explicitly that no VPN is active.
-  Switching starts immediately, subject to the confirmation and
-  authorization rules in
-  Network Ownership and Privacy. Supported VPN
-  types and system-wide routing are governed by
-  Enterprise Network Authentication and the
-  [architecture overview](Architecture).
-- Cellular, NFC, other radio controls, and a dedicated captive-portal
-  workflow are deferred; see
-  Network Ownership and Privacy.
-
-### Privacy
-
-- **Camera** switch tile: **On** = camera available, **Off** = camera
-  globally blocked for all covered apps, per
-  Media, Privacy, and Notification Policy. If a controlled
-  client keeps an active session while blocked, the unhideable privacy
-  indicator stays visible, names the client, and shows it's blocked.
-- Hardware microphone-mute and camera-shutter states override the software
-  controls — when hardware blocks access, the matching software control is
-  unavailable and labeled **Blocked by hardware**. Per-app permission
-  management stays in full Settings.
-- **Privacy activity** lists ongoing microphone, camera, screen-sharing,
-  and remote-control use, ordered by sensitivity (remote control, screen
-  sharing, camera, microphone; newest first within each type). Each entry
-  shows the app, the resource or shared scope, and how long it's been
-  active, with **Stop** wherever immediate revocation is supported per
-  Media, Privacy, and Notification Policy. Stop acts
-  instantly, revokes only that activity, and doesn't change the global
-  Camera or microphone-mute controls. Stopping remote control leaves its
-  screen-sharing session active; stopping screen sharing also revokes any
-  attached remote-control session (the panel visually links such pairs).
-  The list hides when nothing's active; no history is kept anywhere.
-  Unhideable privacy indicators stay visible above Quick Settings itself
-  regardless of whether the panel is open.
-
-### Sound & Display
-
-- **Volume** slider names and controls the current default output;
-  hardware volume keys and external changes update it live. Its detail
-  view picks another output device and lists per-app streams with
-  independent volume and mute controls — an app drops off the list when
-  its stream ends, but its setting is remembered for next time. Clicking
-  the speaker icon toggles mute; unmuting restores the previous volume.
-  Capped at 100% — no software amplification.
-- **Microphone** input volume and device selection sit in the overview too,
-  not just the audio detail view. Clicking the microphone icon toggles
-  mute (**On** = input available, **Muted** = input globally blocked) —
-  this is the same global mute defined by
-  Media, Privacy, and Notification Policy, affecting apps and
-  local-assistant voice input. As with Camera, an active client during a
-  global mute keeps the unhideable indicator visible, naming the client.
-- **Brightness** slider controls the display holding the panel; its detail
-  view covers other displays whose brightness can be controlled reliably.
-  Layout, scale, orientation, primary-display choice, and color calibration
-  stay in full Settings.
-- **Night Light** switch tile, off by default; its detail view sets color
-  temperature and scheduling. First activation turns it on immediately
-  without creating a schedule. When a schedule exists, a manual override
-  lasts only until the next scheduled transition.
-- **HDR** switch tile appears only if the panel's display supports HDR, and
-  controls that display only; other supported displays get their own
-  control in the detail view. While HDR is active, the detail view offers
-  separate sliders for physical display brightness and SDR reference
-  brightness. HDR state and safe SDR fallback are defined by
-  Display, Power, and Thermal Policy.
-- **VRR** control appears only if the panel's display supports variable
-  refresh rate. Defaults to **Automatic for fullscreen** and can be
-  disabled per display, per
-  Display, Power, and Thermal Policy.
-- If HDR, VRR, Night Light, or another selected mode can't safely combine
-  on the current display pipeline, Quick Settings keeps the working
-  configuration, disables the conflicting control, and explains why —
-  it never silently degrades display state. Keyboard backlight and
-  automatic-brightness controls are deferred.
-
-### Power
-
-- Battery-powered devices show percentage, charging state, and a
-  remaining-time estimate only when the system considers it reliable for
-  the main battery — a peripheral battery (such as a headset) stays with
-  its own device controls instead. Alongside that sits a power-profile
-  selector: **Balanced**, **Power Saver**, and **Performance** where the
-  platform supports it, per
-  Display, Power, and Thermal Policy. Low battery can
-  auto-select **Power Saver — Automatic**, temporarily disabling the other
-  profiles until external power restores the previous selection. Thermal
-  throttling shows **Performance limited by temperature** (informational,
-  can't be disabled). Battery conservation and charging-limit controls stay
-  in full Settings because they're system-wide and may need administrator
-  confirmation, per Display, Power, and Thermal Policy.
-- **Power** opens a focused view of commands, not switches: **Lock** and
-  **Suspend** act immediately; **Log Out**, **Restart**, and **Shut Down**
-  require explicit confirmation that names known blocking apps and other
-  active local/SSH sessions, and warns that unsaved work may not be
-  reliably detected or preserved, with **Cancel** focused by default. When
-  an update is staged, the relevant command may read **Restart and
-  Update**, with confirmation and recovery behavior governed by
-  Staged-Restart UX.
-
-### System-bar status cluster
-
-- The compact cluster prioritizes exceptional states — offline
-  connectivity, a reconnecting VPN without protection, kill-switch-blocked
-  traffic, global microphone mute, global camera block, low battery — over
-  permanently showing every enabled feature.
-- Hover text gives the exact state and the relevant device or profile
-  name; critical distinctions use different icons or badges as well as
-  color.
-
-### Not in the initial release
-
-- **Do Not Disturb** stays exclusively in the
-  [notification panel](#notifications), not duplicated here.
-- Accessibility shortcuts, appearance and theme selection, keyboard layout,
-  location services, and similar controls stay in the full Settings app for
-  now. If promoted later, they'll use the planned configurable-tile system
-  rather than expanding this fixed panel.
-
-## Assistant Framework
+### Assistant Framework
 
 The assistant framework is the shared local foundation for assistant and
 agent interaction across ShapeBit Desktop.
 
-### Scope
+#### Scope
 
 - Voice and chat are two channels into the same framework, not separate
   assistants, and both run locally.
@@ -604,7 +352,7 @@ agent interaction across ShapeBit Desktop.
   confirmation step while locked pauses and shows its card only after
   unlock.
 
-### Permissions and actions
+#### Permissions and actions
 
 - The assistant can read the current user's files, window contents, and
   clipboard by default, without per-item sharing — these read capabilities
@@ -624,7 +372,7 @@ agent interaction across ShapeBit Desktop.
   visible card with pointer or keyboard input — spoken confirmation isn't
   sufficient in the initial design.
 
-### History and memory
+#### History and memory
 
 - The assistant surface keeps a local activity log of requested and
   completed actions, confirmations, and permission changes. Retention is
@@ -634,7 +382,7 @@ agent interaction across ShapeBit Desktop.
   can view, edit, and clear it. Derived memories may survive a voice
   interaction, but raw audio and transcripts never do.
 
-### Open questions
+#### Open questions
 
 - Window-content access doesn't yet distinguish an app's semantic data from
   captured screen pixels. The accepted
@@ -647,12 +395,12 @@ agent interaction across ShapeBit Desktop.
   Cross-system authorization constraints are owned by the ShapeBit OS
   architecture docs.
 
-## Assistant Chat
+### Assistant Chat
 
 Assistant chat is the text interface to the shared
 [assistant framework](#assistant-framework).
 
-### Surface
+#### Surface
 
 - A global, on-demand overlay, not owned by a Workspace — an independent,
   frameless panel anchored bottom-left. It's not a pane inside the Shelf and
@@ -675,7 +423,7 @@ Assistant chat is the text interface to the shared
   the Shelf to another display doesn't move an already-open chat panel;
   coexistence with a power-user Shelf edge is still unrefined.
 
-### Bubble presentation
+#### Bubble presentation
 
 - Recent messages float as bubbles above a compact input; older messages
   stay available by scrolling within the overlay.
@@ -689,10 +437,9 @@ Assistant chat is the text interface to the shared
   semantics: hidden chat opens with the input focused; passive chat
   receives focus; already-focused chat hides.
 - Focused and passive chat stay open across Workspace switches on the same
-  display. Overview temporarily hides chat and restores its previous state
-  when Overview closes; a foreground fullscreen window does the same on its
-  display, though the explicit chat shortcut can still open chat above
-  fullscreen.
+  display. A foreground fullscreen window temporarily hides chat on its
+  display and restores its previous state afterwards, though the explicit
+  chat shortcut can still open chat above fullscreen.
 - If chat is completely hidden, a new response never makes it appear
   automatically — the assistant system-bar control shows completion or
   attention instead. If chat is already open in its passive state, the new
@@ -707,7 +454,7 @@ Assistant chat is the text interface to the shared
   and result stays attached to its originating conversation while another
   conversation may be visible.
 
-### Conversations
+#### Conversations
 
 - Multiple conversations and their messages persist locally until deleted.
   Each has its own history, while assistant memory stays global across
@@ -717,7 +464,7 @@ Assistant chat is the text interface to the shared
   across titles and messages.
 - Deletion is immediate and confirmation-free, with a brief **Undo**.
 
-### Actions and confirmations
+#### Actions and confirmations
 
 - Assistant tool and action requests appear as structured cards between
   message bubbles, showing pending, running, completed, or failed state
@@ -737,11 +484,11 @@ Chat uses the same global assistant, memory, capabilities, privileges, and
 confirmation rules as voice Assistant mode, all defined by the shared
 [assistant framework](#assistant-framework).
 
-## Voice Interaction
+### Voice Interaction
 
 Voice interaction lets the user work with ShapeBit through local AI agents.
 
-### Capture and privacy
+#### Capture and privacy
 
 - Push-to-talk only — there is no always-listening mode. Capture begins
   only after the explicit push-to-talk action and stops when the
@@ -759,7 +506,7 @@ Voice interaction lets the user work with ShapeBit through local AI agents.
 Microphone access and privacy indication remain subject to
 Media, Privacy, and Notification Policy.
 
-### Modes
+#### Modes
 
 The mode is explicitly selected, visibly indicated, and remembered per
 user — never inferred from speech. **Assistant** is the initial mode for a
@@ -795,12 +542,12 @@ memory.
   persistent chat conversation or retaining the voice transcript. The
   resulting action event still lands in the central assistant activity log.
 
-## Gaze Input
+### Gaze Input
 
 Gaze input is an optional way to position the pointer at the place where the
 user is looking.
 
-### Activation
+#### Activation
 
 - Enabled by default per user; can be disabled.
 - Looking alone never moves the pointer or activates anything. An explicit
@@ -816,7 +563,7 @@ user is looking.
 - The system bar shows a privacy indicator whenever tracking is active,
   with direct pause and resume controls.
 
-### Data boundary
+#### Data boundary
 
 - Camera frames and derived gaze data stay local and transient — only the
   latest stable gaze point is held in memory. Apps and agents can't access
@@ -827,7 +574,7 @@ user is looking.
 Camera access and privacy indication remain subject to
 Media, Privacy, and Notification Policy.
 
-### Calibration and reliability
+#### Calibration and reliability
 
 - First login with supported hardware offers guided calibration. It may be
   skipped, but tracking stays paused until calibration succeeds.
