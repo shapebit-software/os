@@ -22,8 +22,18 @@ the [future design](#future-design) of features that are not built yet.
 - The shell is the session's notification server and polkit agent: when an
   application asks for an action that needs an administrator, the shell asks
   for the password, in the lock screen's style.
-- Screen sharing and screenshots for applications go through Hyprland's
-  portal. The session offers no other portal, so no portal file chooser.
+- Applications share the screen through Hyprland's portal, which asks
+  through the shell's **share picker**: centered over everything with the
+  screens dimmed, the screens and then the windows, each as a picture with
+  its name. Screenshots that applications ask for go through the capture
+  overlay, screenshots only. GTK's portal gives applications, Flatpak ones
+  included, the system's settings only.
+- Applications open and save files through the shell's **file chooser**, a
+  portal: GTK ones and those in Flatpak. It shows centered over everything,
+  with the screens dimmed: the places (Home and the person's folders) on the
+  left; the folder's path, its files and folders, the application's filters,
+  and the buttons on the right. A double click opens a folder or chooses a
+  file; saving asks for a name, and asks before replacing a file.
 - Copied text stays available after the application it came from closes;
   only the last copy is kept, in memory for the session, never on disk.
 
@@ -85,6 +95,11 @@ the [future design](#future-design) of features that are not built yet.
 - Windows move only on the maps: a window's cell dragged onto another cell
   swaps them, and onto another map moves the window there. There are no
   window title bars to drag.
+- Applications show no window buttons (close, minimize, maximize) in the
+  title bars they draw themselves: the system's default button layout is
+  empty, so GTK and libadwaita applications, and those that follow them,
+  leave them out. Applications that ignore it, such as Electron ones, keep
+  their own.
 - The handles between tiles resize them.
 - A window takes the keyboard when clicked.
 - Full screen (Alt+F, or a double click on its cell) covers the bars; a
@@ -96,10 +111,29 @@ the [future design](#future-design) of features that are not built yet.
 - **Apps** lists the installed applications ten to a page, with a search. A
   click opens an application on the current workspace; dragged onto a map,
   it opens there.
-- The **quick actions** capture an area, a window, or the screen, as a
-  screenshot or a recording, into Pictures or Videos. They open from
-  buttons on a bar or from a hot corner (Settings > Shell). The assistant
-  and dictation buttons are placeholders that say the features are coming.
+- The **quick actions** open from buttons on a bar or from a hot corner
+  (Settings > Shell). The assistant and dictation buttons are placeholders
+  that say the features are coming.
+- Capturing opens the **capture overlay**: the screen dims, with a panel at
+  the bottom in two rows: Selection, Window, or Screen, as one segmented
+  control; and the timer (none, 3, or 10 seconds), a switch between a
+  screenshot and a recording whose knob, with the camera or the video
+  camera in it, is the capture button and slides to the side clicked, and
+  the option of the kind chosen: **Edit before saving** for screenshots,
+  **Mic** (the microphone's sound) for recordings, both kept in the
+  settings. Cancel sits on the panel's top right corner; until something
+  is picked, the middle of the screen says what to do. A drag draws the
+  selection, which shows its size in pixels, moves from inside, resizes
+  from its corners, and is kept for next time; in Window, a click picks a
+  window. The capture button or Enter captures. During the timer only a
+  countdown shows, and the screen stays usable.
+- A screenshot is saved to Pictures/Screenshots at once, and the screen
+  flashes where it was taken. With Edit before saving on (kept in the
+  settings), it first shows for **markup**: arrows, highlights, numbered
+  circles, and text, in red, yellow, blue, or white, with Undo; **Save**
+  (Enter) saves it, **Copy** puts it on the clipboard. Recordings go to
+  Videos/Recordings; while recording, the capture button is red with the
+  recording's length, and one click on it stops it at once.
 
 ### Lock, idle, and sleep
 
