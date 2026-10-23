@@ -1,6 +1,7 @@
 // The account panel, as in the demo: who is signed in and on which computer,
 // with a button for Settings, then tiles to lock, suspend, restart, and shut
-// down.
+// down, and a row to log out. Logging out, restarting, and shutting down end
+// the session, so they ask first, with Cancel focused.
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
@@ -12,6 +13,37 @@ BarPanel {
     // Run from a source tree (make run), the session is a window on the
     // developer's own desktop; powering off would end theirs.
     readonly property bool development: Quickshell.env("DESKTOP_SHELL") !== null
+
+    // The action that waits for confirmation, if any.
+    property string confirming
+    readonly property var confirmations: ({
+        logout: { title: "Log out?", label: "Log out" },
+        reboot: { title: "Restart?", label: "Restart" },
+        poweroff: { title: "Shut down?", label: "Shut down" },
+    })
+
+    function act(action: string) {
+        if (confirmations[action]) {
+            confirming = action;
+            return;
+        }
+        if (action === "lock") {
+            dismissed();
+            Lock.lock();
+        } else {
+            power(action);
+        }
+    }
+
+    function confirm() {
+        const action = confirming;
+        if (action === "logout") {
+            dismissed();
+            Compositor.dispatch("hl.dsp.exit()");
+        } else {
+            power(action);
+        }
+    }
 
     function power(action: string) {
         dismissed();
@@ -30,6 +62,7 @@ BarPanel {
     }
 
     panelWidth: 252
+    onDismissed: confirming = ""
 
     // Who, and Settings.
     Item {
@@ -102,6 +135,7 @@ BarPanel {
 
     // The actions.
     Grid {
+        visible: !panel.confirming
         columns: 2
         spacing: 4
 
@@ -142,20 +176,126 @@ BarPanel {
                 }
 
                 TapHandler {
-                    onTapped: {
-                        if (tile.modelData.action === "lock") {
-                            panel.dismissed();
-                            Lock.lock();
-                        } else {
-                            panel.power(tile.modelData.action);
-                        }
-                    }
+                    onTapped: panel.act(tile.modelData.action)
                 }
                 HoverHandler {
                     id: tileHover
                     cursorShape: Qt.PointingHandCursor
                 }
             }
+        }
+    }
+    Rectangle {
+        visible: !panel.confirming
+        width: panel.panelWidth - 2 * panel.padding
+        height: 40
+        color: Theme.veil(logoutHover.hovered ? 0.1 : 0.05)
+
+        Row {
+            anchors.centerIn: parent
+            spacing: 8
+
+            // A door with an arrow out of it.
+            Icon {
+                anchors.verticalCenter: parent.verticalCenter
+                height: 16
+                capStyle: ShapePath.RoundCap
+                color: Theme.ink
+                strokes: "M6 2.5H3.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1H6M10.5 5l3 3-3 3M13.5 8H6"
+            }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Log out"
+                color: Theme.ink
+                font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
+            }
+        }
+
+        TapHandler {
+            onTapped: panel.act("logout")
+        }
+        HoverHandler {
+            id: logoutHover
+            cursorShape: Qt.PointingHandCursor
+        }
+    }
+
+    // The question before an action that ends the session.
+    Column {
+        visible: !!panel.confirming
+        width: panel.panelWidth - 2 * panel.padding
+        spacing: 10
+        onVisibleChanged: {
+            if (visible)
+                cancel.forceActiveFocus();
+        }
+
+        Column {
+            x: 6
+            width: parent.width - 12
+            topPadding: 6
+            spacing: 4
+
+            Text {
+                text: panel.confirmations[panel.confirming]?.title ?? ""
+                color: Theme.ink
+                font { family: Theme.font; pixelSize: 14; weight: Font.DemiBold }
+            }
+            Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: "Open apps will close, and unsaved work in them may be lost."
+                color: Theme.inkFaint
+                font { family: Theme.font; pixelSize: 12 }
+            }
+        }
+        Row {
+            spacing: 4
+
+            ConfirmButton {
+                id: cancel
+                text: "Cancel"
+                onActivated: panel.confirming = ""
+            }
+            ConfirmButton {
+                text: panel.confirmations[panel.confirming]?.label ?? ""
+                strong: true
+                onActivated: panel.confirm()
+            }
+        }
+    }
+
+    component ConfirmButton: Rectangle {
+        id: button
+
+        property alias text: label.text
+        // Filled with the accent, for the action itself.
+        property bool strong
+        signal activated
+
+        width: (panel.panelWidth - 2 * panel.padding - 4) / 2
+        height: 36
+        activeFocusOnTab: true
+        color: strong ? Theme.accent : Theme.veil(buttonHover.hovered ? 0.1 : 0.05)
+        border.width: activeFocus ? 2 : 0
+        border.color: strong ? Theme.ink : Theme.accent
+        Keys.onReturnPressed: activated()
+        Keys.onEnterPressed: activated()
+        Keys.onSpacePressed: activated()
+
+        Text {
+            id: label
+            anchors.centerIn: parent
+            color: button.strong ? "white" : Theme.ink
+            font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
+        }
+
+        TapHandler {
+            onTapped: button.activated()
+        }
+        HoverHandler {
+            id: buttonHover
+            cursorShape: Qt.PointingHandCursor
         }
     }
 }
