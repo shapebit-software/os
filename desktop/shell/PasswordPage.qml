@@ -133,10 +133,13 @@ Column {
         onRunningChanged: {
             if (running)
                 return;
-            // homectl says nothing on success.
-            if (errors.text.trim()) {
-                page.message = errors.text.includes("Bad password") || errors.text.includes("password")
-                    ? "The current password is wrong" : errors.text.trim().split("\n").pop();
+            // homectl says nothing on success; otherwise its first line says
+            // why, such as "Password too weak: The password is shorter than
+            // 8 characters".
+            const error = errors.text.trim().split("\n")[0];
+            if (error) {
+                page.message = error.startsWith("Password incorrect") ? "The current password is wrong"
+                    : error.startsWith("Password too weak: ") ? "Too weak: " + error.slice(19) : error;
                 page.messageIsError = true;
             } else {
                 page.clear();

@@ -28,9 +28,13 @@ PanelWindow {
         }
     }
 
+    // As on the lock screen: the backdrop, dimmed.
+    Backdrop {
+        anchors.fill: parent
+    }
     Rectangle {
         anchors.fill: parent
-        color: Qt.rgba(0.1, 0.08, 0.16, 0.62)
+        color: Qt.rgba(0.1, 0.08, 0.16, 0.42)
         focus: true
         Keys.onEscapePressed: Authorization.cancel()
     }
@@ -94,9 +98,10 @@ PanelWindow {
 
                 Text {
                     visible: !password.text
-                    // polkit asks "Password:".
-                    text: password.enabled ? (Authorization.flow?.inputPrompt ?? "").replace(/:\s*$/, "") || "Password"
-                        : "Checking…"
+                    // polkit asks "Password:"; another administrator's is named.
+                    text: !password.enabled ? "Checking…"
+                        : Authorization.ownPassword || !Authorization.identity ? "Password"
+                        : `Password for ${Authorization.identity.displayName || Authorization.identity.string}`
                     color: Theme.text
                     opacity: 0.6
                     font { family: Theme.font; pixelSize: 13 }

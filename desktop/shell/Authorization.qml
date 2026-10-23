@@ -14,6 +14,10 @@ Singleton {
     readonly property bool asking: agent.isActive && flow !== null
     // Whether the last password was wrong; cleared by the next one.
     property bool failed
+    // Whose password is asked: the person's own if they administer the
+    // computer, otherwise an administrator's, by name.
+    readonly property var identity: flow?.selectedIdentity ?? null
+    readonly property bool ownPassword: (identity?.string ?? "") === Account.user
 
     function submit(password: string) {
         failed = false;
@@ -36,5 +40,13 @@ Singleton {
         function onAuthenticationFailed() {
             authorization.failed = true;
         }
+    }
+
+    // polkit offers every administrator; the person's own identity, if it is
+    // one of them, comes first in the question.
+    onFlowChanged: {
+        const own = flow?.identities.find(i => !i.isGroup && i.string === Account.user);
+        if (own && flow.selectedIdentity !== own)
+            flow.selectedIdentity = own;
     }
 }
