@@ -58,6 +58,8 @@ hl.config({
     input = { follow_mouse = 2 },
 
     misc = {
+        -- The session names the desktop ShapeBit (session/desktop.desktop).
+        disable_xdg_env_checks  = true,
         -- The shell owns the background.
         force_default_wallpaper = 0,
         disable_hyprland_logo   = true,

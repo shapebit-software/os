@@ -66,8 +66,6 @@ ignores the others.
 
 ## Not yet implemented
 
-- The session in the OS image; the image repository does not install the
-  desktop yet.
 - The assistant and dictation: their buttons, the Settings section, and the
   hot corner say they are coming.
 - Settings has only what works: no password change, no system language,
