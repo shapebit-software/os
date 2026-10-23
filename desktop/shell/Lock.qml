@@ -1,8 +1,9 @@
-// The lock screen: locking the session, checking the password to unlock it,
-// and locking by itself after the computer has been idle (Settings).
+// The lock screen: locking the session and checking the password to unlock
+// it. hypridle locks it when the computer is idle or goes to sleep (Idle.qml).
 pragma Singleton
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Pam
 import Quickshell.Wayland
 
@@ -73,14 +74,14 @@ Singleton {
         }
     }
 
-    IdleMonitor {
-        enabled: Settings.lockAfter > 0 && !screenLock.locked
-        timeout: Settings.lockAfter
-        // Not while a video plays, for example.
-        respectInhibitors: true
-        onIsIdleChanged: {
-            if (isIdle)
-                screenLock.lock();
+    // qs ipc call lock lock; qs ipc prop get lock locked
+    IpcHandler {
+        target: "lock"
+
+        readonly property bool locked: screenLock.locked
+
+        function lock(): void {
+            screenLock.lock();
         }
     }
 }

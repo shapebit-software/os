@@ -50,6 +50,11 @@ Singleton {
     property alias autolock: adapter.autolock
     readonly property var lockTimes: ({ "1 min": 60, "5 min": 300, "Never": 0 })
     readonly property int lockAfter: lockTimes[autolock] ?? 300
+    // When to turn the screens off after the computer has been idle: "2 min",
+    // "10 min", or "Never"; screenOffAfter is that in seconds, 0 for never.
+    property alias screenOff: adapter.screenOff
+    readonly property var screenOffTimes: ({ "2 min": 120, "10 min": 600, "Never": 0 })
+    readonly property int screenOffAfter: screenOffTimes[screenOff] ?? 600
     // "12-hour" or "24-hour".
     property alias timeFormat: adapter.timeFormat
     // How dates read: "US", "UK", or "EU"; empty follows the system locale.
@@ -141,6 +146,7 @@ Singleton {
             })
             property string quickActions: "Buttons"
             property string autolock: "5 min"
+            property string screenOff: "10 min"
             property string timeFormat: "24-hour"
             property string region: ""
             property list<string> keyboards: []

@@ -10,7 +10,9 @@ The session starts Hyprland with the configuration in `compositor/`, which
 starts the shell in `shell/`. The shell draws the wallpaper, the system bar
 and the dock (Apps, the workspace maps, and the quick actions) with their
 panels, the tabs of the Tabs and Accordion layouts, the handles that resize
-tiles, the way out of full screen, Settings, and the lock screen. Settings are
+tiles, the way out of full screen, Settings, and the lock screen. It runs
+hypridle, which locks the screen and turns it off after the idle times in
+Settings, and locks it before the computer sleeps. Settings are
 kept in `~/.config/desktop/settings.json`; the shell applies them to itself
 and to the compositor.
 

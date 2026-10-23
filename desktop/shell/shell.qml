@@ -5,8 +5,9 @@
 import Quickshell
 
 ShellRoot {
-    // The lock screen locks by itself after idle time, so it starts with the
-    // shell rather than when first used.
+    // hypridle runs from the start (Idle.qml) and locks through the lock
+    // screen, so both start with the shell rather than when first used.
+    readonly property string idle: Idle.config
     readonly property bool locked: Lock.locked
 
     Variants {
