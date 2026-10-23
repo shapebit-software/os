@@ -43,6 +43,8 @@ Singleton {
     property alias dock: adapter.dock
     property alias barBackground: adapter.barBackground
     property alias zones: adapter.zones
+    // The items on neither bar, by id, which only Settings > Shell shows.
+    property alias hiddenItems: adapter.hiddenItems
     readonly property var defaultZones: ({
         system: { start: ["clock"], center: [], end: ["notifications", "microphone", "sound", "brightness", "network", "language", "battery", "account"] },
         dock: { start: ["apps", "workspaces"], center: [], end: ["quick"] },
@@ -59,8 +61,8 @@ Singleton {
     property alias screenOff: adapter.screenOff
     readonly property var screenOffTimes: ({ "2 min": 120, "10 min": 600, "Never": 0 })
     readonly property int screenOffAfter: screenOffTimes[screenOff] ?? 600
-    // Whether the battery's percentage shows beside it on the bar: "Shown" or
-    // "Hidden".
+    // Whether the battery's percentage shows inside its icon on the bar:
+    // "Shown" or "Hidden".
     property alias batteryPercentage: adapter.batteryPercentage
     // Whether new notifications show as banners; critical ones always do.
     property alias doNotDisturb: adapter.doNotDisturb
@@ -100,10 +102,11 @@ Singleton {
     }
 
     // Items that the saved zones lack, such as ones added since, go where they
-    // are by default: before the next item that follows them there.
+    // are by default: before the next item that follows them there. Hidden
+    // ones stay off the bars.
     function placeNewItems() {
         const next = JSON.parse(JSON.stringify(zones));
-        const placed = new Set();
+        const placed = new Set(hiddenItems);
         for (const bar of Object.values(next))
             for (const ids of Object.values(bar))
                 ids.forEach(id => placed.add(id));
@@ -176,6 +179,7 @@ Singleton {
             property string dock: "Bottom"
             property string barBackground: "None"
             property var zones: settings.defaultZones
+            property list<string> hiddenItems: []
             property string quickActions: "Buttons"
             property string batteryPercentage: "Shown"
             property bool doNotDisturb: false

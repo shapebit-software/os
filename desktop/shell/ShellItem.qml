@@ -229,31 +229,65 @@ Loader {
             open: item.isOpen("battery")
             onClicked: item.bar.open("battery", button)
 
-            Row {
-                spacing: 5
+            // The outline and its tip, the charge as a bar inside, and over
+            // it the percentage, after a bolt while charging; red when low.
+            Item {
+                id: icon
 
-                Item {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: outline.width
-                    height: outline.height
+                readonly property color color: Battery.low ? Theme.danger : Theme.text
+                readonly property bool percentage: Settings.batteryPercentage === "Shown"
 
-                    Icon {
-                        id: outline
-                        strokes: Battery.outline
-                        fills: Battery.bolt
+                width: 28
+                height: 13
+
+                Rectangle {
+                    id: body
+
+                    width: 25
+                    height: parent.height
+                    radius: 3.5
+                    color: "transparent"
+                    border.width: 1.2
+                    border.color: icon.color
+
+                    Rectangle {
+                        x: 2
+                        y: 2
+                        width: (parent.width - 4) * Math.max(0.08, Battery.percent / 100)
+                        height: parent.height - 4
+                        radius: 1.5
+                        color: icon.color
+                        opacity: icon.percentage ? 0.3 : 1
                     }
-                    Icon {
-                        anchors.fill: outline
-                        color: Battery.low ? Theme.danger : Theme.text
-                        fills: Battery.level
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 1
+
+                        Icon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: Battery.charging
+                            height: 8
+                            gridWidth: 6
+                            gridHeight: 10
+                            color: icon.color
+                            fills: Battery.bolt
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: icon.percentage
+                            text: Battery.percent
+                            color: icon.color
+                            font { family: Theme.font; pixelSize: 9; weight: Font.Bold }
+                        }
                     }
                 }
-                Text {
+                Rectangle {
+                    x: body.width + 1
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: Settings.batteryPercentage === "Shown" && !item.bar.vertical
-                    text: Battery.percent + "%"
-                    color: Theme.text
-                    font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
+                    width: 2
+                    height: 5
+                    radius: 1
+                    color: icon.color
                 }
             }
 
@@ -261,7 +295,7 @@ Loader {
                 target: button
                 edge: item.bar.edge
                 hovered: button.hovered && !button.open
-                text: Battery.timeText
+                text: [Battery.percent + "%", Battery.timeText].filter(t => t).join(" · ")
             }
         }
     }

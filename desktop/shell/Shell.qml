@@ -68,16 +68,25 @@ Singleton {
             Settings.dock = edge;
     }
 
-    // Moves an item to a bar's zone, before another item there, or last.
+    // Moves an item to a bar's zone, before another item there, or last;
+    // with no bar, off the bars, among the hidden items. The system menu,
+    // the way to Settings, always stays on a bar.
     function move(item: string, bar: string, zone: string, before: string) {
+        if (!bar && !canHide(item))
+            return;
         const zones = JSON.parse(JSON.stringify(Settings.zones));
         for (const b of ["system", "dock"])
             for (const z of zoneNames)
                 zones[b][z] = zones[b][z].filter(i => i !== item);
-        const list = zones[bar][zone];
+        const list = bar ? zones[bar][zone] : Settings.hiddenItems.filter(i => i !== item);
         const at = before ? list.indexOf(before) : -1;
         list.splice(at < 0 ? list.length : at, 0, item);
+        Settings.hiddenItems = bar ? Settings.hiddenItems.filter(i => i !== item) : list;
         Settings.zones = zones;
+    }
+
+    function canHide(item: string): bool {
+        return item !== "account";
     }
 
     function toggle(name: string, screen: string, anchor: rect, edge: string, depth: real) {

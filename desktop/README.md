@@ -26,7 +26,7 @@ copied text after the application it came from closes. Settings are kept in
 compositor.
 
 Each bar can sit on any edge, and its items can move between the bars' zones
-(Settings > Shell). Windows move only on the maps: drag a window's cell onto
+or off the bars, hidden, all but the system menu (Settings > Shell). Windows move only on the maps: drag a window's cell onto
 another cell or map; double-click it for full screen (Alt+F), which covers
 the bars and ends from the button in the top right corner; right-click it to
 close it (Alt+Q).

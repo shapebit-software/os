@@ -96,7 +96,7 @@ PanelWindow {
               open: () => page = "wallpaper" },
         ] },
         { id: "shell", name: "Shell", icon: "M1.8 2.8h12.4v10.4H1.8zM1.8 5.4h12.4M4.6 10.6h6.8", rows: [
-            { label: "Layout", detail: "Drag items to reorder them or move them between zones", kind: "shell" },
+            { label: "Layout", detail: "Drag items to reorder them, move them between zones, or hide them below", kind: "shell" },
             { label: "System bar", detail: "Clock and status icons", kind: "choice",
               options: Shell.edges, selected: Settings.systemBar, select: o => Shell.place("system", o) },
             { label: "Dock", detail: "Apps, workspaces and quick actions", kind: "choice",
@@ -107,7 +107,7 @@ PanelWindow {
             { label: "Quick actions", detail: "How the screenshot and record actions open", kind: "choice",
               options: ["Buttons", "Hot corner"], selected: Settings.quickActions,
               select: o => Settings.quickActions = o },
-            ...(Battery.available ? [{ label: "Battery percentage", detail: "Beside the battery in the system bar", kind: "choice",
+            ...(Battery.available ? [{ label: "Battery percentage", detail: "Inside the battery icon in the system bar", kind: "choice",
               options: ["Shown", "Hidden"], selected: Settings.batteryPercentage,
               select: o => Settings.batteryPercentage = o }] : []),
         ] },

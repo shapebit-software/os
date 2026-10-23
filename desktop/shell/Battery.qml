@@ -22,11 +22,9 @@ Singleton {
         : charging ? ((device?.timeToFull ?? 0) > 0 ? `${duration(device.timeToFull)} until full` : "Charging")
         : (device?.timeToEmpty ?? 0) > 0 ? `${duration(device.timeToEmpty)} left` : ""
 
-    // The icon: the outline and its tip; the charge as a bar inside, or a
-    // bolt while charging.
-    readonly property string outline: "M2.2 4.6h9.6a1 1 0 0 1 1 1v4.8a1 1 0 0 1-1 1H2.2a1 1 0 0 1-1-1V5.6a1 1 0 0 1 1-1zM14.4 6.6v2.8"
-    readonly property string level: charging ? "" : `M2.8 6.2h${(8.4 * Math.max(0.08, percent / 100)).toFixed(2)}v3.6H2.8z`
-    readonly property string bolt: charging ? "M7.6 5.2 5.4 8.4h2.1l-.7 2.4 2.5-3.3H7.1z" : ""
+    // The bolt drawn inside the icon while charging, on a grid 6 wide and 10
+    // high.
+    readonly property string bolt: "M3.8.4.6 5.6H3l-.8 4 3.2-5.2H3z"
 
     // The profiles that this computer offers, in order.
     readonly property var profiles: [

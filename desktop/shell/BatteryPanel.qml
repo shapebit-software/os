@@ -1,5 +1,5 @@
-// The battery's panel (Battery.qml): the charge, and the power profiles to
-// choose from, the chosen one lit.
+// The battery's panel (Battery.qml): the power profiles to choose from, the
+// chosen one lit. The charge is on the bar's icon and in its tooltip.
 pragma ComponentBehavior: Bound
 import QtQuick
 
@@ -7,24 +7,6 @@ BarPanel {
     id: panel
 
     panelWidth: 240
-
-    Row {
-        x: 6
-        spacing: 8
-
-        Text {
-            anchors.baseline: state.baseline
-            text: Battery.percent + "%"
-            color: Theme.ink
-            font { family: Theme.font; pixelSize: 15; weight: Font.DemiBold }
-        }
-        Text {
-            id: state
-            text: Battery.timeText || (Battery.charging ? "Charging" : "On battery")
-            color: Theme.inkFaint
-            font { family: Theme.font; pixelSize: 12 }
-        }
-    }
 
     Column {
         width: parent.width
