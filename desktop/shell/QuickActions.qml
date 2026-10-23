@@ -2,8 +2,8 @@
 // assistant's button, and beside it the buttons to capture and to dictate.
 // On the dock, the assistant's is a large glass tile with the other two
 // stacked small beside it; on the system bar, all three are plain buttons.
-// While recording, the capture button is red, and so is the assistant's,
-// with the time; a click on either stops the recording. The assistant and
+// While recording, the capture button is red with the recording's length,
+// and a click on it stops the recording. The assistant and
 // dictation are still to come: their buttons say so (AssistantPanel.qml).
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -27,7 +27,7 @@ GridLayout {
         if (Capture.recording)
             Capture.stop();
         else
-            bar.open("capture", button);
+            Capture.begin(bar.modelData);
     }
 
     flow: bar.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
@@ -45,12 +45,21 @@ GridLayout {
         size: actions.small
         fill: red ? "#d23a3a" : "transparent"
 
-        Rectangle {
+        // While recording, its length so far; as wide as the button, so the
+        // button keeps its size.
+        Text {
             visible: small.red
-            width: 9
-            height: 9
-            radius: 1
+            width: actions.small - 12
+            horizontalAlignment: Text.AlignHCenter
+            text: Capture.elapsed
             color: "#fbfcfd"
+            font { family: Theme.mono; pixelSize: actions.tile ? 9 : 11; weight: Font.DemiBold }
+        }
+        Tooltip {
+            target: small
+            edge: actions.bar.edge
+            hovered: small.hovered && small.red
+            text: `Recording ${Capture.elapsed} · click to stop`
         }
         Icon {
             visible: !small.red
@@ -94,45 +103,16 @@ GridLayout {
         onClicked: actions.bar.open("assistant", dictateButton)
     }
 
-    // The assistant's button; while recording, the recording's.
+    // The assistant's button.
     BarButton {
         id: assistant
 
         tile: actions.tile
         size: actions.bar.size
         open: Shell.isOpen("assistant", actions.bar.modelData?.name ?? "")
-        onClicked: Capture.recording ? Capture.stop() : actions.bar.open("assistant", assistant)
-        fill: Capture.recording ? "#d23a3a" : "transparent"
+        onClicked: actions.bar.open("assistant", assistant)
 
-        Column {
-            visible: Capture.recording
-            spacing: 6
-
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: 9
-                height: 9
-                radius: 2
-                color: "#fbfcfd"
-
-                SequentialAnimation on opacity {
-                    running: Capture.recording
-                    loops: Animation.Infinite
-                    PropertyAction { value: 1 }
-                    PauseAnimation { duration: 700 }
-                    PropertyAction { value: 0 }
-                    PauseAnimation { duration: 700 }
-                }
-            }
-            Text {
-                visible: actions.tile
-                text: Capture.elapsed
-                color: "#fbfcfd"
-                font { family: Theme.mono; pixelSize: 11; weight: Font.DemiBold }
-            }
-        }
         Icon {
-            visible: !Capture.recording
             height: actions.tile ? 20 : 18
             color: "#fbfcfd"
             strokes: actions.sparkle

@@ -2,7 +2,8 @@
 // window: the wallpaper, the tabs of Tabs and Accordion, the handles that
 // resize tiles, the system bar and the dock (Shell.qml) with their panels,
 // the hot corner, the way out of full screen, Settings, the lock screen, and
-// the question for an administrator's password.
+// the question for an administrator's password, the capture overlay, and
+// what the portals show: the file chooser and the share picker.
 import Quickshell
 
 ShellRoot {
@@ -16,6 +17,8 @@ ShellRoot {
     readonly property int notifications: Notifications.all.length
     // The polkit agent registers with the shell, before anything asks.
     readonly property bool authorizing: Authorization.asking
+    // The portals listen from the start, for applications to ask.
+    readonly property string portal: Portal.path
 
     Variants {
         model: Quickshell.screens
@@ -70,6 +73,21 @@ ShellRoot {
         model: Quickshell.screens
 
         AuthorizationPrompt {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        FileChooserDialog {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        SharePickerDialog {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        CaptureOverlay {}
     }
     Variants {
         model: Quickshell.screens

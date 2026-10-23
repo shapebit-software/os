@@ -28,6 +28,13 @@ install: ## Install into DESTDIR
 	install -Dm644 -t $(share)/desktop/shell shell/*
 	install -Dm644 -t $(share)/wayland-sessions session/desktop.desktop
 	install -Dm644 session/portals.conf $(share)/xdg-desktop-portal/shapebit-portals.conf
+	install -Dm644 -t $(share)/glib-2.0/schemas session/window-buttons.gschema.override
+	install -Dm644 session/shell.portal $(share)/xdg-desktop-portal/portals/shell.portal
+	install -Dm755 -t $(DESTDIR)$(PREFIX)/libexec/desktop session/portal session/share-picker
+	install -Dm644 session/portal.dbus.service $(share)/dbus-1/services/org.freedesktop.impl.portal.desktop.shell.service
+	install -Dm644 session/xdph.conf $(share)/desktop/portal/hypr/xdph.conf
+	install -Dm644 session/xdph.service.conf $(DESTDIR)$(PREFIX)/lib/systemd/user/xdg-desktop-portal-hyprland.service.d/10-picker.conf
+	install -Dm644 session/portals.environment.conf $(DESTDIR)$(PREFIX)/lib/environment.d/60-portals.conf
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/'

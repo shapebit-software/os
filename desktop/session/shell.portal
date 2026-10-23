@@ -1,0 +1,5 @@
+# The shell's portal backend (portal): the file chooser and screenshots,
+# which the shell shows. portals.conf picks it for the desktop.
+[portal]
+DBusName=org.freedesktop.impl.portal.desktop.shell
+Interfaces=org.freedesktop.impl.portal.FileChooser;org.freedesktop.impl.portal.Screenshot

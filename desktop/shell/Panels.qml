@@ -65,10 +65,6 @@ Scope {
         screen: panels.modelData
         screenName: panels.modelData?.name ?? ""
     }
-    CapturePanel {
-        screen: panels.modelData
-        screenName: panels.modelData?.name ?? ""
-    }
     AssistantPanel {
         screen: panels.modelData
         screenName: panels.modelData?.name ?? ""

@@ -20,6 +20,10 @@ Singleton {
         openOn = screen;
     }
 
+    // Whether a screenshot opens for markup before it is saved (CaptureOverlay.qml).
+    property alias captureMarkup: adapter.captureMarkup
+    // Whether recordings take sound from the microphone.
+    property alias captureMicrophone: adapter.captureMicrophone
     // One of `accents`, or "Custom" for `accentHue`.
     property alias accent: adapter.accent
     property alias accentHue: adapter.accentHue
@@ -190,6 +194,8 @@ Singleton {
             property list<string> keyboards: []
             property var scales: ({})
             property var modes: ({})
+            property bool captureMarkup: false
+            property bool captureMicrophone: false
         }
     }
 }

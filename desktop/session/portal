@@ -1,0 +1,254 @@
+#!/usr/bin/python3
+# The shell's portal backend, which xdg-desktop-portal asks when an
+# application opens or saves a file (org.freedesktop.impl.portal.FileChooser)
+# or takes a screenshot (org.freedesktop.impl.portal.Screenshot). The shell
+# shows the file chooser and the capture overlay (shell/Portal.qml); each
+# question goes to it over its socket in the runtime directory, as one JSON
+# line naming the portal, and the answer comes back as one. Screenshots that
+# the person does not pick, and picking a color, need no shell. D-Bus starts
+# this on the first question (portal.dbus.service); run it by hand, with a
+# nested desktop's WAYLAND_DISPLAY, to try the shell's side in development.
+import json
+import os
+
+from gi.repository import Gio, GLib
+
+BUS_NAME = "org.freedesktop.impl.portal.desktop.shell"
+OBJECT_PATH = "/org/freedesktop/portal/desktop"
+# The shell's socket, one for each Wayland display (shell/Portal.qml).
+SOCKET = os.path.join(os.environ["XDG_RUNTIME_DIR"], "desktop",
+                      f"portal-{os.environ['WAYLAND_DISPLAY']}.sock")
+MIME_GLOBS = "/usr/share/mime/globs2"
+
+# The portal's responses.
+CHOSEN, CANCELLED, ENDED = 0, 1, 2
+
+QUESTION = """
+      <arg type="o" name="handle" direction="in"/>
+      <arg type="s" name="app_id" direction="in"/>
+      <arg type="s" name="parent_window" direction="in"/>
+      {title}
+      <arg type="a{{sv}}" name="options" direction="in"/>
+      <arg type="u" name="response" direction="out"/>
+      <arg type="a{{sv}}" name="results" direction="out"/>
+"""
+TITLED = QUESTION.format(title='<arg type="s" name="title" direction="in"/>')
+UNTITLED = QUESTION.format(title="")
+FILE_CHOOSER, SCREENSHOT, REQUEST = Gio.DBusNodeInfo.new_for_xml(f"""
+<node>
+  <interface name="org.freedesktop.impl.portal.FileChooser">
+    <method name="OpenFile">{TITLED}</method>
+    <method name="SaveFile">{TITLED}</method>
+  </interface>
+  <interface name="org.freedesktop.impl.portal.Screenshot">
+    <method name="Screenshot">{UNTITLED}</method>
+    <method name="PickColor">{UNTITLED}</method>
+    <property name="version" type="u" access="read"/>
+  </interface>
+  <interface name="org.freedesktop.impl.portal.Request">
+    <method name="Close"/>
+  </interface>
+</node>
+""").interfaces
+
+
+def mime_globs():
+    """The file name patterns of each MIME type, from shared-mime-info."""
+    globs = {}
+    try:
+        with open(MIME_GLOBS) as lines:
+            for line in lines:
+                if not line.startswith("#"):
+                    _, mime, glob = line.rstrip("\n").split(":")[:3]
+                    globs.setdefault(mime, []).append(glob)
+    except OSError:
+        pass
+    return globs
+
+
+def path_option(options, key):
+    """A path option, which the portal sends as bytes ending in a zero."""
+    value = options.get(key)
+    return bytes(value).rstrip(b"\0").decode() if value else ""
+
+
+def patterns(rules, globs):
+    """A filter's rules as file name patterns; a MIME type, such as image/png
+    or image/*, becomes the patterns of the types it names."""
+    found = []
+    for kind, rule in rules:
+        if kind == 0:
+            found.append(rule)
+        elif rule.endswith("/*"):
+            found += [g for mime, gs in globs.items() if mime.startswith(rule[:-1]) for g in gs]
+        else:
+            found += globs.get(rule, [])
+    return sorted(set(found)) or ["*"]
+
+
+def file_question(method, title, options):
+    """What the shell needs to show the file chooser."""
+    filters = options.get("filters", [])
+    current = options.get("current_filter")
+    globs = mime_globs() if any(kind == 1 for _, rules in filters for kind, _ in rules) else {}
+    question = {
+        "portal": "file-chooser",
+        "save": method == "SaveFile",
+        "title": title,
+        "accept": options.get("accept_label", ""),
+        "multiple": bool(options.get("multiple", False)),
+        "folders": bool(options.get("directory", False)),
+        "filters": [{"name": name, "patterns": patterns(rules, globs)} for name, rules in filters],
+        "filter": filters.index(current) if current in filters else 0,
+        "folder": path_option(options, "current_folder"),
+        "name": options.get("current_name", ""),
+    }
+    current_file = path_option(options, "current_file")
+    if current_file:
+        question["folder"], question["name"] = os.path.split(current_file)
+    return question
+
+
+def file_results(answer, filters):
+    """The file chooser's answer: the files, and the filter picked."""
+    paths = answer.get("paths")
+    if not paths:
+        return (CANCELLED if "paths" in answer else ENDED), {}
+    results = {"uris": GLib.Variant("as", [Gio.File.new_for_path(p).get_uri() for p in paths])}
+    chosen = answer.get("filter", -1)
+    if 0 <= chosen < len(filters):
+        results["current_filter"] = GLib.Variant("(sa(us))", filters[chosen])
+    return CHOSEN, results
+
+
+def screenshot_results(answer):
+    """The capture overlay's answer: the screenshot's file."""
+    path = answer.get("path")
+    if not path:
+        return (CANCELLED if "path" in answer else ENDED), {}
+    return CHOSEN, {"uri": GLib.Variant("s", Gio.File.new_for_path(path).get_uri())}
+
+
+class Request:
+    """One question, answered on the D-Bus call that asked it, by the shell
+    or by commands; closing the portal's request closes what it opened."""
+
+    def __init__(self, connection, invocation, handle):
+        self.invocation = invocation
+        self.answered = False
+        self.registration = connection.register_object_with_closures2(handle, REQUEST, self.on_close, None, None)
+        self.stream = None
+
+    def ask_shell(self, question, results_of):
+        """Asks the shell; `results_of` turns its answer into the portal's."""
+        def connected(client, result):
+            try:
+                self.stream = client.connect_finish(result)
+            except GLib.Error:
+                self.answer(ENDED, {})
+                return
+            self.stream.get_output_stream().write_all((json.dumps(question) + "\n").encode(), None)
+            Gio.DataInputStream.new(self.stream.get_input_stream()).read_line_async(
+                GLib.PRIORITY_DEFAULT, None, answered)
+
+        def answered(lines, result):
+            try:
+                line, _ = lines.read_line_finish_utf8(result)
+                answer = json.loads(line or "{}")
+            except (GLib.Error, ValueError):
+                answer = {}
+            self.answer(*results_of(answer))
+
+        Gio.SocketClient().connect_async(Gio.UnixSocketAddress.new(SOCKET), None, connected)
+
+    def run(self, argv, done):
+        """Runs a command; `done` gets its output, or None if it failed."""
+        process = Gio.Subprocess.new(argv, Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE)
+
+        def finished(process, result):
+            try:
+                _, out, _ = process.communicate_finish(result)
+                ok = process.get_successful()
+            except GLib.Error:
+                ok = False
+            done((out.get_data() if out else b"") if ok else None)
+
+        process.communicate_async(None, None, finished)
+
+    def on_close(self, connection, sender, path, interface, method, parameters, invocation):
+        invocation.return_value(None)
+        self.answer(ENDED, {})
+
+    def answer(self, response, results):
+        if self.answered:
+            return
+        self.answered = True
+        self.invocation.return_value(GLib.Variant("(ua{sv})", (response, results)))
+        self.invocation.get_connection().unregister_object(self.registration)
+        if self.stream:
+            self.stream.close(None)
+
+
+def screenshot_path():
+    """Where a screenshot nobody picks goes: Pictures/Screenshots."""
+    pictures = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_PICTURES) or os.path.expanduser("~/Pictures")
+    folder = os.path.join(pictures, "Screenshots")
+    os.makedirs(folder, exist_ok=True)
+    return os.path.join(folder, GLib.DateTime.new_now_local().format("Screenshot %F %H-%M-%S.png"))
+
+
+def take_screenshot(request, options):
+    if options.get("interactive", False):
+        request.ask_shell({"portal": "screenshot"}, screenshot_results)
+        return
+    path = screenshot_path()
+    request.run(["grim", path], lambda out: request.answer(*(
+        screenshot_results({"path": path}) if out is not None else (ENDED, {}))))
+
+
+def pick_color(request):
+    """The color of the pixel the person clicks, with slurp, read from grim."""
+    def picked(out):
+        if not out:
+            request.answer(CANCELLED, {})
+            return
+        request.run(["grim", "-g", out.decode().strip(), "-t", "ppm", "-"], read)
+
+    def read(out):
+        # A binary PPM ends with the pixel's red, green, and blue bytes.
+        if not out or len(out) < 3:
+            request.answer(ENDED, {})
+            return
+        color = tuple(b / 255 for b in out[-3:])
+        request.answer(CHOSEN, {"color": GLib.Variant("(ddd)", color)})
+
+    request.run(["slurp", "-p"], picked)
+
+
+def on_method(connection, sender, path, interface, method, parameters, invocation):
+    if interface == FILE_CHOOSER.name:
+        handle, _, _, title, options = parameters.unpack()
+        filters = options.get("filters", [])
+        Request(connection, invocation, handle).ask_shell(
+            file_question(method, title, options), lambda answer: file_results(answer, filters))
+    elif method == "Screenshot":
+        handle, _, _, options = parameters.unpack()
+        take_screenshot(Request(connection, invocation, handle), options)
+    else:
+        handle, _, _, _ = parameters.unpack()
+        pick_color(Request(connection, invocation, handle))
+
+
+def on_property(connection, sender, path, interface, name):
+    return GLib.Variant("u", 2)
+
+
+def on_bus(connection, name):
+    connection.register_object_with_closures2(OBJECT_PATH, FILE_CHOOSER, on_method, None, None)
+    connection.register_object_with_closures2(OBJECT_PATH, SCREENSHOT, on_method, on_property, None)
+
+
+loop = GLib.MainLoop()
+Gio.bus_own_name(Gio.BusType.SESSION, BUS_NAME, Gio.BusNameOwnerFlags.NONE,
+                 on_bus, None, lambda *_: loop.quit())
+loop.run()

@@ -17,6 +17,10 @@ PanelWindow {
 
     function act(panel: string, button: Item) {
         fanned = false;
+        if (panel === "capture") {
+            Capture.begin(modelData);
+            return;
+        }
         const at = button.mapToItem(null, 0, 0);
         Shell.toggle(panel, modelData.name,
             Qt.rect(modelData.width - width + at.x, modelData.height - height + at.y, button.width, button.height),
