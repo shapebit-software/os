@@ -27,6 +27,7 @@ install: ## Install into DESTDIR
 	install -Dm644 -t $(share)/desktop/compositor compositor/*
 	install -Dm644 -t $(share)/desktop/shell shell/*
 	install -Dm644 -t $(share)/wayland-sessions session/desktop.desktop
+	install -Dm644 session/portals.conf $(share)/xdg-desktop-portal/shapebit-portals.conf
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/'

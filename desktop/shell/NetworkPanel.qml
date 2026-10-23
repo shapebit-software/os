@@ -51,33 +51,13 @@ BarPanel {
                 font { family: Theme.font; pixelSize: 10 }
             }
         }
-        // The switch, as on Settings: the accent with the knob right when on.
-        Rectangle {
+        Switch {
             visible: entry.switchable
             anchors.right: parent.right
             anchors.rightMargin: 10
             anchors.verticalCenter: parent.verticalCenter
-            width: 30
-            height: 17
-            radius: 9
-            color: entry.on ? Theme.accent : Theme.veil(0.12)
-
-            Rectangle {
-                x: entry.on ? 15 : 2
-                y: 2
-                width: 13
-                height: 13
-                radius: 7
-                color: "#fbfbfd"
-
-                Behavior on x { NumberAnimation { duration: 120 } }
-            }
-            TapHandler {
-                onTapped: entry.toggled()
-            }
-            HoverHandler {
-                cursorShape: Qt.PointingHandCursor
-            }
+            on: entry.on
+            onToggled: entry.toggled()
         }
         HoverHandler {
             id: entryHover

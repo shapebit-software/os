@@ -17,11 +17,6 @@ BarPanel {
     readonly property bool muted: node?.audio?.muted ?? false
     readonly property real volume: node?.audio?.volume ?? 0
 
-    function setVolume(x: real, width: real) {
-        if (node?.audio)
-            node.audio.volume = Math.max(0, Math.min(1, x / width));
-    }
-
     Row {
         width: parent.width
         spacing: 12
@@ -86,39 +81,13 @@ BarPanel {
                 }
             }
 
-            // The slider: the track, the volume in the accent, and a knob.
-            Item {
+            Slider {
                 width: parent.width
-                height: 4
                 opacity: panel.muted ? 0.35 : 1
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 2
-                    color: Theme.veil(0.07)
-                }
-                Rectangle {
-                    width: parent.width * Math.min(1, panel.volume)
-                    height: parent.height
-                    radius: 2
-                    color: Theme.accent
-                }
-                Rectangle {
-                    x: parent.width * Math.min(1, panel.volume) - width / 2
-                    y: -6
-                    width: 16
-                    height: 16
-                    radius: 8
-                    color: "#fbfbfd"
-                    border.color: Theme.veil(0.12)
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    anchors.topMargin: -8
-                    anchors.bottomMargin: -8
-                    cursorShape: Qt.PointingHandCursor
-                    onPressed: mouse => panel.setVolume(mouse.x, width)
-                    onPositionChanged: mouse => panel.setVolume(mouse.x, width)
+                value: panel.volume
+                onMoved: value => {
+                    if (panel.node?.audio)
+                        panel.node.audio.volume = value;
                 }
             }
         }

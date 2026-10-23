@@ -9,14 +9,21 @@ the demo decides.
 The session starts Hyprland through [UWSM](https://github.com/Vladimir-csp/uwsm),
 which runs the session's systemd units (`graphical-session.target` and the
 applications that start with every session, XDG autostart), with the
-configuration in `compositor/`, which starts the shell in `shell/`. The shell draws the wallpaper, the system bar
-and the dock (Apps, the workspace maps, and the quick actions) with their
-panels, the tabs of the Tabs and Accordion layouts, the handles that resize
-tiles, the way out of full screen, Settings, and the lock screen. It runs
+configuration in `compositor/`, which starts the shell in `shell/`.
+
+The shell draws the wallpaper, the system bar and the dock (Apps, the
+workspace maps, and the quick actions) with their panels, the tabs of the Tabs
+and Accordion layouts, the handles that resize tiles, the way out of full
+screen, Settings, and the lock screen. Beyond the demo, the system bar has
+notifications (banners, and a panel with Do Not Disturb), the display's
+brightness, and the battery with the power profile, these two only where the
+computer has them. The shell is also the session's polkit agent, which asks
+for an administrator's password, and its notification server. It runs
 hypridle, which locks the screen and turns it off after the idle times in
-Settings, and locks it before the computer sleeps. Settings are
-kept in `~/.config/desktop/settings.json`; the shell applies them to itself
-and to the compositor.
+Settings and locks it before the computer sleeps, and clipman, which keeps
+copied text after the application it came from closes. Settings are kept in
+`~/.config/desktop/settings.json`; the shell applies them to itself and to the
+compositor.
 
 Each bar can sit on any edge, and its items can move between the bars' zones
 (Settings > Shell). Windows move only on the maps: drag a window's cell onto
@@ -66,13 +73,13 @@ ignores the others.
 | ------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `compositor/` | The Hyprland configuration (Lua): look, key bindings, layouts and resizing (`layouts.lua`), workspaces (`workspaces.lua`). |
 | `shell/`      | The Quickshell configuration (QML): every shell surface.                                                                   |
-| `session/`    | The session entry that the login screen starts.                                                                            |
+| `session/`    | The session entry that the login screen starts, and the session's portals.                                                 |
 
 ## Not yet implemented
 
 - The assistant and dictation: their buttons, the Settings section, and the
   hot corner say they are coming.
-- Settings has only what works: no password change, no system language,
-  automatic time, or first day of the week. The time zone is shown, not set.
+- Settings has only what works: no password change, no system language, or
+  first day of the week.
 - Tabs cannot be dragged.
 - Tile sizes last while the workspace keeps its layout, not across sessions.

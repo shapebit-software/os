@@ -25,6 +25,31 @@ PanelWindow {
     readonly property string size: monitor ? `${monitor.width}x${monitor.height}` : ""
     readonly property int rate: Math.round(monitor?.lastIpcObject.refreshRate ?? 0)
     property string timeZone
+    property bool automaticTime
+    property list<string> timeZones
+    // The system's language, such as "en_GB.UTF-8", and those installed.
+    property string systemLocale
+    property list<string> locales
+
+    // A locale by its own language's name, such as "polski (Polska)".
+    function localeName(locale: string): string {
+        const qt = Qt.locale(locale.split(".")[0]);
+        return qt.nativeTerritoryName ? `${qt.nativeLanguageName} (${qt.nativeTerritoryName})` : qt.nativeLanguageName || locale;
+    }
+
+    // Changes the system's language through localectl, which asks for an
+    // administrator; then reads it again.
+    function localectl(args: list<string>) {
+        localeSetter.command = ["localectl", ...args];
+        localeSetter.running = true;
+    }
+
+    // Changes the time settings through timedatectl, which asks for an
+    // administrator (Authorization.qml); then reads them again.
+    function timedate(args: list<string>) {
+        timeSetter.command = ["timedatectl", ...args];
+        timeSetter.running = true;
+    }
 
     // The open page, or none: "picture", "wallpaper", or "keyboards".
     property string page
@@ -35,6 +60,8 @@ PanelWindow {
             { label: "Picture", detail: "Shown on the lock screen and in the system menu", kind: "picture",
               open: () => page = "picture" },
             { label: "Name", detail: "Shown on the lock screen and in the system menu", value: Account.displayName },
+            { label: "Password", detail: "Unlocks the session and the home", value: "Change",
+              open: () => page = "password" },
             { label: "Lock automatically", detail: "After the screen has been idle", kind: "choice",
               options: Object.keys(Settings.lockTimes), selected: Settings.autolock,
               select: o => Settings.autolock = o },
@@ -46,13 +73,20 @@ PanelWindow {
             { label: "Coming soon", detail: "Assistant settings will be available in a future update.", kind: "info" },
         ] },
         { id: "language", name: "Language", icon: "M2 8a6 6 0 1 0 12 0a6 6 0 1 0-12 0zM2 8h12M8 2c-2.2 2.4-2.2 9.6 0 12M8 2c2.2 2.4 2.2 9.6 0 12", rows: [
+            { label: "System language", detail: "For the whole computer, from the next sign-in; needs an administrator",
+              kind: "select", options: locales.map(l => [window.localeName(l), l]).sort((a, b) => a[0].localeCompare(b[0])),
+              selected: systemLocale, select: l => window.localectl(["set-locale", "LANG=" + l]) },
             { label: "Region format", detail: "Dates in the bar and on the lock screen", kind: "choice",
               options: ["US", "UK", "EU"], selected: Settings.regionShown, select: o => Settings.region = o },
             { label: "Keyboards", value: "Manage", open: () => page = "keyboards",
               detail: `${(Settings.keyboards.length ? Settings.keyboards : Keyboard.layouts).map(k => Keyboard.nameOf(k)).join(", ")} · switch with Super+Space` },
         ] },
         { id: "time", name: "Time", icon: "M2 8a6 6 0 1 0 12 0a6 6 0 1 0-12 0zM8 4.5V8l2.4 1.6", rows: [
-            { label: "Time zone", detail: "Set by the system", value: timeZone },
+            { label: "Time zone", detail: "For the whole computer; needs an administrator", kind: "select",
+              options: timeZones.map(z => [z.replace(/_/g, " "), z]), selected: timeZone,
+              select: z => window.timedate(["set-timezone", z]) },
+            { label: "Set time automatically", detail: "From the network", kind: "toggle", on: automaticTime,
+              toggle: () => window.timedate(["set-ntp", String(!window.automaticTime)]) },
             { label: "Time format", detail: "Shown in the top bar and lock screen", kind: "choice",
               options: ["12-hour", "24-hour"], selected: Settings.timeFormat, select: o => Settings.timeFormat = o },
         ] },
@@ -73,6 +107,9 @@ PanelWindow {
             { label: "Quick actions", detail: "How the screenshot and record actions open", kind: "choice",
               options: ["Buttons", "Hot corner"], selected: Settings.quickActions,
               select: o => Settings.quickActions = o },
+            ...(Battery.available ? [{ label: "Battery percentage", detail: "Beside the battery in the system bar", kind: "choice",
+              options: ["Shown", "Hidden"], selected: Settings.batteryPercentage,
+              select: o => Settings.batteryPercentage = o }] : []),
         ] },
         { id: "windows", name: "Windows", icon: "M1.8 2.8h7v10.4h-7zM10.4 2.8h3.8v4.4h-3.8zM10.4 8.8h3.8v4.4h-3.8z", rows: [
             { label: "Corners", detail: "Shape of tiled windows", kind: "choice",
@@ -125,6 +162,7 @@ PanelWindow {
         "picture": ["Choose a picture", "account"],
         "wallpaper": ["Choose a wallpaper", "desktop"],
         "keyboards": ["Keyboards", "language"],
+        "password": ["Change password", "account"],
     })
 
     readonly property string query: search.text.trim().toLowerCase()
@@ -159,14 +197,60 @@ PanelWindow {
         if (visible) {
             search.forceActiveFocus();
             zone.running = true;
+            if (!timeZones.length)
+                zones.running = true;
+            locale.running = true;
+            if (!locales.length)
+                localeList.running = true;
         }
     }
 
+    // timedatectl show prints "Timezone=Europe/Warsaw" and "NTP=yes".
     Process {
         id: zone
-        command: ["timedatectl", "show", "--property=Timezone", "--value"]
+        command: ["timedatectl", "show", "--property=Timezone", "--property=NTP"]
         stdout: StdioCollector {
-            onStreamFinished: window.timeZone = text.trim()
+            onStreamFinished: {
+                const values = Object.fromEntries(text.trim().split("\n").map(line => line.split("=")));
+                window.timeZone = values.Timezone ?? "";
+                window.automaticTime = values.NTP === "yes";
+            }
+        }
+    }
+    Process {
+        id: zones
+        command: ["timedatectl", "list-timezones"]
+        stdout: StdioCollector {
+            onStreamFinished: window.timeZones = text.trim().split("\n")
+        }
+    }
+    // localectl status prints "System Locale: LANG=en_GB.UTF-8".
+    Process {
+        id: locale
+        command: ["localectl", "status"]
+        stdout: StdioCollector {
+            onStreamFinished: window.systemLocale = (text.match(/LANG=(\S+)/) ?? [])[1] ?? ""
+        }
+    }
+    Process {
+        id: localeList
+        command: ["localectl", "list-locales"]
+        stdout: StdioCollector {
+            onStreamFinished: window.locales = text.trim().split("\n").filter(l => l.endsWith(".UTF-8"))
+        }
+    }
+    Process {
+        id: localeSetter
+        onRunningChanged: {
+            if (!running)
+                locale.running = true;
+        }
+    }
+    Process {
+        id: timeSetter
+        onRunningChanged: {
+            if (!running)
+                zone.running = true;
         }
     }
 
@@ -402,6 +486,11 @@ PanelWindow {
 
                 KeyboardsPage {
                     visible: window.page === "keyboards"
+                    width: parent.width
+                }
+
+                PasswordPage {
+                    visible: window.page === "password"
                     width: parent.width
                 }
 

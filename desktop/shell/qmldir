@@ -1,6 +1,10 @@
 singleton Account Account.qml
 singleton Audio Audio.qml
+singleton Authorization Authorization.qml
+singleton Battery Battery.qml
+singleton Brightness Brightness.qml
 singleton Capture Capture.qml
+singleton Clipboard Clipboard.qml
 singleton Compositor Compositor.qml
 singleton Connectivity Connectivity.qml
 singleton Dragging Dragging.qml
@@ -8,6 +12,7 @@ singleton Idle Idle.qml
 singleton Keyboard Keyboard.qml
 singleton Layouts Layouts.qml
 singleton Lock Lock.qml
+singleton Notifications Notifications.qml
 singleton Settings Settings.qml
 singleton Shell Shell.qml
 singleton Theme Theme.qml
@@ -15,10 +20,13 @@ AccountPanel AccountPanel.qml
 AppsButton AppsButton.qml
 AppsPanel AppsPanel.qml
 AssistantPanel AssistantPanel.qml
+AuthorizationPrompt AuthorizationPrompt.qml
 Avatar Avatar.qml
 Backdrop Backdrop.qml
 BarButton BarButton.qml
 BarPanel BarPanel.qml
+BatteryPanel BatteryPanel.qml
+BrightnessPanel BrightnessPanel.qml
 CapturePanel CapturePanel.qml
 Dusk Dusk.qml
 FullscreenExit FullscreenExit.qml
@@ -31,7 +39,11 @@ LanguagePanel LanguagePanel.qml
 LayoutMenu LayoutMenu.qml
 LockSurface LockSurface.qml
 NetworkPanel NetworkPanel.qml
+NotificationBanners NotificationBanners.qml
+NotificationCard NotificationCard.qml
+NotificationsPanel NotificationsPanel.qml
 Panels Panels.qml
+PasswordPage PasswordPage.qml
 PopoverFrame PopoverFrame.qml
 Popout Popout.qml
 QuickActions QuickActions.qml
@@ -40,6 +52,9 @@ SettingsChoice SettingsChoice.qml
 SettingsRow SettingsRow.qml
 SettingsSelect SettingsSelect.qml
 SettingsWindow SettingsWindow.qml
+Slider Slider.qml
+Switch Switch.qml
+Tooltip Tooltip.qml
 ShellBar ShellBar.qml
 ShellEditor ShellEditor.qml
 ShellItem ShellItem.qml

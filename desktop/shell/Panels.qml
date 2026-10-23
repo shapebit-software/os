@@ -31,6 +31,21 @@ Scope {
         mutedStroke: "M10.6 6l4 4M14.6 6l-4 4"
         wavesWhenMuted: false
     }
+    NotificationsPanel {
+        screen: panels.modelData
+        screenName: panels.modelData?.name ?? ""
+        name: "notifications"
+    }
+    BrightnessPanel {
+        screen: panels.modelData
+        screenName: panels.modelData?.name ?? ""
+        name: "brightness"
+    }
+    BatteryPanel {
+        screen: panels.modelData
+        screenName: panels.modelData?.name ?? ""
+        name: "battery"
+    }
     NetworkPanel {
         screen: panels.modelData
         screenName: panels.modelData?.name ?? ""

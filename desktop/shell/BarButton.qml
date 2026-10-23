@@ -12,6 +12,7 @@ Item {
     property int size: 30
     // A color over the whole button, such as red while recording.
     property color fill: "transparent"
+    readonly property bool hovered: hover.hovered
     signal clicked
     signal rightClicked
 

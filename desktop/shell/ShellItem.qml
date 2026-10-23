@@ -1,6 +1,7 @@
 // One item of a bar (ShellBar.qml), by its id in Settings.zones: the clock,
-// a status button that opens its panel (the microphone, the sound, the
-// network, the input language, the system menu), Apps, the workspaces, or
+// a status button that opens its panel (the notifications, the microphone,
+// the sound, the
+// brightness, the network, the battery, the input language, the system menu), Apps, the workspaces, or
 // the quick actions. On the dock, buttons are glass tiles; on the system bar,
 // they are plain. A right click on the microphone or the sound mutes it.
 pragma ComponentBehavior: Bound
@@ -36,14 +37,20 @@ Loader {
             node.audio.muted = !node.audio.muted;
     }
 
-    // The quick actions open from the hot corner instead, if set so.
+    // The quick actions open from the hot corner instead, if set so; the
+    // brightness shows only with a backlight, and the battery with one.
     active: !(modelData === "quick" && Settings.quickActions === "Hot corner")
+        && !(modelData === "brightness" && !Brightness.available)
+        && !(modelData === "battery" && !Battery.available)
     visible: active
     sourceComponent: ({
         clock: clock,
+        notifications: notificationsButton,
         microphone: microphoneButton,
         sound: soundButton,
+        brightness: brightnessButton,
         network: networkButton,
+        battery: batteryButton,
         language: languageButton,
         account: accountButton,
         apps: apps,
@@ -99,6 +106,40 @@ Loader {
     }
 
     Component {
+        id: notificationsButton
+
+        BarButton {
+            id: button
+            tile: item.tile
+            size: item.size
+            open: item.isOpen("notifications")
+            onClicked: item.bar.open("notifications", button)
+
+            // A bell; struck through with Do Not Disturb, with a dot while
+            // there are new ones.
+            Icon {
+                strokes: "M4 11.2V7.4a4 4 0 0 1 8 0v3.8l1.2 1.4H2.8zM6.6 13.6a1.5 1.5 0 0 0 2.8 0"
+
+                Icon {
+                    anchors.fill: parent
+                    visible: Settings.doNotDisturb
+                    strokeWidth: 1.6
+                    strokes: "M2.5 2.5l11 11"
+                }
+                Rectangle {
+                    x: parent.width - 6
+                    y: 1
+                    visible: Notifications.unseen && !Settings.doNotDisturb
+                    width: 6
+                    height: 6
+                    radius: 3
+                    color: Theme.accent
+                }
+            }
+        }
+    }
+
+    Component {
         id: microphoneButton
 
         BarButton {
@@ -147,6 +188,20 @@ Loader {
     }
 
     Component {
+        id: brightnessButton
+
+        BarButton {
+            id: button
+            tile: item.tile
+            size: item.size
+            open: item.isOpen("brightness")
+            onClicked: item.bar.open("brightness", button)
+
+            Icon { strokes: Brightness.icon }
+        }
+    }
+
+    Component {
         id: networkButton
 
         BarButton {
@@ -160,6 +215,53 @@ Loader {
                 strokes: "M2.4 6.2a8 8 0 0 1 11.2 0M4.7 8.7a4.9 4.9 0 0 1 6.6 0"
                 fills: "M7.1 11.6a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0-1.8 0z"
                 capStyle: ShapePath.SquareCap
+            }
+        }
+    }
+
+    Component {
+        id: batteryButton
+
+        BarButton {
+            id: button
+            tile: item.tile
+            size: item.size
+            open: item.isOpen("battery")
+            onClicked: item.bar.open("battery", button)
+
+            Row {
+                spacing: 5
+
+                Item {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: outline.width
+                    height: outline.height
+
+                    Icon {
+                        id: outline
+                        strokes: Battery.outline
+                        fills: Battery.bolt
+                    }
+                    Icon {
+                        anchors.fill: outline
+                        color: Battery.low ? Theme.danger : Theme.text
+                        fills: Battery.level
+                    }
+                }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: Settings.batteryPercentage === "Shown" && !item.bar.vertical
+                    text: Battery.percent + "%"
+                    color: Theme.text
+                    font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
+                }
+            }
+
+            Tooltip {
+                target: button
+                edge: item.bar.edge
+                hovered: button.hovered && !button.open
+                text: Battery.timeText
             }
         }
     }

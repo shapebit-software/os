@@ -43,6 +43,10 @@ Singleton {
     property alias dock: adapter.dock
     property alias barBackground: adapter.barBackground
     property alias zones: adapter.zones
+    readonly property var defaultZones: ({
+        system: { start: ["clock"], center: [], end: ["notifications", "microphone", "sound", "brightness", "network", "language", "battery", "account"] },
+        dock: { start: ["apps", "workspaces"], center: [], end: ["quick"] },
+    })
     // How the quick actions open: "Buttons" in the corner, or "Hot corner".
     property alias quickActions: adapter.quickActions
     // When to lock after the computer has been idle: "1 min", "5 min", or
@@ -55,6 +59,11 @@ Singleton {
     property alias screenOff: adapter.screenOff
     readonly property var screenOffTimes: ({ "2 min": 120, "10 min": 600, "Never": 0 })
     readonly property int screenOffAfter: screenOffTimes[screenOff] ?? 600
+    // Whether the battery's percentage shows beside it on the bar: "Shown" or
+    // "Hidden".
+    property alias batteryPercentage: adapter.batteryPercentage
+    // Whether new notifications show as banners; critical ones always do.
+    property alias doNotDisturb: adapter.doNotDisturb
     // "12-hour" or "24-hour".
     property alias timeFormat: adapter.timeFormat
     // How dates read: "US", "UK", or "EU"; empty follows the system locale.
@@ -90,7 +99,33 @@ Singleton {
         Compositor.setMonitor(output, mode, scales[output] ?? "auto");
     }
 
+    // Items that the saved zones lack, such as ones added since, go where they
+    // are by default: before the next item that follows them there.
+    function placeNewItems() {
+        const next = JSON.parse(JSON.stringify(zones));
+        const placed = new Set();
+        for (const bar of Object.values(next))
+            for (const ids of Object.values(bar))
+                ids.forEach(id => placed.add(id));
+        let changed = false;
+        for (const [bar, barZones] of Object.entries(defaultZones)) {
+            for (const [zone, ids] of Object.entries(barZones)) {
+                ids.forEach((id, index) => {
+                    if (placed.has(id))
+                        return;
+                    const list = next[bar][zone];
+                    const following = ids.slice(index + 1).find(other => list.includes(other));
+                    list.splice(following ? list.indexOf(following) : list.length, 0, id);
+                    changed = true;
+                });
+            }
+        }
+        if (changed)
+            zones = next;
+    }
+
     function apply() {
+        placeNewItems();
         Compositor.setGaps(gapSize);
         Compositor.setDecoration(windowCorners, windowDecoration);
         Compositor.setDefaultLayout(defaultLayout);
@@ -140,11 +175,10 @@ Singleton {
             property string systemBar: "Top"
             property string dock: "Bottom"
             property string barBackground: "None"
-            property var zones: ({
-                system: { start: ["clock"], center: [], end: ["microphone", "sound", "network", "language", "account"] },
-                dock: { start: ["apps", "workspaces"], center: [], end: ["quick"] },
-            })
+            property var zones: settings.defaultZones
             property string quickActions: "Buttons"
+            property string batteryPercentage: "Shown"
+            property bool doNotDisturb: false
             property string autolock: "5 min"
             property string screenOff: "10 min"
             property string timeFormat: "24-hour"

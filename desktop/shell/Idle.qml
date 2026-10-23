@@ -50,7 +50,10 @@ Singleton {
     Process {
         id: hypridle
 
-        command: ["sh", "-c", 'mkdir -p "${1%/*}" && printf %s "$2" >"$1" && exec hypridle --quiet --config "$1"',
+        // Those of shells that have ended go first; in development, the
+        // runtime directory outlasts many.
+        command: ["sh", "-c", 'mkdir -p "${1%/*}" && for f in "${1%/*}"/idle-*.conf; do p=${f##*-}; '
+            + 'kill -0 "${p%.conf}" 2>/dev/null || rm -f "$f"; done; printf %s "$2" >"$1" && exec hypridle --quiet --config "$1"',
             "sh", idle.path, idle.config]
         running: true
     }

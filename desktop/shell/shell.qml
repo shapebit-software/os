@@ -1,7 +1,8 @@
 // The shell of ShapeBit Desktop: every surface that is not an application
 // window: the wallpaper, the tabs of Tabs and Accordion, the handles that
 // resize tiles, the system bar and the dock (Shell.qml) with their panels,
-// the hot corner, the way out of full screen, Settings, and the lock screen.
+// the hot corner, the way out of full screen, Settings, the lock screen, and
+// the question for an administrator's password.
 import Quickshell
 
 ShellRoot {
@@ -9,6 +10,12 @@ ShellRoot {
     // screen, so both start with the shell rather than when first used.
     readonly property string idle: Idle.config
     readonly property bool locked: Lock.locked
+    // Copied text is kept from the start.
+    readonly property string clipboard: Clipboard.path
+    // The notification server starts with the shell, before anything sends.
+    readonly property int notifications: Notifications.all.length
+    // The polkit agent registers with the shell, before anything asks.
+    readonly property bool authorizing: Authorization.asking
 
     Variants {
         model: Quickshell.screens
@@ -58,5 +65,15 @@ ShellRoot {
         model: Quickshell.screens
 
         SettingsWindow {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        AuthorizationPrompt {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        NotificationBanners {}
     }
 }

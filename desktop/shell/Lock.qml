@@ -74,11 +74,13 @@ Singleton {
         }
     }
 
-    // qs ipc call lock lock; qs ipc prop get lock locked
+    // qs ipc call lock lock; qs ipc call lock isLocked
     IpcHandler {
         target: "lock"
 
-        readonly property bool locked: screenLock.locked
+        function isLocked(): bool {
+            return screenLock.locked;
+        }
 
         function lock(): void {
             screenLock.lock();

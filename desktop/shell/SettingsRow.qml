@@ -169,31 +169,11 @@ Item {
             onPicked: value => row.modelData.select(value)
         }
 
-        // A switch.
-        Rectangle {
+        Switch {
             visible: row.kind === "toggle"
-            width: 30
-            height: 17
-            radius: 9
-            color: row.modelData.on ? Theme.accent : "#d5d8db"
-
-            Rectangle {
-                x: row.modelData.on ? 15 : 2
-                y: 2
-                width: 13
-                height: 13
-                radius: 7
-                color: "white"
-
-                Behavior on x { NumberAnimation { duration: 120 } }
-            }
-
-            TapHandler {
-                onTapped: row.modelData.toggle()
-            }
-            HoverHandler {
-                cursorShape: Qt.PointingHandCursor
-            }
+            on: row.modelData.on ?? false
+            offColor: "#d5d8db"
+            onToggled: row.modelData.toggle()
         }
     }
 

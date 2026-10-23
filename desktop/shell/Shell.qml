@@ -19,9 +19,12 @@ Singleton {
     // The items, by id, with their names.
     readonly property var items: ({
         clock: "Clock",
+        notifications: "Notifications",
         microphone: "Microphone",
         sound: "Sound",
+        brightness: "Brightness",
         network: "Network",
+        battery: "Battery",
         language: "Input language",
         account: "System menu",
         apps: "Apps",
@@ -29,7 +32,8 @@ Singleton {
         quick: "Quick actions",
     })
 
-    // The open panel: "microphone", "sound", "network", "language",
+    // The open panel: "notifications", "microphone", "sound", "brightness",
+    // "network", "battery", "language",
     // "account", "apps", "capture", "assistant", "layout", or none; the
     // screen it is open on, by name; the place of what opened it on that
     // screen; and the edge and depth of the bar it opens from.

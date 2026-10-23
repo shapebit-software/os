@@ -102,3 +102,10 @@ hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("hyprctl switchxkblayout all next"))
 -- Full screen covers the bar and the strip; the shell shows a button to end
 -- it in the top right corner (FullscreenExit.qml).
 hl.bind("ALT + F", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
+-- The brightness keys change the built-in display's (shell/Brightness.qml),
+-- held down and on the lock screen too; brightnessctl keeps it above
+-- fully dark.
+hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl --class=backlight --quiet set 5%+"),
+    { repeating = true, locked = true })
+hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl --class=backlight --quiet set 5%-"),
+    { repeating = true, locked = true })
