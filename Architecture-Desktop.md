@@ -23,10 +23,9 @@ the [future design](#future-design) of features that are not built yet.
   application asks for an action that needs an administrator, the shell asks
   for the password, in the lock screen's style.
 - Applications share the screen through Hyprland's portal, which asks
-  through the shell's **share picker**: centered over everything with the
-  screens dimmed, the screens and then the windows, each as a picture with
-  its name. Screenshots that applications ask for go through the capture
-  overlay, screenshots only. GTK's portal gives applications, Flatpak ones
+  what to share through the capture overlay: a selection, a window, or a
+  screen, as for a screenshot. Screenshots that applications ask for go
+  through the capture overlay too, screenshots only. GTK's portal gives applications, Flatpak ones
   included, the system's settings only.
 - Applications open and save files through the shell's **file chooser**, a
   portal: GTK ones and those in Flatpak. It shows centered over everything,
@@ -138,6 +137,13 @@ the [future design](#future-design) of features that are not built yet.
   bar's corner cancels. Recordings go to
   Videos/Recordings; while recording, the capture button is red with the
   recording's length, and one click on it stops it at once.
+- When an application shares the screen, the capture overlay opens on the
+  focused screen, its panel with **Share** in place of the switch and
+  **Remember**, kept in the settings, which lets the application share the
+  same thing again without asking. Enter shares; Escape or the close button
+  cancels. While anything is shared, the capture button is filled with the
+  accent and shows a screen, and its tooltip names the applications it is
+  shared with. Sharing stops from the application.
 
 ### Lock, idle, and sleep
 
