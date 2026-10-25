@@ -2,8 +2,8 @@
 // window: the wallpaper, the tabs of Tabs and Accordion, the handles that
 // resize tiles, the system bar and the dock (Shell.qml) with their panels,
 // the hot corner, the way out of full screen, Settings, the lock screen, and
-// the question for an administrator's password, the capture overlay, and
-// what the portals show: the file chooser and the share picker.
+// the question for an administrator's password, the capture overlay, which
+// also picks what to share, and the file chooser, which a portal shows.
 import Quickshell
 
 ShellRoot {
@@ -78,11 +78,6 @@ ShellRoot {
         model: Quickshell.screens
 
         FileChooserDialog {}
-    }
-    Variants {
-        model: Quickshell.screens
-
-        SharePickerDialog {}
     }
     Variants {
         model: Quickshell.screens

@@ -12,6 +12,11 @@
 // in Window, a click picks the window under the pointer. The capture button
 // or Enter captures; Escape cancels.
 //
+// When an application shares the screen (SharePicker.qml), the panel picks
+// what to share: the switch is the Share button instead, and the only option
+// is Remember, which lets the application share it again without asking
+// (Settings.shareRemember).
+//
 // With Edit, the screenshot shows for markup (CaptureMarkup.qml), with its
 // tools and colors, Delete, Undo, Redo, Copy, and Save; Enter saves.
 // Without, the screen flashes where it was taken. During the timer, only the
@@ -31,6 +36,7 @@ Scope {
 
     readonly property bool here: Capture.screen === modelData
     readonly property bool portal: Capture.request !== null
+    readonly property bool sharing: SharePicker.asking
     // Under the compositor's blur threshold for this namespace, so what is
     // dimmed stays sharp (compositor/hyprland.lua).
     readonly property color dim: Qt.rgba(0.05, 0.04, 0.09, 0.45)
@@ -38,6 +44,8 @@ Scope {
     // A screenshot's symbol, a camera, and a recording's, a video camera.
     readonly property string camera: "M2.75 7.25a1.5 1.5 0 0 1 1.5-1.5h2l1.25-2h5l1.25 2h2a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-1.5 1.5H4.25a1.5 1.5 0 0 1-1.5-1.5zM7 10.5a3 3 0 1 0 6 0a3 3 0 1 0-6 0z"
     readonly property string video: "M2.75 6.75a1.5 1.5 0 0 1 1.5-1.5h7a1.5 1.5 0 0 1 1.5 1.5v6.5a1.5 1.5 0 0 1-1.5 1.5h-7a1.5 1.5 0 0 1-1.5-1.5zM12.75 8.75l4.5-2.5v7.5l-4.5-2.5"
+    // Sharing's: a screen with an arrow up.
+    readonly property string share: "M2.75 3.75h14.5v9.5H2.75zM7 16.25h6M10 13.25v3M10 11V6M7.75 8.25 10 6l2.25 2.25"
     // The capture panel's fill, and the tracks of its controls.
     readonly property color panelFill: Theme.oklch(0.94, 0.006, 285)
     readonly property color track: Theme.oklch(0.885, 0.01, 285)
@@ -46,20 +54,26 @@ Scope {
         id: window
 
         readonly property bool marking: Capture.stage === "markup"
-        // What is picked: the selection drawn, the window clicked, or the
-        // screen; and what lights up: that, or the window under the pointer.
+        // What is picked: the selection drawn, the window clicked, by its
+        // address too, or the screen; and what lights up: that, or the
+        // window under the pointer.
         property rect picked
+        property string pickedWindow
         property rect hovered
         readonly property rect lit: marking ? Capture.area
             : Capture.mode === "Screen" ? whole
             : Capture.mode === "Window" && picked.width === 0 ? hovered : picked
         readonly property bool ready: picked.width >= 4 && picked.height >= 4 || Capture.mode === "Screen"
-        // The windows on the screen's workspace, in its coordinates.
+        // The windows on the screen's workspace: their addresses, and where
+        // they are in its coordinates.
         readonly property list<var> windows: Hyprland.toplevels.values
             .filter(t => t.workspace?.active && t.monitor?.name === overlay.modelData.name && t.lastIpcObject.at)
             .map(t => {
                 const ipc = t.lastIpcObject;
-                return Qt.rect(ipc.at[0] - overlay.modelData.x, ipc.at[1] - overlay.modelData.y, ipc.size[0], ipc.size[1]);
+                return {
+                    address: t.address,
+                    rect: Qt.rect(ipc.at[0] - overlay.modelData.x, ipc.at[1] - overlay.modelData.y, ipc.size[0], ipc.size[1]),
+                };
             })
         readonly property rect whole: Qt.rect(0, 0, width, height)
         readonly property real pixels: overlay.modelData?.devicePixelRatio ?? 1
@@ -91,12 +105,18 @@ Scope {
         function pickWhat(mode: string) {
             Capture.mode = mode;
             picked = mode === "Area" ? Capture.lastArea : Qt.rect(0, 0, 0, 0);
+            pickedWindow = "";
             hovered = Qt.rect(0, 0, 0, 0);
         }
 
         function capture() {
-            if (ready)
-                Capture.take(Capture.mode === "Screen" ? whole : picked);
+            if (!ready)
+                return;
+            const area = Capture.mode === "Screen" ? whole : picked;
+            if (overlay.sharing)
+                SharePicker.share(overlay.modelData, Capture.mode, area, pickedWindow);
+            else
+                Capture.take(area);
         }
 
         // Whether a point is on the bar or Cancel, whose clicks are their own.
@@ -105,8 +125,10 @@ Scope {
             return items.some(i => i.visible && i.contains(i.mapFromItem(null, point.x, point.y)));
         }
 
-        function windowAt(x: real, y: real): rect {
-            return windows.find(r => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height) ?? Qt.rect(0, 0, 0, 0);
+        // The window at a point, or none.
+        function windowAt(x: real, y: real): var {
+            return windows.find(w => x >= w.rect.x && x < w.rect.x + w.rect.width
+                && y >= w.rect.y && y < w.rect.y + w.rect.height) ?? null;
         }
 
         // The selection kept inside the screen.
@@ -209,7 +231,9 @@ Scope {
                     return;
                 }
                 if (Capture.mode === "Window") {
-                    window.picked = window.windowAt(mouse.x, mouse.y);
+                    const at = window.windowAt(mouse.x, mouse.y);
+                    window.picked = at?.rect ?? Qt.rect(0, 0, 0, 0);
+                    window.pickedWindow = at?.address ?? "";
                     return;
                 }
                 start = Qt.point(mouse.x, mouse.y);
@@ -225,7 +249,7 @@ Scope {
                 else if (dragging === "move")
                     window.picked = window.bounded(Qt.rect(from.x + mouse.x - start.x, from.y + mouse.y - start.y, from.width, from.height));
                 else if (Capture.mode === "Window")
-                    window.hovered = window.windowAt(mouse.x, mouse.y);
+                    window.hovered = window.windowAt(mouse.x, mouse.y)?.rect ?? Qt.rect(0, 0, 0, 0);
             }
             onReleased: {
                 if (dragging === "draw" && (window.picked.width < 4 || window.picked.height < 4))
@@ -329,7 +353,8 @@ Scope {
             anchors.centerIn: parent
             visible: !window.marking && !window.ready && !picker.dragging
                 && !(Capture.mode === "Window" && window.hovered.width > 0)
-            text: Capture.mode === "Window" ? "Click a window" : "Drag to select an area"
+            text: (Capture.mode === "Window" ? "Click a window" : "Drag to select an area")
+                + (overlay.sharing ? " to share" : "")
             color: "white"
             style: Text.Raised
             styleColor: Qt.rgba(0, 0, 0, 0.4)
@@ -338,7 +363,8 @@ Scope {
 
         // The panel, one row at the bottom center: what to pick; the switch
         // between a screenshot and a recording whose knob captures; and
-        // Edit, or the timer and Mic. Cancel sits on its corner.
+        // Edit, or the timer and Mic. When sharing, Share and Remember
+        // instead. Cancel sits on its corner.
         Bar {
             id: selectPanel
 
@@ -374,6 +400,7 @@ Scope {
 
                 readonly property real knob: 80
 
+                visible: !overlay.sharing
                 width: 136
                 height: 52
                 radius: 14
@@ -466,17 +493,69 @@ Scope {
                 }
             }
 
+            // Share, as wide as the switch, muted until there is something
+            // to share.
+            Rectangle {
+                id: shareButton
+
+                visible: overlay.sharing
+                width: 136
+                height: 52
+                radius: 14
+                color: window.ready ? Theme.accent : Theme.oklch(0.68, 0.025, 285)
+                scale: shareTap.pressed ? 0.96 : 1
+
+                Behavior on color { ColorAnimation { duration: 160 } }
+                Behavior on scale { NumberAnimation { duration: 90 } }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    color: "white"
+                    opacity: shareHover.hovered && window.ready ? 0.12 : 0
+                }
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 8
+
+                    Icon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 20
+                        gridWidth: 20
+                        gridHeight: 20
+                        strokeWidth: 1.6
+                        capStyle: ShapePath.RoundCap
+                        color: "white"
+                        strokes: overlay.share
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Share"
+                        color: "white"
+                        font { family: Theme.font; pixelSize: 14; weight: Font.DemiBold }
+                    }
+                }
+                TapHandler {
+                    id: shareTap
+                    onTapped: window.capture()
+                }
+                HoverHandler {
+                    id: shareHover
+                    cursorShape: window.ready ? Qt.PointingHandCursor : Qt.ArrowCursor
+                }
+            }
+
             Divider {}
 
             // The options of the kind chosen: markup before saving for
             // screenshots; the timer (none, 3 seconds, or 10) and the
-            // microphone for recordings.
+            // microphone for recordings; Remember when sharing.
             Row {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 4
 
                 Option {
-                    visible: Capture.record
+                    visible: !overlay.sharing && Capture.record
                     badge: Capture.delay ? `${Capture.delay}` : ""
                     tip: "Timer"
                     on: Capture.delay > 0
@@ -484,18 +563,25 @@ Scope {
                     onActivated: Capture.delay = Capture.delay === 0 ? 3 : Capture.delay === 3 ? 10 : 0
                 }
                 Option {
-                    visible: !Capture.record
+                    visible: !overlay.sharing && !Capture.record
                     tip: "Edit before saving"
                     on: Settings.captureMarkup
                     strokes: "M9 4.25H5.25a1.5 1.5 0 0 0-1.5 1.5v9a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V11M14 3.5l2.5 2.5L10 12.5H7.5V10z"
                     onActivated: Settings.captureMarkup = !Settings.captureMarkup
                 }
                 Option {
-                    visible: Capture.record
+                    visible: !overlay.sharing && Capture.record
                     tip: "Record the microphone"
                     on: Settings.captureMicrophone
                     strokes: "M7.5 5a2.5 2.5 0 0 1 5 0v5a2.5 2.5 0 0 1-5 0zM4.75 9.5a5.25 5.25 0 0 0 10.5 0M10 14.75v2.5"
                     onActivated: Settings.captureMicrophone = !Settings.captureMicrophone
+                }
+                Option {
+                    visible: overlay.sharing
+                    tip: "Let the app share it again without asking"
+                    on: Settings.shareRemember
+                    strokes: "M3.5 10a6.5 6.5 0 1 0 1.9-4.6M3.25 3v3.25H6.5M10 6.5V10l2.5 1.5"
+                    onActivated: Settings.shareRemember = !Settings.shareRemember
                 }
             }
         }

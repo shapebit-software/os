@@ -19,14 +19,17 @@ notifications (banners, and a panel with Do Not Disturb), the display's
 brightness, and the battery with the power profile, these two only where the
 computer has them. The shell is also the session's polkit agent, which asks
 for an administrator's password, its notification server, and, through the
-portals, what applications ask: the file chooser, screenshots in the capture
-overlay, and the share picker (the backends in `session/portal` and
+portals, what applications ask: the file chooser, and screenshots and what
+to share in the capture overlay (the backends in `session/portal` and
 `session/share-picker` hand it their questions). Captures from the quick
 actions open the same overlay, with a panel of one row of icons: a
 selection, a window, or the screen; a switch between a
 screenshot and a recording whose knob is the capture button; and editing for
 screenshots, or a timer and the microphone for recordings; screenshots are saved at once, or, with editing, first open for
-markup. It runs
+markup. When an application shares the screen, the overlay's panel has Share
+in place of the switch, and Remember, which lets the application share it
+again without asking; while sharing, the capture button is filled with the
+accent. It runs
 hypridle, which locks the screen and turns it off after the idle times in
 Settings and locks it before the computer sleeps, and clipman, which keeps
 copied text after the application it came from closes. Settings are kept in

@@ -63,7 +63,6 @@ Tooltip Tooltip.qml
 ShellBar ShellBar.qml
 ShellEditor ShellEditor.qml
 ShellItem ShellItem.qml
-SharePickerDialog SharePickerDialog.qml
 VolumePanel VolumePanel.qml
 Wallpaper Wallpaper.qml
 WindowTabs WindowTabs.qml

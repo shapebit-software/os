@@ -5,7 +5,8 @@
 // Settings.captureMarkup, first opens for markup, then is saved or copied.
 // Recordings go to Videos/Recordings. Applications ask for screenshots through the
 // portal (Portal.qml): the overlay then takes a screenshot only, and the
-// application gets the file.
+// application gets the file. Applications sharing the screen ask what to
+// share the same way (SharePicker.qml), also while recording.
 pragma Singleton
 import QtQuick
 import Quickshell
@@ -52,7 +53,7 @@ Singleton {
     property string videos: `${Quickshell.env("HOME")}/Videos`
 
     function begin(screen: ShellScreen) {
-        if (stage || recorder.running)
+        if (stage || recorder.running && !SharePicker.asking)
             return;
         Hyprland.refreshToplevels();
         capture.screen = screen;
@@ -125,6 +126,8 @@ Singleton {
         if (asker)
             Portal.answer(asker, { path: "" });
         asker = null;
+        if (SharePicker.asking)
+            SharePicker.cancel();
         close();
     }
 

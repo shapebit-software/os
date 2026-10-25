@@ -24,6 +24,8 @@ Singleton {
     property alias captureMarkup: adapter.captureMarkup
     // Whether recordings take sound from the microphone.
     property alias captureMicrophone: adapter.captureMicrophone
+    // Whether an application may share what was picked again without asking.
+    property alias shareRemember: adapter.shareRemember
     // One of `accents`, or "Custom" for `accentHue`.
     property alias accent: adapter.accent
     property alias accentHue: adapter.accentHue
@@ -196,6 +198,7 @@ Singleton {
             property var modes: ({})
             property bool captureMarkup: false
             property bool captureMicrophone: false
+            property bool shareRemember: false
         }
     }
 }
