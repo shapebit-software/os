@@ -115,13 +115,13 @@ the [future design](#future-design) of features that are not built yet.
   (Settings > Shell). The assistant and dictation buttons are placeholders
   that say the features are coming.
 - Capturing opens the **capture overlay**: the screen dims, with a panel at
-  the bottom in two rows: Selection, Window, or Screen, as one segmented
-  control; and the timer (none, 3, or 10 seconds), a switch between a
+  the bottom center, in one row of icons named by their tooltips:
+  Selection, Window, or Screen; a switch between a
   screenshot and a recording whose knob, with the camera or the video
-  camera in it, is the capture button and slides to the side clicked, and
-  the option of the kind chosen: **Edit before saving** for screenshots,
-  **Mic** (the microphone's sound) for recordings, both kept in the
-  settings. Cancel sits on the panel's top right corner; until something
+  camera in it, is the capture button and slides to the side clicked; and
+  the options of the kind chosen: **Edit before saving** for screenshots,
+  or the timer (none, 3, or 10 seconds, shown in a badge) and **Mic** (the microphone's
+  sound) for recordings. Edit and Mic are kept in the settings. Cancel sits on the panel's top right corner; until something
   is picked, the middle of the screen says what to do. A drag draws the
   selection, which shows its size in pixels, moves from inside, resizes
   from its corners, and is kept for next time; in Window, a click picks a
@@ -129,9 +129,13 @@ the [future design](#future-design) of features that are not built yet.
   countdown shows, and the screen stays usable.
 - A screenshot is saved to Pictures/Screenshots at once, and the screen
   flashes where it was taken. With Edit before saving on (kept in the
-  settings), it first shows for **markup**: arrows, highlights, numbered
-  circles, and text, in red, yellow, blue, or white, with Undo; **Save**
-  (Enter) saves it, **Copy** puts it on the clipboard. Recordings go to
+  settings), it first shows for **markup**: arrows, highlights, pixelated
+  areas, numbered circles, and text (a click on a text edits it), in red,
+  yellow, blue, black, or white; **Move**, which picks a mark to drag
+  elsewhere or delete (the bin, or Delete); and Undo and Redo, which step
+  through every change. **Save** (Enter)
+  saves it, **Copy** puts it on the clipboard, and the close button on the
+  bar's corner cancels. Recordings go to
   Videos/Recordings; while recording, the capture button is red with the
   recording's length, and one click on it stops it at once.
 
