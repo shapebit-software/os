@@ -28,7 +28,7 @@ Singleton {
     property ShellScreen screen: null
     property string stage
     // What to pick: "Area", "Window", or "Screen"; whether to record; and
-    // the timer, in seconds, 0 for none.
+    // the timer for recordings, in seconds, 0 for none.
     property string mode: "Area"
     property bool record
     property int delay
@@ -63,10 +63,10 @@ Singleton {
         capture.area = area;
         if (mode === "Area")
             lastArea = area;
-        countdown = delay;
+        countdown = record ? delay : 0;
         stage = "wait";
         // The overlay leaves the screen before the capture, also with no timer.
-        timer.interval = delay ? 1000 : 150;
+        timer.interval = countdown ? 1000 : 150;
         timer.restart();
     }
 

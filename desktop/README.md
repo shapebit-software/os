@@ -22,9 +22,10 @@ for an administrator's password, its notification server, and, through the
 portals, what applications ask: the file chooser, screenshots in the capture
 overlay, and the share picker (the backends in `session/portal` and
 `session/share-picker` hand it their questions). Captures from the quick
-actions open the same overlay, with a panel of two rows: a selection, a
-window, or the screen; and a timer, a switch between a screenshot and a
-recording whose knob is the capture button, and editing; screenshots are saved at once, or, with editing, first open for
+actions open the same overlay, with a panel of one row of icons: a
+selection, a window, or the screen; a switch between a
+screenshot and a recording whose knob is the capture button; and editing for
+screenshots, or a timer and the microphone for recordings; screenshots are saved at once, or, with editing, first open for
 markup. It runs
 hypridle, which locks the screen and turns it off after the idle times in
 Settings and locks it before the computer sleeps, and clipman, which keeps

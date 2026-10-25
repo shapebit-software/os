@@ -1,20 +1,21 @@
 // The capture overlay (Capture.qml) over one screen, dimmed, with a panel at
-// the bottom in the popovers' light glass, in two rows: what to pick (a
-// selection, a window, or the screen), as one segmented control; and the
-// timer, a switch between a screenshot and a recording whose knob is the
-// capture button, and the option of the kind chosen: Edit, which opens
-// screenshots for markup before they are saved (Settings.captureMarkup), or
-// Mic, which records the microphone (Settings.captureMicrophone). Cancel sits on the panel's corner;
-// until something is picked, the middle of the screen says what to do. A
+// the bottom center in the popovers' light glass, in one row of icons: what
+// to pick (a selection, a window, or the screen); a switch between a
+// screenshot and a recording whose knob is the capture button; and the
+// options of the kind chosen: for screenshots, Edit, which opens them for
+// markup before they are saved (Settings.captureMarkup); for recordings, the
+// timer, its seconds in a badge, and Mic, which records the microphone
+// (Settings.captureMicrophone). Cancel sits on the panel's corner; until
+// something is picked, the middle of the screen says what to do. A
 // drag draws the selection, which shows its size in pixels, moves when
 // dragged from inside, resizes from its corners, and is kept for next time;
 // in Window, a click picks the window under the pointer. The capture button
 // or Enter captures; Escape cancels.
 //
 // With Edit, the screenshot shows for markup (CaptureMarkup.qml), with its
-// tools and colors, Undo, Copy, and Save; Enter saves. Without, the screen
-// flashes where it was taken. During the timer, only the countdown shows,
-// and lets clicks through.
+// tools and colors, Delete, Undo, Redo, Copy, and Save; Enter saves.
+// Without, the screen flashes where it was taken. During the timer, only the
+// countdown shows, and lets clicks through.
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
@@ -82,7 +83,7 @@ Scope {
         }
         onMarkingChanged: {
             if (marking) {
-                markup.marks = [];
+                markup.clear();
                 keys.forceActiveFocus();
             }
         }
@@ -100,7 +101,7 @@ Scope {
 
         // Whether a point is on the bar or Cancel, whose clicks are their own.
         function onBar(point: point): bool {
-            const items = marking ? [markupBar] : [selectPanel, closer];
+            const items = [marking ? markupBar : selectPanel, closer];
             return items.some(i => i.visible && i.contains(i.mapFromItem(null, point.x, point.y)));
         }
 
@@ -137,8 +138,12 @@ Scope {
                         window.save();
                     else
                         window.capture();
+                } else if (window.marking && (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace)) {
+                    markup.remove();
                 } else if (window.marking && event.modifiers & Qt.ControlModifier) {
-                    if (event.key === Qt.Key_Z)
+                    if (event.key === Qt.Key_Z && event.modifiers & Qt.ShiftModifier || event.key === Qt.Key_Y)
+                        markup.redo();
+                    else if (event.key === Qt.Key_Z)
                         markup.undo();
                     else if (event.key === Qt.Key_C)
                         window.copy();
@@ -331,219 +336,179 @@ Scope {
             font { family: Theme.font; pixelSize: 15; weight: Font.Medium }
         }
 
-        // The panel, in two rows: what to pick, as one segmented control;
-        // and the timer, the switch between a screenshot and a recording
-        // whose knob captures, and Edit. Cancel sits on its corner.
-        // Rounded always, as the design has it, whatever the windows' corners.
-        Item {
+        // The panel, one row at the bottom center: what to pick; the switch
+        // between a screenshot and a recording whose knob captures; and
+        // Edit, or the timer and Mic. Cancel sits on its corner.
+        Bar {
             id: selectPanel
 
-            readonly property real inner: 388
-            readonly property real padding: 12
-
             visible: !window.marking
-            anchors.horizontalCenter: parent.horizontalCenter
-            y: parent.height - height - (Settings.dock === "Bottom" ? Theme.gap : 28)
-            width: inner + 2 * padding
-            height: rows.height + 2 * padding
 
-            RectangularShadow {
-                anchors.fill: parent
-                offset.y: 8
-                blur: 24
-                radius: 16
-                color: Qt.rgba(0, 0, 0, 0.3)
+            // What to pick: the chosen one raised in white.
+            Choice {
+                tip: "Selection"
+                on: Capture.mode === "Area"
+                strokes: "M3.5 7V3.5H7M13 3.5h3.5V7M16.5 13v3.5H13M7 16.5H3.5V13"
+                onActivated: window.pickWhat("Area")
             }
+            Choice {
+                tip: "Window"
+                on: Capture.mode === "Window"
+                strokes: "M2.75 4.25h14.5v11.5H2.75zM2.75 7.5h14.5"
+                onActivated: window.pickWhat("Window")
+            }
+            Choice {
+                tip: "Screen"
+                on: Capture.mode === "Screen"
+                strokes: "M2.75 3.75h14.5v9.5H2.75zM7 16.25h6M10 13.25v3"
+                onActivated: window.pickWhat("Screen")
+            }
+
+            Divider {}
+
+            // The switch: a screenshot on the left, a recording on the
+            // right. A click on the free side moves the knob there;
+            // the knob, with its kind's symbol, captures.
             Rectangle {
-                anchors.fill: parent
-                radius: 16
-                color: overlay.panelFill
-            }
+                id: kinds
 
-            Column {
-                id: rows
+                readonly property real knob: 80
 
-                x: selectPanel.padding
-                y: selectPanel.padding
-                width: selectPanel.inner
-                spacing: 12
+                width: 136
+                height: 52
+                radius: 14
+                color: overlay.track
 
-                // What to pick: the chosen one raised in white.
-                Rectangle {
-                    width: selectPanel.inner
-                    height: 48
-                    radius: 12
-                    color: overlay.track
+                // The other kind, on the free side.
+                Item {
+                    id: other
 
-                    Row {
+                    x: Capture.record ? 0 : kinds.knob
+                    width: kinds.width - kinds.knob
+                    height: kinds.height
+                    enabled: !overlay.portal || Capture.record
+                    opacity: enabled ? 1 : 0.35
+
+                    Icon {
                         anchors.centerIn: parent
-                        spacing: 2
-
-                        Choice {
-                            text: "Selection"
-                            mode: "Area"
-                            strokes: "M3.5 7V3.5H7M13 3.5h3.5V7M16.5 13v3.5H13M7 16.5H3.5V13"
-                        }
-                        Choice {
-                            text: "Window"
-                            mode: "Window"
-                            strokes: "M2.75 4.25h14.5v11.5H2.75zM2.75 7.5h14.5"
-                        }
-                        Choice {
-                            text: "Screen"
-                            mode: "Screen"
-                            strokes: "M2.75 3.75h14.5v9.5H2.75zM7 16.25h6M10 13.25v3"
-                        }
+                        height: 20
+                        gridWidth: 20
+                        gridHeight: 20
+                        strokeWidth: 1.6
+                        capStyle: ShapePath.RoundCap
+                        color: otherHover.hovered && other.enabled ? Theme.ink : Theme.inkSoft
+                        strokes: Capture.record ? overlay.camera : overlay.video
+                    }
+                    TapHandler {
+                        enabled: other.enabled
+                        onTapped: Capture.record = !Capture.record
+                    }
+                    HoverHandler {
+                        id: otherHover
+                        cursorShape: other.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    }
+                    Tooltip {
+                        target: other
+                        edge: "Bottom"
+                        text: Capture.record ? "Screenshot" : "Recording"
+                        hovered: otherHover.hovered && other.enabled
                     }
                 }
 
-                Item {
-                    width: selectPanel.inner
-                    height: 60
+                // The knob: the capture button, muted until there is
+                // something to capture.
+                Rectangle {
+                    id: shutter
 
-                    // The timer: none, 3 seconds, or 10.
-                    Option {
-                        anchors { left: parent.left; verticalCenter: parent.verticalCenter }
-                        text: Capture.delay ? `${Capture.delay} s` : "Off"
-                        tip: "Timer"
-                        on: Capture.delay > 0
-                        strokes: "M4.5 11a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0-11 0zM10 8v3l2 1.5M8 2.75h4"
-                        onActivated: Capture.delay = Capture.delay === 0 ? 3 : Capture.delay === 3 ? 10 : 0
-                    }
+                    x: Capture.record ? kinds.width - width - 4 : 4
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: kinds.knob - 4
+                    height: kinds.height - 8
+                    radius: 11
+                    color: !window.ready ? Theme.oklch(0.68, 0.025, 285)
+                        : Capture.record ? overlay.red : Theme.accent
+                    scale: shutterTap.pressed ? 0.94 : 1
 
-                    // The switch: a screenshot on the left, a recording on the
-                    // right. A click on the free side moves the knob there;
-                    // the knob, with its kind's symbol, captures.
+                    Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: 160 } }
+                    Behavior on scale { NumberAnimation { duration: 90 } }
+
                     Rectangle {
-                        id: kinds
-
-                        readonly property real knob: 112
-
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: "white"
+                        opacity: shutterHover.hovered && window.ready ? 0.12 : 0
+                    }
+                    Icon {
                         anchors.centerIn: parent
-                        width: 184
-                        height: 62
-                        radius: 18
-                        color: overlay.track
-
-                        // The other kind, on the free side.
-                        Item {
-                            id: other
-
-                            x: Capture.record ? 0 : kinds.knob
-                            width: kinds.width - kinds.knob
-                            height: kinds.height
-                            enabled: !overlay.portal || Capture.record
-                            opacity: enabled ? 1 : 0.35
-
-                            Icon {
-                                anchors.centerIn: parent
-                                height: 22
-                                gridWidth: 20
-                                gridHeight: 20
-                                strokeWidth: 1.6
-                                capStyle: ShapePath.RoundCap
-                                color: otherHover.hovered && other.enabled ? Theme.ink : Theme.inkSoft
-                                strokes: Capture.record ? overlay.camera : overlay.video
-                            }
-                            TapHandler {
-                                enabled: other.enabled
-                                onTapped: Capture.record = !Capture.record
-                            }
-                            HoverHandler {
-                                id: otherHover
-                                cursorShape: other.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                            }
-                            Tooltip {
-                                target: other
-                                edge: "Bottom"
-                                text: Capture.record ? "Screenshot" : "Recording"
-                                hovered: otherHover.hovered && other.enabled
-                            }
-                        }
-
-                        // The knob: the capture button, muted until there is
-                        // something to capture.
-                        Rectangle {
-                            id: shutter
-
-                            x: Capture.record ? kinds.width - width - 4 : 4
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: kinds.knob
-                            height: kinds.height - 8
-                            radius: 14
-                            color: !window.ready ? Theme.oklch(0.68, 0.025, 285)
-                                : Capture.record ? overlay.red : Theme.accent
-                            scale: shutterTap.pressed ? 0.94 : 1
-
-                            Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-                            Behavior on color { ColorAnimation { duration: 160 } }
-                            Behavior on scale { NumberAnimation { duration: 90 } }
-
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: parent.radius
-                                color: "white"
-                                opacity: shutterHover.hovered && window.ready ? 0.12 : 0
-                            }
-                            Icon {
-                                anchors.centerIn: parent
-                                height: 24
-                                gridWidth: 20
-                                gridHeight: 20
-                                strokeWidth: 1.6
-                                capStyle: ShapePath.RoundCap
-                                color: "white"
-                                strokes: Capture.record ? overlay.video : overlay.camera
-                            }
-                            TapHandler {
-                                id: shutterTap
-                                onTapped: window.capture()
-                            }
-                            HoverHandler {
-                                id: shutterHover
-                                cursorShape: window.ready ? Qt.PointingHandCursor : Qt.ArrowCursor
-                            }
-                            Tooltip {
-                                target: shutter
-                                edge: "Bottom"
-                                text: Capture.record ? "Start recording" : "Take screenshot"
-                                hovered: shutterHover.hovered && window.ready
-                            }
-                        }
+                        height: 22
+                        gridWidth: 20
+                        gridHeight: 20
+                        strokeWidth: 1.6
+                        capStyle: ShapePath.RoundCap
+                        color: "white"
+                        strokes: Capture.record ? overlay.video : overlay.camera
                     }
+                    TapHandler {
+                        id: shutterTap
+                        onTapped: window.capture()
+                    }
+                    HoverHandler {
+                        id: shutterHover
+                        cursorShape: window.ready ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    }
+                    Tooltip {
+                        target: shutter
+                        edge: "Bottom"
+                        text: Capture.record ? "Start recording" : "Take screenshot"
+                        hovered: shutterHover.hovered && window.ready
+                    }
+                }
+            }
 
-                    // The options of the kind chosen, beside the switch:
-                    // markup before saving for screenshots, and the
-                    // microphone for recordings.
-                    Option {
-                        anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                        visible: !Capture.record
-                        text: "Edit"
-                        tip: "Edit before saving"
-                        on: Settings.captureMarkup && !Capture.record
-                        strokes: "M4 16l1-4 8.5-8.5 3 3L8 15zM11.5 5.5l3 3"
-                        onActivated: Settings.captureMarkup = !Settings.captureMarkup
-                    }
-                    Option {
-                        anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                        visible: Capture.record
-                        text: "Mic"
-                        tip: "Record the microphone"
-                        on: Settings.captureMicrophone
-                        strokes: "M7.5 5a2.5 2.5 0 0 1 5 0v5a2.5 2.5 0 0 1-5 0zM4.75 9.5a5.25 5.25 0 0 0 10.5 0M10 14.75v2.5"
-                        onActivated: Settings.captureMicrophone = !Settings.captureMicrophone
-                    }
+            Divider {}
+
+            // The options of the kind chosen: markup before saving for
+            // screenshots; the timer (none, 3 seconds, or 10) and the
+            // microphone for recordings.
+            Row {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 4
+
+                Option {
+                    visible: Capture.record
+                    badge: Capture.delay ? `${Capture.delay}` : ""
+                    tip: "Timer"
+                    on: Capture.delay > 0
+                    strokes: "M4.5 11a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0-11 0zM10 8v3l2 1.5M8 2.75h4"
+                    onActivated: Capture.delay = Capture.delay === 0 ? 3 : Capture.delay === 3 ? 10 : 0
+                }
+                Option {
+                    visible: !Capture.record
+                    tip: "Edit before saving"
+                    on: Settings.captureMarkup
+                    strokes: "M9 4.25H5.25a1.5 1.5 0 0 0-1.5 1.5v9a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V11M14 3.5l2.5 2.5L10 12.5H7.5V10z"
+                    onActivated: Settings.captureMarkup = !Settings.captureMarkup
+                }
+                Option {
+                    visible: Capture.record
+                    tip: "Record the microphone"
+                    on: Settings.captureMicrophone
+                    strokes: "M7.5 5a2.5 2.5 0 0 1 5 0v5a2.5 2.5 0 0 1-5 0zM4.75 9.5a5.25 5.25 0 0 0 10.5 0M10 14.75v2.5"
+                    onActivated: Settings.captureMicrophone = !Settings.captureMicrophone
                 }
             }
         }
 
-        // Cancel, on the panel's top right corner, half outside it.
+        // Cancel, on the bar's top right corner, half outside it.
         Rectangle {
             id: closer
 
-            visible: !window.marking
-            x: selectPanel.x + selectPanel.width - width / 2
-            y: selectPanel.y - height / 2
+            readonly property Item bar: window.marking ? markupBar : selectPanel
+
+            z: 1
+            x: bar.x + bar.width - width / 2
+            y: bar.y - height / 2
             width: 28
             height: 28
             radius: 14
@@ -573,7 +538,8 @@ Scope {
             }
         }
 
-        // Markup: the tools and colors, Undo, and Cancel, Copy, and Save.
+        // Markup: the tools, the colors, Delete, Undo and Redo, and Copy and
+        // Save; Cancel sits on its corner.
         Bar {
             id: markupBar
 
@@ -581,24 +547,29 @@ Scope {
 
             Repeater {
                 model: [
+                    { name: "Move", strokes: "M10 2.75v14.5M2.75 10h14.5M7.75 5 10 2.75 12.25 5M7.75 15 10 17.25 12.25 15M5 7.75 2.75 10 5 12.25M15 7.75 17.25 10 15 12.25" },
                     { name: "Arrow", strokes: "M4 16L16 4M9.5 4H16v6.5" },
                     { name: "Highlight", strokes: "M3 17h14M5 13.5l7.5-7.5 2.5 2.5L7.5 16H5z" },
+                    { name: "Pixelate", strokes: "M3.5 3.5h13v13h-13zM3.5 7.83h13M3.5 12.17h13M7.83 3.5v13M12.17 3.5v13" },
                     { name: "Number", strokes: "M3.5 10a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0-13 0zM8.8 7.8l1.4-1v6.6" },
                     { name: "Text", strokes: "M4.5 5.5V4h11v1.5M10 4v12M8 16h4" },
                 ]
 
-                IconButton {
+                Choice {
                     required property var modelData
 
                     tip: modelData.name
                     strokes: modelData.strokes
                     on: markup.tool === modelData.name
-                    onActivated: markup.tool = modelData.name
+                    onActivated: {
+                        markup.commit();
+                        markup.tool = modelData.name;
+                    }
                 }
             }
             Divider {}
             Repeater {
-                model: ["#f05653", "#f5c242", "#3f9cf0", "#ffffff"]
+                model: ["#f05653", "#f5c242", "#3f9cf0", "#1d1a24", "#ffffff"]
 
                 Item {
                     id: swatch
@@ -607,17 +578,27 @@ Scope {
                     readonly property bool current: Qt.colorEqual(markup.ink, modelData)
 
                     anchors.verticalCenter: parent?.verticalCenter
-                    width: 26
-                    height: 36
+                    width: 40
+                    height: 52
 
+                    // The color chosen, ringed.
                     Rectangle {
                         anchors.centerIn: parent
-                        width: swatch.current ? 18 : swatchHover.hovered ? 16 : 14
+                        visible: swatch.current
+                        width: 32
+                        height: 32
+                        radius: 16
+                        color: "transparent"
+                        border.color: Theme.accent
+                        border.width: 2
+                    }
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: swatchHover.hovered && !swatch.current ? 24 : 22
                         height: width
                         radius: width / 2
                         color: swatch.modelData
-                        border.color: swatch.current ? Theme.ink : Theme.veil(0.25)
-                        border.width: swatch.current ? 2 : 1
+                        border.color: Theme.veil(0.2)
                     }
                     TapHandler {
                         onTapped: markup.ink = swatch.modelData
@@ -629,24 +610,34 @@ Scope {
                 }
             }
             Divider {}
-            IconButton {
+            Option {
+                tip: "Delete"
+                strokes: "M3.75 5.5h12.5M8 5.5V3.75h4V5.5M5.25 5.5l.75 10.75h8l.75-10.75M8.5 8.5v5M11.5 8.5v5"
+                opacity: markup.selected >= 0 ? 1 : 0.4
+                onActivated: markup.remove()
+            }
+            Option {
                 tip: "Undo"
                 strokes: "M7 4.5 3.5 8l3.5 3.5M3.5 8H12a4 4 0 0 1 0 8H9"
-                opacity: markup.marks.length || markup.editing ? 1 : 0.4
+                opacity: markup.history.length || markup.editing ? 1 : 0.4
                 onActivated: markup.undo()
+            }
+            Option {
+                tip: "Redo"
+                strokes: "M13 4.5 16.5 8 13 11.5M16.5 8H8a4 4 0 0 0 0 8h3"
+                opacity: markup.future.length && !markup.editing ? 1 : 0.4
+                onActivated: markup.redo()
             }
             Divider {}
             TextButton {
-                text: "Cancel"
-                onActivated: Capture.cancel()
-            }
-            TextButton {
                 visible: !overlay.portal
                 text: "Copy"
+                strokes: "M7.25 7.25h9v9h-9zM12.75 7.25v-3.5h-9v9h3.5"
                 onActivated: window.copy()
             }
             TextButton {
                 text: overlay.portal ? "Share" : "Save"
+                strokes: "M10 3.5v9M6.25 9 10 12.75 13.75 9M3.75 13.5v1.75a1.5 1.5 0 0 0 1.5 1.5h9.5a1.5 1.5 0 0 0 1.5-1.5V13.5"
                 strong: true
                 onActivated: window.save()
             }
@@ -727,85 +718,94 @@ Scope {
         }
     }
 
-    // The markup bar at the bottom center, in the popovers' light glass: in
-    // the middle of the dock when the dock is at the bottom.
-    component Bar: PopoverFrame {
-        default property alias items: row.data
+    // A panel at the bottom center, in one row: the capture panel or the
+    // markup bar. Rounded always, as the design has it, whatever the
+    // windows' corners.
+    component Bar: Item {
+        id: bar
+
+        default property alias items: barRow.data
+        readonly property real padding: 6
 
         anchors.horizontalCenter: parent.horizontalCenter
-        y: Settings.dock === "Bottom" ? parent.height - Theme.gap - (Theme.stripHeight + height) / 2
-            : parent.height - height - 28
-        padding: 6
+        y: parent.height - height - (Settings.dock === "Bottom" ? Theme.gap : 28)
+        width: barRow.width + 2 * padding
+        height: barRow.height + 2 * padding
 
+        RectangularShadow {
+            anchors.fill: parent
+            offset.y: 8
+            blur: 24
+            radius: 18
+            color: Qt.rgba(0, 0, 0, 0.3)
+        }
+        Rectangle {
+            anchors.fill: parent
+            radius: 18
+            color: overlay.panelFill
+        }
         Row {
-            id: row
-            spacing: 2
+            id: barRow
+
+            x: bar.padding
+            y: bar.padding
+            spacing: 4
         }
     }
 
-    // A button with an icon: lit while on. `tip` names it.
-    component IconButton: Rectangle {
-        id: button
-
-        property string strokes
-        property string tip
-        property bool on
-        signal activated
-
-        anchors.verticalCenter: parent?.verticalCenter
-        width: 36
-        height: 36
-        radius: Theme.rounded ? 6 : 0
-        color: on ? Theme.accentSoft : Theme.veil(buttonHover.hovered ? 0.07 : 0)
-
-        Icon {
-            anchors.centerIn: parent
-            height: 18
-            gridWidth: 20
-            gridHeight: 20
-            strokeWidth: 1.5
-            capStyle: ShapePath.RoundCap
-            color: button.on ? Theme.accent : Theme.inkSoft
-            strokes: button.strokes
-        }
-
-        TapHandler {
-            onTapped: button.activated()
-        }
-        HoverHandler {
-            id: buttonHover
-            cursorShape: Qt.PointingHandCursor
-        }
-        Tooltip {
-            target: button
-            edge: "Bottom"
-            text: button.tip
-            hovered: buttonHover.hovered
-        }
-    }
-
-    // A button with a name; filled with the accent for the action itself.
+    // A button with an icon and a name: raised in white, or filled with the
+    // accent for the action itself.
     component TextButton: Rectangle {
         id: textButton
 
         property alias text: label.text
+        property string strokes
         property bool strong
         signal activated
 
         anchors.verticalCenter: parent?.verticalCenter
-        width: label.width + 28
-        height: 36
-        radius: Theme.rounded ? 6 : 0
-        color: strong ? Theme.accent : Theme.veil(textHover.hovered ? 0.07 : 0)
+        width: content.width + 32
+        height: 44
+        radius: 12
+        color: strong ? (textHover.hovered ? Qt.darker(Theme.accent, 1.08) : Theme.accent)
+            : textHover.hovered ? Theme.oklch(0.985, 0.003, 285) : "white"
+        scale: textTap.pressed ? 0.96 : 1
 
-        Text {
-            id: label
+        Behavior on scale { NumberAnimation { duration: 90 } }
+
+        Rectangle {
+            anchors.fill: parent
+            anchors.topMargin: 1
+            z: -1
+            radius: parent.radius
+            color: textButton.strong ? Qt.darker(Theme.accent, 1.3) : Theme.veil(0.12)
+        }
+        Row {
+            id: content
+
             anchors.centerIn: parent
-            color: textButton.strong ? "white" : Theme.ink
-            font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
+            spacing: 8
+
+            Icon {
+                anchors.verticalCenter: parent.verticalCenter
+                height: 18
+                gridWidth: 20
+                gridHeight: 20
+                strokeWidth: 1.6
+                capStyle: ShapePath.RoundCap
+                color: textButton.strong ? "white" : Theme.ink
+                strokes: textButton.strokes
+            }
+            Text {
+                id: label
+                anchors.verticalCenter: parent.verticalCenter
+                color: textButton.strong ? "white" : Theme.ink
+                font { family: Theme.font; pixelSize: 14; weight: Font.DemiBold }
+            }
         }
 
         TapHandler {
+            id: textTap
             onTapped: textButton.activated()
         }
         HoverHandler {
@@ -814,18 +814,19 @@ Scope {
         }
     }
 
-    // What to pick: an icon and its name; the chosen one raised in white.
+    // What to pick, or a markup tool: an icon, named by its tooltip; the
+    // chosen one raised in white.
     component Choice: Rectangle {
         id: choice
 
-        property string text
-        property string mode
+        property string tip
         property string strokes
-        readonly property bool on: Capture.mode === mode
+        property bool on
+        signal activated
 
-        width: (selectPanel.inner - 12) / 3
-        height: 40
-        radius: 9
+        width: 52
+        height: 52
+        radius: 12
         color: on ? "white" : Theme.veil(choiceHover.hovered ? 0.05 : 0)
 
         Rectangle {
@@ -836,74 +837,76 @@ Scope {
             radius: parent.radius
             color: Theme.veil(0.12)
         }
-        Row {
+        Icon {
             anchors.centerIn: parent
-            spacing: 8
-
-            Icon {
-                anchors.verticalCenter: parent.verticalCenter
-                height: 18
-                gridWidth: 20
-                gridHeight: 20
-                strokeWidth: 1.5
-                capStyle: ShapePath.RoundCap
-                color: choice.on ? Theme.accent : Theme.inkSoft
-                strokes: choice.strokes
-            }
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: choice.text
-                color: choice.on ? Theme.accent : Theme.ink
-                font { family: Theme.font; pixelSize: 13; weight: Font.DemiBold }
-            }
+            height: 20
+            gridWidth: 20
+            gridHeight: 20
+            strokeWidth: 1.5
+            capStyle: ShapePath.RoundCap
+            color: choice.on ? Theme.accent : Theme.inkSoft
+            strokes: choice.strokes
         }
 
         TapHandler {
-            onTapped: window.pickWhat(choice.mode)
+            onTapped: choice.activated()
         }
         HoverHandler {
             id: choiceHover
             cursorShape: Qt.PointingHandCursor
         }
+        Tooltip {
+            target: choice
+            edge: "Bottom"
+            text: choice.tip
+            hovered: choiceHover.hovered
+        }
     }
 
-    // An option beside the switch: an icon and a short name, faint unless
-    // on. `tip` says what it is.
+    // An option, as right of the switch, or Delete, Undo, and Redo: an icon, tinted while on, with its
+    // value in a badge when there is one. `tip` says what it is.
     component Option: Rectangle {
         id: option
 
-        property string text
+        property string badge
         property string strokes
         property string tip
         property bool on
         signal activated
 
-        width: optionRow.width + 20
-        height: 36
-        radius: 18
-        color: Theme.veil(optionHover.hovered && enabled ? 0.06 : 0)
+        anchors.verticalCenter: parent?.verticalCenter
+        width: 44
+        height: 44
+        radius: 12
+        color: on ? Theme.accentSoft : Theme.veil(optionHover.hovered && enabled ? 0.06 : 0)
 
-        Row {
-            id: optionRow
-
+        Icon {
             anchors.centerIn: parent
-            spacing: 6
+            height: 20
+            gridWidth: 20
+            gridHeight: 20
+            strokeWidth: 1.6
+            capStyle: ShapePath.RoundCap
+            color: option.on ? Theme.accent : Theme.inkSoft
+            strokes: option.strokes
+        }
+        Rectangle {
+            visible: option.badge !== ""
+            x: parent.width - width + 6
+            y: -6
+            width: Math.max(height, count.width + 8)
+            height: 18
+            radius: 9
+            color: Theme.accent
+            border.color: overlay.panelFill
+            border.width: 1.5
 
-            Icon {
-                anchors.verticalCenter: parent.verticalCenter
-                height: 16
-                gridWidth: 20
-                gridHeight: 20
-                strokeWidth: 1.6
-                capStyle: ShapePath.RoundCap
-                color: option.on ? Theme.accent : Theme.inkFaint
-                strokes: option.strokes
-            }
             Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: option.text
-                color: option.on ? Theme.accent : Theme.inkFaint
-                font { family: Theme.font; pixelSize: 13; weight: Font.DemiBold }
+                id: count
+                anchors.centerIn: parent
+                text: option.badge
+                color: "white"
+                font { family: Theme.font; pixelSize: 11; weight: Font.Bold }
             }
         }
 
@@ -923,10 +926,16 @@ Scope {
         }
     }
 
-    component Divider: Rectangle {
-        anchors.verticalCenter: parent?.verticalCenter
-        width: 1
-        height: 20
-        color: Theme.veil(0.12)
+    // A rule between a bar's groups.
+    component Divider: Item {
+        width: 13
+        height: 52
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 1
+            height: 24
+            color: Theme.veil(0.12)
+        }
     }
 }
