@@ -22,6 +22,10 @@ the [future design](#future-design) of features that are not built yet.
 - The shell is the session's notification server and polkit agent: when an
   application asks for an action that needs an administrator, the shell asks
   for the password, in the lock screen's style.
+- The shell is also the session's agent for NetworkManager and BlueZ: a
+  network's password, when the saved one fails or none was kept, and a
+  Bluetooth device's pairing code, to compare, type, or type on the device,
+  show as questions in the portals' style.
 - Applications share the screen through Hyprland's portal, which asks
   what to share through the capture overlay: a selection, a window, or a
   screen, as for a screenshot. Screenshots that applications ask for go
@@ -64,7 +68,13 @@ the [future design](#future-design) of features that are not built yet.
     click on the item mutes it.
   - **Brightness** — the built-in display's brightness, shown only where the
     computer has a backlight. The brightness keys change it too.
-  - **Network** — the connection in use, Wi-Fi, and Bluetooth.
+  - **Network** — the connection in use, Wi-Fi, and Bluetooth. A click on
+    Wi-Fi unfolds the networks in reach: the one in use first, then those
+    known, then by signal, each with its signal and a lock if secured. A
+    click joins one; a secured one not known first asks its password in its
+    row. A click on Bluetooth unfolds the devices, paired first, then those
+    nearby: a click pairs, connects, or disconnects one. Settings > Network
+    has the same lists, and forgets networks and devices.
   - **Input language** — the keyboard layouts to switch between
     (Super+Space, Super+Shift+Space back).
   - **Battery** — shown only on computers with a battery: the charge on the
