@@ -207,6 +207,10 @@ notification_server() {
 check "desktop session shows notifications" notification_server
 keeps_copies() { pgrep -u "$user" -f "clipman store" >/dev/null; }
 check "desktop session keeps copied text" keeps_copies
+# The shell's connection agent joins networks and pairs devices, and answers
+# NetworkManager and BlueZ for the session.
+connection_agent() { pgrep -u "$user" -f /usr/libexec/desktop/connection-agent >/dev/null; }
+check "desktop session runs the connection agent" connection_agent
 # Log out as the account panel does: Hyprland's exit.
 logs_out() {
   setpriv --reuid="$user" --regid="$user" --init-groups env XDG_RUNTIME_DIR="/run/user/$uid" \

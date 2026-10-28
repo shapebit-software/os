@@ -64,6 +64,7 @@ shell_share_picker() {
     grep -qx 'Environment=XDG_CONFIG_HOME=/usr/share/desktop/portal'
 }
 check "sharing the screen asks through the shell" shell_share_picker
+check "desktop's connection agent is installed" is_python /usr/libexec/desktop/connection-agent
 check "applications outside Flatpak use the portals" grep -qx 'GTK_USE_PORTAL=1' /usr/lib/environment.d/60-portals.conf
 no_window_buttons() { [[ $(GSETTINGS_BACKEND=memory gsettings get org.gnome.desktop.wm.preferences button-layout) == "':'" ]]; }
 check "applications show no window buttons" no_window_buttons
