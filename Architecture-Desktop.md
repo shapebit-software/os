@@ -25,8 +25,23 @@ the [future design](#future-design) of features that are not built yet.
 - Applications share the screen through Hyprland's portal, which asks
   what to share through the capture overlay: a selection, a window, or a
   screen, as for a screenshot. Screenshots that applications ask for go
-  through the capture overlay too, screenshots only. GTK's portal gives applications, Flatpak ones
-  included, the system's settings only.
+  through the capture overlay too, screenshots only.
+- The shell's portal answers everything else applications ask of the
+  desktop, Flatpak ones included; gnome-keyring's keeps their secrets.
+  What needs the person shows as a **question**, centered over everything
+  with the screens dimmed, in the file chooser's style: whether an
+  application may do something, such as use the camera, with the choices
+  it offers; which application opens a file or a link; whether to share
+  the person's name and picture, let an application with no windows go on
+  in the background, add a launcher to Apps under a name the person can
+  change, or set a picture as the wallpaper, previewed. Questions wait
+  their turn. Enter grants, Escape dismisses.
+- Applications' notifications reach the shell's notification server
+  through the portal too; a click runs the application's action. Keeping
+  the screen awake or the computer from sleeping goes to logind, which
+  hypridle follows. The settings applications read are GNOME's, such as
+  the window buttons, with the shell's accent.
+- Printing and email are not offered yet.
 - Applications open and save files through the shell's **file chooser**, a
   portal: GTK ones and those in Flatpak. It shows centered over everything,
   with the screens dimmed: the places (Home and the person's folders) on the
