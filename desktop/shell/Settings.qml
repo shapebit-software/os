@@ -81,6 +81,15 @@ Singleton {
     // Keyboard layout codes, such as ["us", "pl"]; empty keeps the
     // compositor's.
     property alias keyboards: adapter.keyboards
+    // Mice and touchpads (Pointer.qml): whether a tap on the touchpad clicks,
+    // whether scrolling moves the content with the fingers on the touchpad and
+    // with the wheel on a mouse, and how fast each moves the pointer, from -1
+    // to 1, 0 as libinput sets it.
+    property alias tapToClick: adapter.tapToClick
+    property alias touchpadNaturalScroll: adapter.touchpadNaturalScroll
+    property alias touchpadSpeed: adapter.touchpadSpeed
+    property alias mouseNaturalScroll: adapter.mouseNaturalScroll
+    property alias mouseSpeed: adapter.mouseSpeed
     // Display scales and modes by output name, such as { "eDP-1": 1.25 } and
     // { "eDP-1": "2560x1600@120" }; outputs not listed are set automatically.
     property alias scales: adapter.scales
@@ -138,6 +147,7 @@ Singleton {
         Compositor.setGaps(gapSize);
         Compositor.setDecoration(windowCorners, windowDecoration);
         Compositor.setDefaultLayout(defaultLayout);
+        Pointer.apply();
         if (keyboards.length)
             Compositor.setKeyboards(keyboards);
         for (const output of new Set([...Object.keys(scales), ...Object.keys(modes)]))
@@ -194,6 +204,11 @@ Singleton {
             property string timeFormat: "24-hour"
             property string region: ""
             property list<string> keyboards: []
+            property bool tapToClick: true
+            property bool touchpadNaturalScroll: true
+            property real touchpadSpeed: 0
+            property bool mouseNaturalScroll: false
+            property real mouseSpeed: 0
             property var scales: ({})
             property var modes: ({})
             property bool captureMarkup: false

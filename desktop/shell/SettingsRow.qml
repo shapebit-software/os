@@ -6,6 +6,7 @@
 //   choice      { options, selected, select(value) }; options as in SettingsChoice
 //   select      { options, selected, select(value) }; options as [label, value]
 //   toggle      { on, toggle() }
+//   slider      { value, move(value) }, the value from 0 to 1
 //   picture     { open() }: the account's picture
 //   swatches    the accent colors
 //   wallpapers  { open() for a picture of one's own }
@@ -167,6 +168,13 @@ Item {
             options: row.modelData.options ?? []
             selected: row.modelData.selected
             onPicked: value => row.modelData.select(value)
+        }
+
+        Slider {
+            visible: row.kind === "slider"
+            width: 180
+            value: row.modelData.value ?? 0
+            onMoved: value => row.modelData.move(value)
         }
 
         Switch {

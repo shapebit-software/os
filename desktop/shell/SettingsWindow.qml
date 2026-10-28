@@ -137,6 +137,20 @@ PanelWindow {
               options: [...new Set(modes.filter(m => m.size === size).map(m => m.rate))].map(r => [`${r} Hz`, r]),
               selected: rate, select: r => Settings.setMode(monitor.name, `${size}@${r}`) },
         ] },
+        { id: "pointing", name: "Mouse", icon: "M4.5 6a3.5 3.5 0 0 1 7 0v4a3.5 3.5 0 0 1-7 0zM8 2.5v3", rows: [
+            ...(Pointer.touchpads.length ? [
+                { label: "Tap to click", detail: "A tap on the touchpad clicks", kind: "toggle",
+                  on: Settings.tapToClick, toggle: () => Settings.tapToClick = !Settings.tapToClick },
+                { label: "Touchpad natural scrolling", detail: "The content moves with the fingers", kind: "toggle",
+                  on: Settings.touchpadNaturalScroll, toggle: () => Settings.touchpadNaturalScroll = !Settings.touchpadNaturalScroll },
+                { label: "Touchpad speed", detail: "How fast the pointer moves", kind: "slider",
+                  value: (Settings.touchpadSpeed + 1) / 2, move: v => Settings.touchpadSpeed = Math.round((v * 2 - 1) * 20) / 20 },
+            ] : []),
+            { label: "Mouse natural scrolling", detail: "The content moves with the wheel", kind: "toggle",
+              on: Settings.mouseNaturalScroll, toggle: () => Settings.mouseNaturalScroll = !Settings.mouseNaturalScroll },
+            { label: "Mouse speed", detail: "How fast the pointer moves", kind: "slider",
+              value: (Settings.mouseSpeed + 1) / 2, move: v => Settings.mouseSpeed = Math.round((v * 2 - 1) * 20) / 20 },
+        ] },
         { id: "network", name: "Network", icon: "M2.4 6.2a8 8 0 0 1 11.2 0M4.7 8.7a4.9 4.9 0 0 1 6.6 0M7.1 11.6a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0-1.8 0z", rows: [
             ...(Connectivity.wired.length ? [{ label: "Ethernet", detail: "Wired connection",
               value: Connectivity.wiredConnected ? "Connected" : "Disconnected" }] : []),
@@ -160,7 +174,7 @@ PanelWindow {
     readonly property var groups: [
         ["account", "assistant", "language", "time"],
         ["desktop", "shell", "windows"],
-        ["display", "network", "sound"],
+        ["display", "pointing", "network", "sound"],
     ]
     // The pages: their title, and the section they belong to.
     readonly property var pages: ({
@@ -204,6 +218,8 @@ PanelWindow {
         if (visible) {
             search.forceActiveFocus();
             zone.running = true;
+            // A mouse or touchpad may have come since.
+            Pointer.refresh();
             if (!timeZones.length)
                 zones.running = true;
             locale.running = true;

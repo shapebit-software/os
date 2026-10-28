@@ -20,6 +20,8 @@ ShellRoot {
     readonly property bool authorizing: Authorization.asking
     // The portals listen from the start, for applications to ask.
     readonly property string portal: Portal.path
+    // The mice and touchpads take their settings from the start.
+    readonly property string pointer: Pointer.config
     // The connection agent registers with NetworkManager and BlueZ from the
     // start, before they ask.
     readonly property string connectionAgent: Connectivity.agentPath
