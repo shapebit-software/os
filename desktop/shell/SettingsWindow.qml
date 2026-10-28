@@ -51,7 +51,8 @@ PanelWindow {
         timeSetter.running = true;
     }
 
-    // The open page, or none: "picture", "wallpaper", or "keyboards".
+    // The open page, or none: "picture", "wallpaper", "keyboards",
+    // "password", "wifi", or "bluetooth".
     property string page
 
     // Each section: { id, name, icon, rows }, rows as in SettingsRow.qml.
@@ -141,8 +142,12 @@ PanelWindow {
               value: Connectivity.wiredConnected ? "Connected" : "Disconnected" }] : []),
             ...(Connectivity.wifi ? [{ label: "Wi-Fi", detail: Connectivity.wifiDetail, kind: "toggle",
               on: Networking.wifiEnabled, toggle: () => Connectivity.toggleWifi() }] : []),
+            ...(Connectivity.wifi && Networking.wifiEnabled ? [{ label: "Wi-Fi networks",
+              detail: "Join, disconnect, or forget networks", value: "Manage", open: () => page = "wifi" }] : []),
             ...(Connectivity.adapter ? [{ label: "Bluetooth", detail: Connectivity.bluetoothDetail, kind: "toggle",
               on: Connectivity.adapter.enabled, toggle: () => Connectivity.toggleBluetooth() }] : []),
+            ...(Connectivity.adapter?.enabled ? [{ label: "Bluetooth devices",
+              detail: "Pair, connect, or forget devices", value: "Manage", open: () => page = "bluetooth" }] : []),
         ] },
         { id: "sound", name: "Sound", icon: "M10.8 5.9a3 3 0 0 1 0 4.2M12.7 4.2a5.6 5.6 0 0 1 0 7.6M3 6.2h2.2L8.6 3.4v9.2L5.2 9.8H3z", rows: [
             { label: "Output", detail: Audio.output?.description ?? "No device",
@@ -163,6 +168,8 @@ PanelWindow {
         "wallpaper": ["Choose a wallpaper", "desktop"],
         "keyboards": ["Keyboards", "language"],
         "password": ["Change password", "account"],
+        "wifi": ["Wi-Fi networks", "network"],
+        "bluetooth": ["Bluetooth devices", "network"],
     })
 
     readonly property string query: search.text.trim().toLowerCase()
@@ -491,6 +498,12 @@ PanelWindow {
 
                 PasswordPage {
                     visible: window.page === "password"
+                    width: parent.width
+                }
+
+                ConnectionsPage {
+                    visible: window.page === "wifi" || window.page === "bluetooth"
+                    kind: window.page
                     width: parent.width
                 }
 

@@ -87,6 +87,11 @@ tree; not the host's. Apps there offers the **Portal Tester**
 name, as its tooltip shows, presses it at the start, such as
 `dev/portal-tester open_files`. Neither is installed.
 
+The connection agent (`session/connection-agent`) joins networks and pairs
+devices on the host's NetworkManager and BlueZ for real. In development it
+does not take over from the host's own agents, so a network asking for its
+password again asks the host's desktop.
+
 The lock screen checks the password of the container's account, which
 distrobox leaves empty, so any password unlocks it. Set one with
 `sudo passwd $USER` in the container to try it for real.

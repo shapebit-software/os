@@ -2,7 +2,8 @@
 // over everything, with the screens dimmed. The application's icon, the
 // person's picture for their details, or the launcher's; the title, the
 // subtitle, and the body; what the kind asks: the choices, the applications
-// to open with, the launcher's name, or the wallpaper's preview; and the
+// to open with, text fields such as a launcher's name or a network's
+// password, a pairing code to compare, or the wallpaper's preview; and the
 // buttons. Enter grants, a double click on an application opens with it,
 // and Escape dismisses.
 pragma ComponentBehavior: Bound
@@ -25,7 +26,13 @@ PanelWindow {
     property var chosen: ({})
     // The application to open with, by id.
     property string app
-    readonly property bool canGrant: kind !== "open-with" || (request?.apps ?? []).includes(app)
+    // The text typed in the fields, by id.
+    property var typed: ({})
+    readonly property var fields: request?.fields ?? []
+    // There is something to grant, with every field that can change filled.
+    readonly property bool canGrant: (request?.grant ?? "") !== ""
+        && (kind !== "open-with" || (request?.apps ?? []).includes(app))
+        && fields.every(f => f.readOnly || (typed[f.id] ?? "") !== "")
 
     visible: request !== null
     screen: modelData
@@ -42,19 +49,24 @@ PanelWindow {
             initial[choice.id] = choice.value;
         chosen = initial;
         app = request?.app || (request?.apps?.[0] ?? "");
-        name.text = request?.name ?? "";
-        focusQuestion();
+        const values = {};
+        for (const field of request?.fields ?? [])
+            values[field.id] = field.value ?? "";
+        typed = values;
+        // Once the fields are made.
+        Qt.callLater(focusQuestion);
     }
-    onAskingChanged: focusQuestion()
+    onAskingChanged: Qt.callLater(focusQuestion)
 
-    // The launcher's name if it can change, otherwise the question, for its
-    // keys.
+    // The first field that can change, otherwise the question, for its keys.
     function focusQuestion() {
         if (!asking)
             return;
-        if (request.editName) {
-            name.forceActiveFocus();
-            name.selectAll();
+        const index = fields.findIndex(f => !f.readOnly);
+        const input = index >= 0 ? (fieldInputs.itemAt(index) as FieldInput) : null;
+        if (input) {
+            input.forceActiveFocus();
+            input.selectAll();
         } else {
             content.forceActiveFocus();
         }
@@ -62,7 +74,7 @@ PanelWindow {
 
     function grant() {
         if (canGrant)
-            Question.grant({ choices: chosen, app: app, name: name.text });
+            Question.grant({ choices: chosen, app: app, fields: typed });
     }
 
     function choose(id: string, value: string) {
@@ -168,26 +180,29 @@ PanelWindow {
                 sourceSize.width: width * 2
             }
 
-            // The launcher's name.
-            Rectangle {
+            // A code to compare with the device's, or to type on it.
+            Text {
+                width: parent.width
+                visible: text !== ""
+                horizontalAlignment: Text.AlignHCenter
+                text: window.request?.code ?? ""
+                color: Theme.ink
+                font { family: Theme.mono; pixelSize: 30; weight: Font.Medium; letterSpacing: 6 }
+            }
+
+            // The text fields, such as a launcher's name or a password.
+            Column {
                 x: 24
-                visible: window.kind === "launcher"
+                visible: window.fields.length > 0
                 width: parent.width - 48
-                height: 34
-                color: Theme.veil(0.06)
+                spacing: 8
 
-                TextInput {
-                    id: name
+                Repeater {
+                    id: fieldInputs
 
-                    anchors { left: parent.left; right: parent.right; leftMargin: 11; rightMargin: 11 }
-                    anchors.verticalCenter: parent.verticalCenter
-                    readOnly: !(window.request?.editName ?? false)
-                    color: Theme.ink
-                    selectionColor: Theme.accent
-                    font { family: Theme.font; pixelSize: 13 }
-                    clip: true
-                    onAccepted: window.grant()
-                    Keys.onEscapePressed: Question.dismiss()
+                    model: window.fields
+
+                    FieldInput {}
                 }
             }
 
@@ -350,13 +365,61 @@ PanelWindow {
                         onActivated: Question.refuse()
                     }
                     DialogButton {
-                        visible: window.canGrant
+                        visible: (window.request?.grant ?? "") !== ""
+                        enabled: window.canGrant
+                        opacity: enabled ? 1 : 0.45
                         text: window.request?.grant ?? "OK"
                         strong: true
                         onActivated: window.grant()
                     }
                 }
             }
+        }
+    }
+
+    // A text field: its label shows while it is empty; a secret one hides
+    // what is typed. Enter grants.
+    component FieldInput: Rectangle {
+        id: field
+
+        required property var modelData
+
+        function selectAll() {
+            input.selectAll();
+        }
+
+        width: parent?.width ?? 0
+        height: 34
+        color: Theme.veil(0.06)
+
+        TextInput {
+            id: input
+
+            anchors { left: parent.left; right: parent.right; leftMargin: 11; rightMargin: 11 }
+            anchors.verticalCenter: parent.verticalCenter
+            text: field.modelData.value ?? ""
+            readOnly: field.modelData.readOnly ?? false
+            echoMode: field.modelData.secret ? TextInput.Password : TextInput.Normal
+            passwordCharacter: "•"
+            color: Theme.ink
+            selectionColor: Theme.accent
+            font { family: Theme.font; pixelSize: 13 }
+            clip: true
+            onTextEdited: window.typed = Object.assign({}, window.typed, { [field.modelData.id]: text })
+            onAccepted: window.grant()
+            Keys.onEscapePressed: Question.dismiss()
+
+            Text {
+                visible: !input.text
+                text: field.modelData.label ?? ""
+                color: Theme.inkFaint
+                font: input.font
+            }
+        }
+        // Focus goes to the input inside.
+        onActiveFocusChanged: {
+            if (activeFocus)
+                input.forceActiveFocus();
         }
     }
 }

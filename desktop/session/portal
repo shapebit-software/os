@@ -552,8 +552,7 @@ def dynamic_launcher(connection, method, parameters, invocation):
         "title": "Add to Apps?",
         "subtitle": f"{app_name(app_id)} adds a launcher to Apps.",
         "body": options.get("target", "") if options.get("launcher_type", 1) == 2 else "",
-        "name": name,
-        "editName": options.get("editable_name", True),
+        "fields": [{"id": "name", "label": "Name", "value": name, "readOnly": not options.get("editable_name", True)}],
         "grant": "Add",
         "deny": "Cancel",
     }
@@ -561,7 +560,7 @@ def dynamic_launcher(connection, method, parameters, invocation):
     def results(answer):
         if not answer.get("granted"):
             return asked(answer), {}
-        return CHOSEN, {"name": GLib.Variant("s", answer.get("name", "").strip() or name), "icon": icon}
+        return CHOSEN, {"name": GLib.Variant("s", answer.get("fields", {}).get("name", "").strip() or name), "icon": icon}
 
     Request(connection, invocation, handle).ask_shell(question, results)
 

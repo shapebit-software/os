@@ -31,7 +31,7 @@ install: ## Install into DESTDIR
 	install -Dm644 session/portals.conf $(share)/xdg-desktop-portal/shapebit-portals.conf
 	install -Dm644 -t $(share)/glib-2.0/schemas session/window-buttons.gschema.override
 	install -Dm644 session/shell.portal $(share)/xdg-desktop-portal/portals/shell.portal
-	install -Dm755 -t $(DESTDIR)$(PREFIX)/libexec/desktop session/portal session/share-picker
+	install -Dm755 -t $(DESTDIR)$(PREFIX)/libexec/desktop session/portal session/share-picker session/connection-agent
 	install -Dm644 session/portal.dbus.service $(share)/dbus-1/services/org.freedesktop.impl.portal.desktop.shell.service
 	install -Dm644 session/xdph.conf $(share)/desktop/portal/hypr/xdph.conf
 	install -Dm644 session/xdph.service.conf $(DESTDIR)$(PREFIX)/lib/systemd/user/xdg-desktop-portal-hyprland.service.d/10-picker.conf

@@ -33,6 +33,7 @@ BarButton BarButton.qml
 BarPanel BarPanel.qml
 BatteryPanel BatteryPanel.qml
 BrightnessPanel BrightnessPanel.qml
+ConnectionsPage ConnectionsPage.qml
 CaptureMarkup CaptureMarkup.qml
 CaptureOverlay CaptureOverlay.qml
 DialogButton DialogButton.qml

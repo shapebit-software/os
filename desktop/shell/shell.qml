@@ -20,6 +20,9 @@ ShellRoot {
     readonly property bool authorizing: Authorization.asking
     // The portals listen from the start, for applications to ask.
     readonly property string portal: Portal.path
+    // The connection agent registers with NetworkManager and BlueZ from the
+    // start, before they ask.
+    readonly property string connectionAgent: Connectivity.agentPath
     // Keyboard shortcuts reach the shell from the start.
     readonly property string shortcuts: Shortcuts.listOn
 
