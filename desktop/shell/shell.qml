@@ -3,8 +3,8 @@
 // resize tiles, the system bar and the dock (Shell.qml) with their panels,
 // the hot corner, the way out of full screen, Settings, the lock screen, and
 // the question for an administrator's password, the capture overlay, which
-// also picks what to share, and the file chooser and the questions, which
-// the portals show.
+// also picks what to share, the file chooser and the questions, which the
+// portals show, and the window switcher and the list of keyboard shortcuts.
 import Quickshell
 
 ShellRoot {
@@ -20,6 +20,8 @@ ShellRoot {
     readonly property bool authorizing: Authorization.asking
     // The portals listen from the start, for applications to ask.
     readonly property string portal: Portal.path
+    // Keyboard shortcuts reach the shell from the start.
+    readonly property string shortcuts: Shortcuts.listOn
 
     Variants {
         model: Quickshell.screens
@@ -94,5 +96,15 @@ ShellRoot {
         model: Quickshell.screens
 
         NotificationBanners {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        WindowSwitcher {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        ShortcutsWindow {}
     }
 }

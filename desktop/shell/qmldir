@@ -18,7 +18,9 @@ singleton Portal Portal.qml
 singleton Question Question.qml
 singleton Settings Settings.qml
 singleton Shell Shell.qml
+singleton Shortcuts Shortcuts.qml
 singleton SharePicker SharePicker.qml
+singleton Switcher Switcher.qml
 singleton Theme Theme.qml
 AccountPanel AccountPanel.qml
 AppsButton AppsButton.qml
@@ -66,8 +68,11 @@ Tooltip Tooltip.qml
 ShellBar ShellBar.qml
 ShellEditor ShellEditor.qml
 ShellItem ShellItem.qml
+ShortcutsWindow ShortcutsWindow.qml
 VolumePanel VolumePanel.qml
 Wallpaper Wallpaper.qml
+WindowMenu WindowMenu.qml
 WindowTabs WindowTabs.qml
+WindowSwitcher WindowSwitcher.qml
 WorkspaceMap WorkspaceMap.qml
 Workspaces Workspaces.qml

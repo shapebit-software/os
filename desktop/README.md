@@ -41,10 +41,17 @@ copied text after the application it came from closes. Settings are kept in
 compositor.
 
 Each bar can sit on any edge, and its items can move between the bars' zones
-or off the bars, hidden, all but the system menu (Settings > Shell). Windows move only on the maps: drag a window's cell onto
-another cell or map; double-click it for full screen (Alt+F), which covers
+or off the bars, hidden, all but the system menu (Settings > Shell). With the pointer, windows move only on the maps: drag a window's cell onto
+another cell or map; double-click it for full screen (Super+F), which covers
 the bars and ends from the button in the top right corner; right-click it to
-close it (Alt+Q).
+close it (Super+Q).
+
+The keyboard shortcuts are in `compositor/shortcuts.lua`, each with a
+description; Super+/ shows them on a keyboard. Super moves the focus and,
+with Shift, the window: the arrows to the tile or screen beside, Alt with
+the arrows to the workspace before or after, and the numbers to a workspace
+by its place. Alt+Tab opens the window switcher, Super+W the window menu,
+and Super alone Apps.
 
 Unlike the demo, the desktop has no Overview: workspaces come and go with
 their windows. The session starts with one; dropping a window or an

@@ -29,6 +29,9 @@ PanelWindow {
     // Whether the panel stands on its own near the top of the screen,
     // centered, rather than beside what opened it.
     property bool floating
+    // Whether the panel opens over the middle of what opened it, such as a
+    // window, with no arrow.
+    property bool centered
     readonly property rect anchor: Shell.anchor
     readonly property string edge: Shell.edge
 
@@ -60,10 +63,12 @@ PanelWindow {
         }
 
         x: popout.floating ? (popout.width - width) / 2
+            : popout.centered ? clamp(popout.anchor.x + popout.anchor.width / 2, width, popout.width)
             : popout.edge === "Left" ? Shell.depth + popout.margin
             : popout.edge === "Right" ? popout.width - Shell.depth - popout.margin - width
             : clamp(popout.anchor.x + popout.anchor.width / 2, width, popout.width)
         y: popout.floating ? Theme.barHeight + popout.margin + popout.height * 0.12
+            : popout.centered ? clamp(popout.anchor.y + popout.anchor.height / 2, height, popout.height)
             : popout.edge === "Top" ? Shell.depth + popout.margin
             : popout.edge === "Bottom" ? popout.height - Shell.depth - popout.margin - height
             : clamp(popout.anchor.y + popout.anchor.height / 2, height, popout.height)
@@ -84,7 +89,7 @@ PanelWindow {
             : popout.edge === "Bottom" ? body.y + body.height + 3.5
             : Math.max(body.y + 10, Math.min(body.y + body.height - 10, popout.anchor.y + popout.anchor.height / 2))
 
-        visible: popout.arrow && !popout.floating
+        visible: popout.arrow && !popout.floating && !popout.centered
         x: centerX - width / 2
         y: centerY - height / 2
         width: 18

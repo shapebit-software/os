@@ -96,16 +96,5 @@ hl.animation({ leaf = "fade",       enabled = true, speed = 1.5, bezier = "out" 
 hl.animation({ leaf = "layers",     enabled = true, speed = 1.5, bezier = "out", style = "fade" })
 hl.animation({ leaf = "workspaces", enabled = true, speed = 2.5, bezier = "out", style = "slide" })
 
-hl.bind("ALT + Q", hl.dsp.window.close())
--- The next keyboard layout (Settings > Language > Keyboards).
-hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("hyprctl switchxkblayout all next"))
--- Full screen covers the bar and the strip; the shell shows a button to end
--- it in the top right corner (FullscreenExit.qml).
-hl.bind("ALT + F", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
--- The brightness keys change the built-in display's (shell/Brightness.qml),
--- held down and on the lock screen too; brightnessctl keeps it above
--- fully dark.
-hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl --class=backlight --quiet set 5%+"),
-    { repeating = true, locked = true })
-hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl --class=backlight --quiet set 5%-"),
-    { repeating = true, locked = true })
+-- The keyboard shortcuts (shortcuts.lua).
+shortcuts = dofile(here .. "shortcuts.lua")

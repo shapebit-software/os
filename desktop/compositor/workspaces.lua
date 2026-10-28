@@ -2,7 +2,9 @@
 -- their windows. The session starts with one; the shell makes another when
 -- something is dropped on the strip's "+" (Strip.qml). A workspace without
 -- windows goes away once left, and the one on screen is left as soon as it
--- loses its last window, for the one taking its place on the strip.
+-- loses its last window, for the one taking its place on the strip. The
+-- keyboard goes to them and moves windows there by their place on the strip
+-- (shortcuts.lua).
 
 local workspaces = {}
 
@@ -87,6 +89,69 @@ function workspaces.move(from, to)
         -- The workspace on screen stays on screen.
         if ids[i] == active then hl.dispatch(hl.dsp.focus({ workspace = target })) end
     end
+end
+
+-- The most workspaces the strip makes (shell/Workspaces.qml).
+local most = 8
+
+-- The focused screen's workspaces with windows, in order, as the strip shows
+-- them, and the place of the one on screen among them: half a place before
+-- the next one when it has no windows.
+local function shown()
+    local active = hl.get_active_workspace()
+    if not active or not active.monitor then return {}, 0 end
+    local ids = idsOn(active.monitor.name, true)
+    local at = #ids + 0.5
+    for i, id in ipairs(ids) do
+        if id >= active.id then
+            at = id == active.id and i or i - 0.5
+            break
+        end
+    end
+    return ids, at
+end
+
+-- The place one before or after the one on screen.
+local function beside(at, by)
+    return by < 0 and math.ceil(at + by) or math.floor(at + by)
+end
+
+-- Goes to the focused screen's workspace at a place, counted from 1. There
+-- is none past the last.
+function workspaces.go(place)
+    local ids = shown()
+    if ids[place] then hl.dispatch(hl.dsp.focus({ workspace = ids[place] })) end
+end
+
+-- Goes to the workspace before (-1) or after (1) the one on screen.
+function workspaces.step(by)
+    local _, at = shown()
+    workspaces.go(beside(at, by))
+end
+
+-- Moves the focused window to the workspace at a place, and goes with it.
+-- The place after the last makes a new workspace, as the strip's "+" does,
+-- up to the most.
+function workspaces.send(place)
+    local window = hl.get_active_window()
+    local ids = shown()
+    if not window or place < 1 then return end
+    local target = ids[place]
+    if not target and place == #ids + 1 and #ids < most then
+        target = 0
+        for _, workspace in ipairs(hl.get_workspaces()) do target = math.max(target, workspace.id) end
+        target = target + 1
+    end
+    if target and target ~= window.workspace.id then
+        hl.dispatch(hl.dsp.window.move({ workspace = target, window = "address:" .. window.address }))
+    end
+end
+
+-- Moves the focused window to the workspace before (-1) or after (1) the one
+-- on screen; after the last, to a new one.
+function workspaces.sendStep(by)
+    local _, at = shown()
+    workspaces.send(beside(at, by))
 end
 
 return workspaces

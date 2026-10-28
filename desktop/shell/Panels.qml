@@ -73,4 +73,8 @@ Scope {
         screen: panels.modelData
         screenName: panels.modelData?.name ?? ""
     }
+    WindowMenu {
+        screen: panels.modelData
+        screenName: panels.modelData?.name ?? ""
+    }
 }

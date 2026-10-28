@@ -192,6 +192,9 @@ Item {
                     color: !map.current ? Qt.rgba(0.6, 0.62, 0.65, 0.55)
                         : modelData.activated ? Qt.rgba(0.98, 0.99, 1, 0.98)
                         : Qt.rgba(0.77, 0.79, 0.83, 0.8)
+                    // The window the switcher has picked (Switcher.qml).
+                    border.width: Switcher.picked === modelData ? 2 : 0
+                    border.color: Theme.accent
 
                     Drag.dragType: Drag.Automatic
                     Drag.supportedActions: Qt.MoveAction

@@ -43,6 +43,18 @@ Loader {
         && !(modelData === "brightness" && !Brightness.available)
         && !(modelData === "battery" && !Battery.available)
     visible: active
+
+    // A keyboard shortcut opens the item's panel (Shell.request); the
+    // button's panel has the item's name.
+    Connections {
+        target: Shell
+
+        function onRequested(name: string, screen: string) {
+            if (name === item.modelData && screen === (item.bar.modelData?.name ?? "") && item.item)
+                item.bar.open(name, item.item);
+        }
+    }
+
     sourceComponent: ({
         clock: clock,
         notifications: notificationsButton,

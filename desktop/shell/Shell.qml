@@ -34,7 +34,7 @@ Singleton {
 
     // The open panel: "notifications", "microphone", "sound", "brightness",
     // "network", "battery", "language",
-    // "account", "apps", "assistant", "layout", or none; the
+    // "account", "apps", "assistant", "layout", "window", or none; the
     // screen it is open on, by name; the place of what opened it on that
     // screen; and the edge and depth of the bar it opens from.
     property string panel
@@ -99,6 +99,27 @@ Singleton {
         shell.depth = depth;
         panelScreen = screen;
         panel = name;
+    }
+
+    // A keyboard shortcut asks for a panel on a screen (Shortcuts.qml); the
+    // item that opens it on that screen's bars opens it (ShellItem.qml).
+    signal requested(name: string, screen: string)
+
+    // Opens a panel as its item would, or closes it. With the item off the
+    // bars, the panel opens from the middle of the system bar.
+    function request(name: string, screen: string) {
+        if (isOpen(name, screen)) {
+            close();
+            return;
+        }
+        requested(name, screen);
+        const target = Quickshell.screens.find(s => s.name === screen);
+        if (isOpen(name, screen) || !target)
+            return;
+        const edge = Settings.systemBar;
+        const across = edge === "Top" || edge === "Bottom";
+        toggle(name, screen, Qt.rect(across ? target.width / 2 : edge === "Left" ? 0 : target.width,
+            across ? (edge === "Top" ? 0 : target.height) : target.height / 2, 0, 0), edge, Theme.barHeight);
     }
 
     function isOpen(name: string, screen: string): bool {

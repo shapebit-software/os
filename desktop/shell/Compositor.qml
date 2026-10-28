@@ -26,6 +26,11 @@ Singleton {
     // opens or time runs out: { workspace, address, until }.
     property var placing: null
 
+    // A keyboard shortcut for the shell, by name, and the list of every
+    // shortcut, as "<keys>|<description>;..." (compositor/shortcuts.lua).
+    signal shortcut(name: string)
+    signal shortcutList(list: string)
+
     function dispatch(lua: string) {
         Hyprland.dispatch(lua);
     }
@@ -65,6 +70,12 @@ Singleton {
 
     function moveWindow(address: string, workspace: int) {
         dispatch(`hl.dsp.window.move({ workspace = ${workspace}, window = "address:0x${address}", follow = false })`);
+        refresh.restart();
+    }
+
+    // Moves a window to the workspace shown on another screen.
+    function moveWindowToScreen(address: string, screen: string) {
+        dispatch(`hl.dsp.window.move({ monitor = ${quote(screen)}, window = "address:0x${address}", follow = false })`);
         refresh.restart();
     }
 
@@ -146,10 +157,15 @@ Singleton {
             if (event.name === "openwindow")
                 compositor.place(event.data.split(","));
             // The compositor announces layouts as custom events: "layout <id>
-            // <name>", "tiles <id> <shown> <windows>", and "splits <id> <splits>".
+            // <name>", "tiles <id> <shown> <windows>", and "splits <id> <splits>";
+            // and shortcuts: "shortcut <name>" and "shortcuts <list>".
             if (event.name !== "custom")
                 return;
             const [kind, id, value, windows] = event.data.split(" ");
+            if (kind === "shortcut")
+                compositor.shortcut(id);
+            else if (kind === "shortcuts")
+                compositor.shortcutList(event.data.slice(kind.length + 1));
             const address = a => a.replace(/^0x/, "");
             if (kind === "layout")
                 compositor.layouts = Object.assign({}, compositor.layouts, { [id]: value });

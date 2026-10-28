@@ -102,10 +102,13 @@ Scope {
             }
         }
 
+        // In Window, the focused window is picked to begin with, if it is on
+        // this screen.
         function pickWhat(mode: string) {
+            const focused = mode === "Window" ? windows.find(w => w.address === Hyprland.activeToplevel?.address) : null;
             Capture.mode = mode;
-            picked = mode === "Area" ? Capture.lastArea : Qt.rect(0, 0, 0, 0);
-            pickedWindow = "";
+            picked = mode === "Area" ? Capture.lastArea : focused?.rect ?? Qt.rect(0, 0, 0, 0);
+            pickedWindow = focused?.address ?? "";
             hovered = Qt.rect(0, 0, 0, 0);
         }
 
