@@ -169,19 +169,19 @@ portal_window_buttons() {
     grep -qx 'v s ":"'
 }
 check "desktop session's applications show no window buttons" portal_window_buttons
-# Opening and saving files, and screenshots: the portal offers them, D-Bus
-# starts the shell's backend in the session, and the shell listens for its
-# questions.
+# The shell's portals, and gnome-keyring's for secrets: the portal offers
+# them, D-Bus starts the shell's backend in the session, and the shell listens
+# for its questions. Opening with an application is OpenURI.
 shell_portal() {
   local interface
-  for interface in FileChooser Screenshot; do
+  for interface in FileChooser Screenshot OpenURI Account Background DynamicLauncher Inhibit Notification Wallpaper Secret; do
     busctl --user -M "$user@" get-property org.freedesktop.portal.Desktop /org/freedesktop/portal/desktop \
       "org.freedesktop.portal.$interface" version >/dev/null 2>&1 || return 1
   done
   answers org.freedesktop.impl.portal.desktop.shell /org/freedesktop/portal/desktop &&
     compgen -G "/run/user/$uid/desktop/portal-wayland-*.sock" >/dev/null
 }
-check "desktop session opens files and takes screenshots through the shell" shell_portal
+check "desktop session offers the portals through the shell" shell_portal
 # An action that needs an administrator makes the shell ask for the password
 # (its "authorization" surface); the question is left unanswered.
 asks_for_admin() {

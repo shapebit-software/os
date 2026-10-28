@@ -39,11 +39,17 @@ check "desktop's capture tools are installed" has_desktop_tools
 check "desktop's idle handler is installed" has_command hypridle
 check "desktop's portal is Hyprland's" grep -qx 'default=hyprland' /usr/share/xdg-desktop-portal/shapebit-portals.conf
 check "Hyprland's portal is installed" test -s /usr/share/xdg-desktop-portal/portals/hyprland.portal
-check "desktop's settings portal is GTK's" grep -qx 'org.freedesktop.impl.portal.Settings=gtk' /usr/share/xdg-desktop-portal/shapebit-portals.conf
-check "GTK's portal is installed" test -s /usr/share/xdg-desktop-portal/portals/gtk.portal
-check "desktop's file chooser is the shell's" grep -qx 'org.freedesktop.impl.portal.FileChooser=shell' /usr/share/xdg-desktop-portal/shapebit-portals.conf
-check "desktop's screenshots are the shell's" grep -qx 'org.freedesktop.impl.portal.Screenshot=shell' /usr/share/xdg-desktop-portal/shapebit-portals.conf
-check "shell's portal is installed" test -s /usr/share/xdg-desktop-portal/portals/shell.portal
+check "desktop's secrets portal is gnome-keyring's" grep -qx 'org.freedesktop.impl.portal.Secret=gnome-keyring' /usr/share/xdg-desktop-portal/shapebit-portals.conf
+check "gnome-keyring's portal is installed" test -s /usr/share/xdg-desktop-portal/portals/gnome-keyring.portal
+# Everything else is the shell's, which its portal offers.
+shell_portals() {
+  local interface
+  for interface in FileChooser Screenshot AppChooser Access Account Background DynamicLauncher Inhibit Notification Settings Wallpaper; do
+    grep -qx "org.freedesktop.impl.portal.$interface=shell" /usr/share/xdg-desktop-portal/shapebit-portals.conf &&
+      grep -q "org.freedesktop.impl.portal.$interface\b" /usr/share/xdg-desktop-portal/portals/shell.portal || return 1
+  done
+}
+check "desktop's other portals are the shell's" shell_portals
 is_python() { test -x "$1" && python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' "$1"; }
 shell_portal_starts() {
   grep -qx 'Exec=/usr/libexec/desktop/portal' /usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.shell.service &&
