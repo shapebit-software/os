@@ -8,6 +8,7 @@ singleton Clipboard Clipboard.qml
 singleton Compositor Compositor.qml
 singleton FileChooser FileChooser.qml
 singleton Connectivity Connectivity.qml
+singleton Displays Displays.qml
 singleton Dragging Dragging.qml
 singleton Idle Idle.qml
 singleton Keyboard Keyboard.qml
@@ -38,6 +39,7 @@ ConnectionsPage ConnectionsPage.qml
 CaptureMarkup CaptureMarkup.qml
 CaptureOverlay CaptureOverlay.qml
 DialogButton DialogButton.qml
+DisplayArrangement DisplayArrangement.qml
 Dusk Dusk.qml
 FileChooserDialog FileChooserDialog.qml
 FullscreenExit FullscreenExit.qml

@@ -90,10 +90,16 @@ Singleton {
     property alias touchpadSpeed: adapter.touchpadSpeed
     property alias mouseNaturalScroll: adapter.mouseNaturalScroll
     property alias mouseSpeed: adapter.mouseSpeed
-    // Display scales and modes by output name, such as { "eDP-1": 1.25 } and
-    // { "eDP-1": "2560x1600@120" }; outputs not listed are set automatically.
+    // The displays by output name (Displays.qml): scales and modes, such as
+    // { "eDP-1": 1.25 } and { "eDP-1": "2560x1600@120" }; positions, such as
+    // { "HDMI-A-1": "1920x0" }; and the display each one mirrors, such as
+    // { "HDMI-A-1": "eDP-1" }. What is not listed is set automatically. The
+    // primary display, by name; empty for the first.
     property alias scales: adapter.scales
     property alias modes: adapter.modes
+    property alias positions: adapter.positions
+    property alias mirrors: adapter.mirrors
+    property alias primary: adapter.primary
 
     // The accents' hues, as in the demo (Theme.accent).
     readonly property var accents: ({ "Cyan": 215, "Indigo": 265, "Green": 150, "Amber": 45, "Plum": 335 })
@@ -105,16 +111,6 @@ Singleton {
     readonly property string timePattern: timeFormat === "12-hour" ? "h:mm AP" : "hh:mm"
     readonly property string datePattern: ({ "US": "ddd MMM d", "UK": "ddd d MMM", "EU": "ddd d.M." })[regionShown]
     readonly property string longDatePattern: ({ "US": "dddd, MMMM d", "UK": "dddd d MMMM", "EU": "dddd, d. MMMM" })[regionShown]
-
-    function setScale(output: string, scale: real) {
-        scales = Object.assign({}, scales, { [output]: scale });
-        Compositor.setMonitor(output, modes[output] ?? "preferred", scale);
-    }
-
-    function setMode(output: string, mode: string) {
-        modes = Object.assign({}, modes, { [output]: mode });
-        Compositor.setMonitor(output, mode, scales[output] ?? "auto");
-    }
 
     // Items that the saved zones lack, such as ones added since, go where they
     // are by default: before the next item that follows them there. Hidden
@@ -150,8 +146,7 @@ Singleton {
         Pointer.apply();
         if (keyboards.length)
             Compositor.setKeyboards(keyboards);
-        for (const output of new Set([...Object.keys(scales), ...Object.keys(modes)]))
-            Compositor.setMonitor(output, modes[output] ?? "preferred", scales[output] ?? "auto");
+        Displays.apply();
     }
 
     onGapSizeChanged: Compositor.setGaps(gapSize)
@@ -211,6 +206,9 @@ Singleton {
             property real mouseSpeed: 0
             property var scales: ({})
             property var modes: ({})
+            property var positions: ({})
+            property var mirrors: ({})
+            property string primary: ""
             property bool captureMarkup: false
             property bool captureMicrophone: false
             property bool shareRemember: false

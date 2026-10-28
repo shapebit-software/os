@@ -106,12 +106,6 @@ Singleton {
         dispatch(`function() hl.config({ general = { gaps_in = ${gap / 2}, gaps_out = ${gap} } }) end`);
     }
 
-    // Sets an output's mode, such as "2560x1600@120" or "preferred", and its
-    // scale, a number or "auto".
-    function setMonitor(output: string, mode: string, scale: var) {
-        dispatch(`function() hl.monitor({ output = ${quote(output)}, mode = ${quote(mode)}, position = "auto", scale = ${typeof scale === "number" ? scale : quote(String(scale))} }) end`);
-    }
-
     // The look of the tiles (Settings.windowCorners, windowDecoration), as
     // in the demo: a hairline is a thin dark border, a shadow lifts the tile,
     // and soft corners are slightly rounded with both, the border lighter.

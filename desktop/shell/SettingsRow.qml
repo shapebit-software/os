@@ -1,5 +1,6 @@
 // One setting in Settings: its label and detail, and its control, at the
-// right or, for pictures and the shell's layout, below them.
+// right or, for pictures, the shell's layout, and the displays' arrangement,
+// below them.
 //
 // A row is { label, detail, kind } and what its kind needs:
 //   value       { value, open() if it leads to a page }
@@ -12,6 +13,7 @@
 //   wallpapers  { open() for a picture of one's own }
 //   gaps        the space between windows
 //   shell       the bars' layout (ShellEditor)
+//   displays    { selected, select(name) }: the displays' arrangement
 //   info        nothing beside the text
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -22,7 +24,7 @@ Item {
 
     required property var modelData
     readonly property string kind: modelData.kind ?? "value"
-    readonly property bool wide: ["swatches", "wallpapers", "shell"].includes(kind)
+    readonly property bool wide: ["swatches", "wallpapers", "shell", "displays"].includes(kind)
 
     implicitHeight: Math.max(56, (wide ? labels.height + below.height + 12 : Math.max(labels.height, control.height)) + 24)
 
@@ -195,7 +197,8 @@ Item {
         width: row.width - 32
         height: row.kind === "swatches" ? swatches.height
             : row.kind === "wallpapers" ? wallpapers.height
-            : row.kind === "shell" ? shellEditor.height : 0
+            : row.kind === "shell" ? shellEditor.height
+            : row.kind === "displays" ? arrangement.height : 0
 
         // The accent colors, and a custom one with its hue.
         Row {
@@ -379,6 +382,14 @@ Item {
             id: shellEditor
             visible: row.kind === "shell"
             width: parent.width
+        }
+
+        DisplayArrangement {
+            id: arrangement
+            visible: row.kind === "displays"
+            width: parent.width
+            selected: row.modelData.selected ?? ""
+            onPicked: name => row.modelData.select(name)
         }
     }
 }

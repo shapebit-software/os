@@ -6,7 +6,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Networking
 import Quickshell.Wayland
@@ -16,14 +15,13 @@ PanelWindow {
 
     required property ShellScreen modelData
 
-    readonly property HyprlandMonitor monitor: Hyprland.monitorFor(modelData)
-    // The output's modes, such as "2560x1600@120.00Hz", as sizes and rates.
-    readonly property var modes: (monitor?.lastIpcObject.availableModes ?? []).map(m => {
-        const [size, rate] = m.replace(/Hz$/, "").split("@");
-        return { size, rate: Math.round(parseFloat(rate)) };
-    })
-    readonly property string size: monitor ? `${monitor.width}x${monitor.height}` : ""
-    readonly property int rate: Math.round(monitor?.lastIpcObject.refreshRate ?? 0)
+    // The display that Settings > Display changes (Displays.qml): the one
+    // picked in the arrangement, or else this screen's.
+    property string displayName
+    readonly property var display: Displays.byName(displayName) ?? Displays.byName(modelData?.name ?? "")
+    readonly property var modes: display?.modes ?? []
+    readonly property string size: display ? `${display.width}x${display.height}` : ""
+    readonly property int rate: display?.rate ?? 0
     property string timeZone
     property bool automaticTime
     property list<string> timeZones
@@ -125,17 +123,40 @@ PanelWindow {
               selected: Settings.defaultLayout, select: o => Settings.defaultLayout = o },
         ] },
         { id: "display", name: "Display", icon: "M1.8 2.6h12.4v8.4H1.8zM5.5 13.8h5M8 11v2.8", rows: [
-            { label: "Resolution", detail: monitor?.name ?? "", kind: "select",
+            ...(Displays.all.length > 1 ? [{ label: "Arrangement", kind: "displays",
+              detail: "Drag the displays to where they stand; click one to change it below",
+              selected: display?.name ?? "", select: n => window.displayName = n }] : []),
+            ...(Displays.arranged.length > 1 ? [{ label: "Primary display", kind: "select",
+              detail: "Where the session starts, with its first workspace and the pointer",
+              options: Displays.arranged.map(d => [d.label, d.name]), selected: Displays.primary,
+              select: n => Displays.setPrimary(n) }] : []),
+            // Mirrors are not in the arrangement; they are picked here.
+            ...(Displays.all.length > 1 ? [{ label: "Display", kind: "select",
+              detail: "The one the settings below change",
+              options: Displays.all.map(d => [d.label, d.name]), selected: display?.name ?? "",
+              select: n => window.displayName = n }] : []),
+            { label: "Resolution", detail: display?.label ?? "", kind: "select",
               options: [...new Set(modes.map(m => m.size))].map(s => [s.replace("x", " × "), s]),
               selected: size,
-              select: s => Settings.setMode(monitor.name, `${s}@${Math.max(...modes.filter(m => m.size === s).map(m => m.rate))}`) },
-            { label: "Scale", detail: "Size of text and interface", kind: "choice",
+              select: s => Displays.setMode(display.name, `${s}@${Math.max(...modes.filter(m => m.size === s).map(m => m.rate))}`) },
+            ...(display?.mirrorOf ? [] : [{ label: "Scale", detail: "Size of text and interface", kind: "choice",
               options: ["100%", "125%", "150%", "200%"],
-              selected: `${Math.round((monitor?.scale ?? 1) * 100)}%`,
-              select: o => Settings.setScale(monitor.name, parseInt(o) / 100) },
-            { label: "Refresh rate", detail: monitor?.name ?? "", kind: "select",
+              selected: `${Math.round((display?.scale ?? 1) * 100)}%`,
+              select: o => Displays.setScale(display.name, parseInt(o) / 100) }]),
+            { label: "Refresh rate", detail: display?.label ?? "", kind: "select",
               options: [...new Set(modes.filter(m => m.size === size).map(m => m.rate))].map(r => [`${r} Hz`, r]),
-              selected: rate, select: r => Settings.setMode(monitor.name, `${size}@${r}`) },
+              selected: rate, select: r => Displays.setMode(display.name, `${size}@${r}`) },
+            // Settings goes along to the display mirrored, since its own
+            // screen goes away.
+            ...(Displays.all.length > 1 && display ? [{ label: "Mirror", kind: "select",
+              detail: `Show on ${display.label} what another display shows`,
+              options: [["Off", ""], ...Displays.arranged.filter(d => d.name !== display.name).map(d => [d.label, d.name])],
+              selected: display.mirrorOf, select: n => {
+                  const name = display.name;
+                  Displays.setMirror(name, n);
+                  if (n && Settings.openOn === name)
+                      Settings.openOn = n;
+              } }] : []),
         ] },
         { id: "pointing", name: "Mouse", icon: "M4.5 6a3.5 3.5 0 0 1 7 0v4a3.5 3.5 0 0 1-7 0zM8 2.5v3", rows: [
             ...(Pointer.touchpads.length ? [
@@ -215,6 +236,7 @@ PanelWindow {
     onVisibleChanged: {
         search.text = "";
         page = "";
+        displayName = "";
         if (visible) {
             search.forceActiveFocus();
             zone.running = true;

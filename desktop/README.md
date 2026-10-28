@@ -38,7 +38,9 @@ hypridle, which locks the screen and turns it off after the idle times in
 Settings and locks it before the computer sleeps, and clipman, which keeps
 copied text after the application it came from closes. Settings are kept in
 `~/.config/desktop/settings.json`; the shell applies them to itself and to the
-compositor.
+compositor. The displays' settings, their arrangement, mirroring, the primary
+display, and each one's mode and scale, are also kept as monitor rules in
+`~/.config/desktop/displays.lua`, which the compositor runs as it starts.
 
 Each bar can sit on any edge, and its items can move between the bars' zones
 or off the bars, hidden, all but the system menu (Settings > Shell). With the pointer, windows move only on the maps: drag a window's cell onto

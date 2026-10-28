@@ -33,6 +33,11 @@ hl.monitor({
     scale    = 1,
 })
 
+-- The person's displays as Settings > Display arranges them, which the shell
+-- keeps up to date (shell/Displays.qml): starting with them, the session
+-- opens on the primary display with each display where it belongs.
+pcall(dofile, (os.getenv("XDG_CONFIG_HOME") or os.getenv("HOME") .. "/.config") .. "/desktop/displays.lua")
+
 -- The layouts (layouts.lua) and the workspaces (workspaces.lua), next to
 -- this file. The shell calls these globals through dispatch requests.
 local here = debug.getinfo(1, "S").source:match("^@(.*/)")
