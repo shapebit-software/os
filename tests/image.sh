@@ -65,6 +65,10 @@ shell_share_picker() {
 }
 check "sharing the screen asks through the shell" shell_share_picker
 check "desktop's connection agent is installed" is_python /usr/libexec/desktop/connection-agent
+check "Flatpak is installed" has_command flatpak
+# Flatpak adds the remotes in /usr/share/flatpak/remotes.d by itself.
+flathub_remote() { flatpak remotes --system --columns=name,url | grep -q '^flathub[[:space:]]*https://dl.flathub.org/repo/'; }
+check "Flathub is a system remote" flathub_remote
 check "applications outside Flatpak use the portals" grep -qx 'GTK_USE_PORTAL=1' /usr/lib/environment.d/60-portals.conf
 no_window_buttons() { [[ $(GSETTINGS_BACKEND=memory gsettings get org.gnome.desktop.wm.preferences button-layout) == "':'" ]]; }
 check "applications show no window buttons" no_window_buttons

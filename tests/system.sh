@@ -211,6 +211,14 @@ check "desktop session keeps copied text" keeps_copies
 # NetworkManager and BlueZ for the session.
 connection_agent() { pgrep -u "$user" -f /usr/libexec/desktop/connection-agent >/dev/null; }
 check "desktop session runs the connection agent" connection_agent
+# Flatpak's applications are in the shell's Apps: its exports are on the
+# session's data path.
+flatpak_apps() {
+  local shell
+  shell=$(pgrep -u "$user" -x qs | head -n 1) &&
+    tr '\0' '\n' <"/proc/$shell/environ" | grep -q '^XDG_DATA_DIRS=.*/var/lib/flatpak/exports/share'
+}
+check "desktop session lists Flatpak applications" flatpak_apps
 # Log out as the account panel does: Hyprland's exit.
 logs_out() {
   setpriv --reuid="$user" --regid="$user" --init-groups env XDG_RUNTIME_DIR="/run/user/$uid" \

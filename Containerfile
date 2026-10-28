@@ -55,6 +55,13 @@ rm /usr/share/wayland-sessions/hyprland.desktop /usr/share/wayland-sessions/hypr
 rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf
 EOF
 
+# Applications come from Flatpak, with Flathub's remote
+# (rootfs/usr/share/flatpak/remotes.d/flathub.flatpakrepo, as Flathub
+# publishes it), which Flatpak adds by itself the first time it runs; its
+# environment generators put the applications in the session's Apps.
+RUN dnf -y install flatpak && dnf clean all && \
+    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf
+
 RUN systemctl set-default graphical.target
 
 # Logins for systemd-homed users need pam_systemd_home. authselect's checksum
