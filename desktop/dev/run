@@ -1,0 +1,90 @@
+#!/bin/sh
+# Runs the desktop in a window for development (make run), with a session bus
+# of its own, so that what runs inside reaches the desktop's own services
+# rather than the host's: the shell's notification server, and the portals as
+# the image sets them up (session/), from this tree: xdg-desktop-portal with
+# portals.conf, the shell's backend, and Hyprland's portal with the shell's
+# share picker. Apps also offers the Portal Tester (portal-tester), which
+# asks each portal. Nothing here is installed.
+set -eu
+
+tree=$(cd "$(dirname "$0")/.." && pwd)
+
+# Inside the bus: Hyprland, and, once it runs, its display and instance for
+# the services D-Bus starts, which ask the shell and Hyprland.
+session() {
+  before=$(hyprctl instances -j 2>/dev/null | python3 -c 'import json, sys; print(" ".join(i["instance"] for i in json.load(sys.stdin)))' 2>/dev/null || true)
+  XDG_DATA_DIRS=$data_dirs start-hyprland -- --config "$tree/compositor/hyprland.lua" &
+  hyprland=$!
+  for _ in $(seq 100); do
+    found=$(hyprctl instances -j 2>/dev/null | python3 -c '
+import json, sys
+before = set(sys.argv[1].split())
+for i in json.load(sys.stdin):
+    if i["instance"] not in before:
+        print(i["instance"], i["wl_socket"])' "$before" 2>/dev/null || true)
+    [ -z "$found" ] || break
+    sleep 0.1
+  done
+  if [ -n "$found" ]; then
+    set -- $found
+    gdbus call --session -d org.freedesktop.DBus -o /org/freedesktop/DBus \
+      -m org.freedesktop.DBus.UpdateActivationEnvironment \
+      "{'WAYLAND_DISPLAY': '$2', 'HYPRLAND_INSTANCE_SIGNATURE': '$1', 'XDG_DATA_DIRS': '$data_dirs'}" >/dev/null
+  fi
+  wait "$hyprland"
+}
+
+if [ "${1:-}" = session ]; then
+  session
+  exit
+fi
+
+dir=$(mktemp -d "${XDG_RUNTIME_DIR:?}/desktop-dev.XXXXXX")
+trap 'rm -rf "$dir"' EXIT
+mkdir -p "$dir/services" "$dir/portals" "$dir/hypr" "$dir/data/applications"
+
+# The portals and their configuration: the frontend reads both from here,
+# for the desktop name ShapeBit, and finds the Portal Tester's desktop entry.
+cp "$tree/session/shell.portal" "$dir/portals/"
+for portal in hyprland gnome-keyring; do
+  [ ! -e "/usr/share/xdg-desktop-portal/portals/$portal.portal" ] ||
+    cp "/usr/share/xdg-desktop-portal/portals/$portal.portal" "$dir/portals/"
+done
+cp "$tree/session/portals.conf" "$dir/portals/shapebit-portals.conf"
+sed "s|/usr/libexec/desktop/share-picker|$tree/session/share-picker|" "$tree/session/xdph.conf" >"$dir/hypr/xdph.conf"
+data_dirs="$dir/data:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+
+# D-Bus starts them on the first request, from here before the system's.
+cat >"$dir/services/org.freedesktop.portal.Desktop.service" <<EOF
+[D-BUS Service]
+Name=org.freedesktop.portal.Desktop
+Exec=/usr/bin/env XDG_CURRENT_DESKTOP=ShapeBit XDG_DESKTOP_PORTAL_DIR=$dir/portals XDG_DATA_DIRS=$data_dirs /usr/libexec/xdg-desktop-portal
+EOF
+cat >"$dir/services/org.freedesktop.impl.portal.desktop.shell.service" <<EOF
+[D-BUS Service]
+Name=org.freedesktop.impl.portal.desktop.shell
+Exec=$tree/session/portal
+EOF
+cat >"$dir/services/org.freedesktop.impl.portal.desktop.hyprland.service" <<EOF
+[D-BUS Service]
+Name=org.freedesktop.impl.portal.desktop.hyprland
+Exec=/usr/bin/env XDG_CONFIG_HOME=$dir /usr/libexec/xdg-desktop-portal-hyprland
+EOF
+cat >"$dir/bus.conf" <<EOF
+<busconfig>
+  <servicedir>$dir/services</servicedir>
+  <include>/usr/share/dbus-1/session.conf</include>
+</busconfig>
+EOF
+cat >"$dir/data/applications/dev.PortalTester.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Portal Tester
+Comment=Ask each of the desktop's portals
+Icon=preferences-system
+Exec=$tree/dev/portal-tester
+EOF
+
+export data_dirs
+dbus-run-session --config-file="$dir/bus.conf" -- "$0" session

@@ -19,9 +19,13 @@ notifications (banners, and a panel with Do Not Disturb), the display's
 brightness, and the battery with the power profile, these two only where the
 computer has them. The shell is also the session's polkit agent, which asks
 for an administrator's password, its notification server, and, through the
-portals, what applications ask: the file chooser, and screenshots and what
-to share in the capture overlay (the backends in `session/portal` and
-`session/share-picker` hand it their questions). Captures from the quick
+portals, what applications ask: the file chooser, screenshots and what to
+share in the capture overlay, and questions such as permissions, which
+application opens a file, the person's details, running in the background,
+launchers, and the wallpaper (the backends in `session/portal` and
+`session/share-picker` hand it their questions). The portal backend also
+passes applications' notifications to the shell, keeps the computer awake
+through logind, and gives applications their settings. Captures from the quick
 actions open the same overlay, with a panel of one row of icons: a
 selection, a window, or the screen; a switch between a
 screenshot and a recording whose knob is the capture button; and editing for
@@ -69,6 +73,13 @@ host's volume, Wi-Fi, and Bluetooth; captures go to the host's Pictures and
 Videos. Only the power actions are held back: they log instead of suspending,
 restarting, or shutting down the host.
 
+The desktop has a session bus of its own (`dev/run`), so what runs inside
+reaches its own notification server and portals, as in the image, from this
+tree; not the host's. Apps there offers the **Portal Tester**
+(`dev/portal-tester`), which asks each portal and logs the answer; a button's
+name, as its tooltip shows, presses it at the start, such as
+`dev/portal-tester open_files`. Neither is installed.
+
 The lock screen checks the password of the container's account, which
 distrobox leaves empty, so any password unlocks it. Set one with
 `sudo passwd $USER` in the container to try it for real.
@@ -85,6 +96,7 @@ ignores the others.
 | `compositor/` | The Hyprland configuration (Lua): look, key bindings, layouts and resizing (`layouts.lua`), workspaces (`workspaces.lua`). |
 | `shell/`      | The Quickshell configuration (QML): every shell surface.                                                                   |
 | `session/`    | The session entry that the login screen starts, and the session's portals.                                                 |
+| `dev/`        | Development only: the session bus of `make run`, and the Portal Tester.                                                    |
 
 ## Not yet implemented
 

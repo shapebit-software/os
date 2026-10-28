@@ -1,0 +1,296 @@
+#!/usr/bin/python3
+# The Portal Tester, for development only: Apps offers it in the desktop that
+# make run starts (dev/run), never in the image. Each button asks a portal as
+# an application does, through xdg-desktop-portal, and the log shows the
+# answer. The portal does not ask the person for permissions and background
+# activity on behalf of applications outside Flatpak, as this one is, so the
+# last buttons ask the shell's backend (session/portal) those questions
+# directly. A button is off when the portal does not offer its interface.
+# Name buttons to press them at the start, as `portal-tester open_files`.
+import itertools
+import os
+import sys
+
+import cairo
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gio, GLib, Gtk
+
+APP_ID = "dev.PortalTester"
+DESKTOP = "org.freedesktop.portal.Desktop"
+PATH = "/org/freedesktop/portal/desktop"
+PORTAL = "org.freedesktop.portal."
+BACKEND = "org.freedesktop.impl.portal.desktop.shell"
+RESPONSES = {0: "granted", 1: "cancelled", 2: "ended"}
+FILES = os.path.join(GLib.get_user_runtime_dir(), "portal-tester")
+
+
+class Tester(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Portal Tester")
+        self.set_default_size(820, 600)
+        self.bus = Gio.bus_get_sync(Gio.BusType.SESSION)
+        self.tokens = itertools.count()
+        self.inhibition = None
+        os.makedirs(FILES, exist_ok=True)
+
+        self.log_view = Gtk.TextView(editable=False, monospace=True, wrap_mode=Gtk.WrapMode.WORD_CHAR,
+                                     left_margin=8, right_margin=8, top_margin=8)
+        # Before any other call, which the portal would answer as for no
+        # application in particular.
+        self.register()
+        buttons = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin=12)
+        sections = [
+            ("Through the portal", [
+                ("Open files", "FileChooser", self.open_files),
+                ("Save a file", "FileChooser", self.save_file),
+                ("Take a screenshot", "Screenshot", self.screenshot),
+                ("Pick a color", "Screenshot", self.pick_color),
+                ("Open a link with…", "OpenURI", self.open_link),
+                ("Open a file with…", "OpenURI", self.open_file_with),
+                ("Ask for my details", "Account", self.account),
+                ("Add a launcher to Apps", "DynamicLauncher", self.launcher),
+                ("Set the wallpaper", "Wallpaper", self.wallpaper),
+                ("Send a notification", "Notification", self.notify),
+                ("Keep awake", "Inhibit", self.keep_awake),
+                ("Run in the background", "Background", self.run_in_background),
+                ("Read the settings", "Settings", self.settings),
+                ("Share the screen", "ScreenCast", self.share_screen),
+                ("Read a secret", "Secret", self.secret),
+            ]),
+            ("The shell's backend directly", [
+                ("Ask for a permission", None, self.permission),
+                ("Ask about the background", None, self.background_question),
+            ]),
+        ]
+        for title, entries in sections:
+            label = Gtk.Label(xalign=0, margin_top=8)
+            label.set_markup(f"<b>{title}</b>")
+            buttons.pack_start(label, False, False, 0)
+            for text, interface, handler in entries:
+                button = Gtk.Button(label=text, tooltip_text=handler.__name__)
+                button.set_sensitive(interface is None or self.offers(interface))
+                button.connect("clicked", lambda b, handler=handler: handler(b))
+                buttons.pack_start(button, False, False, 0)
+                if handler.__name__ in sys.argv[1:] and button.get_sensitive():
+                    GLib.idle_add(button.clicked)
+
+        left = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
+        left.add(buttons)
+        right = Gtk.ScrolledWindow()
+        right.add(self.log_view)
+        box = Gtk.Box()
+        box.pack_start(left, False, False, 0)
+        box.pack_start(right, True, True, 0)
+        self.add(box)
+
+        self.bus.signal_subscribe(DESKTOP, PORTAL + "Notification", "ActionInvoked", PATH, None,
+                                  Gio.DBusSignalFlags.NONE, self.on_signal)
+        self.bus.signal_subscribe(DESKTOP, PORTAL + "Settings", "SettingChanged", PATH, None,
+                                  Gio.DBusSignalFlags.NONE, self.on_signal)
+
+    def log(self, text):
+        buffer = self.log_view.get_buffer()
+        buffer.insert(buffer.get_end_iter(), f"{GLib.DateTime.new_now_local().format('%T')}  {text}\n")
+        self.log_view.scroll_to_iter(buffer.get_end_iter(), 0, False, 0, 0)
+
+    def offers(self, interface):
+        try:
+            self.bus.call_sync(DESKTOP, PATH, "org.freedesktop.DBus.Properties", "Get",
+                               GLib.Variant("(ss)", (PORTAL + interface, "version")), None, 0, -1, None)
+            return True
+        except GLib.Error:
+            return False
+
+    def register(self):
+        """Names this application to the portal, as applications outside
+        Flatpak do, so the portal knows it by its desktop entry."""
+        try:
+            self.bus.call_sync(DESKTOP, PATH, "org.freedesktop.host.portal.Registry", "Register",
+                               GLib.Variant("(sa{sv})", (APP_ID, {})), None, 0, -1, None)
+            self.log(f"Registered as {APP_ID}")
+        except GLib.Error as error:
+            self.log(f"Not registered: {error.message}")
+
+    def on_signal(self, connection, sender, path, interface, signal, parameters):
+        self.log(f"{signal}: {parameters.unpack()}")
+
+    def call(self, interface, method, parameters, done=None, fds=None):
+        """Calls the portal; `done` gets the reply."""
+        def replied(bus, result):
+            try:
+                reply, _ = bus.call_with_unix_fd_list_finish(result)
+            except GLib.Error as error:
+                self.log(f"{method}: {error.message}")
+                return
+            if done:
+                done(reply)
+
+        self.bus.call_with_unix_fd_list(DESKTOP, PATH, PORTAL + interface, method, parameters, None,
+                                        Gio.DBusCallFlags.NONE, -1, fds, None, replied)
+
+    def request(self, interface, method, signature, args, options, then=None, fds=None):
+        """Asks the portal, whose answer comes as the request's Response;
+        `then` gets the results of a granted one."""
+        token = f"tester{next(self.tokens)}"
+        options["handle_token"] = GLib.Variant("s", token)
+        sender = self.bus.get_unique_name()[1:].replace(".", "_")
+        handle = f"{PATH}/request/{sender}/{token}"
+
+        def response(connection, sender, path, interface_, signal, parameters, subscription):
+            connection.signal_unsubscribe(subscription[0])
+            code, results = parameters.unpack()
+            self.log(f"{method}: {RESPONSES.get(code, code)} {results}")
+            if code == 0 and then:
+                then(results)
+
+        subscription = [0]
+        subscription[0] = self.bus.signal_subscribe(DESKTOP, PORTAL + "Request", "Response", handle, None,
+                                                    Gio.DBusSignalFlags.NONE, response, subscription)
+        self.call(interface, method, GLib.Variant(signature, (*args, options)), fds=fds)
+
+    def open_files(self, button):
+        filters = [("Text", [(1, "text/plain")]), ("Pictures", [(1, "image/*")]), ("All files", [(0, "*")])]
+        self.request("FileChooser", "OpenFile", "(ssa{sv})", ["", "Open Files"], {
+            "multiple": GLib.Variant("b", True), "filters": GLib.Variant("a(sa(us))", filters)})
+
+    def save_file(self, button):
+        self.request("FileChooser", "SaveFile", "(ssa{sv})", ["", "Save Notes"], {
+            "current_name": GLib.Variant("s", "notes.txt")})
+
+    def screenshot(self, button):
+        self.request("Screenshot", "Screenshot", "(sa{sv})", [""], {"interactive": GLib.Variant("b", True)})
+
+    def pick_color(self, button):
+        self.request("Screenshot", "PickColor", "(sa{sv})", [""], {})
+
+    def open_link(self, button):
+        self.request("OpenURI", "OpenURI", "(ssa{sv})", ["", "https://shapebit.software"], {
+            "ask": GLib.Variant("b", True)})
+
+    def open_file_with(self, button):
+        path = os.path.join(FILES, "notes.txt")
+        with open(path, "w") as file:
+            file.write("Opened through the portal.\n")
+        fds = Gio.UnixFDList.new_from_array([os.open(path, os.O_RDONLY)])
+        self.request("OpenURI", "OpenFile", "(sha{sv})", ["", 0], {"ask": GLib.Variant("b", True)}, fds=fds)
+
+    def account(self, button):
+        self.request("Account", "GetUserInformation", "(sa{sv})", [""], {
+            "reason": GLib.Variant("s", "To show who tested the portals.")})
+
+    def launcher(self, button):
+        icon = Gtk.IconTheme.get_default().load_icon("preferences-system", 128, Gtk.IconLookupFlags.FORCE_SIZE)
+        _, png = icon.save_to_bufferv("png", [], [])
+        self.request("DynamicLauncher", "PrepareInstall", "(ssva{sv})", [
+            "", "ShapeBit Website", GLib.Variant("(sv)", ("bytes", GLib.Variant("ay", png)))], {
+            "launcher_type": GLib.Variant("u", 2),
+            "target": GLib.Variant("s", "https://shapebit.software"),
+            "editable_name": GLib.Variant("b", True)})
+
+    def wallpaper(self, button):
+        path = os.path.join(FILES, "wallpaper.png")
+        surface = cairo.ImageSurface(cairo.FORMAT_RGB24, 1920, 1080)
+        context = cairo.Context(surface)
+        gradient = cairo.LinearGradient(0, 0, 1920, 1080)
+        gradient.add_color_stop_rgb(0, 0.10, 0.25, 0.35)
+        gradient.add_color_stop_rgb(1, 0.55, 0.30, 0.45)
+        context.set_source(gradient)
+        context.paint()
+        surface.write_to_png(path)
+        self.request("Wallpaper", "SetWallpaperURI", "(ssa{sv})", ["", Gio.File.new_for_path(path).get_uri()], {
+            "show-preview": GLib.Variant("b", True), "set-on": GLib.Variant("s", "background")})
+
+    def notify(self, button):
+        buttons = [{"label": GLib.Variant("s", "Reply"), "action": GLib.Variant("s", "reply")}]
+        self.call("Notification", "AddNotification", GLib.Variant("(sa{sv})", ("tester", {
+            "title": GLib.Variant("s", "Portal Tester"),
+            "body": GLib.Variant("s", "A notification through the portal."),
+            "default-action": GLib.Variant("s", "open"),
+            "buttons": GLib.Variant("aa{sv}", buttons)})), lambda reply: self.log("AddNotification: sent"))
+
+    def keep_awake(self, button):
+        if self.inhibition:
+            self.bus.call(DESKTOP, self.inhibition, PORTAL + "Request", "Close", None, None, 0, -1, None, None)
+            self.inhibition = None
+            button.set_label("Keep awake")
+            self.log("Inhibit: released")
+            return
+
+        def held(reply):
+            (self.inhibition,) = reply.unpack()
+            button.set_label("Stop keeping awake")
+            self.log(f"Inhibit: holding the screen lock and sleep ({self.inhibition})")
+
+        # Idle (8) and suspend (4).
+        self.call("Inhibit", "Inhibit", GLib.Variant("(sua{sv})", ("", 12, {
+            "reason": GLib.Variant("s", "Testing the portals")})), held)
+
+    def run_in_background(self, button):
+        self.request("Background", "RequestBackground", "(sa{sv})", [""], {
+            "reason": GLib.Variant("s", "Testing the portals"), "autostart": GLib.Variant("b", False)})
+
+    def settings(self, button):
+        self.call("Settings", "ReadAll", GLib.Variant("(as)", (["org.freedesktop.appearance"],)),
+                  lambda reply: self.log(f"ReadAll: {reply.unpack()[0]}"))
+        self.call("Settings", "ReadOne", GLib.Variant("(ss)", ("org.gnome.desktop.wm.preferences", "button-layout")),
+                  lambda reply: self.log(f"ReadOne button-layout: {reply.unpack()[0]}"))
+
+    def share_screen(self, button):
+        """A session, a source the person picks, and the stream; then the
+        session closes."""
+        def created(results):
+            session = results["session_handle"]
+            self.request("ScreenCast", "SelectSources", "(oa{sv})", [session], {
+                "types": GLib.Variant("u", 1 | 2)}, lambda _: started(session))
+
+        def started(session):
+            self.request("ScreenCast", "Start", "(osa{sv})", [session, ""], {}, lambda _: close(session))
+
+        def close(session):
+            self.bus.call(DESKTOP, session, PORTAL + "Session", "Close", None, None, 0, -1, None, None)
+            self.log("ScreenCast: session closed")
+
+        self.request("ScreenCast", "CreateSession", "(a{sv})", [], {
+            "session_handle_token": GLib.Variant("s", f"tester{next(self.tokens)}")}, created)
+
+    def secret(self, button):
+        reading, writing = os.pipe()
+
+        def read(results):
+            with os.fdopen(reading, "rb") as pipe:
+                self.log(f"RetrieveSecret: {len(pipe.read())} bytes")
+
+        self.request("Secret", "RetrieveSecret", "(ha{sv})", [0], {}, read,
+                     fds=Gio.UnixFDList.new_from_array([writing]))
+
+    def backend(self, interface, method, parameters):
+        def replied(bus, result):
+            try:
+                code, results = bus.call_finish(result).unpack()
+            except GLib.Error as error:
+                self.log(f"{method}: {error.message}")
+                return
+            self.log(f"{method}: {RESPONSES.get(code, code)} {results}")
+
+        handle = f"/dev/PortalTester/request{next(self.tokens)}"
+        self.bus.call(BACKEND, "/org/freedesktop/portal/desktop", "org.freedesktop.impl.portal." + interface, method,
+                      GLib.Variant(parameters[0], (handle, *parameters[1])), None, 0, -1, None, replied)
+
+    def permission(self, button):
+        choices = [("remember", "Remember this choice", [], "true"),
+                   ("camera", "Camera", [("front", "Front"), ("back", "Back")], "front")]
+        self.backend("Access", "AccessDialog", ("(osssssa{sv})", [
+            APP_ID, "", "Allow Portal Tester to use the camera?", "Portal Tester wants to use your camera.",
+            "This can be changed in Settings.",
+            {"icon": GLib.Variant("s", "camera-web-symbolic"), "choices": GLib.Variant("a(ssa(ss)s)", choices)}]))
+
+    def background_question(self, button):
+        self.backend("Background", "NotifyBackground", ("(oss)", [APP_ID, "Portal Tester"]))
+
+
+window = Tester()
+window.connect("destroy", Gtk.main_quit)
+window.show_all()
+Gtk.main()

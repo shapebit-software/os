@@ -1,55 +1,133 @@
 #!/usr/bin/python3
-# The shell's portal backend, which xdg-desktop-portal asks when an
-# application opens or saves a file (org.freedesktop.impl.portal.FileChooser)
-# or takes a screenshot (org.freedesktop.impl.portal.Screenshot). The shell
-# shows the file chooser and the capture overlay (shell/Portal.qml); each
+# The shell's portal backend, which xdg-desktop-portal asks for everything an
+# application needs from the desktop but screen sharing and global shortcuts
+# (Hyprland's) and secrets (gnome-keyring's): opening and saving files,
+# screenshots, opening a file or link with another application, permissions,
+# the person's details, running in the background, launchers, the wallpaper,
+# notifications, keeping the computer awake, and the settings applications
+# follow (portals.conf). The shell shows what the person decides (the file
+# chooser, the capture overlay, and the questions; shell/Portal.qml); each
 # question goes to it over its socket in the runtime directory, as one JSON
 # line naming the portal, and the answer comes back as one. Screenshots that
-# the person does not pick, and picking a color, need no shell. D-Bus starts
-# this on the first question (portal.dbus.service); run it by hand, with a
-# nested desktop's WAYLAND_DISPLAY, to try the shell's side in development.
+# the person does not pick, picking a color, notifications, which go to the
+# shell's notification server, keeping awake, which logind does, and the
+# settings need no question. D-Bus starts this on the first request
+# (portal.dbus.service); run it by hand, with a nested desktop's
+# WAYLAND_DISPLAY, to try the shell's side in development.
+import hashlib
+import html
 import json
+import math
 import os
+import re
+import shutil
+import subprocess
+import time
 
-from gi.repository import Gio, GLib
+import gi
+
+gi.require_version("GioUnix", "2.0")
+from gi.repository import Gio, GioUnix, GLib
 
 BUS_NAME = "org.freedesktop.impl.portal.desktop.shell"
 OBJECT_PATH = "/org/freedesktop/portal/desktop"
+PORTAL = "org.freedesktop.impl.portal."
+RUNTIME = os.path.join(os.environ["XDG_RUNTIME_DIR"], "desktop")
 # The shell's socket, one for each Wayland display (shell/Portal.qml).
-SOCKET = os.path.join(os.environ["XDG_RUNTIME_DIR"], "desktop",
-                      f"portal-{os.environ['WAYLAND_DISPLAY']}.sock")
+SOCKET = os.path.join(RUNTIME, f"portal-{os.environ['WAYLAND_DISPLAY']}.sock")
 MIME_GLOBS = "/usr/share/mime/globs2"
+# The shell's settings (shell/Settings.qml), for the accent.
+SHELL_SETTINGS = os.path.join(GLib.get_user_config_dir(), "desktop", "settings.json")
+# Pictures applications set as the wallpaper, kept while they are.
+WALLPAPERS = os.path.join(GLib.get_user_data_dir(), "desktop", "wallpapers")
+# The shell's notification server.
+NOTIFICATIONS = ("org.freedesktop.Notifications", "/org/freedesktop/Notifications", "org.freedesktop.Notifications")
 
 # The portal's responses.
 CHOSEN, CANCELLED, ENDED = 0, 1, 2
 
-QUESTION = """
-      <arg type="o" name="handle" direction="in"/>
-      <arg type="s" name="app_id" direction="in"/>
-      <arg type="s" name="parent_window" direction="in"/>
-      {title}
-      <arg type="a{{sv}}" name="options" direction="in"/>
-      <arg type="u" name="response" direction="out"/>
-      <arg type="a{{sv}}" name="results" direction="out"/>
-"""
-TITLED = QUESTION.format(title='<arg type="s" name="title" direction="in"/>')
-UNTITLED = QUESTION.format(title="")
-FILE_CHOOSER, SCREENSHOT, REQUEST = Gio.DBusNodeInfo.new_for_xml(f"""
+
+def args(types, out=False):
+    """D-Bus arguments, by type, as introspection XML."""
+    return "".join(f'<arg type="{t}" direction="{"out" if out else "in"}"/>' for t in types)
+
+
+# A question's handle, the application, and its window; and the answer.
+ASKED = ["o", "s", "s"]
+ANSWER = args(["u", "a{sv}"], out=True)
+VERSION = '<property name="version" type="u" access="read"/>'
+INTERFACES = {i.name.removeprefix(PORTAL): i for i in Gio.DBusNodeInfo.new_for_xml(f"""
 <node>
-  <interface name="org.freedesktop.impl.portal.FileChooser">
-    <method name="OpenFile">{TITLED}</method>
-    <method name="SaveFile">{TITLED}</method>
+  <interface name="{PORTAL}FileChooser">
+    <method name="OpenFile">{args(ASKED + ["s", "a{sv}"])}{ANSWER}</method>
+    <method name="SaveFile">{args(ASKED + ["s", "a{sv}"])}{ANSWER}</method>
   </interface>
-  <interface name="org.freedesktop.impl.portal.Screenshot">
-    <method name="Screenshot">{UNTITLED}</method>
-    <method name="PickColor">{UNTITLED}</method>
-    <property name="version" type="u" access="read"/>
+  <interface name="{PORTAL}Screenshot">
+    <method name="Screenshot">{args(ASKED + ["a{sv}"])}{ANSWER}</method>
+    <method name="PickColor">{args(ASKED + ["a{sv}"])}{ANSWER}</method>
+    {VERSION}
   </interface>
-  <interface name="org.freedesktop.impl.portal.Request">
+  <interface name="{PORTAL}AppChooser">
+    <method name="ChooseApplication">{args(ASKED + ["as", "a{sv}"])}{ANSWER}</method>
+    <method name="UpdateChoices">{args(["o", "as"])}</method>
+  </interface>
+  <interface name="{PORTAL}Access">
+    <method name="AccessDialog">{args(ASKED + ["s", "s", "s", "a{sv}"])}{ANSWER}</method>
+  </interface>
+  <interface name="{PORTAL}Account">
+    <method name="GetUserInformation">{args(ASKED + ["a{sv}"])}{ANSWER}</method>
+  </interface>
+  <interface name="{PORTAL}Background">
+    <method name="GetAppState">{args(["a{sv}"], out=True)}</method>
+    <method name="NotifyBackground">{args(["o", "s", "s"])}{ANSWER}</method>
+    <signal name="RunningApplicationsChanged"/>
+  </interface>
+  <interface name="{PORTAL}DynamicLauncher">
+    <method name="PrepareInstall">{args(ASKED + ["s", "v", "a{sv}"])}{ANSWER}</method>
+    <method name="RequestInstallToken">{args(["s", "a{sv}"])}{args(["u"], out=True)}</method>
+    <property name="SupportedLauncherTypes" type="u" access="read"/>
+    {VERSION}
+  </interface>
+  <interface name="{PORTAL}Inhibit">
+    <method name="Inhibit">{args(ASKED + ["u", "a{sv}"])}</method>
+    <method name="CreateMonitor">{args(["o", "o", "s", "s"])}{args(["u"], out=True)}</method>
+    <method name="QueryEndResponse">{args(["o"])}</method>
+    <signal name="StateChanged">{args(["o", "a{sv}"], out=True)}</signal>
+  </interface>
+  <interface name="{PORTAL}Notification">
+    <method name="AddNotification">{args(["s", "s", "a{sv}"])}</method>
+    <method name="RemoveNotification">{args(["s", "s"])}</method>
+    <signal name="ActionInvoked">{args(["s", "s", "s", "av"], out=True)}</signal>
+    <property name="SupportedOptions" type="a{{sv}}" access="read"/>
+    {VERSION}
+  </interface>
+  <interface name="{PORTAL}Settings">
+    <method name="ReadAll">{args(["as"])}{args(["a{sa{sv}}"], out=True)}</method>
+    <method name="Read">{args(["s", "s"])}{args(["v"], out=True)}</method>
+    <signal name="SettingChanged">{args(["s", "s", "v"], out=True)}</signal>
+    {VERSION}
+  </interface>
+  <interface name="{PORTAL}Wallpaper">
+    <method name="SetWallpaperURI">{args(ASKED + ["s", "a{sv}"])}{args(["u"], out=True)}</method>
+  </interface>
+  <interface name="{PORTAL}Request">
     <method name="Close"/>
   </interface>
+  <interface name="{PORTAL}Session">
+    <method name="Close"/>
+    <signal name="Closed"/>
+    {VERSION}
+  </interface>
 </node>
-""").interfaces
+""").interfaces}
+PROPERTIES = {
+    "Screenshot": {"version": GLib.Variant("u", 2)},
+    # Applications and web applications.
+    "DynamicLauncher": {"SupportedLauncherTypes": GLib.Variant("u", 3), "version": GLib.Variant("u", 1)},
+    "Notification": {"SupportedOptions": GLib.Variant("a{sv}", {}), "version": GLib.Variant("u", 2)},
+    "Settings": {"version": GLib.Variant("u", 2)},
+    "Session": {"version": GLib.Variant("u", 1)},
+}
 
 
 def mime_globs():
@@ -129,14 +207,73 @@ def screenshot_results(answer):
     return CHOSEN, {"uri": GLib.Variant("s", Gio.File.new_for_path(path).get_uri())}
 
 
+def asked(answer):
+    """A question's response (shell/Question.qml): granted, refused or
+    dismissed, or ended unanswered."""
+    return CHOSEN if answer.get("granted") else CANCELLED if answer else ENDED
+
+
+def app_info(app_id):
+    """The application's desktop entry, if it has one."""
+    try:
+        return GioUnix.DesktopAppInfo.new(f"{app_id}.desktop") if app_id else None
+    except TypeError:
+        return None
+
+
+def app_name(app_id):
+    info = app_info(app_id)
+    return info.get_display_name() if info else app_id or "An application"
+
+
+def app_icon(app_id):
+    """The application's icon, by name or path, as the shell finds it."""
+    info = app_info(app_id)
+    icon = info.get_icon() if info else None
+    if isinstance(icon, Gio.ThemedIcon):
+        return icon.get_names()[0]
+    if isinstance(icon, Gio.FileIcon):
+        return icon.get_file().get_path() or ""
+    return ""
+
+
+def icon_of(serialized, invocation):
+    """A serialized icon, as applications send them: its name, or its image,
+    kept in the runtime directory, as a path."""
+    if serialized.get_type_string() != "(sv)":
+        return "", ""
+    kind, value = serialized.get_child_value(0).get_string(), serialized.get_child_value(1).get_variant()
+    if kind == "themed":
+        return (value.unpack() or [""])[0], ""
+    if kind == "bytes":
+        data = bytes(value.unpack())
+    elif kind == "file-descriptor":
+        fds = invocation.get_message().get_unix_fd_list()
+        try:
+            with os.fdopen(fds.get(value.get_handle()), "rb") as file:
+                data = file.read()
+        except (AttributeError, GLib.Error, OSError):
+            return "", ""
+    else:
+        return "", ""
+    path = os.path.join(RUNTIME, "icons", hashlib.sha256(data).hexdigest()[:16])
+    if not os.path.exists(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as file:
+            file.write(data)
+    return "", path
+
+
 class Request:
     """One question, answered on the D-Bus call that asked it, by the shell
     or by commands; closing the portal's request closes what it opened."""
 
-    def __init__(self, connection, invocation, handle):
+    def __init__(self, connection, invocation, handle, reply="(ua{sv})"):
         self.invocation = invocation
+        # Most answers are a response and results; some, the response only.
+        self.reply = reply
         self.answered = False
-        self.registration = connection.register_object_with_closures2(handle, REQUEST, self.on_close, None, None)
+        self.registration = connection.register_object_with_closures2(handle, INTERFACES["Request"], self.on_close, None, None)
         self.stream = None
 
     def ask_shell(self, question, results_of):
@@ -183,7 +320,7 @@ class Request:
         if self.answered:
             return
         self.answered = True
-        self.invocation.return_value(GLib.Variant("(ua{sv})", (response, results)))
+        self.invocation.return_value(GLib.Variant(self.reply, (response, results) if self.reply == "(ua{sv})" else (response,)))
         self.invocation.get_connection().unregister_object(self.registration)
         if self.stream:
             self.stream.close(None)
@@ -225,27 +362,553 @@ def pick_color(request):
     request.run(["slurp", "-p"], picked)
 
 
-def on_method(connection, sender, path, interface, method, parameters, invocation):
-    if interface == FILE_CHOOSER.name:
-        handle, _, _, title, options = parameters.unpack()
-        filters = options.get("filters", [])
-        Request(connection, invocation, handle).ask_shell(
-            file_question(method, title, options), lambda answer: file_results(answer, filters))
-    elif method == "Screenshot":
-        handle, _, _, options = parameters.unpack()
-        take_screenshot(Request(connection, invocation, handle), options)
+def file_chooser(connection, method, parameters, invocation):
+    handle, _, _, title, options = parameters.unpack()
+    filters = options.get("filters", [])
+    Request(connection, invocation, handle).ask_shell(
+        file_question(method, title, options), lambda answer: file_results(answer, filters))
+
+
+def screenshot(connection, method, parameters, invocation):
+    handle, _, _, options = parameters.unpack()
+    request = Request(connection, invocation, handle)
+    if method == "Screenshot":
+        take_screenshot(request, options)
     else:
-        handle, _, _, _ = parameters.unpack()
-        pick_color(Request(connection, invocation, handle))
+        pick_color(request)
+
+
+def app_chooser(connection, method, parameters, invocation):
+    """Which application opens a file or a link, of those that can."""
+    if method == "UpdateChoices":
+        # The question keeps the applications it opened with.
+        invocation.return_value(None)
+        return
+    handle, _, _, choices, options = parameters.unpack()
+    filename = options.get("filename", "")
+    content_type = options.get("content_type", "")
+    question = {
+        "portal": "question",
+        "kind": "open-with",
+        "title": f"Open “{filename}” with" if filename else "Open with",
+        "subtitle": Gio.content_type_get_description(content_type) if filename and content_type else "",
+        "body": "" if filename else options.get("uri", ""),
+        "apps": choices,
+        "app": options.get("last_choice", ""),
+        "grant": "Open",
+        "deny": "Cancel",
+    }
+
+    def results(answer):
+        if not answer.get("granted") or answer.get("app") not in choices:
+            return asked(answer), {}
+        found = {"choice": GLib.Variant("s", answer["app"])}
+        if options.get("activation_token"):
+            found["activation_token"] = GLib.Variant("s", options["activation_token"])
+        return CHOSEN, found
+
+    Request(connection, invocation, handle).ask_shell(question, results)
+
+
+def access(connection, method, parameters, invocation):
+    """Whether an application may do something, such as use the camera; with
+    choices the application offers, a box to tick or one option of several
+    each."""
+    handle, app_id, _, title, subtitle, body, options = parameters.unpack()
+    choices = options.get("choices", [])
+    question = {
+        "portal": "question",
+        "kind": "access",
+        "icon": options.get("icon", "") or app_icon(app_id),
+        "title": title,
+        "subtitle": subtitle,
+        "body": body,
+        "grant": options.get("grant_label", "") or "Allow",
+        "deny": options.get("deny_label", "") or "Deny",
+        "choices": [{"id": id_, "label": label, "options": [{"id": o, "label": l} for o, l in offered], "value": value}
+                    for id_, label, offered, value in choices],
+    }
+
+    def results(answer):
+        if not answer.get("granted"):
+            return asked(answer), {}
+        chosen = answer.get("choices", {})
+        return CHOSEN, {"choices": GLib.Variant("a(ss)", [(id_, str(chosen.get(id_, value))) for id_, _, _, value in choices])}
+
+    Request(connection, invocation, handle).ask_shell(question, results)
+
+
+def account(connection, method, parameters, invocation):
+    """The person's name and picture, if they share them."""
+    handle, app_id, _, options = parameters.unpack()
+    question = {
+        "portal": "question",
+        "kind": "account",
+        "icon": app_icon(app_id),
+        "title": "Share your details?",
+        "subtitle": f"{app_name(app_id)} asks for your name and picture.",
+        "body": options.get("reason", ""),
+        "grant": "Share",
+        "deny": "Cancel",
+    }
+
+    def results(answer):
+        if not answer.get("granted"):
+            return asked(answer), {}
+        image = answer.get("image", "")
+        return CHOSEN, {
+            "id": GLib.Variant("s", answer.get("id", "")),
+            "name": GLib.Variant("s", answer.get("name", "")),
+            "image": GLib.Variant("s", Gio.File.new_for_path(image).get_uri() if image else ""),
+        }
+
+    Request(connection, invocation, handle).ask_shell(question, results)
+
+
+def app_states():
+    """The applications with windows, by class: active, 2, if one has focus,
+    otherwise running, 1. Those without are in the background."""
+    def hyprctl(what):
+        try:
+            return json.loads(subprocess.run(["hyprctl", "-j", what], capture_output=True, text=True, timeout=2).stdout)
+        except (OSError, ValueError, subprocess.SubprocessError):
+            return None
+    focused = (hyprctl("activewindow") or {}).get("class", "")
+    return {w["class"]: GLib.Variant("u", 2 if w["class"] == focused else 1)
+            for w in hyprctl("clients") or [] if w.get("class")}
+
+
+def background(connection, method, parameters, invocation):
+    """Which applications run in the background, and whether one that does
+    may go on."""
+    if method == "GetAppState":
+        invocation.return_value(GLib.Variant("(a{sv})", (app_states(),)))
+        return
+    handle, app_id, name = parameters.unpack()
+    question = {
+        "portal": "question",
+        "kind": "background",
+        "icon": app_icon(app_id),
+        "title": f"{name or app_name(app_id)} is running in the background",
+        "body": "It has no windows open. It can go on running, or quit.",
+        "grant": "Allow",
+        "deny": "Quit",
+    }
+
+    # Allowed, forbidden, or, dismissed, allowed this time.
+    def results(answer):
+        return CHOSEN, {"result": GLib.Variant("u", 1 if answer.get("granted") else 0 if "granted" in answer else 2)}
+
+    Request(connection, invocation, handle).ask_shell(question, results)
+
+
+def watch_windows(connection):
+    """Tells the portal when windows open, close, or take focus, from
+    Hyprland's events, for applications in the background."""
+    signature = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")
+    if not signature:
+        return
+    path = os.path.join(os.environ["XDG_RUNTIME_DIR"], "hypr", signature, ".socket2.sock")
+
+    def connected(client, result):
+        try:
+            stream = client.connect_finish(result)
+        except GLib.Error:
+            return
+        read(Gio.DataInputStream.new(stream.get_input_stream()), stream)
+
+    def read(lines, stream):
+        lines.read_line_async(GLib.PRIORITY_DEFAULT, None, line_read, stream)
+
+    def line_read(lines, result, stream):
+        try:
+            line, _ = lines.read_line_finish_utf8(result)
+        except GLib.Error:
+            return
+        if line is None:
+            return
+        if line.split(">>")[0] in ("openwindow", "closewindow", "activewindow"):
+            connection.emit_signal(None, OBJECT_PATH, PORTAL + "Background", "RunningApplicationsChanged", None)
+        read(lines, stream)
+
+    Gio.SocketClient().connect_async(Gio.UnixSocketAddress.new(path), None, connected)
+
+
+def dynamic_launcher(connection, method, parameters, invocation):
+    """Adding a launcher to Apps, such as for a web application, with the
+    name the person gives it."""
+    if method == "RequestInstallToken":
+        # Launchers are added only through the question.
+        invocation.return_value(GLib.Variant("(u)", (2,)))
+        return
+    handle, app_id, _, name, _, options = parameters.unpack()
+    icon = parameters.get_child_value(4)
+    icon_name, image = icon_of(icon.get_variant(), invocation)
+    question = {
+        "portal": "question",
+        "kind": "launcher",
+        "icon": icon_name or app_icon(app_id),
+        "image": image,
+        "title": "Add to Apps?",
+        "subtitle": f"{app_name(app_id)} adds a launcher to Apps.",
+        "body": options.get("target", "") if options.get("launcher_type", 1) == 2 else "",
+        "name": name,
+        "editName": options.get("editable_name", True),
+        "grant": "Add",
+        "deny": "Cancel",
+    }
+
+    def results(answer):
+        if not answer.get("granted"):
+            return asked(answer), {}
+        return CHOSEN, {"name": GLib.Variant("s", answer.get("name", "").strip() or name), "icon": icon}
+
+    Request(connection, invocation, handle).ask_shell(question, results)
+
+
+class Inhibition:
+    """Keeps the screen from locking, or the computer from sleeping, until the
+    application's request closes: logind holds them back, and hypridle
+    follows it (shell/Idle.qml). Logging out and switching users the shell
+    does not hold back; it asks first."""
+
+    # The portal's flags, and what logind holds back for each.
+    HOLDS = {4: "sleep", 8: "idle"}
+
+    def __init__(self, connection, handle, app_id, flags, reason):
+        self.fd = None
+        what = ":".join(w for flag, w in self.HOLDS.items() if flags & flag)
+        if what:
+            try:
+                result, fds = Gio.bus_get_sync(Gio.BusType.SYSTEM).call_with_unix_fd_list_sync(
+                    "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "Inhibit",
+                    GLib.Variant("(ssss)", (what, app_name(app_id), reason, "block")), GLib.VariantType("(h)"),
+                    Gio.DBusCallFlags.NONE, -1, None, None)
+                self.fd = fds.get(result.unpack()[0])
+            except GLib.Error:
+                pass
+        self.registration = connection.register_object_with_closures2(handle, INTERFACES["Request"], self.on_close, None, None)
+
+    def on_close(self, connection, sender, path, interface, method, parameters, invocation):
+        invocation.return_value(None)
+        if self.fd is not None:
+            os.close(self.fd)
+        connection.unregister_object(self.registration)
+
+
+class Monitor:
+    """The session's state, for an application that follows it: running, and
+    not locked, as far as it is told; the desktop does not ask applications
+    before the session ends."""
+
+    def __init__(self, connection, handle):
+        self.registration = connection.register_object_with_closures2(handle, INTERFACES["Session"], self.on_close, on_property, None)
+        state = {"screensaver-active": GLib.Variant("b", False), "session-state": GLib.Variant("u", 1)}
+
+        def tell():
+            connection.emit_signal(None, OBJECT_PATH, PORTAL + "Inhibit", "StateChanged",
+                                   GLib.Variant("(oa{sv})", (handle, state)))
+            return False
+
+        GLib.idle_add(tell)
+
+    def on_close(self, connection, sender, path, interface, method, parameters, invocation):
+        invocation.return_value(None)
+        connection.unregister_object(self.registration)
+
+
+def inhibit(connection, method, parameters, invocation):
+    if method == "Inhibit":
+        handle, app_id, _, flags, options = parameters.unpack()
+        Inhibition(connection, handle, app_id, flags, options.get("reason", ""))
+        invocation.return_value(None)
+    elif method == "CreateMonitor":
+        handle, session, _, _ = parameters.unpack()
+        Monitor(connection, session)
+        invocation.return_value(GLib.Variant("(u)", (CHOSEN,)))
+    else:
+        invocation.return_value(None)
+
+
+def wallpaper(connection, method, parameters, invocation):
+    """A picture an application sets as the wallpaper, kept as the shell's,
+    asking first if the application wants the person to see it."""
+    handle, app_id, _, uri, options = parameters.unpack()
+    request = Request(connection, invocation, handle, reply="(u)")
+    source = Gio.File.new_for_uri(uri).get_path() or ""
+    path = os.path.join(WALLPAPERS, f"{time.time_ns()}{os.path.splitext(source)[1]}")
+    try:
+        os.makedirs(WALLPAPERS, exist_ok=True)
+        shutil.copyfile(source, path)
+    except OSError:
+        request.answer(ENDED, {})
+        return
+    question = {
+        "portal": "question",
+        "kind": "wallpaper",
+        "preview": options.get("show-preview", False),
+        "icon": app_icon(app_id),
+        "image": path,
+        "title": "Set as wallpaper?",
+        "subtitle": f"{app_name(app_id)} sets the wallpaper.",
+        "grant": "Set",
+        "deny": "Cancel",
+    }
+
+    # Only the picture set is kept.
+    def results(answer):
+        for kept in os.listdir(WALLPAPERS):
+            if (kept == os.path.basename(path)) != bool(answer.get("granted")):
+                os.remove(os.path.join(WALLPAPERS, kept))
+        return asked(answer), {}
+
+    request.ask_shell(question, results)
+
+
+class Notifications:
+    """Applications' notifications, sent on to the shell's notification
+    server: the title, the body, the icon, the priority, and the buttons. A
+    click runs the application's action: its own, through D-Bus, if it
+    exports it, otherwise the portal tells it; with none, the application
+    opens."""
+
+    URGENCY = {"low": 0, "normal": 1, "high": 1, "urgent": 2}
+
+    def __init__(self, connection):
+        self.connection = connection
+        # The server's id of each, by the application and its own id; and
+        # the application, its id, and the actions of each, by the server's.
+        self.sent = {}
+        self.actions = {}
+        name, path, interface = NOTIFICATIONS
+        for signal in ("ActionInvoked", "NotificationClosed"):
+            connection.signal_subscribe(name, interface, signal, path, None, Gio.DBusSignalFlags.NONE, self.on_signal)
+
+    def on_method(self, connection, method, parameters, invocation):
+        if method == "AddNotification":
+            app_id, id_ = parameters.get_child_value(0).get_string(), parameters.get_child_value(1).get_string()
+            self.add(app_id, id_, parameters.get_child_value(2), invocation)
+        else:
+            self.remove(*parameters.unpack())
+        invocation.return_value(None)
+
+    def add(self, app_id, id_, notification, invocation):
+        def text(key):
+            value = notification.lookup_value(key, None)
+            return value.get_string() if value else ""
+
+        icon, image = icon_of(notification.lookup_value("icon", None), invocation) \
+            if notification.lookup_value("icon", None) else ("", "")
+        # The server's actions: "default", for a click, and the buttons by
+        # number; with each, the application's action and its target.
+        actions = {"default": (text("default-action"), notification.lookup_value("default-action-target", None))}
+        keys = ["default", ""]
+        buttons = notification.lookup_value("buttons", None)
+        for i in range(buttons.n_children() if buttons else 0):
+            button = buttons.get_child_value(i)
+            label, action = button.lookup_value("label", None), button.lookup_value("action", None)
+            if label and action:
+                actions[str(i)] = (action.get_string(), button.lookup_value("target", None))
+                keys += [str(i), label.get_string()]
+        hints = {"desktop-entry": GLib.Variant("s", app_id), "urgency": GLib.Variant("y", self.URGENCY.get(text("priority"), 1))}
+        if image:
+            hints["image-path"] = GLib.Variant("s", image)
+        if text("category"):
+            hints["category"] = GLib.Variant("s", text("category"))
+        body = text("body") or html.unescape(re.sub(r"<[^>]*>", "", text("markup-body")))
+
+        def sent(bus, result):
+            try:
+                (server_id,) = bus.call_finish(result).unpack()
+            except GLib.Error:
+                return
+            self.sent[(app_id, id_)] = server_id
+            self.actions[server_id] = (app_id, id_, actions)
+
+        name, path, interface = NOTIFICATIONS
+        self.connection.call(name, path, interface, "Notify", GLib.Variant("(susssasa{sv}i)", (
+            app_name(app_id), self.sent.get((app_id, id_), 0), icon or app_icon(app_id), text("title"), body, keys, hints, -1)),
+            GLib.VariantType("(u)"), Gio.DBusCallFlags.NONE, -1, None, sent)
+
+    def remove(self, app_id, id_):
+        server_id = self.sent.pop((app_id, id_), None)
+        if server_id is None:
+            return
+        self.actions.pop(server_id, None)
+        name, path, interface = NOTIFICATIONS
+        self.connection.call(name, path, interface, "CloseNotification", GLib.Variant("(u)", (server_id,)),
+                             None, Gio.DBusCallFlags.NONE, -1, None, None)
+
+    def on_signal(self, connection, sender, path, interface, signal, parameters):
+        server_id = parameters.get_child_value(0).get_uint32()
+        if server_id not in self.actions:
+            return
+        app_id, id_, actions = self.actions[server_id]
+        if signal == "NotificationClosed":
+            del self.actions[server_id]
+            if self.sent.get((app_id, id_)) == server_id:
+                del self.sent[(app_id, id_)]
+        else:
+            self.invoke(app_id, id_, *actions.get(parameters.get_child_value(1).get_string(), ("", None)))
+
+    def invoke(self, app_id, id_, action, target):
+        parameter = [target] if target else []
+        if not action:
+            info = app_info(app_id)
+            if info:
+                info.launch([], None)
+            return
+
+        def tell(*_):
+            self.connection.emit_signal(None, OBJECT_PATH, PORTAL + "Notification", "ActionInvoked", GLib.Variant(
+                "(sssav)", (app_id, id_, action, parameter + [GLib.Variant("a{sv}", {})])))
+
+        def activated(bus, result):
+            try:
+                bus.call_finish(result)
+            except GLib.Error:
+                tell()
+
+        if action.startswith("app.") and Gio.dbus_is_name(app_id):
+            self.connection.call(app_id, "/" + app_id.replace(".", "/").replace("-", "_"), "org.freedesktop.Application",
+                                 "ActivateAction", GLib.Variant("(sava{sv})", (action[4:], parameter, {})),
+                                 None, Gio.DBusCallFlags.NONE, -1, None, activated)
+        else:
+            tell()
+
+
+def oklch(l, c, h):
+    """A color from OKLCH as sRGB, as the shell makes them (shell/Theme.qml)."""
+    a, b = c * math.cos(math.radians(h)), c * math.sin(math.radians(h))
+    l_ = (l + 0.3963377774 * a + 0.2158037573 * b) ** 3
+    m_ = (l - 0.1055613458 * a - 0.0638541728 * b) ** 3
+    s_ = (l - 0.0894841775 * a - 1.2914855480 * b) ** 3
+
+    def gamma(x):
+        x = min(1, max(0, x))
+        return 12.92 * x if x <= 0.0031308 else 1.055 * x ** (1 / 2.4) - 0.055
+
+    return (gamma(4.0767416621 * l_ - 3.3077115913 * m_ + 0.2309699292 * s_),
+            gamma(-1.2684380046 * l_ + 2.6097574011 * m_ - 0.3413193965 * s_),
+            gamma(-0.0041960863 * l_ - 0.7034186147 * m_ + 1.7076147010 * s_))
+
+
+def accent_color():
+    """The shell's accent (Settings.accent), as in shell/Theme.qml."""
+    try:
+        with open(SHELL_SETTINGS) as file:
+            chosen = json.load(file)
+    except (OSError, ValueError):
+        chosen = {}
+    # The accents' hues, as in shell/Settings.qml.
+    hues = {"Cyan": 215, "Indigo": 265, "Green": 150, "Amber": 45, "Plum": 335}
+    accent = chosen.get("accent", "Cyan")
+    return oklch(0.52, 0.11, chosen.get("accentHue", 25) if accent == "Custom" else hues.get(accent, 215))
+
+
+class Settings:
+    """The settings applications follow: GNOME's, which GTK applications
+    read, such as the window buttons (window-buttons.gschema.override); and
+    the appearance: the color scheme, contrast, and motion, from GNOME's, and
+    the shell's accent."""
+
+    APPEARANCE = "org.freedesktop.appearance"
+
+    def __init__(self, connection):
+        self.connection = connection
+        source = Gio.SettingsSchemaSource.get_default()
+        ids = source.list_schemas(True)[0] if source else []
+        self.gnome = {i: Gio.Settings.new(i) for i in ids
+                      if i.startswith("org.gnome.desktop.") or i == "org.gnome.settings-daemon.plugins.xsettings"}
+        for namespace, settings in self.gnome.items():
+            settings.connect("changed", self.on_changed, namespace)
+        self.appearance = self.read_appearance()
+        # The folder may not be there yet, before the shell's first start.
+        os.makedirs(os.path.dirname(SHELL_SETTINGS), exist_ok=True)
+        self.monitor = Gio.File.new_for_path(SHELL_SETTINGS).monitor_file(Gio.FileMonitorFlags.WATCH_MOVES, None)
+        self.monitor.connect("changed", lambda *_: self.appearance_changed())
+
+    def keys(self, namespace):
+        return self.gnome[namespace].props.settings_schema.list_keys()
+
+    def flag(self, namespace, key):
+        settings = self.gnome.get(namespace)
+        return settings.get_boolean(key) if settings and settings.props.settings_schema.has_key(key) else None
+
+    def read_appearance(self):
+        interface = self.gnome.get("org.gnome.desktop.interface")
+        # No preference, dark, or light, as GNOME's names them in order.
+        scheme = interface.get_enum("color-scheme") \
+            if interface and interface.props.settings_schema.has_key("color-scheme") else 0
+        return {
+            "color-scheme": GLib.Variant("u", scheme),
+            "accent-color": GLib.Variant("(ddd)", accent_color()),
+            "contrast": GLib.Variant("u", int(bool(self.flag("org.gnome.desktop.a11y.interface", "high-contrast")))),
+            "reduced-motion": GLib.Variant("u", int(self.flag("org.gnome.desktop.interface", "enable-animations") is False)),
+        }
+
+    def namespaces(self):
+        found = {ns: {key: s.get_value(key) for key in self.keys(ns)} for ns, s in self.gnome.items()}
+        found[self.APPEARANCE] = self.appearance
+        return found
+
+    def on_method(self, connection, method, parameters, invocation):
+        found = self.namespaces()
+        if method == "ReadAll":
+            (patterns,) = parameters.unpack()
+
+            def wanted(ns):
+                return not patterns or any(not p or ns == p or (p.endswith("*") and ns.startswith(p[:-1])) for p in patterns)
+
+            invocation.return_value(GLib.Variant("(a{sa{sv}})", ({ns: v for ns, v in found.items() if wanted(ns)},)))
+            return
+        namespace, key = parameters.unpack()
+        if key in found.get(namespace, {}):
+            invocation.return_value(GLib.Variant("(v)", (found[namespace][key],)))
+        else:
+            invocation.return_dbus_error("org.freedesktop.portal.Error.NotFound", f"No {namespace} {key}")
+
+    def changed(self, namespace, key, value):
+        self.connection.emit_signal(None, OBJECT_PATH, PORTAL + "Settings", "SettingChanged",
+                                    GLib.Variant("(ssv)", (namespace, key, value)))
+
+    def on_changed(self, settings, key, namespace):
+        self.changed(namespace, key, settings.get_value(key))
+        self.appearance_changed()
+
+    def appearance_changed(self):
+        appearance = self.read_appearance()
+        for key, value in appearance.items():
+            if value != self.appearance[key]:
+                self.changed(self.APPEARANCE, key, value)
+        self.appearance = appearance
 
 
 def on_property(connection, sender, path, interface, name):
-    return GLib.Variant("u", 2)
+    return PROPERTIES[interface.removeprefix(PORTAL)][name]
 
 
 def on_bus(connection, name):
-    connection.register_object_with_closures2(OBJECT_PATH, FILE_CHOOSER, on_method, None, None)
-    connection.register_object_with_closures2(OBJECT_PATH, SCREENSHOT, on_method, on_property, None)
+    portals = {
+        "FileChooser": file_chooser,
+        "Screenshot": screenshot,
+        "AppChooser": app_chooser,
+        "Access": access,
+        "Account": account,
+        "Background": background,
+        "DynamicLauncher": dynamic_launcher,
+        "Inhibit": inhibit,
+        "Wallpaper": wallpaper,
+        "Notification": Notifications(connection).on_method,
+        "Settings": Settings(connection).on_method,
+    }
+    for portal, handler in portals.items():
+        connection.register_object_with_closures2(
+            OBJECT_PATH, INTERFACES[portal],
+            lambda c, sender, path, interface, method, parameters, invocation, handler=handler:
+                handler(c, method, parameters, invocation),
+            on_property, None)
+    watch_windows(connection)
 
 
 loop = GLib.MainLoop()

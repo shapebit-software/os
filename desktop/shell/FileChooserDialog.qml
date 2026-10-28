@@ -478,11 +478,11 @@ PanelWindow {
                     anchors { right: parent.right; rightMargin: 18; verticalCenter: parent.verticalCenter }
                     spacing: 4
 
-                    Button {
+                    DialogButton {
                         text: "Cancel"
                         onActivated: FileChooser.cancel()
                     }
-                    Button {
+                    DialogButton {
                         text: window.acceptLabel
                         strong: true
                         opacity: enabled ? 1 : 0.45
@@ -491,35 +491,6 @@ PanelWindow {
                     }
                 }
             }
-        }
-    }
-
-    // As the account panel's: filled with the accent for the action itself.
-    component Button: Rectangle {
-        id: button
-
-        property alias text: label.text
-        property bool strong
-        signal activated
-
-        width: Math.max(96, label.width + 32)
-        height: 34
-        color: strong ? Theme.accent : Theme.veil(buttonHover.hovered ? 0.1 : 0.05)
-
-        Text {
-            id: label
-            anchors.centerIn: parent
-            color: button.strong ? "white" : Theme.ink
-            font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
-        }
-
-        TapHandler {
-            enabled: button.enabled
-            onTapped: button.activated()
-        }
-        HoverHandler {
-            id: buttonHover
-            cursorShape: button.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
         }
     }
 }
