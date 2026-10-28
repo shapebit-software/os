@@ -240,8 +240,10 @@ the [future design](#future-design) of features that are not built yet.
   format), **Desktop** (accent color, wallpaper), **Shell** (the bars and
   their items, the bar background, the quick actions, the battery
   percentage), **Windows** (corners, decoration, gaps, the default layout),
-  **Display** (resolution, scale, refresh rate), **Network**, and
-  **Sound**.
+  **Display** (resolution, scale, refresh rate), **Mouse** (tap to
+  click and natural scrolling on the touchpad, shown only where the
+  computer has one; natural scrolling on a mouse; and each one's speed),
+  **Network**, and **Sound**.
 - Settings for the whole computer — the system language, the time zone, and
   automatic time — ask for an administrator's password. The system language
   applies from the next sign-in.

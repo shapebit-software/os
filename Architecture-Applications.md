@@ -27,6 +27,10 @@ Each one has a defined scope, so it is clear which app owns a given task:
 
 ## Installing Apps
 
+The image ships Flatpak, with Flathub as its system-wide remote, which
+Flatpak adds by itself on first use. The Apps installer below is not built
+yet.
+
 The Apps installer shows exactly two sources:
 
 - **Flathub**, for third-party applications.
