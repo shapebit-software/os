@@ -66,7 +66,7 @@ the [future design](#future-design) of features that are not built yet.
     computer has a backlight. The brightness keys change it too.
   - **Network** — the connection in use, Wi-Fi, and Bluetooth.
   - **Input language** — the keyboard layouts to switch between
-    (Super+Space).
+    (Super+Space, Super+Shift+Space back).
   - **Battery** — shown only on computers with a battery: the charge on the
     item, its percentage beside it (Settings > Shell), the time left on
     hover, and the power profile (Power Saver, Balanced, and Performance
@@ -106,9 +106,10 @@ the [future design](#future-design) of features that are not built yet.
   menu on a map shows the layouts that suit its number of windows.
 - Tabs and Accordion show one window at a time: Tabs with a tab bar above
   it, Accordion with the others folded thin beside it.
-- Windows move only on the maps: a window's cell dragged onto another cell
-  swaps them, and onto another map moves the window there. There are no
-  window title bars to drag.
+- With the pointer, windows move only on the maps: a window's cell dragged
+  onto another cell swaps them, and onto another map moves the window
+  there. There are no window title bars to drag. The keyboard moves them
+  too ([Keyboard shortcuts](#keyboard-shortcuts)).
 - Applications show no window buttons (close, minimize, maximize) in the
   title bars they draw themselves: the system's default button layout is
   empty, so GTK and libadwaita applications, and those that follow them,
@@ -116,8 +117,8 @@ the [future design](#future-design) of features that are not built yet.
   their own.
 - The handles between tiles resize them.
 - A window takes the keyboard when clicked.
-- Full screen (Alt+F, or a double click on its cell) covers the bars; a
-  button in the top right corner ends it. Alt+Q, or a right click on its
+- Full screen (Super+F, or a double click on its cell) covers the bars; a
+  button in the top right corner ends it. Super+Q, or a right click on its
   cell, closes a window.
 
 ### Apps and quick actions
@@ -159,6 +160,57 @@ the [future design](#future-design) of features that are not built yet.
   cancels. While anything is shared, the capture button is filled with the
   accent and shows a screen, and its tooltip names the applications it is
   shared with. Sharing stops from the application.
+
+### Keyboard shortcuts
+
+- Super moves the focus; with Shift, the focused window goes along. The
+  arrows go to the tile beside, and past the last one to the screen beside;
+  in Tabs and Accordion, left and right go through the windows in order.
+  With Alt, the left and right arrows go to the workspace before or after;
+  the numbers go to a workspace by its place on the strip.
+
+| Shortcut | Action |
+|---|---|
+| Alt+Tab, Alt+Shift+Tab | Switch window |
+| Alt+\`, Alt+Shift+\` | Switch among the application's windows |
+| Super+arrows | Focus the tile, or the screen, beside |
+| Super+Shift+arrows | Swap with the tile beside, or move to the screen beside |
+| Super+Alt+←/→ | Previous or next workspace |
+| Super+Alt+Shift+←/→ | Move the window to the previous or next workspace |
+| Super+1…8 | Workspace by its place |
+| Super+Shift+1…8 | Move the window to a workspace by its place |
+| Super+Q | Close the window |
+| Super+F | Full screen |
+| Super+W | Window menu |
+| Super (alone) | Apps |
+| Super+N | Notifications |
+| Super+I | Settings |
+| Super+L | Lock |
+| Ctrl+Alt+Delete | System menu |
+| Super+Space, Super+Shift+Space | Next or previous keyboard layout |
+| Super+/ | Keyboard shortcuts |
+| Print | Capture overlay |
+| Alt+Print, Super+Print | Capture overlay on the focused window, or on the screen |
+| Shift+Print | Capture overlay for a recording; stops one going on |
+| Media keys | Volume, mute, microphone mute, play and tracks, brightness |
+
+- The **window switcher** lists the windows of every workspace and screen,
+  the most recently focused first, so a quick Alt+Tab goes back to the
+  window before; it shows after a moment. The picked window is lit on its
+  map. Letting go of Alt, Enter, or a click focuses it, and the screen moves
+  to its workspace; Q closes it; Escape cancels. Alt+\` lists the windows of
+  the focused window's application, or, while switching, of the picked one's.
+- Moving a window past the last workspace, or to the number after it, makes
+  a new workspace, up to eight. The keys work by their place on the
+  keyboard, whatever the layout.
+- The **window menu** opens over the focused window: full screen, moving it
+  to another workspace of its screen, a new one, or another screen, the
+  workspace's layout (left and right change it), and closing it.
+- **Keyboard shortcuts** shows a keyboard with what each key does with the
+  modifiers chosen above it, or held down, and the media keys.
+- On the lock screen, only the sound, media, and brightness keys work.
+  Alt+F4, Alt+Space, Ctrl+Space, F11, and the applications' own shortcuts
+  are left to the applications.
 
 ### Lock, idle, and sleep
 
