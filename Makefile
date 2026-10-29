@@ -15,7 +15,7 @@ INSTALLER_SRC   ?= ../installer
 # The desktop's source tree, which the image installs.
 DESKTOP_SRC     ?= ../desktop
 MEDIUM          ?= $(BUILD)/installer.raw
-MEDIUM_SIZE     ?= 10G
+MEDIUM_SIZE     ?= 14G
 SSH_PORT       ?= 2222
 SSH_KEY        ?= $(BUILD)/ssh/id_ed25519
 # The first owner, an administrator that the installer creates.

@@ -69,6 +69,12 @@ check "Flatpak is installed" has_command flatpak
 # Flatpak adds the remotes in /usr/share/flatpak/remotes.d by itself.
 flathub_remote() { flatpak remotes --system --columns=name,url | grep -q '^flathub[[:space:]]*https://dl.flathub.org/repo/'; }
 check "Flathub is a system remote" flathub_remote
+check "Files is installed" test -s /usr/share/applications/org.gnome.Nautilus.desktop
+check "Image Viewer opens TIFF images" grep -qx 'image/tiff=org.gnome.Loupe.desktop' /usr/share/applications/shapebit-mimeapps.list
+check "app installer is installed" is_python /usr/libexec/desktop/app-install
+zypak_built() { test -x /usr/lib/zypak/bin/zypak-helper && test -e /usr/lib/zypak/bin/zypak-wrapper && grep -qx "f$(rpm -E %fedora)" /usr/lib/zypak/runtime; }
+check "Chrome's sandbox helper is built for this Fedora" zypak_built
+check "Chrome updates daily" test -L /usr/lib/systemd/user/timers.target.wants/browser-update.timer
 check "applications outside Flatpak use the portals" grep -qx 'GTK_USE_PORTAL=1' /usr/lib/environment.d/60-portals.conf
 no_window_buttons() { [[ $(GSETTINGS_BACKEND=memory gsettings get org.gnome.desktop.wm.preferences button-layout) == "':'" ]]; }
 check "applications show no window buttons" no_window_buttons

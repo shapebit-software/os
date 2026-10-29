@@ -47,7 +47,8 @@ in `build/keys/`: Secure Boot PK, KEK, and db, and a TPM2 PCR policy key.
 
 1. [Containerfile](Containerfile) builds the system: systemd-boot signed with
    db, the Secure Boot public keys, systemd-homed login support, the
-   login screen, and the desktop. The desktop's files come from its source
+   login screen, the desktop, Files (Nautilus), and zypak, which the
+   desktop's Chrome Flatpak needs. The desktop's files come from its source
    tree (`DESKTOP_SRC`, by default `../desktop`), installed by its Makefile.
    Fedora has no Hyprland, so the build installs it from the third-party
    [sdegler/hyprland](https://copr.fedorainfracloud.org/coprs/sdegler/hyprland/)

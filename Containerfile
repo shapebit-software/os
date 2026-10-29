@@ -62,6 +62,14 @@ EOF
 RUN dnf -y install flatpak && dnf clean all && \
     rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf
 
+# Files (Nautilus), the one built-in app that is not a Flatpak, since GNOME
+# publishes none of it; it updates and rolls back with the OS. The other
+# apps are recommended in Welcome and installed from Flathub. Where two apps
+# open the same type, the desktop's default is in
+# rootfs/usr/share/applications/shapebit-mimeapps.list.
+RUN dnf -y install nautilus && dnf clean all && \
+    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf
+
 RUN systemctl set-default graphical.target
 
 # Logins for systemd-homed users need pam_systemd_home. authselect's checksum
@@ -104,6 +112,27 @@ sign-efi-sig-list -g "$OWNER_GUID" -k /run/secrets/KEK.key -c /run/secrets/KEK.c
 rm ./*.esl
 EOF
 
+# zypak, which runs Chrome's sandbox inside the Flatpak that the desktop wraps
+# it in (browser-install), from a pinned release, since Fedora has no package
+# of it. It is built for this Fedora version, so the Flatpak runs on Fedora's
+# runtime of the same version, which `runtime` names. Its install target
+# links the wrapper by absolute path; the link is made relative.
+FROM system AS zypak
+ARG FEDORA_VERSION
+ARG ZYPAK_TAG=v2025.09
+ARG ZYPAK_COMMIT=693a71c5ffa80ec9c9ce2ae03b1ccc493c698e53
+RUN dnf -y install git gcc-c++ make dbus-devel systemd-devel
+RUN <<'EOF'
+set -euo pipefail
+git clone --quiet --depth 1 --branch "$ZYPAK_TAG" --recurse-submodules --shallow-submodules \
+  https://github.com/refi64/zypak /src
+test "$(git -C /src rev-parse HEAD)" = "$ZYPAK_COMMIT"
+make -C /src -j"$(nproc)"
+make -C /src install FLATPAK_DEST=/out/usr/lib/zypak
+ln -sf zypak-wrapper.sh /out/usr/lib/zypak/bin/zypak-wrapper
+echo "f$FEDORA_VERSION" >/out/usr/lib/zypak/runtime
+EOF
+
 # The desktop's files (build context `desktop`), installed by its Makefile.
 FROM tools AS desktop-files
 RUN dnf -y install make
@@ -111,6 +140,7 @@ RUN --mount=type=bind,from=desktop,target=/src make -C /src install DESTDIR=/out
 
 FROM system
 COPY --from=desktop-files /out/ /
+COPY --from=zypak /out/ /
 # The desktop's settings defaults (window-buttons.gschema.override) apply
 # once the schemas are compiled again.
 RUN glib-compile-schemas /usr/share/glib-2.0/schemas
