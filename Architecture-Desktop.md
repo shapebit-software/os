@@ -234,13 +234,16 @@ the [future design](#future-design) of features that are not built yet.
 ### Settings
 
 - Settings covers the screen it opens on, with sections in groups and a
-  search across them: **Account** (picture, name, password, idle times),
+  search across them: **Account** (picture, name, password, idle times,
+  Welcome again),
   **Assistant** (a placeholder), **Language** (the system language, the
   region format, keyboards), **Time** (time zone, automatic time, time
   format), **Desktop** (accent color, wallpaper), **Shell** (the bars and
   their items, the bar background, the quick actions, the battery
   percentage), **Windows** (corners, decoration, gaps, the default layout),
-  **Display** (resolution, scale, refresh rate), **Mouse** (tap to
+  **Display** (with more than one display, their arrangement, dragged
+  into place, the primary display, where the session starts, and mirroring;
+  each display's resolution, scale, and refresh rate), **Mouse** (tap to
   click and natural scrolling on the touchpad, shown only where the
   computer has one; natural scrolling on a mouse; and each one's speed),
   **Network**, and **Sound**.
@@ -249,6 +252,31 @@ the [future design](#future-design) of features that are not built yet.
   applies from the next sign-in.
 - Settings has only what works. Not built yet: the first day of the week,
   dragging tabs, and keeping tile sizes across sessions.
+
+### Welcome
+
+Each person's first login opens Welcome, full screen over the desktop on
+the primary display. It asks only what the installer didn't, in four steps:
+
+1. **Network**: only when the computer was offline when Welcome opened,
+   with the network panel's Wi-Fi list and inline password.
+2. **Browser**: the default browser
+   ([Internet Browsers](Architecture-Applications#internet-browsers)), only
+   when online. Nothing is picked at first; **Install** installs it into the
+   person's Flatpak installation and makes it the default.
+3. **Recommended apps**
+   ([Recommended Apps](Architecture-Applications#recommended-apps)), only
+   when online: all on, each with a switch to leave it out; **Install**
+   installs those kept.
+4. **Getting around**: Super for Apps, workspaces, moving between windows,
+   and Super+/ for every shortcut.
+
+The browser and the apps install one after the other and go on if Welcome
+closes; the last step says what is still installing or what failed.
+
+Every step can be skipped, and nothing blocks the desktop. Once finished or
+skipped, Welcome doesn't open again on its own; Settings > Account opens it
+again.
 
 ## Future design
 

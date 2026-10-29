@@ -9,21 +9,37 @@ These apps ship as part of the OS image itself. Every user gets the same
 versions, and they update and roll back together with the OS:
 
 - **Settings**
-- **Files**
+- **Files** (Nautilus, Fedora's RPM: GNOME publishes no Flatpak of it)
 - **Apps**
-- **Text**
-- **Terminal**
 - **Diagnostics**
 
 Each one has a defined scope, so it is clear which app owns a given task:
 
-- **Files** handles archives, thumbnails, and a limited quick preview. Full
-  PDF and image viewers, audio and video players, office suites, scanning
-  apps, and browsers are installed separately as user apps.
+- **Files** handles archives and thumbnails.
 - **Diagnostics** owns process and resource monitoring.
 - **Settings** owns disk, storage, firmware, device, and printing
   configuration.
 - The shell (not an app) owns screenshots and screen recording.
+
+Settings is part of the shell. Apps and Diagnostics are not built yet.
+
+## Recommended Apps
+
+On first login, Welcome ([Desktop](Architecture-Desktop#welcome)) installs
+these apps from Flathub into the person's own Flatpak installation. All are
+on; each can be turned off so it isn't installed:
+
+- **Terminal** (Ptyxis)
+- **Text Editor** (GNOME Text Editor)
+- **Image Viewer** (Loupe)
+- **Document Viewer** (Papers)
+- **Video Player** (Showtime)
+- **Audio Player** (Decibels)
+- **Calculator** (GNOME Calculator)
+
+They open their file types by default; where two of them open the same
+type, the image sets which one does. Office suites, scanning apps, editors
+for media, and browsers are installed separately.
 
 ## Installing Apps
 
@@ -46,11 +62,14 @@ option that most users won't need.
 
 **Recommendations** is a manually curated, signed list maintained by
 OS. Nothing outside the OS image's built-in apps is preinstalled — every
-recommended app still has to be installed.
+recommended app still has to be installed. Until the Apps installer exists,
+Welcome's recommended apps are the list.
 
 ### Internet Browsers
 
-On first login, an online user can pick a default browser from:
+On first login, Welcome
+([Desktop](Architecture-Desktop#welcome)) lets an online user pick a default
+browser from:
 
 1. Google Chrome
 2. Chromium
@@ -63,12 +82,19 @@ their default.
 
 How each browser is packaged:
 
-- **Chrome** — downloaded directly from Google and wrapped locally as a
-  per-user Flatpak.
-- **Chromium** — built from a fixed set of Fedora-signed RPMs (including split
-  runtime packages), downloaded directly from Fedora and wrapped locally.
+- **Chrome** — Google's official RPM, downloaded directly from Google,
+  checked against Google's signing key, and wrapped locally as a per-user
+  Flatpak on Fedora's Flatpak runtime. Its sandbox runs through zypak, which
+  the OS image builds from source. A daily check rebuilds it when Google
+  publishes a new release or the image moves to a new Fedora version.
+- **Chromium** — Fedora's official Flatpak, from Fedora's registry
+  (registry.fedoraproject.org), built by Fedora from its own packages.
 - **Firefox** and **GNOME Web** — installed from their regular Flathub
   packages.
+
+Chrome and Chromium add Fedora's registry, and Chrome also a local
+repository, to that user's Flatpak remotes, only for the browser; the Apps
+installer doesn't show them as sources.
 
 ## Portable Apps (AppImage)
 
