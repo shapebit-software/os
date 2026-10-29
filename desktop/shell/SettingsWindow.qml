@@ -67,6 +67,11 @@ PanelWindow {
             { label: "Turn screen off", detail: "After the screen has been idle", kind: "choice",
               options: Object.keys(Settings.screenOffTimes), selected: Settings.screenOff,
               select: o => Settings.screenOff = o },
+            { label: "Welcome", detail: "The network, the browser, and the ways around", value: "Open",
+              open: () => {
+                  Settings.openOn = "";
+                  Settings.welcomeOn = window.modelData.name;
+              } },
         ] },
         { id: "assistant", name: "Assistant", icon: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z", rows: [
             { label: "Coming soon", detail: "Assistant settings will be available in a future update.", kind: "info" },

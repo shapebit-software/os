@@ -1,7 +1,7 @@
 // The network panel: wired, Wi-Fi, and Bluetooth, each when the computer has
 // it. The connection in use is lit; Wi-Fi and Bluetooth have switches. A
 // click on Wi-Fi or Bluetooth unfolds what is in reach (Connectivity.qml):
-// the networks, in use first, then known, then by signal, each with its
+// the networks, in use first, then known, then by signal (WifiList.qml), each with its
 // signal and a lock if it is secured; or the devices, paired first, then those
 // nearby. A click on a network joins it, a secured one first asking its
 // password in its row; a click on a device pairs it, connects it, or
@@ -15,45 +15,17 @@ BarPanel {
 
     // The list unfolded: "wifi", "bluetooth", or none.
     property string unfolded
-    // The network whose password is being typed, and the networks as they
-    // were then, so that the rows hold still while it is typed.
-    property string typing
-    property var held: []
-    readonly property var networks: typing ? held : Connectivity.networks
-
-    readonly property string lockIcon: "M3.2 7.5a.5.5 0 0 1 .5-.5h8.6a.5.5 0 0 1 .5.5v5.8a.5.5 0 0 1-.5.5H3.7a.5.5 0 0 1-.5-.5zM5.3 7V5a2.7 2.7 0 0 1 5.4 0v2"
 
     function unfold(list: string) {
         unfolded = unfolded === list ? "" : list;
-        typing = "";
-    }
-
-    // Joins a network; a secured one asks its password first.
-    function choose(network: WifiNetwork) {
-        if (network.connected)
-            return;
-        if (Connectivity.needsPassword(network)) {
-            held = Connectivity.networks;
-            typing = typing === network.name ? "" : network.name;
-        } else {
-            Connectivity.join(network, "");
-        }
-    }
-
-    function submit(network: WifiNetwork, password: string) {
-        if (!password)
-            return;
-        Connectivity.join(network, password);
-        typing = "";
+        wifiList.typing = "";
     }
 
     spacing: 2
 
     onVisibleChanged: {
-        if (!visible) {
+        if (!visible)
             unfolded = "";
-            typing = "";
-        }
     }
     onUnfoldedChanged: Connectivity.scan(unfolded === "wifi", unfolded === "bluetooth")
 
@@ -139,91 +111,6 @@ BarPanel {
         }
     }
 
-    // The bars of a Wi-Fi signal, as many lit as it is strong, of three.
-    component Bars: Row {
-        id: bars
-
-        property real strength: 1
-        property color color: Theme.inkFaint
-
-        spacing: 1.5
-
-        Repeater {
-            model: [4, 7, 11]
-
-            Rectangle {
-                required property int modelData
-                required property int index
-                anchors.bottom: parent.bottom
-                width: 2
-                height: modelData
-                color: bars.color
-                opacity: bars.strength > index / 3 ? 1 : 0.3
-            }
-        }
-    }
-
-    // A network or a device in an unfolded list.
-    component ListItem: Rectangle {
-        id: item
-
-        property string title
-        property string detail
-        property bool lit
-        property bool failed
-        default property alias icon: itemIcon.data
-        property alias end: endHolder.data
-        signal chosen
-
-        width: panel.panelWidth - 20
-        height: 36
-        color: lit ? Theme.accentSoft : itemHover.hovered ? Theme.veil(0.06) : "transparent"
-
-        Item {
-            id: itemIcon
-            x: 14
-            anchors.verticalCenter: parent.verticalCenter
-            width: 11
-            height: 11
-        }
-        Column {
-            x: 34
-            anchors.verticalCenter: parent.verticalCenter
-            width: parent.width - x - 30
-
-            Text {
-                width: parent.width
-                elide: Text.ElideRight
-                text: item.title
-                color: Theme.ink
-                font { family: Theme.font; pixelSize: 12; weight: item.lit ? Font.Medium : Font.Normal }
-            }
-            Text {
-                width: parent.width
-                visible: text !== ""
-                elide: Text.ElideRight
-                text: item.detail
-                color: item.failed ? Theme.danger : Theme.inkFaint
-                font { family: Theme.font; pixelSize: 10 }
-            }
-        }
-        Item {
-            id: endHolder
-            anchors.right: parent.right
-            anchors.rightMargin: 12
-            anchors.verticalCenter: parent.verticalCenter
-            width: 10
-            height: 11
-        }
-        TapHandler {
-            onTapped: item.chosen()
-        }
-        HoverHandler {
-            id: itemHover
-            cursorShape: Qt.PointingHandCursor
-        }
-    }
-
     Entry {
         visible: Connectivity.wired.length > 0
         title: "Ethernet"
@@ -250,138 +137,17 @@ BarPanel {
         onToggled: Connectivity.toggleWifi()
         onUnfold: panel.unfold("wifi")
 
-        Bars {
+        SignalBars {
             anchors.bottom: parent.bottom
         }
     }
 
     // The networks in reach.
-    ListView {
-        id: networkList
+    WifiList {
+        id: wifiList
 
         visible: panel.unfolded === "wifi" && Networking.wifiEnabled
         width: panel.panelWidth - 20
-        height: Math.min(contentHeight, 290)
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
-        model: visible ? panel.networks : []
-
-        delegate: Column {
-            id: network
-
-            required property WifiNetwork modelData
-            readonly property var outcome: Connectivity.joins[modelData.name]
-            readonly property bool typingHere: panel.typing === modelData.name
-
-            width: networkList.width
-
-            ListItem {
-                title: network.modelData.name
-                lit: network.modelData.connected
-                failed: network.outcome?.error !== undefined
-                // qmllint disable unresolved-type
-                detail: network.outcome?.busy || network.modelData.state === NetworkState.Connecting ? "Connecting…"
-                    : network.outcome?.error ?? (network.modelData.connected ? "Connected"
-                    : network.modelData.known ? "Saved" : "")
-                // qmllint enable unresolved-type
-                onChosen: panel.choose(network.modelData)
-
-                Bars {
-                    anchors.bottom: parent.bottom
-                    strength: network.modelData.signalStrength
-                    color: network.modelData.connected ? Theme.accent : Theme.inkSoft
-                }
-                end: Icon {
-                    visible: ![WifiSecurityType.Open, WifiSecurityType.Owe].includes(network.modelData.security) // qmllint disable unresolved-type
-                    anchors.centerIn: parent
-                    height: 11
-                    color: Theme.inkFaint
-                    strokes: panel.lockIcon
-                }
-            }
-
-            // The password, typed in the row; Enter joins, Escape folds it.
-            Item {
-                visible: network.typingHere
-                width: parent.width
-                height: 40
-
-                Rectangle {
-                    id: field
-
-                    x: 34
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - x - joinButton.width - 16
-                    height: 28
-                    color: Theme.veil(0.06)
-
-                    TextInput {
-                        id: password
-
-                        anchors { left: parent.left; right: parent.right; leftMargin: 9; rightMargin: 9 }
-                        anchors.verticalCenter: parent.verticalCenter
-                        echoMode: TextInput.Password
-                        passwordCharacter: "•"
-                        color: Theme.ink
-                        selectionColor: Theme.accent
-                        font { family: Theme.font; pixelSize: 12 }
-                        clip: true
-                        onAccepted: panel.submit(network.modelData, text)
-                        Keys.onEscapePressed: panel.typing = ""
-                        Component.onCompleted: {
-                            if (network.typingHere)
-                                forceActiveFocus();
-                        }
-
-                        Text {
-                            visible: !password.text
-                            text: "Password"
-                            color: Theme.inkFaint
-                            font: password.font
-                        }
-                    }
-                }
-                Rectangle {
-                    id: joinButton
-
-                    anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
-                    width: joinLabel.width + 20
-                    height: 28
-                    color: Theme.accent
-                    opacity: password.text ? 1 : 0.45
-
-                    Text {
-                        id: joinLabel
-                        anchors.centerIn: parent
-                        text: "Join"
-                        color: "white"
-                        font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
-                    }
-                    TapHandler {
-                        onTapped: panel.submit(network.modelData, password.text)
-                    }
-                    HoverHandler {
-                        cursorShape: Qt.PointingHandCursor
-                    }
-                }
-                onVisibleChanged: {
-                    if (visible) {
-                        password.text = "";
-                        password.forceActiveFocus();
-                    }
-                }
-            }
-        }
-    }
-    Text {
-        visible: networkList.visible && networkList.count === 0
-        width: panel.panelWidth - 20
-        leftPadding: 34
-        topPadding: 6
-        bottomPadding: 6
-        text: "Looking for networks…"
-        color: Theme.inkFaint
-        font { family: Theme.font; pixelSize: 11 }
     }
 
     Entry {
@@ -418,12 +184,13 @@ BarPanel {
         boundsBehavior: Flickable.StopAtBounds
         model: visible ? Connectivity.devices : []
 
-        delegate: ListItem {
+        delegate: ConnectionItem {
             id: device
 
             required property var modelData
             readonly property var outcome: Connectivity.pairs[modelData.dbusPath]
 
+            width: deviceList.width
             title: modelData.name
             lit: modelData.connected
             failed: outcome?.error !== undefined

@@ -80,3 +80,7 @@ WindowTabs WindowTabs.qml
 WindowSwitcher WindowSwitcher.qml
 WorkspaceMap WorkspaceMap.qml
 Workspaces Workspaces.qml
+ConnectionItem ConnectionItem.qml
+SignalBars SignalBars.qml
+WifiList WifiList.qml
+Welcome Welcome.qml

@@ -1,0 +1,216 @@
+#!/usr/bin/python3
+# Installs, for Welcome (shell/Welcome.qml), into the person's own Flatpak
+# installation: a browser, which it makes their default, or the recommended
+# apps from Flathub that they kept; or, with --update, rebuilds Chrome when
+# Google has a new release or the image a new Fedora version
+# (browser-update.timer).
+# Usage: app-install browser chrome|chromium|firefox|epiphany
+#        app-install apps APP_ID...
+#        app-install --update
+#
+# To the shell, one JSON line at a time: {"step": text} as it goes, then
+# {"done": app id or ids} or {"error": text}.
+#
+# Firefox, GNOME Web, and the recommended apps come from Flathub. Chromium is
+# Fedora's own Flatpak, from Fedora's registry, which the person's remote only
+# offers it and its runtime from (fedora.filter). Chrome is Google's RPM,
+# downloaded from Google and checked against Google's key
+# (google-signing-key.pub), wrapped on Fedora's runtime with its sandbox
+# through zypak, which the OS image builds for its Fedora version
+# (/usr/lib/zypak, its branch in runtime), and kept in a local repository.
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import urllib.request
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+# The source tree's files in development (make run), otherwise the installed.
+DATA = HERE if "DESKTOP_SHELL" in os.environ else Path("/usr/share/desktop/browsers")
+ZYPAK = Path("/usr/lib/zypak")
+FLATHUB = "/usr/share/flatpak/remotes.d/flathub.flatpakrepo"
+FEDORA = "oci+https://registry.fedoraproject.org"
+CHROME_RPM = "https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm"
+CHROME = "com.google.Chrome"
+STATE = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state") / "browsers"
+REPO = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share") / "browsers/repo"
+# Each browser: its app id, and the remote it comes from.
+BROWSERS = {
+    "chrome": (CHROME, "chrome"),
+    "chromium": ("org.chromium.Chromium", "fedora"),
+    "firefox": ("org.mozilla.firefox", "flathub"),
+    "epiphany": ("org.gnome.Epiphany", "flathub"),
+}
+# What the default browser opens.
+TYPES = ["x-scheme-handler/http", "x-scheme-handler/https", "text/html", "application/xhtml+xml"]
+# What Chrome may reach, as Flathub's Chrome has it, less what this desktop
+# does not run (KDE, Kerberos, smart cards).
+CHROME_PERMISSIONS = [
+    "--share=ipc", "--share=network", "--socket=wayland", "--socket=fallback-x11", "--socket=pulseaudio",
+    "--socket=cups", "--device=all", "--filesystem=xdg-download", "--filesystem=xdg-documents",
+    "--filesystem=xdg-pictures", "--filesystem=xdg-music", "--filesystem=xdg-videos",
+    "--filesystem=xdg-run/pipewire-0", "--talk-name=org.freedesktop.FileManager1",
+    "--talk-name=org.freedesktop.Notifications", "--talk-name=org.freedesktop.ScreenSaver",
+    "--talk-name=org.freedesktop.secrets", "--system-talk-name=org.bluez",
+    "--system-talk-name=org.freedesktop.UPower", "--system-talk-name=org.freedesktop.Avahi",
+    "--own-name=org.mpris.MediaPlayer2.chromium.*",
+]
+
+
+class Failed(Exception):
+    pass
+
+
+def say(**message):
+    print(json.dumps(message), flush=True)
+
+
+def run(*command):
+    """Runs a command; fails with the last line it printed."""
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        lines = (result.stderr or result.stdout).strip().splitlines()
+        raise Failed(lines[-1] if lines else f"{command[0]} failed")
+    return result.stdout
+
+
+def flatpak(*args):
+    return run("flatpak", "--user", *args)
+
+
+def flatpak_install(remote, ref):
+    flatpak("install", "--noninteractive", "--or-update", remote, ref)
+
+
+def fedora_branch():
+    """Fedora's runtime branch that zypak was built for, such as f44."""
+    return (ZYPAK / "runtime").read_text().strip()
+
+
+def add_remote(name):
+    if name == "flathub":
+        flatpak("remote-add", "--if-not-exists", "flathub", FLATHUB)
+    elif name == "fedora":
+        flatpak("remote-add", "--if-not-exists", f"--filter={DATA / 'fedora.filter'}", "fedora", FEDORA)
+
+
+def chrome_release():
+    """Google's current release, by the RPM's ETag, and the runtime branch."""
+    request = urllib.request.Request(CHROME_RPM, method="HEAD")
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return {"etag": response.headers.get("ETag", ""), "runtime": fedora_branch()}
+
+
+def build_chrome(release):
+    branch = release["runtime"]
+    add_remote("fedora")
+    say(step="Getting Fedora's runtime")
+    flatpak_install("fedora", f"org.fedoraproject.Platform//{branch}")
+    with tempfile.TemporaryDirectory() as work:
+        work = Path(work)
+        say(step="Downloading Chrome from Google")
+        urllib.request.urlretrieve(CHROME_RPM, work / "chrome.rpm")
+        say(step="Checking Google's signature")
+        (work / "keys").mkdir()
+        run("rpmkeys", f"--dbpath={work / 'keys'}", "--import", str(DATA / "google-signing-key.pub"))
+        checked = run("rpmkeys", f"--dbpath={work / 'keys'}", "--checksig", str(work / "chrome.rpm"))
+        if "signatures OK" not in checked:
+            raise Failed("Chrome's signature is not Google's")
+        say(step="Preparing Chrome")
+        unpacked = work / "rpm"
+        unpacked.mkdir()
+        cpio = subprocess.Popen(["rpm2cpio", str(work / "chrome.rpm")], stdout=subprocess.PIPE)
+        extracted = subprocess.run(["cpio", "-idm", "--quiet"], stdin=cpio.stdout, cwd=unpacked)
+        if cpio.wait() != 0 or extracted.returncode != 0:
+            raise Failed("Chrome's package could not be unpacked")
+        build = work / "build"
+        run("flatpak", "build-init", str(build), CHROME, "org.fedoraproject.Platform", "org.fedoraproject.Platform", branch)
+        files = build / "files"
+        shutil.move(unpacked / "opt/google/chrome", files / "chrome")
+        # zypak stands in for Chrome's own sandbox, which a Flatpak cannot start.
+        (files / "chrome/chrome-sandbox").unlink(missing_ok=True)
+        for part in ("bin", "lib"):
+            shutil.copytree(ZYPAK / part, files / part, symlinks=False, dirs_exist_ok=True)
+        launcher = files / "bin/chrome"
+        launcher.write_text("#!/bin/sh\nexport CHROME_WRAPPER=/app/bin/chrome\nexec zypak-wrapper /app/chrome/chrome \"$@\"\n")
+        launcher.chmod(0o755)
+        entry = (unpacked / "usr/share/applications/google-chrome.desktop").read_text()
+        entry = entry.replace("Exec=/usr/bin/google-chrome-stable", "Exec=chrome").replace("Icon=google-chrome", f"Icon={CHROME}")
+        entry = entry.replace("[Desktop Entry]\n", "[Desktop Entry]\nStartupWMClass=google-chrome\n", 1)
+        (files / "share/applications").mkdir(parents=True)
+        (files / f"share/applications/{CHROME}.desktop").write_text(entry)
+        icons = files / "share/icons/hicolor/256x256/apps"
+        icons.mkdir(parents=True)
+        shutil.copy(files / "chrome/product_logo_256.png", icons / f"{CHROME}.png")
+        run("flatpak", "build-finish", str(build), "--command=chrome", *CHROME_PERMISSIONS)
+        REPO.parent.mkdir(parents=True, exist_ok=True)
+        run("flatpak", "build-export", str(REPO), str(build), "stable")
+        # The repository keeps only the newest build.
+        run("flatpak", "build-update-repo", "--prune", "--prune-depth=0", str(REPO))
+    flatpak("remote-add", "--if-not-exists", "--no-gpg-verify", "chrome", REPO.as_uri())
+    say(step="Installing Chrome")
+    flatpak_install("chrome", CHROME)
+    STATE.mkdir(parents=True, exist_ok=True)
+    (STATE / "chrome.json").write_text(json.dumps(release))
+
+
+def install_apps(apps):
+    add_remote("flathub")
+    for number, app in enumerate(apps, 1):
+        say(step=f"Installing apps ({number} of {len(apps)})")
+        flatpak_install("flathub", app)
+    return apps
+
+
+def install(browser):
+    app, remote = BROWSERS[browser]
+    if browser == "chrome":
+        build_chrome(chrome_release())
+    else:
+        add_remote(remote)
+        say(step="Installing")
+        flatpak_install(remote, app)
+    say(step="Making it the default browser")
+    for kind in TYPES:
+        run("gio", "mime", kind, f"{app}.desktop")
+    return app
+
+
+def update():
+    """Rebuilds Chrome, if installed, when its release or runtime changed."""
+    known = STATE / "chrome.json"
+    if not known.exists():
+        return None
+    release = chrome_release()
+    if json.loads(known.read_text()) == release:
+        return CHROME
+    build_chrome(release)
+    # A runtime of the Fedora version before goes with the build that used it.
+    flatpak("uninstall", "--noninteractive", "--unused")
+    return CHROME
+
+
+def main():
+    args = sys.argv[1:]
+    if args == ["--update"]:
+        action = update
+    elif len(args) == 2 and args[0] == "browser" and args[1] in BROWSERS:
+        action = lambda: install(args[1])
+    elif len(args) > 1 and args[0] == "apps":
+        action = lambda: install_apps(args[1:])
+    else:
+        print("usage: app-install browser chrome|chromium|firefox|epiphany | apps APP_ID... | --update", file=sys.stderr)
+        return 2
+    try:
+        say(done=action())
+    except (Failed, OSError) as error:
+        say(error=str(error))
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,12 @@
+# Checks for a new Chrome daily, and soon after the session starts.
+[Unit]
+Description=Check for a new Chrome daily
+
+[Timer]
+OnStartupSec=10min
+OnUnitActiveSec=1d
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

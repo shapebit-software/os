@@ -20,6 +20,17 @@ Singleton {
         openOn = screen;
     }
 
+    // The screen Welcome is open on, by name (Welcome.qml), and whether it
+    // has been finished or skipped; until then it opens with the session, on
+    // the primary display.
+    property string welcomeOn
+    property alias welcomed: adapter.welcomed
+
+    function welcomeFirstTime() {
+        if (!welcomed)
+            welcomeOn = primary || (Quickshell.screens[0]?.name ?? "");
+    }
+
     // Whether a screenshot opens for markup before it is saved (CaptureOverlay.qml).
     property alias captureMarkup: adapter.captureMarkup
     // Whether recordings take sound from the microphone.
@@ -170,8 +181,14 @@ Singleton {
         watchChanges: true
         onFileChanged: reload()
         onAdapterUpdated: writeAdapter()
-        onLoaded: settings.apply()
-        onLoadFailed: settings.apply()
+        onLoaded: {
+            settings.apply();
+            settings.welcomeFirstTime();
+        }
+        onLoadFailed: {
+            settings.apply();
+            settings.welcomeFirstTime();
+        }
 
         // Quickshell does not declare the adapter's type to tooling.
         JsonAdapter { // qmllint disable unresolved-type
@@ -212,6 +229,7 @@ Singleton {
             property bool captureMarkup: false
             property bool captureMicrophone: false
             property bool shareRemember: false
+            property bool welcomed: false
         }
     }
 }

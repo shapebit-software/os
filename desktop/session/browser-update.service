@@ -1,0 +1,9 @@
+# Rebuilds Chrome when Google has a new release (app-install), for those
+# who chose it in Welcome.
+[Unit]
+Description=Update Chrome
+ConditionPathExists=%S/browsers/chrome.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/desktop/app-install --update

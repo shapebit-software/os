@@ -1,0 +1,7 @@
+# What the person's Fedora remote offers (app-install): Chromium, and the
+# runtime it and Chrome run on with its extensions, and nothing else of
+# Fedora's Flatpaks.
+deny *
+allow app/org.chromium.Chromium/*
+allow runtime/org.fedoraproject.Platform/*
+allow runtime/org.fedoraproject.Platform.*
