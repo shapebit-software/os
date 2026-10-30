@@ -1,0 +1,5 @@
+# The desktop's defaults (desktop name ShapeBit), for the types that more
+# than one of the apps Welcome recommends opens. Fedora's mimeapps.list names
+# apps that the image does not ship.
+[Default Applications]
+image/tiff=org.gnome.Loupe.desktop
