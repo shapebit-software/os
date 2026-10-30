@@ -191,7 +191,7 @@ until the production hierarchy above exists:
 | Key           | Certificate name       | CI secret             | Readable by                 | State |
 |---------------|------------------------|-----------------------|-----------------------------|-------|
 | `dev.key`     | `ShapeBit Development` | none                  | Local builds; pull requests and pushes generate a throwaway one | In use for development |
-| `release.key` | `ShapeBit`             | `RELEASE_SIGNING_KEY` | The Weekly workflow's build job, in the environment `Signing`, on `main` | Signs every candidate, so every `stable` |
+| `release.key` | `ShapeBit`             | `RELEASE_KEY` | The Weekly workflow's build job, in the environment `Signing`, on `main` | Signs every candidate, so every `stable` |
 
 Machines that enrolled the development key must enroll the release key.
 Promotion copies an image unchanged, so the key is chosen when the image is
