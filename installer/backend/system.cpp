@@ -169,6 +169,8 @@ private:
              QStringLiteral("--generic-image"), QStringLiteral("--skip-finalize"),
              QStringLiteral("--source-imgref"), m_source, QStringLiteral("--target-imgref"), m_updateRef,
              QStringLiteral("--skip-fetch-check"), target});
+        // Shim first, so that the firmware's factory keys start the system.
+        run({QStringLiteral("/usr/libexec/esp-shim"), target + QStringLiteral("/boot")});
 
         // @machine holds /var and @people holds /home (/var/home). bootc filled
         // the stateroot's /var; move it into @machine, then mount both from
