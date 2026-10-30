@@ -4,6 +4,8 @@
 
 - Always be as precise and concise as possible, without sacrificing completeness or clarity.
 - Keep repository content in English.
+- Do not credit AI tools, such as Claude or ChatGPT, in commit messages, pull
+  requests, or code comments: no `Co-Authored-By` lines or "Generated with" notes.
 
 ## ShapeBit OS
 
