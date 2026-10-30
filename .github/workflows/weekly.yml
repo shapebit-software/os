@@ -70,7 +70,9 @@ jobs:
         run: rm -rf "$RUNNER_TEMP/keys"
 
       - name: Compress the medium
-        run: zstd -q -T0 -10 --rm build/installer.raw -o installer.raw.zst
+        run: |
+          zstd -q -T0 -10 --rm build/installer.raw -o installer.raw.zst
+          cp build/installer.raw.json installer.raw.json
 
       - uses: actions/upload-artifact@v4
         with:
@@ -89,7 +91,7 @@ jobs:
           name: installer
           path: |
             installer.raw.zst
-            build/installer.raw.json
+            installer.raw.json
           compression-level: 0
           retention-days: 30
 
@@ -111,7 +113,10 @@ jobs:
           name: update-builds
           path: build
       - name: Unpack the medium
-        run: zstd -q -d --rm installer.raw.zst -o build/installer.raw && mv installer.raw.json build/
+        run: |
+          mkdir -p build
+          zstd -q -d --rm installer.raw.zst -o build/installer.raw
+          mv installer.raw.json build/
       - name: Check the medium, install, and check the system
         run: make -o installer disk && make test-plan PLAN=system
       - name: Check an update and its rollback
@@ -136,7 +141,10 @@ jobs:
         with:
           name: installer
       - name: Unpack the medium
-        run: zstd -q -d --rm installer.raw.zst -o build/installer.raw && mv installer.raw.json build/
+        run: |
+          mkdir -p build
+          zstd -q -d --rm installer.raw.zst -o build/installer.raw
+          mv installer.raw.json build/
       - name: Test the medium
         run: make test-release
       - name: Keep the test results
@@ -168,7 +176,9 @@ jobs:
           path: installer
 
       - name: Log in to GHCR
-        run: skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin <<<"${{ secrets.GITHUB_TOKEN }}"
+        run: |
+          skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin <<<"${{ secrets.GITHUB_TOKEN }}"
+          docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<<"${{ secrets.GITHUB_TOKEN }}"
 
       # The digest that the tests compared with the booted system, unchanged.
       - name: Publish the candidate
