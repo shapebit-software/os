@@ -55,15 +55,15 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # The same development keys sign every build, so installed systems
+      # The same development key signs every build, so installed systems
       # update without a new TPM enrollment. Without the secret, as in forks,
       # make generates new ones.
-      - name: Restore the signing keys
+      - name: Restore the signing key
         env:
-          DEV_KEYS: ${{ secrets.DEV_KEYS }}
+          DEV_SIGNING_KEY: ${{ secrets.DEV_SIGNING_KEY }}
         run: |
           mkdir -p image/build/keys
-          if [ -n "$DEV_KEYS" ]; then base64 -d <<<"$DEV_KEYS" | tar -xz -C image/build/keys; fi
+          if [ -n "$DEV_SIGNING_KEY" ]; then base64 -d <<<"$DEV_SIGNING_KEY" | tar -xz -C image/build/keys; fi
 
       # A rolling release: the build date and the commit.
       - name: Set the image version
