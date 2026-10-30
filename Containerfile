@@ -1,7 +1,7 @@
 # ShapeBit OS: bootc image, booted by systemd-boot from a signed UKI.
 # This is the unsealed system; Containerfile.seal adds the UKI (see
 # scripts/image.sh), and Containerfile.installer builds the installer medium
-# from it. Signing needs the key as build secrets dev.key and dev.crt, and
+# from it. Signing needs the key as build secrets signing.key and signing.crt, and
 # KEYS_ID, which changes with it.
 # Only signed binaries and public keys reach the image.
 ARG FEDORA_VERSION=44
@@ -89,31 +89,21 @@ RUN kernel=$(basename /usr/lib/modules/*) && \
 
 # Signing tools, used by the stages below and never part of the final image.
 FROM system AS tools
-RUN dnf -y install sbsigntools efitools && mkdir /out
+RUN dnf -y install sbsigntools && mkdir /out
 
 # systemd-boot, signed; bootctl installs the *.signed copy when present.
 FROM tools AS bootloader
 ARG KEYS_ID
-RUN --mount=type=secret,id=dev.key --mount=type=secret,id=dev.crt \
-    sbsign --key /run/secrets/dev.key --cert /run/secrets/dev.crt \
+RUN --mount=type=secret,id=signing.key --mount=type=secret,id=signing.crt \
+    sbsign --key /run/secrets/signing.key --cert /run/secrets/signing.crt \
       --output /out/systemd-bootx64.efi.signed \
       /usr/lib/systemd/boot/efi/systemd-bootx64.efi
 
-# The lists that systemd-boot enrolls when the firmware is in setup mode, each
-# holding the one certificate and signed by its key; bootc copies them to the
-# ESP.
-FROM tools AS keys
-ARG OWNER_GUID=6e2b6a3c-7a1e-4d0e-9d38-5f0c2b9a4e11
+# The certificate that the person enrolls in shim's MOK manager (esp-shim).
+FROM tools AS certificate
 ARG KEYS_ID
-RUN --mount=type=secret,id=dev.key --mount=type=secret,id=dev.crt <<'EOF'
-set -euo pipefail
-cd /out
-cert-to-efi-sig-list -g "$OWNER_GUID" /run/secrets/dev.crt dev.esl
-for name in PK KEK db; do
-  sign-efi-sig-list -g "$OWNER_GUID" -k /run/secrets/dev.key -c /run/secrets/dev.crt "$name" dev.esl "$name.auth"
-done
-rm dev.esl
-EOF
+RUN --mount=type=secret,id=signing.crt \
+    openssl x509 -in /run/secrets/signing.crt -outform DER -out /out/enroll-this-key.cer
 
 # The desktop's files (build context `desktop`), installed by its Makefile.
 FROM tools AS desktop-files
@@ -126,7 +116,7 @@ COPY --from=desktop-files /out/ /
 # once the schemas are compiled again.
 RUN glib-compile-schemas /usr/share/glib-2.0/schemas
 COPY --from=bootloader /out/ /usr/lib/systemd/boot/efi/
-COPY --from=keys /out/ /usr/lib/bootc/install/secureboot-keys/auto/
+COPY --from=certificate /out/ /usr/share/secureboot/
 # Identifies this build; last, so a new version rebuilds only this layer.
 ARG IMAGE_VERSION
 LABEL org.opencontainers.image.version="$IMAGE_VERSION"

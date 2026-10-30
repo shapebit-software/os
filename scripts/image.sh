@@ -6,7 +6,7 @@
 #        (called by `make image` and `make installer`; the build options go to
 #        the first phase).
 set -euo pipefail
-: "${ENGINE:?}" "${BUILD:?}" "${KEYS_DIR:?}"
+: "${ENGINE:?}" "${BUILD:?}" "${KEYS_DIR:?}" "${SIGNING_KEY:?}"
 containerfile=$1 image=$2 archive=$3
 shift 3
 
@@ -27,12 +27,12 @@ save() {
 }
 
 secrets=()
-for key in dev.key dev.crt; do
-  secrets+=(--secret "id=$key,src=$KEYS_DIR/$key")
+for kind in key crt; do
+  secrets+=(--secret "id=signing.$kind,src=$KEYS_DIR/$SIGNING_KEY.$kind")
 done
 # Build caches ignore secret contents; KEYS_ID makes signing steps rerun when
 # the key changes.
-keys_id=$(sha256sum "$KEYS_DIR/dev.crt" | cut -d ' ' -f 1)
+keys_id=$(sha256sum "$KEYS_DIR/$SIGNING_KEY.crt" | cut -d ' ' -f 1)
 
 $ENGINE build --build-arg KEYS_ID="$keys_id" "${secrets[@]}" "$@" -f "$containerfile" -t "$unsealed" .
 

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Puts Fedora's shim first on an EFI System Partition, so that a PC with its
+# factory Secure Boot keys starts the system: the firmware trusts shim, which
+# Microsoft signed, and shim trusts systemd-boot once the person has enrolled
+# the certificate that signed it (enroll-this-key.cer, left on the partition
+# for shim's MOK manager). Shim starts grubx64.efi from its own folder; its
+# fbx64.efi is left out, because shim would start that instead.
+# Usage: esp-shim ESP_MOUNTPOINT (medium.sh and the installer's backend)
+set -euo pipefail
+esp=$1
+shim=$(echo /usr/lib/efi/shim/*/EFI)
+
+mkdir -p "$esp/EFI/BOOT"
+cp /usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed "$esp/EFI/BOOT/grubx64.efi"
+cp "$shim/BOOT/BOOTX64.EFI" "$esp/EFI/BOOT/BOOTX64.EFI"
+cp "$shim/fedora/mmx64.efi" "$esp/EFI/BOOT/mmx64.efi"
+cp /usr/share/secureboot/enroll-this-key.cer "$esp/enroll-this-key.cer"

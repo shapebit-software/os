@@ -122,7 +122,11 @@ has_uki() { compgen -G '/boot/EFI/Linux/*.efi' >/dev/null; }
 check "UKI is present" has_uki
 uki_has_pcr_policy() { grep -aq '\.pcrsig' /boot/EFI/Linux/*.efi && grep -aq '\.pcrpkey' /boot/EFI/Linux/*.efi; }
 check "UKI carries a signed PCR policy" uki_has_pcr_policy
-has_sb_keys() { for key in PK KEK db; do test -s "/usr/lib/bootc/install/secureboot-keys/auto/$key.auth" || return 1; done; }
-check "Secure Boot keys are present" has_sb_keys
+check "certificate to enroll is present" test -s /usr/share/secureboot/enroll-this-key.cer
+has_shim() { compgen -G '/usr/lib/efi/shim/*/EFI/BOOT/BOOTX64.EFI' >/dev/null && compgen -G '/usr/lib/efi/shim/*/EFI/fedora/mmx64.efi' >/dev/null; }
+check "shim and its MOK manager are present" has_shim
+check "shim's placement is installed" test -x /usr/libexec/esp-shim
+# systemd-boot would enroll these on a PC in setup mode, which then refuses shim.
+check "no Secure Boot keys to enroll" test ! -e /usr/lib/bootc/install/secureboot-keys
 
 exit "$failed"

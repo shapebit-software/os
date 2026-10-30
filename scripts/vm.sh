@@ -39,14 +39,14 @@ fi
 
 [[ -f $DISK ]] || { echo "error: $DISK not found; run 'make disk'" >&2; exit 1; }
 
-# Secure Boot capable UEFI firmware (code:vars) on Fedora, Debian/Ubuntu, and
-# Arch. The vars start empty, so the firmware is in setup mode and systemd-boot
-# enrolls the image's keys on first boot. Override with OVMF_CODE and OVMF_VARS.
+# Secure Boot capable UEFI firmware (code:vars) on Fedora and Debian/Ubuntu.
+# The vars hold Microsoft's keys with Secure Boot on, as a factory PC has, so
+# shim starts and the image's certificate must be enrolled once. Override with
+# OVMF_CODE and OVMF_VARS.
 if [[ -z ${OVMF_CODE:-} ]]; then
   for pair in \
-    /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd:/usr/share/edk2/ovmf/OVMF_VARS.fd \
-    /usr/share/OVMF/OVMF_CODE_4M.secboot.fd:/usr/share/OVMF/OVMF_VARS_4M.fd \
-    /usr/share/edk2/x64/OVMF_CODE.secboot.4m.fd:/usr/share/edk2/x64/OVMF_VARS.4m.fd; do
+    /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd:/usr/share/edk2/ovmf/OVMF_VARS.secboot.fd \
+    /usr/share/OVMF/OVMF_CODE_4M.secboot.fd:/usr/share/OVMF/OVMF_VARS_4M.ms.fd; do
     if [[ -f ${pair%%:*} ]]; then
       OVMF_CODE=${pair%%:*} OVMF_VARS=${pair##*:}
       break
@@ -59,7 +59,11 @@ fi
 # both when it creates a new disk. The installer enrolls the machine's TPM, so
 # the medium and the installed disk must boot on the same machine.
 vars=$BUILD/efivars.fd
-[[ -f $vars ]] || cp "$OVMF_VARS" "$vars"
+new_machine=0
+if [[ ! -f $vars ]]; then
+  cp "$OVMF_VARS" "$vars"
+  new_machine=1
+fi
 tpm=$BUILD/tpm
 mkdir -p "$tpm"
 rm -f "$tpm/swtpm.sock"
@@ -96,8 +100,14 @@ case $mode in
   window) exec qemu-system-x86_64 "${args[@]}" -serial mon:stdio ;;
 esac
 
-qemu-system-x86_64 "${args[@]}" -display none \
+rm -f "$BUILD/monitor.in" "$BUILD/monitor.out"
+mkfifo "$BUILD/monitor.in" "$BUILD/monitor.out"
+qemu-system-x86_64 "${args[@]}" -display none -monitor "pipe:$BUILD/monitor" \
   -serial "file:$BUILD/serial.log" -daemonize -pidfile "$BUILD/vm.pid"
+# On a new machine, the first boot of the medium stops at shim's MOK manager.
+if ((installer && new_machine)); then
+  scripts/mok-enroll.sh
+fi
 echo "Waiting up to ${BOOT_TIMEOUT}s for SSH (console: $BUILD/serial.log)"
 deadline=$((SECONDS + BOOT_TIMEOUT))
 until scripts/ssh.sh true 2>/dev/null; do

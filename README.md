@@ -42,14 +42,17 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 ### Build
 
 `make image` ([scripts/image.sh](scripts/image.sh)) builds in two phases. It
-signs with one development key that [scripts/keys.sh](scripts/keys.sh)
-generates in `build/keys/` (`dev.key`, `dev.crt`). It fills Secure Boot's PK,
-KEK, and db, and signs systemd-boot, the UKI, and the TPM2 PCR values. CI
-restores the same key from its `DEV_KEYS` secret, so that installed systems
+signs with `SIGNING_KEY`: by default the development key that
+[scripts/keys.sh](scripts/keys.sh) generates in `build/keys/` (`dev.key`,
+`dev.crt`, named ShapeBit Development). It signs systemd-boot, the UKI, and the
+TPM2 PCR values. `make release-key KEYS_DIR=<directory>` generates the release
+key once (`release.key`, `release.crt`, named ShapeBit), which a build uses with
+`SIGNING_KEY=release`; builds never generate it. CI
+restores the same key from its `DEV_SIGNING_KEY` secret, so that installed systems
 update across builds.
 
 1. [Containerfile](Containerfile) builds the system: signed systemd-boot, the
-   Secure Boot public keys, systemd-homed login support, the
+   certificate to enroll, systemd-homed login support, the
    login screen, the desktop, and Files (Nautilus). The desktop's files come
    from its source tree (`DESKTOP_SRC`, by default `../desktop`), installed
    by its Makefile, and so do the packages it runs on, which it lists in
@@ -105,11 +108,19 @@ unlocks it without machine-specific kernel arguments, which a UKI cannot carry.
 
 ### Boot and unlock
 
-The VM firmware starts in setup mode, so on its first boot the medium's
-systemd-boot enrolls the image's Secure Boot keys and reboots. From then on
-the firmware runs only the signed systemd-boot, which runs only the signed
-UKI, which mounts only the system whose digest it pins. Development builds use
-no Microsoft-signed shim.
+The chain starts with Fedora's shim, which Microsoft signed, so a PC keeps its
+factory Secure Boot keys:
+
+```text
+firmware → Fedora's shim → signed systemd-boot → signed UKI → sealed system
+```
+
+Shim trusts our key only after a person enrolls its certificate, once per
+machine, in shim's MOK manager. The first boot of the medium stops there; it
+needs no password. [scripts/mok-enroll.sh](scripts/mok-enroll.sh) does the same
+on the VM, whose firmware starts with Microsoft's keys.
+[esp-shim](rootfs/usr/libexec/esp-shim) places shim on the medium and on the
+installed disk; updates do not replace shim yet.
 
 The installer gives the LUKS2 volume two key slots:
 
@@ -222,22 +233,19 @@ development key.
    sudo dd if=build/installer.raw of=/dev/sdX bs=4M conv=fsync status=progress
    ```
 
-3. Choose the firmware setup before the first boot of the medium, because the
-   installer binds the TPM to the Secure Boot state it finds:
-   - **Secure Boot off.** The simplest trial; everything else is the same.
-   - **Secure Boot in setup mode** (clear or reset the keys in the firmware
-     setup), for the full chain. Hold Space while the medium starts, to open
-     the systemd-boot menu, and choose **Enroll Secure Boot keys: auto**;
-     systemd-boot enrolls automatically only in VMs. The development keys
-     replace the manufacturer's, so add-in cards whose firmware Microsoft
-     signed, such as discrete GPUs, may not start; the firmware setup can
-     restore the factory keys.
-4. Boot the medium and follow the installer: language, keyboard layout, time
+3. Leave Secure Boot on, with the factory keys. If the firmware's setup offers
+   it, allow Microsoft's third-party UEFI certificate, which some Windows PCs
+   turn off by default.
+4. Boot the medium. Shim stops once with **Verification failed**, as our key is
+   not trusted yet: choose **OK**, press a key, then **Enroll key from disk**,
+   the partition, **enroll-this-key.cer**, **Continue**, **Yes**, and
+   **Reboot**. No password is needed.
+5. Follow the installer: language, keyboard layout, time
    zone, account, and the disk, with the confirmation that erases it. The
    network step offers nothing yet; skip it. Write down the recovery key that it shows: it is the only way
    in if the TPM refuses.
-5. Remove the medium and restart. The disk unlocks with the TPM.
-6. Switch to a console (Ctrl+Alt+F3), log in, connect to the network
+6. Remove the medium and restart. The disk unlocks with the TPM.
+7. Switch to a console (Ctrl+Alt+F3), log in, connect to the network
    (`nmcli device wifi connect NAME --ask` for Wi-Fi), and run the system
    checks:
 

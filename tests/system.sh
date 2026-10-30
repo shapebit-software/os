@@ -21,6 +21,10 @@ check "os-release identifies ShapeBit OS" test "$ID" = shapebit
 booted_by_bootc() { bootc status --format=json | jq -e '.status.booted != null' >/dev/null; }
 check "booted by bootc" booted_by_bootc
 check "Secure Boot is enabled" sh -c "mokutil --sb-state | grep -q 'SecureBoot enabled'"
+booted_through_shim() { bootctl status 2>/dev/null | grep -qi 'loader:.*/EFI/BOOT/grubx64.efi'; }
+check "booted through shim" booted_through_shim
+key_enrolled() { mokutil --list-enrolled | grep -E 'CN=ShapeBit( Development)?$' >/dev/null; }
+check "the image's certificate is enrolled" key_enrolled
 booted_by_systemd_boot() { bootctl status 2>/dev/null | grep -Eq '^ +Product: systemd-boot '; }
 check "booted by systemd-boot" booted_by_systemd_boot
 check "booted from a UKI" test -e /sys/firmware/efi/efivars/StubInfo-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f

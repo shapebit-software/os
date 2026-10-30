@@ -60,6 +60,7 @@ bootc install to-filesystem \
   --source-imgref oci-archive:/image.tar \
   --skip-fetch-check \
   "$target"
+/usr/libexec/esp-shim "$target/boot"
 
 # @machine holds /var, as on an installed system: bootc filled the stateroot's
 # /var; move it into @machine and mount it from the deployment's /etc/fstab.
