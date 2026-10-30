@@ -29,14 +29,9 @@ RUN systemctl set-default graphical.target && \
     systemctl mask sddm.service
 
 # What the installer installs, and where the installed system updates from.
-# The development registry serves plain HTTP, so the installed system marks it
-# insecure (containers-registries.conf.d(5)).
 COPY --from=payload image.tar /usr/share/installer/image.tar
 ARG UPDATE_REF
 RUN test -n "$UPDATE_REF" && \
     printf '[Payload]\nSource=oci-archive:/usr/share/installer/image.tar\nUpdateRef=%s\n' "$UPDATE_REF" \
-      >/usr/share/installer/installer.conf && \
-    mkdir -p /usr/share/installer/target-etc/containers/registries.conf.d && \
-    printf '[[registry]]\nlocation = "%s"\ninsecure = true\n' "${UPDATE_REF%%/*}" \
-      >/usr/share/installer/target-etc/containers/registries.conf.d/50-update-registry.conf
+      >/usr/share/installer/installer.conf
 RUN bootc container lint

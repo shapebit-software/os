@@ -1,19 +1,14 @@
 #!/usr/bin/env bash
-# Generate development signing keys in KEYS_DIR: Secure Boot PK, KEK, and db
-# (.key and .crt), and the TPM2 PCR policy key that signs the UKI's expected
-# PCR 11 values (tpm2-pcr-private.pem, tpm2-pcr-public.pem).
-# Usage: keys.sh (called by `make`; existing keys are kept).
+# Generate the development signing key in KEYS_DIR (dev.key, dev.crt). One key
+# does every job: it fills Secure Boot's PK, KEK, and db, and signs systemd-boot,
+# the UKI, and the UKI's expected PCR 11 values. Separate keys protect only when
+# they are stored apart, and these are all kept together.
+# Usage: keys.sh (called by `make`; an existing key is kept).
 set -euo pipefail
 : "${KEYS_DIR:?}"
 
 mkdir -p "$KEYS_DIR"
-for name in PK KEK db; do
-  [[ -f $KEYS_DIR/$name.crt ]] && continue
-  openssl req -quiet -new -x509 -newkey rsa:2048 -nodes -sha256 -days 3650 \
-    -subj "/CN=ShapeBit development $name/" \
-    -keyout "$KEYS_DIR/$name.key" -out "$KEYS_DIR/$name.crt"
-done
-if [[ ! -f $KEYS_DIR/tpm2-pcr-public.pem ]]; then
-  openssl genpkey -quiet -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$KEYS_DIR/tpm2-pcr-private.pem"
-  openssl pkey -in "$KEYS_DIR/tpm2-pcr-private.pem" -pubout -out "$KEYS_DIR/tpm2-pcr-public.pem"
-fi
+[[ -f $KEYS_DIR/dev.crt ]] && exit 0
+openssl req -quiet -new -x509 -newkey rsa:2048 -nodes -sha256 -days 3650 \
+  -subj "/CN=ShapeBit development/" \
+  -keyout "$KEYS_DIR/dev.key" -out "$KEYS_DIR/dev.crt"

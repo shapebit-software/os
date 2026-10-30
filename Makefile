@@ -29,12 +29,15 @@ KEYBOARD_LAYOUT ?= pl
 TIME_ZONE       ?= Europe/Warsaw
 KEYS_DIR       ?= $(BUILD)/keys
 BOOT_TIMEOUT   ?= 300
-# Local registry that serves updates; the VM reaches the host at 10.0.2.2
-# (QEMU user networking), so installed systems update from UPDATE_REF.
+# What installed systems update from: the installer records it.
+UPDATE_REF     ?= ghcr.io/shapebit-software/os:stable
+# The local registry that `make publish` serves the image from, as
+# DEV_UPDATE_REF, which the VM reaches at the host's 10.0.2.2 (QEMU user
+# networking); the update test switches the VM to it.
 REGISTRY_PORT  ?= 5000
-UPDATE_REF     ?= 10.0.2.2:$(REGISTRY_PORT)/shapebit-os:dev
+DEV_UPDATE_REF ?= 10.0.2.2:$(REGISTRY_PORT)/shapebit-os:dev
 
-export ENGINE IMAGE FEDORA_VERSION IMAGE_VERSION BUILD DISK DISK_SIZE INSTALLER_IMAGE MEDIUM MEDIUM_SIZE SSH_PORT SSH_KEY OWNER_NAME OWNER_PASSWORD RECOVERY_KEY LOCALE KEYBOARD_LAYOUT TIME_ZONE KEYS_DIR BOOT_TIMEOUT REGISTRY_PORT UPDATE_REF
+export ENGINE IMAGE FEDORA_VERSION IMAGE_VERSION BUILD DISK DISK_SIZE INSTALLER_IMAGE MEDIUM MEDIUM_SIZE SSH_PORT SSH_KEY OWNER_NAME OWNER_PASSWORD RECOVERY_KEY LOCALE KEYBOARD_LAYOUT TIME_ZONE KEYS_DIR BOOT_TIMEOUT REGISTRY_PORT UPDATE_REF DEV_UPDATE_REF
 
 .DEFAULT_GOAL := help
 .PHONY: help image check publish installer disk vm installer-vm ssh test test-update clean
@@ -42,8 +45,7 @@ export ENGINE IMAGE FEDORA_VERSION IMAGE_VERSION BUILD DISK DISK_SIZE INSTALLER_
 help: ## List targets
 	@awk -F ':.*## ' '/^[a-z-]+:.*## / { printf "  %-12s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-KEYS := $(foreach name,PK KEK db,$(KEYS_DIR)/$(name).key $(KEYS_DIR)/$(name).crt) \
-        $(KEYS_DIR)/tpm2-pcr-private.pem $(KEYS_DIR)/tpm2-pcr-public.pem
+KEYS := $(KEYS_DIR)/dev.key $(KEYS_DIR)/dev.crt
 
 image: $(KEYS) ## Build the container image with its signed UKI
 	scripts/image.sh Containerfile $(IMAGE) $(BUILD)/image.tar \
@@ -92,6 +94,6 @@ $(OWNER_PASSWORD):
 	mkdir -p $(@D)
 	head -c 18 /dev/urandom | base64 | tr -d '\n' > $@
 
-# Development-only signing keys.
+# The development-only signing key.
 $(KEYS) &:
 	scripts/keys.sh

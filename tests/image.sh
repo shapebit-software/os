@@ -11,7 +11,14 @@ check() {
 
 . /etc/os-release
 check "os-release identifies ShapeBit OS" test "$ID" = shapebit
+# A rolling release: each build is identified only by its image version,
+# the build date and commit (20261030_e0920a), or dev for local builds.
 check "os-release carries the image version" test -n "${IMAGE_VERSION:-}"
+image_version_format() { [[ $IMAGE_VERSION == dev || $IMAGE_VERSION =~ ^[0-9]{8}_[0-9a-f]{6}$ ]]; }
+check "image version is the build date and commit" image_version_format
+check "os-release names no release line" test -z "${VERSION_ID:-}${VERSION:-}"
+no_weak_deps() { [[ $(dnf --dump-main-config 2>/dev/null | awk '$1 == "install_weak_deps" { print $3 }') == 0 ]]; }
+check "dnf installs no weak dependencies" no_weak_deps
 check "default target is graphical" test "$(systemctl get-default)" = graphical.target
 check "login screen is enabled" systemctl -q is-enabled sddm.service
 login_setting() { grep -qx "$1" /usr/lib/sddm/sddm.conf.d/10-login.conf; }
@@ -34,8 +41,15 @@ verify_compositor_config() {
     'XDG_RUNTIME_DIR=$(mktemp -d) exec Hyprland --verify-config --config /usr/share/desktop/compositor/hyprland.lua' >/dev/null
 }
 check "desktop compositor configuration is valid" verify_compositor_config
-has_desktop_tools() { for tool in grim slurp wf-recorder xdg-user-dir; do has_command "$tool" || return 1; done; }
+has_desktop_tools() { for tool in grim slurp wf-recorder xdg-user-dir wl-copy; do has_command "$tool" || return 1; done; }
 check "desktop's capture tools are installed" has_desktop_tools
+check "desktop's clipboard reader is installed" has_command wl-paste
+check "desktop's sound server is installed" has_command pipewire
+check "desktop's sound session manager is installed" has_command wireplumber
+check "applications' PulseAudio sound reaches PipeWire" has_command pipewire-pulse
+check "desktop's battery service is installed" has_command upower
+gi_imports() { python3 -c 'import gi; gi.require_version("Gio", "2.0"); from gi.repository import Gio, GLib' 2>/dev/null; }
+check "desktop's Python scripts find GObject" gi_imports
 check "desktop's idle handler is installed" has_command hypridle
 check "desktop's portal is Hyprland's" grep -qx 'default=hyprland' /usr/share/xdg-desktop-portal/shapebit-portals.conf
 check "Hyprland's portal is installed" test -s /usr/share/xdg-desktop-portal/portals/hyprland.portal
@@ -66,15 +80,23 @@ shell_share_picker() {
 check "sharing the screen asks through the shell" shell_share_picker
 check "desktop's connection agent is installed" is_python /usr/libexec/desktop/connection-agent
 check "Flatpak is installed" has_command flatpak
+check "Distrobox is installed" has_command distrobox
+distrobox_image() { grep -qx "container_image_default=\"registry.fedoraproject.org/fedora-toolbox:$(rpm -E %fedora)\"" /usr/share/distrobox/distrobox.conf; }
+check "Distrobox starts from this Fedora's toolbox image" distrobox_image
 # Flatpak adds the remotes in /usr/share/flatpak/remotes.d by itself.
 flathub_remote() { flatpak remotes --system --columns=name,url | grep -q '^flathub[[:space:]]*https://dl.flathub.org/repo/'; }
 check "Flathub is a system remote" flathub_remote
 check "Files is installed" test -s /usr/share/applications/org.gnome.Nautilus.desktop
 check "Image Viewer opens TIFF images" grep -qx 'image/tiff=org.gnome.Loupe.desktop' /usr/share/applications/shapebit-mimeapps.list
 check "app installer is installed" is_python /usr/libexec/desktop/app-install
-zypak_built() { test -x /usr/lib/zypak/bin/zypak-helper && test -e /usr/lib/zypak/bin/zypak-wrapper && grep -qx "f$(rpm -E %fedora)" /usr/lib/zypak/runtime; }
-check "Chrome's sandbox helper is built for this Fedora" zypak_built
-check "Chrome updates daily" test -L /usr/lib/systemd/user/timers.target.wants/browser-update.timer
+check "app catalog is installed" is_python /usr/libexec/desktop/app-catalog
+check "app remover is installed" is_python /usr/libexec/desktop/app-remove
+check "apps update daily" test -L /usr/lib/systemd/user/timers.target.wants/app-update.timer
+check "system updates are checked on a timer" systemctl -q is-enabled os-update.timer
+check "system update check is installed" test -x /usr/libexec/os-update
+check "the person at the computer may check for updates" test -s /usr/share/polkit-1/rules.d/50-os-update.rules
+check "Files draws image previews" test -s /usr/share/thumbnailers/glycin-image-rs.thumbnailer
+check "Files draws video previews" test -s /usr/share/thumbnailers/gst-video-thumbnailer.thumbnailer
 check "applications outside Flatpak use the portals" grep -qx 'GTK_USE_PORTAL=1' /usr/lib/environment.d/60-portals.conf
 no_window_buttons() { [[ $(GSETTINGS_BACKEND=memory gsettings get org.gnome.desktop.wm.preferences button-layout) == "':'" ]]; }
 check "applications show no window buttons" no_window_buttons

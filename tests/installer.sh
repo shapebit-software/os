@@ -26,7 +26,14 @@ check "payload is on the medium" test -s /usr/share/installer/image.tar
 check "installer backend is running" systemctl -q is-active installer-backend.service
 check "installer UI is running" systemctl -q is-active installer.service
 check "installer has the screen: no login screen" test "$(systemctl is-enabled sddm.service)" = masked
-ui_is_unprivileged() { test "$(ps -o user= -C installer | sort -u)" = installer; }
+# cage starts the UI once installer.service is up, so it may take a moment.
+ui_is_unprivileged() {
+  for _ in {1..30}; do
+    [[ $(ps -o user= -C installer | sort -u) == installer ]] && return
+    sleep 1
+  done
+  return 1
+}
 check "installer UI runs as an unprivileged user" ui_is_unprivileged
 capable() { installerctl capabilities | grep -q '"tpm2":true.*"uefi":true'; }
 check "backend finds UEFI and a TPM2" capable

@@ -1,8 +1,8 @@
 # ShapeBit OS: bootc image, booted by systemd-boot from a signed UKI.
 # This is the unsealed system; Containerfile.seal adds the UKI (see
 # scripts/image.sh), and Containerfile.installer builds the installer medium
-# from it. Signing needs the Secure Boot keys as build secrets PK,
-# KEK, and db (.key and .crt each), and KEYS_ID, which changes with them.
+# from it. Signing needs the key as build secrets dev.key and dev.crt, and
+# KEYS_ID, which changes with it.
 # Only signed binaries and public keys reach the image.
 ARG FEDORA_VERSION=44
 FROM quay.io/fedora/fedora-bootc:${FEDORA_VERSION} AS system
@@ -27,18 +27,13 @@ RUN dnf -y install systemd-boot-unsigned glibc-all-langpacks \
     rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf \
       /run/sddm /var/cache/libX11
 
-# The desktop: Hyprland and Quickshell, UWSM, which runs the session, and what
-# the shell runs (hypridle handles idle time and sleep; grim, slurp, and
-# wf-recorder capture the screen; xdg-user-dirs finds Pictures and Videos) and
-# draws with (JetBrains Mono). clipman keeps copied text after the application
-# it came from closes. brightnessctl sets the display's brightness and
-# power-profiles-daemon the power profile. Hyprland's portal shares the screen
-# with applications; gnome-keyring keeps their secrets, unlocked by the login
-# password (the login screen's PAM configuration already asks for it). Fedora
-# has no Hyprland, so it comes from a third-party COPR for now; the repository
-# is used only for this build and is not left in the image. Hyprland's own
-# session entries are removed, so the login screen offers only the desktop's.
-RUN <<'EOF'
+# The desktop's packages, which the desktop lists with the reason for each
+# (build context `desktop`, its file packages): Hyprland and Quickshell, the
+# session, and what the shell runs. Fedora has no Hyprland, so it comes from a
+# third-party COPR for now; the repository is used only for this build and is
+# not left in the image. Hyprland's own session entries are removed, so the
+# login screen offers only the desktop's.
+RUN --mount=type=bind,from=desktop,source=packages,target=/run/desktop-packages <<'EOF'
 set -euo pipefail
 cat >/etc/yum.repos.d/hyprland.repo <<'REPO'
 [hyprland]
@@ -47,11 +42,10 @@ baseurl=https://download.copr.fedorainfracloud.org/results/sdegler/hyprland/fedo
 gpgcheck=1
 gpgkey=https://download.copr.fedorainfracloud.org/results/sdegler/hyprland/pubkey.gpg
 REPO
-dnf -y install hyprland hypridle uwsm xdg-desktop-portal-hyprland quickshell grim slurp wf-recorder xdg-user-dirs \
-  jetbrains-mono-fonts clipman brightnessctl power-profiles-daemon gnome-keyring gnome-keyring-pam
+dnf -y install $(sed 's/#.*//' /run/desktop-packages)
 dnf clean all
 rm /etc/yum.repos.d/hyprland.repo
-rm /usr/share/wayland-sessions/hyprland.desktop /usr/share/wayland-sessions/hyprland-uwsm.desktop
+rm /usr/share/wayland-sessions/hyprland.desktop
 rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf
 EOF
 
@@ -59,18 +53,30 @@ EOF
 # (rootfs/usr/share/flatpak/remotes.d/flathub.flatpakrepo, as Flathub
 # publishes it), which Flatpak adds by itself the first time it runs; its
 # environment generators put the applications in the session's Apps.
-RUN dnf -y install flatpak && dnf clean all && \
+# desktop-file-utils lets Flatpak record which applications open which types.
+RUN dnf -y install flatpak desktop-file-utils && dnf clean all && \
     rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf
 
 # Files (Nautilus), the one built-in app that is not a Flatpak, since GNOME
 # publishes none of it; it updates and rolls back with the OS. The other
 # apps are recommended in Welcome and installed from Flathub. Where two apps
 # open the same type, the desktop's default is in
-# rootfs/usr/share/applications/shapebit-mimeapps.list.
-RUN dnf -y install nautilus && dnf clean all && \
+# rootfs/usr/share/applications/shapebit-mimeapps.list. Its thumbnailers draw
+# the previews of images and videos.
+RUN dnf -y install nautilus glycin-thumbnailer gst-thumbnailers && dnf clean all && \
     rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf
 
-RUN systemctl set-default graphical.target
+# os-update.timer checks for system updates (rootfs/usr/lib/systemd/system).
+RUN systemctl set-default graphical.target && systemctl preset os-update.timer
+
+# Distrobox, for development tools in containers (Podman is in the base
+# image). New containers start from Fedora's toolbox image of this image's
+# Fedora version, rather than its latest.
+RUN dnf -y install distrobox && dnf clean all && \
+    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf && \
+    mkdir -p /usr/share/distrobox && \
+    echo "container_image_default=\"registry.fedoraproject.org/fedora-toolbox:$(rpm -E %fedora)\"" \
+      >/usr/share/distrobox/distrobox.conf
 
 # Logins for systemd-homed users need pam_systemd_home. authselect's checksum
 # in /var is dropped, as in the base image; the configuration lives in /etc.
@@ -85,52 +91,28 @@ RUN kernel=$(basename /usr/lib/modules/*) && \
 FROM system AS tools
 RUN dnf -y install sbsigntools efitools && mkdir /out
 
-# systemd-boot signed with db; bootctl installs the *.signed copy when present.
+# systemd-boot, signed; bootctl installs the *.signed copy when present.
 FROM tools AS bootloader
 ARG KEYS_ID
-RUN --mount=type=secret,id=db.key --mount=type=secret,id=db.crt \
-    sbsign --key /run/secrets/db.key --cert /run/secrets/db.crt \
+RUN --mount=type=secret,id=dev.key --mount=type=secret,id=dev.crt \
+    sbsign --key /run/secrets/dev.key --cert /run/secrets/dev.crt \
       --output /out/systemd-bootx64.efi.signed \
       /usr/lib/systemd/boot/efi/systemd-bootx64.efi
 
-# Keys that systemd-boot enrolls when the firmware is in setup mode; bootc
-# copies them to the ESP. Each list is signed by the key above it.
+# The lists that systemd-boot enrolls when the firmware is in setup mode, each
+# holding the one certificate and signed by its key; bootc copies them to the
+# ESP.
 FROM tools AS keys
 ARG OWNER_GUID=6e2b6a3c-7a1e-4d0e-9d38-5f0c2b9a4e11
 ARG KEYS_ID
-RUN --mount=type=secret,id=PK.key --mount=type=secret,id=PK.crt \
-    --mount=type=secret,id=KEK.key --mount=type=secret,id=KEK.crt \
-    --mount=type=secret,id=db.crt <<'EOF'
+RUN --mount=type=secret,id=dev.key --mount=type=secret,id=dev.crt <<'EOF'
 set -euo pipefail
 cd /out
+cert-to-efi-sig-list -g "$OWNER_GUID" /run/secrets/dev.crt dev.esl
 for name in PK KEK db; do
-  cert-to-efi-sig-list -g "$OWNER_GUID" "/run/secrets/$name.crt" "$name.esl"
+  sign-efi-sig-list -g "$OWNER_GUID" -k /run/secrets/dev.key -c /run/secrets/dev.crt "$name" dev.esl "$name.auth"
 done
-sign-efi-sig-list -g "$OWNER_GUID" -k /run/secrets/PK.key -c /run/secrets/PK.crt PK PK.esl PK.auth
-sign-efi-sig-list -g "$OWNER_GUID" -k /run/secrets/PK.key -c /run/secrets/PK.crt KEK KEK.esl KEK.auth
-sign-efi-sig-list -g "$OWNER_GUID" -k /run/secrets/KEK.key -c /run/secrets/KEK.crt db db.esl db.auth
-rm ./*.esl
-EOF
-
-# zypak, which runs Chrome's sandbox inside the Flatpak that the desktop wraps
-# it in (browser-install), from a pinned release, since Fedora has no package
-# of it. It is built for this Fedora version, so the Flatpak runs on Fedora's
-# runtime of the same version, which `runtime` names. Its install target
-# links the wrapper by absolute path; the link is made relative.
-FROM system AS zypak
-ARG FEDORA_VERSION
-ARG ZYPAK_TAG=v2025.09
-ARG ZYPAK_COMMIT=693a71c5ffa80ec9c9ce2ae03b1ccc493c698e53
-RUN dnf -y install git gcc-c++ make dbus-devel systemd-devel
-RUN <<'EOF'
-set -euo pipefail
-git clone --quiet --depth 1 --branch "$ZYPAK_TAG" --recurse-submodules --shallow-submodules \
-  https://github.com/refi64/zypak /src
-test "$(git -C /src rev-parse HEAD)" = "$ZYPAK_COMMIT"
-make -C /src -j"$(nproc)"
-make -C /src install FLATPAK_DEST=/out/usr/lib/zypak
-ln -sf zypak-wrapper.sh /out/usr/lib/zypak/bin/zypak-wrapper
-echo "f$FEDORA_VERSION" >/out/usr/lib/zypak/runtime
+rm dev.esl
 EOF
 
 # The desktop's files (build context `desktop`), installed by its Makefile.
@@ -140,7 +122,6 @@ RUN --mount=type=bind,from=desktop,target=/src make -C /src install DESTDIR=/out
 
 FROM system
 COPY --from=desktop-files /out/ /
-COPY --from=zypak /out/ /
 # The desktop's settings defaults (window-buttons.gschema.override) apply
 # once the schemas are compiled again.
 RUN glib-compile-schemas /usr/share/glib-2.0/schemas
@@ -148,5 +129,6 @@ COPY --from=bootloader /out/ /usr/lib/systemd/boot/efi/
 COPY --from=keys /out/ /usr/lib/bootc/install/secureboot-keys/auto/
 # Identifies this build; last, so a new version rebuilds only this layer.
 ARG IMAGE_VERSION
+LABEL org.opencontainers.image.version="$IMAGE_VERSION"
 RUN test -n "$IMAGE_VERSION" && echo "IMAGE_VERSION=$IMAGE_VERSION" >>/usr/lib/os-release
 RUN bootc container lint

@@ -207,6 +207,24 @@ notification_server() {
 check "desktop session shows notifications" notification_server
 keeps_copies() { pgrep -u "$user" -f "clipman store" >/dev/null; }
 check "desktop session keeps copied text" keeps_copies
+# Sound: PipeWire and WirePlumber run in the session, and applications reach
+# them through PulseAudio's interface too.
+session_unit_active() {
+  for _ in {1..30}; do
+    [[ $(systemctl --user -M "$user@" is-active "$1") == active ]] && return
+    sleep 1
+  done
+  return 1
+}
+check "desktop session runs the sound server" session_unit_active pipewire.service
+check "desktop session runs the sound session manager" session_unit_active wireplumber.service
+check "desktop session offers PulseAudio's interface" session_unit_active pipewire-pulse.socket
+check "apps update on a timer" session_unit_active app-update.timer
+battery_service() { busctl call org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.DBus.Peer Ping >/dev/null 2>&1; }
+check "battery service answers" battery_service
+check "system updates are checked on a timer" systemctl -q is-active os-update.timer
+update_status() { jq -e 'type == "object"' /run/os-update/status.json >/dev/null; }
+check "system update status is there for the shell" update_status
 # The shell's connection agent joins networks and pairs devices, and answers
 # NetworkManager and BlueZ for the session.
 connection_agent() { pgrep -u "$user" -f /usr/libexec/desktop/connection-agent >/dev/null; }

@@ -42,18 +42,25 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 ### Build
 
 `make image` ([scripts/image.sh](scripts/image.sh)) builds in two phases. It
-signs with development keys that [scripts/keys.sh](scripts/keys.sh) generates
-in `build/keys/`: Secure Boot PK, KEK, and db, and a TPM2 PCR policy key.
+signs with one development key that [scripts/keys.sh](scripts/keys.sh)
+generates in `build/keys/` (`dev.key`, `dev.crt`). It fills Secure Boot's PK,
+KEK, and db, and signs systemd-boot, the UKI, and the TPM2 PCR values. CI
+restores the same key from its `DEV_KEYS` secret, so that installed systems
+update across builds.
 
-1. [Containerfile](Containerfile) builds the system: systemd-boot signed with
-   db, the Secure Boot public keys, systemd-homed login support, the
-   login screen, the desktop, Files (Nautilus), and zypak, which the
-   desktop's Chrome Flatpak needs. The desktop's files come from its source
-   tree (`DESKTOP_SRC`, by default `../desktop`), installed by its Makefile.
+1. [Containerfile](Containerfile) builds the system: signed systemd-boot, the
+   Secure Boot public keys, systemd-homed login support, the
+   login screen, the desktop, and Files (Nautilus). The desktop's files come
+   from its source tree (`DESKTOP_SRC`, by default `../desktop`), installed
+   by its Makefile, and so do the packages it runs on, which it lists in
+   `packages`. dnf installs no weak dependencies
+   ([rootfs/usr/share/dnf5/libdnf.conf.d](rootfs/usr/share/dnf5/libdnf.conf.d)),
+   so every package is in the image because a list names it or a named
+   package requires it.
    Fedora has no Hyprland, so the build installs it from the third-party
    [sdegler/hyprland](https://copr.fedorainfracloud.org/coprs/sdegler/hyprland/)
    COPR for now; the repository is not left in the image.
-2. [Containerfile.seal](Containerfile.seal) adds a UKI signed with db. Its
+2. [Containerfile.seal](Containerfile.seal) adds a signed UKI. Its
    command line pins the system's composefs digest, and it carries signed
    PCR 11 values for TPM2 unlock. The digest is computed from the built
    image, as `bootc install` computes it.
@@ -112,8 +119,8 @@ The installer gives the LUKS2 volume two key slots:
 | Recovery key | Shown once by the installer; saved to `build/recovery-key` by `make disk`. |
 
 The TPM2 slot is bound to PCR 7 (the Secure Boot policy) and to PCR 11 values
-signed by the PCR policy key. The medium and the installed system are signed
-with the same keys, so the slot that the installer enrolls unlocks the
+signed by the same key. The medium and the installed system are signed
+with that key, so the slot that the installer enrolls unlocks the
 installed system, and a new UKI signed with the same key unlocks without
 re-enrollment. If the TPM ever refuses, the console asks for a passphrase, and
 the recovery key works there. The random key that opens the volume during the
@@ -128,14 +135,35 @@ belong to the machine, which the medium and the installed disk share;
 
 ### Updates
 
-Each build records `IMAGE_VERSION` in `/usr/lib/os-release`. `make publish`
-([scripts/publish.sh](scripts/publish.sh)) pushes the image to a local
-registry container on the host, and installed systems update from it as
-`UPDATE_REF`: the VM reaches the host at `10.0.2.2`, and the installer marks
-that plain-HTTP registry as insecure.
+Each build records `IMAGE_VERSION` in `/usr/lib/os-release` and in the
+image's `org.opencontainers.image.version` label: in CI, the build date and
+commit, such as `20261030_e0920a`; `dev` otherwise. Installed systems update
+from `UPDATE_REF`, which the installer records:
+`ghcr.io/shapebit-software/os:stable`.
 
-On the VM, `bootc upgrade` stages the new build, which boots after a restart;
-`bootc rollback` returns to the previous one. The TPM unlocks the new build
+`os-update.timer` runs `os-update`
+([rootfs/usr/libexec/os-update](rootfs/usr/libexec/os-update)) soon after
+boot and every 6 hours, except on metered connections; Settings' **Check
+now** starts `os-update@now.service`, which a polkit rule lets the person at
+the computer start. It downloads and stages a new build with
+`bootc upgrade`, never restarts, and writes its state for the shell to
+`/run/os-update/status.json`.
+
+To update a VM from a local build, `make publish`
+([scripts/publish.sh](scripts/publish.sh)) pushes the image to a local
+registry container on the host, and the VM switches to it as
+`DEV_UPDATE_REF`, through the host's `10.0.2.2`; bootc switches only to a
+build other than the one running. That registry serves plain HTTP, so the VM
+must mark it insecure first:
+
+```bash
+printf '[[registry]]\nlocation = "10.0.2.2:5000"\ninsecure = true\n' \
+  >/etc/containers/registries.conf.d/50-dev-registry.conf
+bootc switch 10.0.2.2:5000/shapebit-os:dev
+```
+
+A staged build boots after a restart; `bootc rollback` returns to the
+previous one. The TPM unlocks the new build
 without re-enrollment, because its UKI carries PCR 11 values signed by the
 same key, and each deployment's `/etc` carries the machine's own changes.
 [tests/update.sh](tests/update.sh) checks all of this.

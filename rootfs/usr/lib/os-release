@@ -1,9 +1,7 @@
 NAME="ShapeBit"
-PRETTY_NAME="ShapeBit 1 (Developer Preview)"
+PRETTY_NAME="ShapeBit (Developer Preview)"
 ID=shapebit
 ID_LIKE=fedora
-VERSION="1 (Developer Preview)"
-VERSION_ID=1
 IMAGE_ID=shapebit
 RELEASE_TYPE=development
 DEFAULT_HOSTNAME=shapebit

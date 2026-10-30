@@ -27,12 +27,12 @@ save() {
 }
 
 secrets=()
-for key in PK.key PK.crt KEK.key KEK.crt db.key db.crt tpm2-pcr-private.pem tpm2-pcr-public.pem; do
+for key in dev.key dev.crt; do
   secrets+=(--secret "id=$key,src=$KEYS_DIR/$key")
 done
 # Build caches ignore secret contents; KEYS_ID makes signing steps rerun when
-# the keys change.
-keys_id=$(cat "$KEYS_DIR"/*.crt "$KEYS_DIR/tpm2-pcr-public.pem" | sha256sum | cut -d ' ' -f 1)
+# the key changes.
+keys_id=$(sha256sum "$KEYS_DIR/dev.crt" | cut -d ' ' -f 1)
 
 $ENGINE build --build-arg KEYS_ID="$keys_id" "${secrets[@]}" "$@" -f "$containerfile" -t "$unsealed" .
 
