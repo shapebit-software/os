@@ -18,7 +18,8 @@ These rules cover the image: the `Containerfile`s, `Makefile`, `rootfs/`,
 `scripts/`, and `tests/`, and any change in `desktop/` or `installer/` that the
 image installs.
 
-- **Verify with `make test`.** A change is done only when it passes. Add
+- **Verify with `make test`.** A change is done only when it passes; run
+  `make test-release` too when it changes what a person sees. Add
   `ENGINE=docker` on hosts without Podman.
 - **Prefer built-in tools.** Use what bootc, systemd, the Fedora base image, or
   QEMU already provide, such as `kargs.d`, systemd credentials, tmpfiles.d,
@@ -29,11 +30,15 @@ image installs.
   (`: "${VAR:?}"`).
 - **`rootfs/` mirrors the target filesystem.** Put vendor defaults under `/usr`.
   `/etc` and `/var` are machine state.
-- **Every behavior gets a check.** Image content goes in `tests/image.sh`;
-  the installer medium in `tests/installer.sh`; runtime behavior of the
-  installed system in `tests/system.sh`. Use only tools the image ships.
-  Only checks that need a host-side secret, such as the recovery key, go in
-  `tests/boot.sh`.
+- **Every behavior gets a check.** See [docs/Testing.md](docs/Testing.md). Image
+  content goes in `tests/image/`; the installer medium in `tests/medium/`;
+  runtime behavior of the installed system in `tests/system/`; updates in
+  `tests/update/`; what a person sees and does in `tests/openqa/`; logic that
+  needs no machine in `tests/unit/`. Write checks in Python with pytest and
+  Testinfra. The system under test gets nothing installed for a check: use the
+  commands it ships. Only checks that need a host-side secret, such as the
+  recovery key, go in `tests/host/`.
+- **A bug becomes a regression test** at the lowest level that shows it.
 - **Disks are installed by the installer.** `make disk` boots the installer
   medium and installs through it, so the tests cover what users run. Do not
   add a second way to produce an installed disk.

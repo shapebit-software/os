@@ -1,0 +1,15 @@
+{
+  "area": [
+    {
+      "xpos": 420,
+      "ypos": 340,
+      "width": 440,
+      "height": 55,
+      "type": "match"
+    }
+  ],
+  "properties": [],
+  "tags": [
+    "installer-welcome"
+  ]
+}

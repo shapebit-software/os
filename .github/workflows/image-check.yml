@@ -1,0 +1,30 @@
+# Builds and checks the image when its recipe changes, the one thing that the
+# other checks cannot see. Publishes nothing, and signs with a throwaway key.
+name: Image check
+
+on:
+  push:
+    paths:
+      - Containerfile*
+  pull_request:
+    paths:
+      - Containerfile*
+
+permissions:
+  contents: read
+
+env:
+  ENGINE: docker
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
+          docker image prune -af >/dev/null
+      - uses: actions/checkout@v4
+      - name: Build and check the image
+        run: make check

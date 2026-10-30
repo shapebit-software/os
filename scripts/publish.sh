@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Push IMAGE to the local update registry, starting the registry if needed.
-# A VM switched to DEV_UPDATE_REF updates from it (tests/update.sh).
-# Usage: publish.sh (called by `make publish` and tests/update.sh).
+# A VM switched to DEV_UPDATE_REF updates from it (tests/update/).
+# Usage: publish.sh [TAG]   TAG instead of DEV_UPDATE_REF's (update-test.sh).
 set -euo pipefail
 : "${ENGINE:?}" "${IMAGE:?}" "${REGISTRY_PORT:?}" "${DEV_UPDATE_REF:?}"
 
@@ -14,6 +14,9 @@ fi
 
 # The host reaches the registry at localhost; the path and tag match DEV_UPDATE_REF.
 ref=localhost:$REGISTRY_PORT/${DEV_UPDATE_REF#*/}
+if [[ -n ${1:-} ]]; then
+  ref=${ref%:*}:$1
+fi
 push_args=()
 if $ENGINE push --help | grep -q -- --tls-verify; then
   push_args=(--tls-verify=false)

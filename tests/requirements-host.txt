@@ -1,0 +1,4 @@
+# What the host needs to run the tests.
+-r requirements.txt
+tmt==1.80.0
+pyflakes==3.4.0

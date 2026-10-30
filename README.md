@@ -47,8 +47,10 @@ To use Docker instead, add `ENGINE=docker` to any command.
 ## Usage
 
 ```bash
-make test          # build, check, install with the installer, boot, and check the running system
-make test-update   # install, update to a new build, check it, and roll back
+make test-unit     # isolated unit tests, without a VM
+make test          # build, check, install with the installer, and check a clone of the installed machine
+make test-update   # the same install, then update a clone to a new build and roll back
+make test-release  # the medium itself, through its UI, with openQA; after `make installer`
 make installer-vm  # boot the installer medium in a window, to install by hand
 make vm            # boot build/disk.raw with the serial console on this terminal
 make ssh           # root shell in the running VM (from another terminal)
@@ -107,7 +109,7 @@ filesystem. The medium holds no secrets.
 
 `make disk` ([scripts/disk.sh](scripts/disk.sh)) installs the way a user does:
 it boots the medium in QEMU with an empty disk of `DISK_SIZE` attached, checks
-the medium ([tests/installer.sh](tests/installer.sh)), and runs the installer
+the medium ([tests/medium/](tests/medium/)), and runs the installer
 through `installerctl`, the command-line client of the same D-Bus interface
 that the UI uses. `make installer-vm` opens the same VM in a window instead.
 
@@ -199,7 +201,7 @@ A staged build boots after a restart; `bootc rollback` returns to the
 previous one. The TPM unlocks the new build
 without re-enrollment, because its UKI carries PCR 11 values signed by the
 same key, and each deployment's `/etc` carries the machine's own changes.
-[tests/update.sh](tests/update.sh) checks all of this.
+[tests/update/](tests/update/) checks all of this.
 
 ### Homes
 
@@ -268,12 +270,12 @@ development key.
    in if the TPM refuses.
 6. Remove the medium and restart. The disk unlocks with the TPM.
 7. Switch to a console (Ctrl+Alt+F3), log in, connect to the network
-   (`nmcli device wifi connect NAME --ask` for Wi-Fi), and run the system
-   checks:
+   (`nmcli device wifi connect NAME --ask` for Wi-Fi), allow root to log in
+   with `build/ssh/id_ed25519.pub`, and run the system checks from the
+   development machine, with the settings given to the installer:
 
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/shapebit-software/os/main/tests/system.sh |
-     sudo OWNER_NAME="$USER" bash
+   make test-guest GUEST=ADDRESS IMAGE_DIGEST=sha256:... OWNER_NAME=... LOCALE=... KEYBOARD_LAYOUT=... TIME_ZONE=...
    ```
 
 If something fails, `journalctl -b -u installer-backend.service` on the medium
@@ -301,7 +303,7 @@ installer the first owner, `OWNER_NAME` (default `dev`) with the password in
 | `Containerfile.seal`      | Adds the signed UKI to an unsealed image.                           |
 | `rootfs/`                 | Files copied verbatim into the image; paths mirror `/`.             |
 | `scripts/`                | Keys, image build, medium, installation in QEMU, publishing, SSH.   |
-| `tests/`                  | Checks: image (`image.sh`), medium (`installer.sh`), installed system (`boot.sh`, `system.sh`), updates (`update.sh`). |
+| `tests/`                  | Checks in tmt plans and openQA modules: see [docs/Testing.md](docs/Testing.md). |
 | `build/`                  | Generated outputs (ignored by Git).                                 |
 | `desktop/`                | The desktop: compositor configuration, shell, and session.          |
 | `installer/`              | The installer: backend, UI, and `installerctl`.                     |

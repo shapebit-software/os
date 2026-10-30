@@ -1,0 +1,4 @@
+# isotovideo, openQA's test engine, with what ShapeBit's test modules and machine
+# need: Inline::Python runs the Python modules, and swtpm is the machine's TPM.
+FROM registry.opensuse.org/devel/openqa/containers/isotovideo:qemu-kvm
+RUN zypper -n in perl-Inline-Python swtpm && zypper clean

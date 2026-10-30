@@ -1,0 +1,28 @@
+summary: The installed system
+framework: shell
+duration: 30m
+
+/boot:
+    summary: How it booted, and what it boots from
+    test: ../pytest.sh test_boot.py
+    order: 10
+/config:
+    summary: What the installer was told, and the first owner
+    test: ../pytest.sh test_config.py
+    order: 20
+/services:
+    summary: Services that run without anyone signed in
+    test: ../pytest.sh test_services.py
+    order: 30
+/network:
+    summary: Networking within QEMU's user network
+    test: ../pytest.sh test_network.py
+    order: 40
+/home:
+    summary: Encrypted homes, and the desktop that starts in one
+    test: ../pytest.sh test_home.py
+    order: 50
+/persistence:
+    summary: What survives a reboot
+    test: ./persistence.sh
+    order: 90

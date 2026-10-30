@@ -69,6 +69,11 @@ RUN dnf -y install nautilus glycin-thumbnailer gst-thumbnailers && dnf clean all
 # os-update.timer checks for system updates (rootfs/usr/lib/systemd/system).
 RUN systemctl set-default graphical.target && systemctl preset os-update.timer
 
+# rsync is how tmt reaches a guest: without it, tmt would build a derived image
+# and test that instead of this one. Nothing built in replaces it.
+RUN dnf -y install rsync && dnf clean all && \
+    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf
+
 # Distrobox, for development tools in containers (Podman is in the base
 # image). New containers start from Fedora's toolbox image of this image's
 # Fedora version, rather than its latest.
@@ -117,8 +122,12 @@ COPY --from=desktop-files /out/ /
 RUN glib-compile-schemas /usr/share/glib-2.0/schemas
 COPY --from=bootloader /out/ /usr/lib/systemd/boot/efi/
 COPY --from=certificate /out/ /usr/share/secureboot/
-# Identifies this build; last, so a new version rebuilds only this layer.
+# Identifies this build, and the commit it is made from; last, so a new
+# version rebuilds only this layer.
 ARG IMAGE_VERSION
-LABEL org.opencontainers.image.version="$IMAGE_VERSION"
-RUN test -n "$IMAGE_VERSION" && echo "IMAGE_VERSION=$IMAGE_VERSION" >>/usr/lib/os-release
+ARG IMAGE_REVISION
+LABEL org.opencontainers.image.version="$IMAGE_VERSION" \
+      org.opencontainers.image.revision="$IMAGE_REVISION"
+RUN test -n "$IMAGE_VERSION" && test -n "$IMAGE_REVISION" && \
+    printf 'IMAGE_VERSION=%s\nIMAGE_REVISION=%s\n' "$IMAGE_VERSION" "$IMAGE_REVISION" >>/usr/lib/os-release
 RUN bootc container lint

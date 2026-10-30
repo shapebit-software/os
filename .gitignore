@@ -1,1 +1,3 @@
 /build/
+/tests/.deps/
+__pycache__/

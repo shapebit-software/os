@@ -1,0 +1,5 @@
+# What the checks need. The system under test ships none of it: make installs
+# it into tests/.deps, and tmt carries it to the guest with the tests, so nothing
+# changes in the image and no check needs the network. All pure Python.
+pytest==8.4.2
+pytest-testinfra==10.2.2

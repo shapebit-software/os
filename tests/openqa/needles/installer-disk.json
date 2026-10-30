@@ -1,0 +1,15 @@
+{
+  "area": [
+    {
+      "xpos": 550,
+      "ypos": 244,
+      "width": 180,
+      "height": 34,
+      "type": "match"
+    }
+  ],
+  "properties": [],
+  "tags": [
+    "installer-disk"
+  ]
+}

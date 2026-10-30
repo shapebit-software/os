@@ -1,0 +1,15 @@
+{
+  "area": [
+    {
+      "xpos": 480,
+      "ypos": 232,
+      "width": 320,
+      "height": 46,
+      "type": "match"
+    }
+  ],
+  "properties": [],
+  "tags": [
+    "installer-recovery-key"
+  ]
+}

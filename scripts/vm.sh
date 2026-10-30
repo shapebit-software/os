@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Boot DISK in QEMU with Secure Boot firmware, a software TPM, and SSH
+# Boot DISK (a DISK_FORMAT image) in QEMU with Secure Boot firmware, a software TPM, and SSH
 # forwarded to 127.0.0.1:SSH_PORT.
 # Usage: vm.sh [--installer] [--background | --window]
 #        vm.sh --stop
@@ -10,7 +10,7 @@
 #   --window      the VM's screen in a window; serial console on this terminal
 #   --stop        power off the detached VM, so its writes reach the disk
 set -euo pipefail
-: "${BUILD:?}" "${DISK:?}" "${MEDIUM:?}" "${SSH_PORT:?}" "${SSH_KEY:?}" "${BOOT_TIMEOUT:?}"
+: "${BUILD:?}" "${DISK:?}" "${DISK_FORMAT:?}" "${MEDIUM:?}" "${SSH_PORT:?}" "${SSH_KEY:?}" "${BOOT_TIMEOUT:?}"
 
 cd "$(dirname "$0")/.."
 
@@ -78,7 +78,7 @@ args=(
   -global driver=cfi.pflash01,property=secure,value=on
   -drive "if=pflash,format=raw,unit=0,readonly=on,file=$OVMF_CODE"
   -drive "if=pflash,format=raw,unit=1,file=$vars"
-  -drive "if=none,id=target,format=raw,discard=unmap,file=$DISK"
+  -drive "if=none,id=target,format=$DISK_FORMAT,discard=unmap,file=$DISK"
   -device "virtio-blk-pci,drive=target,serial=target,bootindex=2"
   -chardev "socket,id=tpm,path=$tpm/swtpm.sock"
   -tpmdev emulator,id=tpm,chardev=tpm
@@ -89,8 +89,10 @@ args=(
 )
 if ((installer)); then
   [[ -f $MEDIUM ]] || { echo "error: $MEDIUM not found; run 'make installer'" >&2; exit 1; }
+  # Booting writes to the root; the snapshot keeps the medium as it was built,
+  # so that what was tested and released has the recorded checksum.
   args+=(
-    -drive "if=none,id=medium,format=raw,file=$MEDIUM"
+    -drive "if=none,id=medium,format=raw,snapshot=on,file=$MEDIUM"
     -device "virtio-blk-pci,drive=medium,serial=medium,bootindex=1"
   )
 fi

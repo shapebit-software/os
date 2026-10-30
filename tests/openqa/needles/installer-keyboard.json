@@ -1,0 +1,15 @@
+{
+  "area": [
+    {
+      "xpos": 530,
+      "ypos": 140,
+      "width": 220,
+      "height": 40,
+      "type": "match"
+    }
+  ],
+  "properties": [],
+  "tags": [
+    "installer-keyboard"
+  ]
+}

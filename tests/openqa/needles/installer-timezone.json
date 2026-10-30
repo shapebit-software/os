@@ -1,0 +1,15 @@
+{
+  "area": [
+    {
+      "xpos": 570,
+      "ypos": 184,
+      "width": 140,
+      "height": 34,
+      "type": "match"
+    }
+  ],
+  "properties": [],
+  "tags": [
+    "installer-timezone"
+  ]
+}

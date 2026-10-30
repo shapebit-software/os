@@ -7,6 +7,7 @@
 # Usage: medium.sh (called by `make installer`).
 set -euo pipefail
 : "${ENGINE:?}" "${INSTALLER_IMAGE:?}" "${BUILD:?}" "${MEDIUM:?}" "${MEDIUM_SIZE:?}"
+cd "$(dirname "$0")/.."
 
 archive=$BUILD/installer.tar
 [[ -f $archive ]] || { echo "error: $archive not found; run 'make installer'" >&2; exit 1; }
@@ -78,3 +79,5 @@ for mountpoint in "$target/boot" "$target"; do
   fstrim --quiet-unsupported "$mountpoint"
 done
 INSTALL
+
+python3 scripts/provenance.py medium "$BUILD/image.tar" "$MEDIUM" "$MEDIUM.json"

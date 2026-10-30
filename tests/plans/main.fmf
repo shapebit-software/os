@@ -1,0 +1,31 @@
+# The machine comes from scripts/tmt.sh, which gives tmt its address with
+# `provision --how connect`: see docs/Testing.md for why not testcloud.
+provision:
+    how: connect
+    guest: 127.0.0.1
+discover:
+    how: fmf
+execute:
+    how: tmt
+report:
+    how: html
+# Runs after failures too. Only files in TMT_PLAN_DATA are kept.
+finish:
+    how: shell
+    script: |
+        journalctl --no-pager >"$TMT_PLAN_DATA/journal.txt" 2>&1 || true
+        systemctl --failed --no-pager >"$TMT_PLAN_DATA/failed-units.txt" 2>&1 || true
+        bootc status --format=json >"$TMT_PLAN_DATA/bootc-status.json" 2>&1 || true
+
+/medium:
+    summary: The installer medium as it boots
+    discover+:
+        test: ^/medium$
+/system:
+    summary: The installed system
+    discover+:
+        test: ^/system/
+/update:
+    summary: Updating and rolling back an installed system
+    discover+:
+        test: ^/update$

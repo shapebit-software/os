@@ -1,0 +1,201 @@
+# Builds one image a week, or when started by hand, and tests it fully. Only if
+# every test passes does it publish it, as os:candidate, for the Release workflow.
+# The build has no cache, so that it picks up Fedora's updates; only the build job
+# has the release key, in the environment "Signing"; a failed test job can be
+# re-run on the same build (docs/Testing.md).
+name: Weekly
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: os-releases
+  cancel-in-progress: false
+
+env:
+  ENGINE: docker
+  REPOSITORY: ghcr.io/shapebit-software/os
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    environment: Signing
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
+          docker image prune -af >/dev/null
+          df -h /
+
+      - uses: actions/checkout@v4
+
+      # Outside build/, which the installer's build context holds.
+      - name: Restore the release key
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          if [ -z "$RELEASE_SIGNING_KEY" ]; then echo "::error::RELEASE_SIGNING_KEY is not set"; exit 1; fi
+          mkdir -p "$RUNNER_TEMP/keys"
+          base64 -d <<<"$RELEASE_SIGNING_KEY" | tar -xz -C "$RUNNER_TEMP/keys"
+          echo "KEYS_DIR=$RUNNER_TEMP/keys" >>"$GITHUB_ENV"
+          echo "SIGNING_KEY=release" >>"$GITHUB_ENV"
+
+      # A rolling release: the build date and the commit.
+      - name: Set the image version
+        id: version
+        run: |
+          version=$(date -u +%Y%m%d)_${GITHUB_SHA::6}
+          echo "IMAGE_VERSION=$version" >>"$GITHUB_ENV"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+      - name: Build and check the image
+        run: make check
+
+      - name: Build the installer medium
+        run: make -o image installer
+
+      - name: Build the update test's images
+        run: make update-builds
+
+      - name: Remove the release key
+        run: rm -rf "$RUNNER_TEMP/keys"
+
+      - name: Compress the medium
+        run: zstd -q -T0 -10 --rm build/installer.raw -o installer.raw.zst
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image
+          path: build/image.tar
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: update-builds
+          path: build/image-next*.tar
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: |
+            installer.raw.zst
+            build/installer.raw.json
+          compression-level: 0
+          retention-days: 30
+
+  # Install from the medium, without its UI, and check the system and an update.
+  scripted:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      IMAGE_VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/vm-host
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer
+      - uses: actions/download-artifact@v4
+        with:
+          name: update-builds
+          path: build
+      - name: Unpack the medium
+        run: zstd -q -d --rm installer.raw.zst -o build/installer.raw && mv installer.raw.json build/
+      - name: Check the medium, install, and check the system
+        run: make -o installer disk && make test-plan PLAN=system
+      - name: Check an update and its rollback
+        run: make -o disk -o update-builds test-update
+      - name: Keep the test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-scripted-${{ github.run_attempt }}
+          path: build/results
+          if-no-files-found: ignore
+
+  # The medium itself, through its UI, with openQA.
+  openqa:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/vm-host
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer
+      - name: Unpack the medium
+        run: zstd -q -d --rm installer.raw.zst -o build/installer.raw && mv installer.raw.json build/
+      - name: Test the medium
+        run: make test-release
+      - name: Keep the test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-openqa-${{ github.run_attempt }}
+          path: build/results
+          if-no-files-found: ignore
+
+  publish:
+    needs: [build, scripted, openqa]
+    runs-on: ubuntu-24.04
+    environment: Publish
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: image
+          path: build
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer
+          path: installer
+
+      - name: Log in to GHCR
+        run: skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin <<<"${{ secrets.GITHUB_TOKEN }}"
+
+      # The digest that the tests compared with the booted system, unchanged.
+      - name: Publish the candidate
+        run: |
+          expected=$(jq -r .image_digest installer/installer.raw.json)
+          [ "$(python3 scripts/provenance.py digest build/image.tar)" = "$expected" ]
+          skopeo copy -q --preserve-digests oci-archive:build/image.tar "docker://$REPOSITORY:candidate"
+          [ "$(skopeo inspect "docker://$REPOSITORY:candidate" --format '{{.Digest}}')" = "$expected" ]
+
+      - name: Write the report
+        run: |
+          inspect() { skopeo inspect "docker://$REPOSITORY:$1" --format "{{index .Labels \"$2\"}}"; }
+          list() { docker run --rm "$1" rpm -qa --qf '%{NAME} %{VERSION}-%{RELEASE}\n'; }
+          list "$REPOSITORY:candidate" >new-packages
+          old=()
+          range=HEAD
+          if stable=$(inspect stable org.opencontainers.image.revision 2>/dev/null); then
+            list "$REPOSITORY:stable" >old-packages
+            old=(old-packages)
+            # A stable image from before the revision label has no commit to compare.
+            if [ -n "$stable" ] && [ "$stable" != "<no value>" ]; then range=$stable..HEAD; fi
+          fi
+          git log --oneline "$range" >commits
+          python3 - <<'PY' >provenance.json
+          import json, subprocess
+          artifact = json.load(open("installer/installer.raw.json"))
+          commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          print(json.dumps({"artifact": artifact, "source": {"commit": commit}}))
+          PY
+          python3 scripts/report.py provenance.json commits new-packages "${old[@]}" >>"$GITHUB_STEP_SUMMARY"
