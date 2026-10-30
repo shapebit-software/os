@@ -1,5 +1,5 @@
 // The share picker: when an application shares the screen, Hyprland's portal
-// asks what to share (session/share-picker), through the portal
+// asks what to share (portal/share-picker), through the portal
 // (Portal.qml), and the person picks it in the capture overlay
 // (CaptureOverlay.qml), as for a screenshot: an area they draw, a window, or
 // a whole screen. One question is open at a time; another, meanwhile, is

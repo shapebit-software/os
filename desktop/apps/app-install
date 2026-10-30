@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Installs, for Welcome (shell/Welcome.qml), into the person's own Flatpak
+# Installs, for Welcome (shell/dialogs/Welcome.qml), into the person's own Flatpak
 # installation: a browser, which it makes their default, or the recommended
 # apps from Flathub that they kept. app-update.timer keeps them up to date.
 # Usage: app-install browser chrome|chromium|firefox|epiphany

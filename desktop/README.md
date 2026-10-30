@@ -22,8 +22,8 @@ for an administrator's password, its notification server, and, through the
 portals, what applications ask: the file chooser, screenshots and what to
 share in the capture overlay, and questions such as permissions, which
 application opens a file, the person's details, running in the background,
-launchers, and the wallpaper (the backends in `session/portal` and
-`session/share-picker` hand it their questions). The portal backend also
+launchers, and the wallpaper (the backends in `portal/portal` and
+`portal/share-picker` hand it their questions). The portal backend also
 passes applications' notifications to the shell, keeps the computer awake
 through logind, and gives applications their settings. Captures from the quick
 actions open the same overlay, with a panel of one row of icons: a
@@ -96,10 +96,10 @@ password again asks the host's desktop.
 
 Welcome opens until it is finished or skipped (`welcomed` in
 `~/.config/desktop/settings.json`), and Settings > Account opens it again.
-Its **Install** (`session/app-install`) installs the browser and the apps into the
+Its **Install** (`apps/app-install`) installs the browser and the apps into the
 host account's own Flatpak installation for real and makes it the default.
 
-Settings > Apps (`session/app-catalog`, `session/app-remove`) lists and changes
+Settings > Apps (`apps/app-catalog`, `apps/app-remove`) lists and changes
 the same installation, through Flatpak on the host; without one, it says so.
 
 The lock screen checks the password of the container's account, which
@@ -117,7 +117,9 @@ listed in its folder's `qmldir`, and a file imports the other folders it uses.
 | ------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `compositor/` | The Hyprland configuration (Lua): look, key bindings, layouts and resizing (`layouts.lua`), workspaces (`workspaces.lua`). |
 | `shell/`      | The Quickshell configuration (QML): `services/` (singletons that hold state), `controls/`, `wallpaper/`, `bar/`, `windows/`, `settings/`, `lock/`, `capture/`, `notifications/`, `dialogs/`. |
-| `session/`    | The session entry that the login screen starts, the session's portals and agents, and the app helpers.                   |
+| `session/`    | The session entry that the login screen starts, the connection agent, and the window button defaults.                    |
+| `portal/`     | The session's portals: the shell's backend, the share picker, and their configuration.                                   |
+| `apps/`       | The helpers of Welcome and Settings > Apps, and the timer that updates the apps.                                         |
 | `dev/`        | Development only: the session bus of `make run`, and the Portal Tester.                                                    |
 
 ## Not yet implemented

@@ -4,7 +4,7 @@
 # an application does, through xdg-desktop-portal, and the log shows the
 # answer. The portal does not ask the person for permissions and background
 # activity on behalf of applications outside Flatpak, as this one is, so the
-# last buttons ask the shell's backend (session/portal) those questions
+# last buttons ask the shell's backend (portal/portal) those questions
 # directly. A button is off when the portal does not offer its interface.
 # Name buttons to press them at the start, as `portal-tester open_files`.
 import itertools

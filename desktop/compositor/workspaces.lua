@@ -91,7 +91,7 @@ function workspaces.move(from, to)
     end
 end
 
--- The most workspaces the strip makes (shell/Workspaces.qml).
+-- The most workspaces the strip makes (shell/windows/Workspaces.qml).
 local most = 8
 
 -- The focused screen's workspaces with windows, in order, as the strip shows

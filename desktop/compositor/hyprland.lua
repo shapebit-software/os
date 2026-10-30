@@ -36,7 +36,7 @@ hl.monitor({
 })
 
 -- The person's displays as Settings > Display arranges them, which the shell
--- keeps up to date (shell/Displays.qml): starting with them, the session
+-- keeps up to date (shell/services/Displays.qml): starting with them, the session
 -- opens on the primary display with each display where it belongs.
 pcall(dofile, (os.getenv("XDG_CONFIG_HOME") or os.getenv("HOME") .. "/.config") .. "/desktop/displays.lua")
 

@@ -2,8 +2,8 @@
 # The share picker: Hyprland's portal runs this when an application shares
 # the screen (xdph.conf), with the windows it can share in
 # XDPH_WINDOW_SHARING_LIST. The shell asks the person what to share, an area,
-# a window, or a screen (shell/SharePicker.qml), over its portal socket
-# (shell/Portal.qml), and this prints the answer as the portal reads it, with
+# a window, or a screen (shell/services/SharePicker.qml), over its portal socket
+# (shell/services/Portal.qml), and this prints the answer as the portal reads it, with
 # "r" when the application may share it again without asking; nothing, to
 # cancel.
 import json

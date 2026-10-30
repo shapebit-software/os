@@ -2,7 +2,7 @@
 # Runs the desktop in a window for development (make run), with a session bus
 # of its own, so that what runs inside reaches the desktop's own services
 # rather than the host's: the shell's notification server, and the portals as
-# the image sets them up (session/), from this tree: xdg-desktop-portal with
+# the image sets them up (portal/), from this tree: xdg-desktop-portal with
 # portals.conf, the shell's backend, and Hyprland's portal with the shell's
 # share picker. Apps also offers the Portal Tester (portal-tester), which
 # asks each portal. Nothing here is installed.
@@ -46,13 +46,13 @@ mkdir -p "$dir/services" "$dir/portals" "$dir/hypr" "$dir/data/applications"
 
 # The portals and their configuration: the frontend reads both from here,
 # for the desktop name ShapeBit, and finds the Portal Tester's desktop entry.
-cp "$tree/session/shell.portal" "$dir/portals/"
+cp "$tree/portal/shell.portal" "$dir/portals/"
 for portal in hyprland gnome-keyring; do
   [ ! -e "/usr/share/xdg-desktop-portal/portals/$portal.portal" ] ||
     cp "/usr/share/xdg-desktop-portal/portals/$portal.portal" "$dir/portals/"
 done
-cp "$tree/session/portals.conf" "$dir/portals/shapebit-portals.conf"
-sed "s|/usr/libexec/desktop/share-picker|$tree/session/share-picker|" "$tree/session/xdph.conf" >"$dir/hypr/xdph.conf"
+cp "$tree/portal/portals.conf" "$dir/portals/shapebit-portals.conf"
+sed "s|/usr/libexec/desktop/share-picker|$tree/portal/share-picker|" "$tree/portal/xdph.conf" >"$dir/hypr/xdph.conf"
 # The person's Flatpak apps too, which the host's session may not know of if it
 # started before Flatpak was installed.
 data_dirs="$dir/data:${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/exports/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
@@ -66,7 +66,7 @@ EOF
 cat >"$dir/services/org.freedesktop.impl.portal.desktop.shell.service" <<EOF
 [D-BUS Service]
 Name=org.freedesktop.impl.portal.desktop.shell
-Exec=$tree/session/portal
+Exec=$tree/portal/portal
 EOF
 cat >"$dir/services/org.freedesktop.impl.portal.desktop.hyprland.service" <<EOF
 [D-BUS Service]

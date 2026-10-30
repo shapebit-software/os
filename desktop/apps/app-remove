@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Removes, for Settings > Apps (shell/Apps.qml), an app from the person's own
+# Removes, for Settings > Apps (shell/services/Apps.qml), an app from the person's own
 # Flatpak installation, with its data if asked, and then the runtimes that
 # nothing uses anymore.
 # Usage: app-remove APP_ID [--delete-data]

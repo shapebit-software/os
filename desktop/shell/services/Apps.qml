@@ -1,7 +1,7 @@
 // The store of Settings > Apps: the apps installed, those on offer, and what
 // is being installed or removed, which goes on, one at a time, if Settings
-// closes. The work is out of the shell's process: session/app-catalog reads,
-// session/app-install installs, and session/app-remove removes.
+// closes. The work is out of the shell's process: apps/app-catalog reads,
+// apps/app-install installs, and apps/app-remove removes.
 pragma Singleton
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -41,7 +41,7 @@ Singleton {
     // installed ones.
     function helper(name: string): string {
         const tree = Quickshell.env("DESKTOP_SHELL");
-        return tree ? `${tree}/../session/${name}` : `/usr/libexec/desktop/${name}`;
+        return tree ? `${tree}/../apps/${name}` : `/usr/libexec/desktop/${name}`;
     }
 
     function byId(id: string): var {

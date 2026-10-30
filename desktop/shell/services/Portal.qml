@@ -1,6 +1,6 @@
 // The shell's portals: when an application opens or saves a file, takes a
 // screenshot, shares the screen, or asks the person something, such as for
-// a permission, the portal backend (session/portal) asks over this socket,
+// a permission, the portal backend (portal/portal) asks over this socket,
 // one JSON line naming the portal, and the shell answers on the same
 // connection, one line too: the file chooser (FileChooser.qml), the capture
 // overlay (Capture.qml), the share picker (SharePicker.qml), and the

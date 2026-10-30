@@ -6,7 +6,7 @@
 # the person's details, running in the background, launchers, the wallpaper,
 # notifications, keeping the computer awake, and the settings applications
 # follow (portals.conf). The shell shows what the person decides (the file
-# chooser, the capture overlay, and the questions; shell/Portal.qml); each
+# chooser, the capture overlay, and the questions; shell/services/Portal.qml); each
 # question goes to it over its socket in the runtime directory, as one JSON
 # line naming the portal, and the answer comes back as one. Screenshots that
 # the person does not pick, picking a color, notifications, which go to the
@@ -33,10 +33,10 @@ BUS_NAME = "org.freedesktop.impl.portal.desktop.shell"
 OBJECT_PATH = "/org/freedesktop/portal/desktop"
 PORTAL = "org.freedesktop.impl.portal."
 RUNTIME = os.path.join(os.environ["XDG_RUNTIME_DIR"], "desktop")
-# The shell's socket, one for each Wayland display (shell/Portal.qml).
+# The shell's socket, one for each Wayland display (shell/services/Portal.qml).
 SOCKET = os.path.join(RUNTIME, f"portal-{os.environ['WAYLAND_DISPLAY']}.sock")
 MIME_GLOBS = "/usr/share/mime/globs2"
-# The shell's settings (shell/Settings.qml), for the accent.
+# The shell's settings (shell/services/Settings.qml), for the accent.
 SHELL_SETTINGS = os.path.join(GLib.get_user_config_dir(), "desktop", "settings.json")
 # Pictures applications set as the wallpaper, kept while they are.
 WALLPAPERS = os.path.join(GLib.get_user_data_dir(), "desktop", "wallpapers")
@@ -208,7 +208,7 @@ def screenshot_results(answer):
 
 
 def asked(answer):
-    """A question's response (shell/Question.qml): granted, refused or
+    """A question's response (shell/services/Question.qml): granted, refused or
     dismissed, or ended unanswered."""
     return CHOSEN if answer.get("granted") else CANCELLED if answer else ENDED
 
@@ -568,7 +568,7 @@ def dynamic_launcher(connection, method, parameters, invocation):
 class Inhibition:
     """Keeps the screen from locking, or the computer from sleeping, until the
     application's request closes: logind holds them back, and hypridle
-    follows it (shell/Idle.qml). Logging out and switching users the shell
+    follows it (shell/services/Idle.qml). Logging out and switching users the shell
     does not hold back; it asks first."""
 
     # The portal's flags, and what logind holds back for each.
@@ -777,7 +777,7 @@ class Notifications:
 
 
 def oklch(l, c, h):
-    """A color from OKLCH as sRGB, as the shell makes them (shell/Theme.qml)."""
+    """A color from OKLCH as sRGB, as the shell makes them (shell/services/Theme.qml)."""
     a, b = c * math.cos(math.radians(h)), c * math.sin(math.radians(h))
     l_ = (l + 0.3963377774 * a + 0.2158037573 * b) ** 3
     m_ = (l - 0.1055613458 * a - 0.0638541728 * b) ** 3
@@ -793,13 +793,13 @@ def oklch(l, c, h):
 
 
 def accent_color():
-    """The shell's accent (Settings.accent), as in shell/Theme.qml."""
+    """The shell's accent (Settings.accent), as in shell/services/Theme.qml."""
     try:
         with open(SHELL_SETTINGS) as file:
             chosen = json.load(file)
     except (OSError, ValueError):
         chosen = {}
-    # The accents' hues, as in shell/Settings.qml.
+    # The accents' hues, as in shell/services/Settings.qml.
     hues = {"Cyan": 215, "Indigo": 265, "Green": 150, "Amber": 45, "Plum": 335}
     accent = chosen.get("accent", "Cyan")
     return oklch(0.52, 0.11, chosen.get("accentHue", 25) if accent == "Custom" else hues.get(accent, 215))

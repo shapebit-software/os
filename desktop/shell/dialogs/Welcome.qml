@@ -2,7 +2,7 @@
 // everything with the screens dimmed: the network, only when the computer was
 // offline when it opened, with the network panel's Wi-Fi list (WifiList.qml);
 // then, only when online, the default browser and the recommended apps, all
-// kept unless turned off, which session/app-install installs one after the
+// kept unless turned off, which apps/app-install installs one after the
 // other, going on if Welcome closes; and the ways around the desktop. Every
 // step can be skipped; Escape or closing ends it, and it does not open on its
 // own again (Settings.welcomed).
@@ -69,7 +69,7 @@ PanelWindow {
     // The installer: the source tree's in development (make run), otherwise
     // the installed one.
     readonly property string installerPath: Quickshell.env("DESKTOP_SHELL")
-        ? `${Quickshell.env("DESKTOP_SHELL")}/../session/app-install`
+        ? `${Quickshell.env("DESKTOP_SHELL")}/../apps/app-install`
         : "/usr/libexec/desktop/app-install"
 
     function finish() {

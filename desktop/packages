@@ -9,24 +9,24 @@ hyprland
 hyprland-guiutils
 quickshell
 uwsm
-# Idle time, the lock screen, and sleep (shell/Idle.qml).
+# Idle time, the lock screen, and sleep (shell/services/Idle.qml).
 hypridle
-# Screen sharing and global shortcuts (session/portals.conf).
+# Screen sharing and global shortcuts (portal/portals.conf).
 xdg-desktop-portal-hyprland
-# Screenshots and recordings (shell/Capture.qml), to the person's Pictures and Videos.
+# Screenshots and recordings (shell/services/Capture.qml), to the person's Pictures and Videos.
 grim
 slurp
 wf-recorder
 xdg-user-dirs
-# The clipboard, kept after the application it came from closes (shell/Clipboard.qml).
+# The clipboard, kept after the application it came from closes (shell/services/Clipboard.qml).
 clipman
 wl-clipboard
 # The display's brightness and the power profile.
 brightnessctl
 power-profiles-daemon
-# Battery state (shell/Battery.qml).
+# Battery state (shell/services/Battery.qml).
 upower
-# Sound (shell/Audio.qml), for applications through PulseAudio and ALSA too.
+# Sound (shell/services/Audio.qml), for applications through PulseAudio and ALSA too.
 pipewire
 wireplumber
 pipewire-pulseaudio
@@ -35,7 +35,7 @@ rtkit
 # Secrets, unlocked by the login password.
 gnome-keyring
 gnome-keyring-pam
-# The shell's portal, connection agent, app installer, and share picker (session/).
+# The shell's portal, connection agent, app installer, and share picker (portal/, session/, apps/).
 python3-gobject
 # The shell's monospace font.
 jetbrains-mono-fonts

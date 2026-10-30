@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# The connection agent, which the shell runs (shell/Connectivity.qml) and talks
+# The connection agent, which the shell runs (shell/services/Connectivity.qml) and talks
 # to over its standard input and output, one JSON line at a time. It joins
 # Wi-Fi networks with the password the person types in the network panel and
 # pairs Bluetooth devices, which Quickshell cannot; and it is NetworkManager's

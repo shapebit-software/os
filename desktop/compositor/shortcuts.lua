@@ -2,10 +2,10 @@
 -- arrows go to the tile beside, and past the last one to the screen beside;
 -- with Alt to the workspace before or after, and the numbers to a workspace
 -- by its place on the strip. Each has a description, which the shell's list
--- of shortcuts shows (Super+/, shell/ShortcutsWindow.qml). Keys that type
+-- of shortcuts shows (Super+/, shell/dialogs/ShortcutsWindow.qml). Keys that type
 -- other characters in other keyboard layouts, such as the numbers, are bound
 -- by their place (code:). What the shell does, it learns from "shortcut
--- <name>" events (shell/Shortcuts.qml), and the shortcuts themselves from
+-- <name>" events (shell/services/Shortcuts.qml), and the shortcuts themselves from
 -- shortcuts.report.
 
 local shortcuts = {}
@@ -168,7 +168,7 @@ bind("ALT + code:49", "Next window of the app", switch("switch-app-next"), { rep
 bind("ALT + SHIFT + code:49", "Previous window of the app", switch("switch-app-previous"), { repeating = true })
 bind("SUPER + Q", "Close window", hl.dsp.window.close())
 -- Full screen covers the bars; the shell shows a button to end it in the
--- top right corner (shell/FullscreenExit.qml).
+-- top right corner (shell/windows/FullscreenExit.qml).
 bind("SUPER + F", "Full screen", hl.dsp.window.fullscreen({ mode = "fullscreen" }))
 bind("SUPER + W", "Window menu", shell("window-menu"))
 
@@ -198,7 +198,7 @@ bind("SUPER + code:61", "Keyboard shortcuts", shell("help"))
 bind("SUPER + space", "Next keyboard layout", hl.dsp.exec_cmd("hyprctl switchxkblayout all next"))
 bind("SUPER + SHIFT + space", "Previous keyboard layout", hl.dsp.exec_cmd("hyprctl switchxkblayout all prev"))
 
--- Capturing (shell/Capture.qml). With Alt, Print is SysRq, so it is bound by
+-- Capturing (shell/services/Capture.qml). With Alt, Print is SysRq, so it is bound by
 -- its place.
 local print = "code:107"
 bind(print, "Capture", shell("capture"))
@@ -206,8 +206,8 @@ bind("ALT + " .. print, "Capture window", shell("capture-window"))
 bind("SUPER + " .. print, "Capture screen", shell("capture-screen"))
 bind("SHIFT + " .. print, "Record", shell("capture-record"))
 
--- The sound and media keys (shell/Audio.qml), and the brightness keys, which
--- change the built-in display's (shell/Brightness.qml), work on the lock
+-- The sound and media keys (shell/services/Audio.qml), and the brightness keys, which
+-- change the built-in display's (shell/services/Brightness.qml), work on the lock
 -- screen too; brightnessctl keeps it above fully dark.
 local held = { locked = true, repeating = true }
 local locked = { locked = true }

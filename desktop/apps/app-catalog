@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Reads, for Settings > Apps (shell/Apps.qml), what is installed and what
+# Reads, for Settings > Apps (shell/services/Apps.qml), what is installed and what
 # Flathub offers, from the AppStream data that Flatpak downloads into the
 # person's own installation; searching it sends nothing anywhere.
 # Usage: app-catalog refresh
