@@ -9,7 +9,7 @@ FROM quay.io/fedora/fedora-bootc:${FEDORA_VERSION} AS system
 
 LABEL org.opencontainers.image.title="ShapeBit OS" \
       org.opencontainers.image.url="https://shapebit.software" \
-      org.opencontainers.image.source="https://github.com/shapebit-software/image"
+      org.opencontainers.image.source="https://github.com/shapebit-software/os"
 
 # Files under rootfs/ are copied verbatim; their paths mirror the target system.
 COPY rootfs/ /

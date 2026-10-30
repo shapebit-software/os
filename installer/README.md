@@ -5,7 +5,7 @@ that erase one disk and install the system on it, following the
 [Installation](https://shapebit.software/docs/) architecture.
 
 It runs from the installer medium, which the
-[image repository](https://github.com/shapebit-software/image) builds
+[image](../README.md) builds
 (`make installer`) and tests (`make test`).
 
 ## How it works
