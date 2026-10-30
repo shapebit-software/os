@@ -1,18 +1,6 @@
-[submodule "installer"]
-	path = installer
-	url = git@github.com:shapebit-software/installer.git
-[submodule "image"]
-	path = image
-	url = git@github.com:shapebit-software/image.git
 [submodule "docs"]
 	path = docs
 	url = git@github.com:shapebit-software/website.wiki.git
-[submodule ".agents/shared"]
-	path = .agents/shared
-	url = git@github.com:shapebit-software/agents.git
-[submodule "desktop"]
-	path = desktop
-	url = git@github.com:shapebit-software/desktop.git
 [submodule "website"]
 	path = website
 	url = https://github.com/shapebit-software/website

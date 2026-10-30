@@ -1,0 +1,41 @@
+# The Fedora packages that the desktop runs on, one per line; the OS image
+# installs them (Containerfile). Hyprland, its dialogs, hypridle,
+# xdg-desktop-portal-hyprland, and Quickshell come from a third-party COPR, which the image enables for this.
+
+# The compositor, the shell's runtime, and the session.
+hyprland
+# Hyprland's own dialogs, such as when an application stops responding; it warns
+# on the screen without them.
+hyprland-guiutils
+quickshell
+uwsm
+# Idle time, the lock screen, and sleep (shell/Idle.qml).
+hypridle
+# Screen sharing and global shortcuts (session/portals.conf).
+xdg-desktop-portal-hyprland
+# Screenshots and recordings (shell/Capture.qml), to the person's Pictures and Videos.
+grim
+slurp
+wf-recorder
+xdg-user-dirs
+# The clipboard, kept after the application it came from closes (shell/Clipboard.qml).
+clipman
+wl-clipboard
+# The display's brightness and the power profile.
+brightnessctl
+power-profiles-daemon
+# Battery state (shell/Battery.qml).
+upower
+# Sound (shell/Audio.qml), for applications through PulseAudio and ALSA too.
+pipewire
+wireplumber
+pipewire-pulseaudio
+pipewire-alsa
+rtkit
+# Secrets, unlocked by the login password.
+gnome-keyring
+gnome-keyring-pam
+# The shell's portal, connection agent, app installer, and share picker (session/).
+python3-gobject
+# The shell's monospace font.
+jetbrains-mono-fonts

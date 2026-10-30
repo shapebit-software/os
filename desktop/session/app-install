@@ -1,0 +1,109 @@
+#!/usr/bin/python3
+# Installs, for Welcome (shell/Welcome.qml), into the person's own Flatpak
+# installation: a browser, which it makes their default, or the recommended
+# apps from Flathub that they kept. app-update.timer keeps them up to date.
+# Usage: app-install browser chrome|chromium|firefox|epiphany
+#        app-install apps APP_ID...
+#
+# To the shell, one JSON line at a time: {"step": text} as it goes, then
+# {"done": app id or ids} or {"error": text}.
+#
+# Chrome, Firefox, GNOME Web, and the recommended apps come from Flathub;
+# Flathub's Chrome downloads Google's own package when it installs. Chromium
+# is Fedora's own Flatpak, from Fedora's registry, which the person's remote
+# only offers it and its runtime from (fedora.filter).
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+# The source tree's files in development (make run), otherwise the installed.
+DATA = HERE if "DESKTOP_SHELL" in os.environ else Path("/usr/share/desktop/browsers")
+# The image's copy of Flathub's remote; elsewhere, as in development, Flathub's.
+FLATHUB = "/usr/share/flatpak/remotes.d/flathub.flatpakrepo"
+if not os.path.exists(FLATHUB):
+    FLATHUB = "https://dl.flathub.org/repo/flathub.flatpakrepo"
+FEDORA = "oci+https://registry.fedoraproject.org"
+# Each browser: its app id, and the remote it comes from.
+BROWSERS = {
+    "chrome": ("com.google.Chrome", "flathub"),
+    "chromium": ("org.chromium.Chromium", "fedora"),
+    "firefox": ("org.mozilla.firefox", "flathub"),
+    "epiphany": ("org.gnome.Epiphany", "flathub"),
+}
+# What the default browser opens.
+TYPES = ["x-scheme-handler/http", "x-scheme-handler/https", "text/html", "application/xhtml+xml"]
+
+
+class Failed(Exception):
+    pass
+
+
+def say(**message):
+    print(json.dumps(message), flush=True)
+
+
+def run(*command):
+    """Runs a command; fails with the last line it printed."""
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        lines = (result.stderr or result.stdout).strip().splitlines()
+        raise Failed(lines[-1] if lines else f"{command[0]} failed")
+    return result.stdout
+
+
+def flatpak(*args):
+    return run("flatpak", "--user", *args)
+
+
+def flatpak_install(remote, ref):
+    flatpak("install", "--noninteractive", "--or-update", remote, ref)
+
+
+def add_remote(name):
+    if name == "flathub":
+        flatpak("remote-add", "--if-not-exists", "flathub", FLATHUB)
+    elif name == "fedora":
+        flatpak("remote-add", "--if-not-exists", f"--filter={DATA / 'fedora.filter'}", "fedora", FEDORA)
+
+
+def install_apps(apps):
+    add_remote("flathub")
+    for number, app in enumerate(apps, 1):
+        say(step=f"Installing apps ({number} of {len(apps)})")
+        flatpak_install("flathub", app)
+    return apps
+
+
+def install(browser):
+    app, remote = BROWSERS[browser]
+    add_remote(remote)
+    say(step="Installing")
+    flatpak_install(remote, app)
+    say(step="Making it the default browser")
+    for kind in TYPES:
+        run("gio", "mime", kind, f"{app}.desktop")
+    return app
+
+
+def main():
+    args = sys.argv[1:]
+    if len(args) == 2 and args[0] == "browser" and args[1] in BROWSERS:
+        action = lambda: install(args[1])
+    elif len(args) > 1 and args[0] == "apps":
+        action = lambda: install_apps(args[1:])
+    else:
+        print("usage: app-install browser chrome|chromium|firefox|epiphany | apps APP_ID...", file=sys.stderr)
+        return 2
+    try:
+        say(done=action())
+    except (Failed, OSError) as error:
+        say(error=str(error))
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

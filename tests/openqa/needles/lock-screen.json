@@ -1,0 +1,22 @@
+{
+  "area": [
+    {
+      "xpos": 610,
+      "ypos": 447,
+      "width": 60,
+      "height": 93,
+      "type": "match"
+    },
+    {
+      "xpos": 500,
+      "ypos": 552,
+      "width": 282,
+      "height": 34,
+      "type": "match"
+    }
+  ],
+  "properties": [],
+  "tags": [
+    "lock-screen"
+  ]
+}

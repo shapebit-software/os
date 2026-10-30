@@ -1,0 +1,15 @@
+{
+  "area": [
+    {
+      "xpos": 510,
+      "ypos": 255,
+      "width": 260,
+      "height": 45,
+      "type": "match"
+    }
+  ],
+  "properties": [],
+  "tags": [
+    "installer-progress"
+  ]
+}

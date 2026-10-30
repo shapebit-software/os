@@ -1,0 +1,15 @@
+{
+  "area": [
+    {
+      "xpos": 500,
+      "ypos": 294,
+      "width": 280,
+      "height": 34,
+      "type": "match"
+    }
+  ],
+  "properties": [],
+  "tags": [
+    "installer-network"
+  ]
+}

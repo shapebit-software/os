@@ -1,0 +1,32 @@
+# The fast checks, on every push and pull request: no image and no VM (see
+# docs/Testing.md). They use no secrets.
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  host:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests and lint
+        run: make test-unit
+
+  # The Fedora of the image, with the development packages of distrobox.ini.
+  fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora-toolbox:44
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the development packages
+        run: |
+          dnf -y install dnf5-plugins
+          dnf -y copr enable sdegler/hyprland
+          dnf -y install git $(sed -n 's/^additional_packages="\(.*\)"$/\1/p' distrobox.ini)
+      - name: Check the desktop, the installer, and rootfs
+        run: make static-checks

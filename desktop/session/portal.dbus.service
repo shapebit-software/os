@@ -1,0 +1,5 @@
+# Starts the shell's portal backend (portal) when xdg-desktop-portal first
+# asks for it.
+[D-BUS Service]
+Name=org.freedesktop.impl.portal.desktop.shell
+Exec=/usr/libexec/desktop/portal

@@ -1,0 +1,130 @@
+# ShapeBit Desktop
+
+The desktop of ShapeBit OS: [Hyprland](https://hypr.land) as the compositor
+and [Quickshell](https://quickshell.org) as the shell, following the
+[demo](https://shapebit.software/demo/). Where the demo and the
+[Desktop Environment](https://shapebit.software/docs/) architecture disagree,
+the demo decides.
+
+The session starts Hyprland through [UWSM](https://github.com/Vladimir-csp/uwsm),
+which runs the session's systemd units (`graphical-session.target` and the
+applications that start with every session, XDG autostart), with the
+configuration in `compositor/`, which starts the shell in `shell/`.
+
+The shell draws the wallpaper, the system bar and the dock (Apps, the
+workspace maps, and the quick actions) with their panels, the tabs of the Tabs
+and Accordion layouts, the handles that resize tiles, the way out of full
+screen, Settings, and the lock screen. Beyond the demo, the system bar has
+notifications (banners, and a panel with Do Not Disturb), the display's
+brightness, and the battery with the power profile, these two only where the
+computer has them. The shell is also the session's polkit agent, which asks
+for an administrator's password, its notification server, and, through the
+portals, what applications ask: the file chooser, screenshots and what to
+share in the capture overlay, and questions such as permissions, which
+application opens a file, the person's details, running in the background,
+launchers, and the wallpaper (the backends in `session/portal` and
+`session/share-picker` hand it their questions). The portal backend also
+passes applications' notifications to the shell, keeps the computer awake
+through logind, and gives applications their settings. Captures from the quick
+actions open the same overlay, with a panel of one row of icons: a
+selection, a window, or the screen; a switch between a
+screenshot and a recording whose knob is the capture button; and editing for
+screenshots, or a timer and the microphone for recordings; screenshots are saved at once, or, with editing, first open for
+markup. When an application shares the screen, the overlay's panel has Share
+in place of the switch, and Remember, which lets the application share it
+again without asking; while sharing, the capture button is filled with the
+accent. It runs
+hypridle, which locks the screen and turns it off after the idle times in
+Settings and locks it before the computer sleeps, and clipman, which keeps
+copied text after the application it came from closes. Settings are kept in
+`~/.config/desktop/settings.json`; the shell applies them to itself and to the
+compositor. The displays' settings, their arrangement, mirroring, the primary
+display, and each one's mode and scale, are also kept as monitor rules in
+`~/.config/desktop/displays.lua`, which the compositor runs as it starts.
+
+Each bar can sit on any edge, and its items can move between the bars' zones
+or off the bars, hidden, all but the system menu (Settings > Shell). With the pointer, windows move only on the maps: drag a window's cell onto
+another cell or map; double-click it for full screen (Super+F), which covers
+the bars and ends from the button in the top right corner; right-click it to
+close it (Super+Q).
+
+The keyboard shortcuts are in `compositor/shortcuts.lua`, each with a
+description; Super+/ shows them on a keyboard. Super moves the focus and,
+with Shift, the window: the arrows to the tile or screen beside, Alt with
+the arrows to the workspace before or after, and the numbers to a workspace
+by its place. Alt+Tab opens the window switcher, Super+W the window menu,
+and Super alone Apps.
+
+Unlike the demo, the desktop has no Overview: workspaces come and go with
+their windows. The session starts with one; dropping a window or an
+application on the "+" that the strip shows while dragging makes another, up
+to eight; a workspace goes away once it has no windows.
+
+## Development
+
+From the monorepo root, create and enter the shared Fedora development
+environment (see the [setup instructions](https://github.com/shapebit-software/os#development)).
+Then run the checks:
+
+```sh
+DBX_CONTAINER_MANAGER=docker distrobox assemble create --file distrobox.ini
+DBX_CONTAINER_MANAGER=docker distrobox enter shapebit-dev
+cd desktop
+make check   # verify the compositor configuration and lint the shell
+make run     # run the desktop in a window, inside the current Wayland session
+make help    # all targets
+```
+
+`make run` needs a Wayland session and a GPU on the host. The desktop then
+works on the host's real devices: Apps lists the container's applications and,
+through the shared home, the host's exported ones; the bar's panels change the
+host's volume, Wi-Fi, and Bluetooth; captures go to the host's Pictures and
+Videos. Only the power actions are held back: they log instead of suspending,
+restarting, or shutting down the host.
+
+The desktop has a session bus of its own (`dev/run`), so what runs inside
+reaches its own notification server and portals, as in the image, from this
+tree; not the host's. Apps there offers the **Portal Tester**
+(`dev/portal-tester`), which asks each portal and logs the answer; a button's
+name, as its tooltip shows, presses it at the start, such as
+`dev/portal-tester open_files`. Neither is installed.
+
+The connection agent (`session/connection-agent`) joins networks and pairs
+devices on the host's NetworkManager and BlueZ for real. In development it
+does not take over from the host's own agents, so a network asking for its
+password again asks the host's desktop.
+
+Welcome opens until it is finished or skipped (`welcomed` in
+`~/.config/desktop/settings.json`), and Settings > Account opens it again.
+Its **Install** (`session/app-install`) installs the browser and the apps into the
+host account's own Flatpak installation for real and makes it the default.
+
+Settings > Apps (`session/app-catalog`, `session/app-remove`) lists and changes
+the same installation, through Flatpak on the host; without one, it says so.
+
+The lock screen checks the password of the container's account, which
+distrobox leaves empty, so any password unlocks it. Set one with
+`sudo passwd $USER` in the container to try it for real.
+
+`make install DESTDIR=<directory>` installs the files as the image does.
+
+Every QML file in `shell/` must be listed in `shell/qmldir`; Quickshell
+ignores the others.
+
+## Layout
+
+| Path          | Purpose                                                                                                                    |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `compositor/` | The Hyprland configuration (Lua): look, key bindings, layouts and resizing (`layouts.lua`), workspaces (`workspaces.lua`). |
+| `shell/`      | The Quickshell configuration (QML): every shell surface.                                                                   |
+| `session/`    | The session entry that the login screen starts, the session's portals and agents, and the app helpers.                   |
+| `dev/`        | Development only: the session bus of `make run`, and the Portal Tester.                                                    |
+
+## Not yet implemented
+
+- The assistant and dictation: their buttons, the Settings section, and the
+  hot corner say they are coming.
+- Settings has only what works: no password change, no system language, or
+  first day of the week.
+- Tabs cannot be dragged.
+- Tile sizes last while the workspace keeps its layout, not across sessions.

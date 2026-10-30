@@ -1,0 +1,108 @@
+# Releases the candidate that the Weekly workflow tested: moves os:stable, which
+# installed systems update from, to it unchanged, keeping the image before as
+# os:stable-previous. With "Publish the installer", also moves os:iso to it and
+# uploads the medium that the same Weekly run tested to Cloudflare R2, as
+# installer.raw.zst, keeping the one before as installer-previous.raw.zst. With
+# "Undo", instead moves os:stable back to os:stable-previous. Runs only by hand,
+# in the environment "Release", which can require a person's approval
+# (Settings > Environments).
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      installer:
+        description: Publish the installer
+        type: boolean
+        default: false
+      undo:
+        description: Undo the last release instead
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+  actions: read
+
+concurrency:
+  group: os-releases
+  cancel-in-progress: false
+
+env:
+  REPOSITORY: ghcr.io/shapebit-software/os
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: Release
+    steps:
+      - name: Log in to GHCR
+        run: skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin <<<"${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Move os:stable back to os:stable-previous
+        if: inputs.undo
+        run: skopeo copy -q --preserve-digests "docker://$REPOSITORY:stable-previous" "docker://$REPOSITORY:stable"
+
+      # A candidate left waiting misses security fixes.
+      - name: Warn if the candidate is old
+        if: ${{ !inputs.undo }}
+        run: |
+          created=$(skopeo inspect "docker://$REPOSITORY:candidate" --format '{{.Created}}')
+          age=$(( ($(date +%s) - $(date -d "$created" +%s)) / 86400 ))
+          if [ "$age" -gt 14 ]; then echo "::warning::The candidate is $age days old"; fi
+
+      - name: Move os:stable to the candidate
+        if: ${{ !inputs.undo }}
+        run: |
+          if skopeo inspect "docker://$REPOSITORY:stable" >/dev/null 2>&1; then
+            skopeo copy -q --preserve-digests "docker://$REPOSITORY:stable" "docker://$REPOSITORY:stable-previous"
+          fi
+          skopeo copy -q --preserve-digests "docker://$REPOSITORY:candidate" "docker://$REPOSITORY:stable"
+
+      # The medium must be the one that was tested with this candidate: both
+      # come from one Weekly run, and its record names the image and the medium.
+      - name: Take the tested medium
+        if: inputs.installer && !inputs.undo
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run=$(gh run list -R "$GITHUB_REPOSITORY" --workflow weekly.yml --status success \
+            --limit 1 --json databaseId --jq '.[0].databaseId')
+          if [ -z "$run" ]; then echo "::error::No successful Weekly run"; exit 1; fi
+          gh run download "$run" -R "$GITHUB_REPOSITORY" -n installer
+          digest=$(skopeo inspect "docker://$REPOSITORY:candidate" --format '{{.Digest}}')
+          if [ "$(jq -r .image_digest installer.raw.json)" != "$digest" ]; then
+            echo "::error::The medium is not the candidate's"; exit 1
+          fi
+          # The checksum that the tests recorded is of this medium: refuse another.
+          zstd -q -d --stdout installer.raw.zst | sha256sum | cut -d ' ' -f 1 |
+            grep -qx "$(jq -r .medium_sha256 installer.raw.json)"
+          sha256sum installer.raw.zst >installer.raw.zst.sha256
+
+      # The previous medium is copied within R2, without a download; the
+      # checksum goes last, so it never names a file not yet uploaded. The
+      # fixed name changes with each release, so caches keep it 5 minutes.
+      - name: Upload the medium to R2
+        if: inputs.installer && !inputs.undo
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2: s3://${{ vars.R2_BUCKET }}
+          ENDPOINT: https://${{ vars.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+        run: |
+          s3() { aws s3 --endpoint-url "$ENDPOINT" --only-show-errors "$@"; }
+          for name in installer.raw.zst installer.raw.zst.sha256; do
+            if s3 ls "$R2/$name" >/dev/null; then
+              s3 cp "$R2/$name" "$R2/${name/installer/installer-previous}"
+            fi
+          done
+          version=$(skopeo inspect "docker://$REPOSITORY:candidate" --format '{{index .Labels "org.opencontainers.image.version"}}')
+          s3 cp installer.raw.zst "$R2/installer.raw.zst" --cache-control max-age=300 --metadata "version=$version"
+          s3 cp installer.raw.zst.sha256 "$R2/installer.raw.zst.sha256" --cache-control max-age=300
+
+      - name: Move os:iso to the candidate
+        if: inputs.installer && !inputs.undo
+        run: skopeo copy -q --preserve-digests "docker://$REPOSITORY:candidate" "docker://$REPOSITORY:iso"

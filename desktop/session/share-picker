@@ -1,0 +1,35 @@
+#!/usr/bin/python3
+# The share picker: Hyprland's portal runs this when an application shares
+# the screen (xdph.conf), with the windows it can share in
+# XDPH_WINDOW_SHARING_LIST. The shell asks the person what to share, an area,
+# a window, or a screen (shell/SharePicker.qml), over its portal socket
+# (shell/Portal.qml), and this prints the answer as the portal reads it, with
+# "r" when the application may share it again without asking; nothing, to
+# cancel.
+import json
+import os
+import socket
+
+SOCKET = os.path.join(os.environ["XDG_RUNTIME_DIR"], "desktop",
+                      f"portal-{os.environ['WAYLAND_DISPLAY']}.sock")
+
+
+def windows(listed):
+    """The portal's windows: id[HC>]class[HT>]title[HE>]address[HA>], each."""
+    found = []
+    for entry in listed.split("[HA>]"):
+        if "[HC>]" in entry and "[HT>]" in entry and "[HE>]" in entry:
+            id_, rest = entry.split("[HC>]", 1)
+            class_, rest = rest.split("[HT>]", 1)
+            title, address = rest.split("[HE>]", 1)
+            found.append({"id": id_, "class": class_, "title": title, "address": address})
+    return found
+
+
+question = {"portal": "screencast", "windows": windows(os.environ.get("XDPH_WINDOW_SHARING_LIST", ""))}
+with socket.socket(socket.AF_UNIX) as shell:
+    shell.connect(SOCKET)
+    shell.sendall((json.dumps(question) + "\n").encode())
+    answer = json.loads(shell.makefile().readline() or "{}")
+if answer.get("selection"):
+    print(f"[SELECTION]{'r' if answer.get('remember') else ''}/{answer['selection']}")

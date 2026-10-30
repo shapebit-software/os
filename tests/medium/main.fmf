@@ -1,0 +1,4 @@
+summary: The booted installer medium, before it installs
+test: ../pytest.sh test_medium.py
+framework: shell
+duration: 15m

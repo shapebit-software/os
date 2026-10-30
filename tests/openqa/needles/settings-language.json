@@ -1,0 +1,15 @@
+{
+  "area": [
+    {
+      "xpos": 275,
+      "ypos": 74,
+      "width": 120,
+      "height": 26,
+      "type": "match"
+    }
+  ],
+  "properties": [],
+  "tags": [
+    "settings-language"
+  ]
+}

@@ -1,0 +1,315 @@
+#!/usr/bin/python3
+# Reads, for Settings > Apps (shell/Apps.qml), what is installed and what
+# Flathub offers, from the AppStream data that Flatpak downloads into the
+# person's own installation; searching it sends nothing anywhere.
+# Usage: app-catalog refresh
+#        app-catalog installed
+#        app-catalog search [--category NAME] [--limit COUNT] [TEXT...]
+#        app-catalog details APP_ID
+#
+# To the shell, one JSON line: {"apps": [...]}, with "more" if a search found
+# more than its limit, or {"app": {...}}, or
+# {"done": true} from refresh, or {"error": text}.
+import gzip
+import json
+import os
+import subprocess
+import sys
+import time
+import xml.etree.ElementTree as ElementTree
+from pathlib import Path
+
+# The image's copy of Flathub's remote; elsewhere, as in development, Flathub's.
+FLATHUB = "/usr/share/flatpak/remotes.d/flathub.flatpakrepo"
+if not os.path.exists(FLATHUB):
+    FLATHUB = "https://dl.flathub.org/repo/flathub.flatpakrepo"
+# Flatpak's download of the catalogue is refreshed when older than this.
+MAX_AGE = 24 * 60 * 60
+# Results of one search, unless it asks for more.
+LIMIT = 48
+# What the cache holds; another format is read again from the download.
+FORMAT = 2
+LANG = "{http://www.w3.org/XML/1998/namespace}lang"
+HOME = Path.home()
+USER_DIR = Path(os.environ.get("FLATPAK_USER_DIR") or Path(os.environ.get("XDG_DATA_HOME") or HOME / ".local/share") / "flatpak")
+APPSTREAM = USER_DIR / "appstream/flathub" / os.uname().machine
+CACHE = Path(os.environ.get("XDG_CACHE_HOME") or HOME / ".cache") / "desktop/app-catalog.json"
+# The app in the image, which only an update of the system changes.
+BUILT_IN = [("org.gnome.Nautilus", "Files", "Browse and organize your files")]
+# What an app may reach, as people read it; the rest, such as Wayland, is what
+# every app has.
+PERMISSIONS = {
+    "network": "Network",
+    "x11": "Older display system (X11)",
+    "pulseaudio": "Sound and microphone",
+    "system-bus": "System services",
+    "session-bus": "Other apps' services",
+    "ssh-auth": "SSH keys",
+    "cups": "Printers",
+    "all": "All devices, including cameras",
+    "dri": None,
+    "kvm": "Virtual machines",
+    "shm": None,
+    "ipc": None,
+    "wayland": None,
+    "fallback-x11": None,
+}
+FILES = {"host": "All your files", "host-os": "The system's files", "host-etc": "The system's settings", "home": "Your home folder"}
+
+
+class Failed(Exception):
+    pass
+
+
+def run(*command):
+    """Runs a command; fails with the last line it printed."""
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        lines = (result.stderr or result.stdout).strip().splitlines()
+        raise Failed(lines[-1] if lines else f"{command[0]} failed")
+    return result.stdout
+
+
+def refresh():
+    stamp = APPSTREAM / ".timestamp"
+    if not stamp.exists() or time.time() - stamp.stat().st_mtime > MAX_AGE:
+        run("flatpak", "--user", "remote-add", "--if-not-exists", "flathub", FLATHUB)
+        run("flatpak", "--user", "update", "--appstream", "--noninteractive", "flathub")
+        stamp.touch()
+    return {"done": True}
+
+
+def text_of(component, tag):
+    """The element's text in the default language."""
+    for element in component.findall(tag):
+        if LANG not in element.attrib:
+            return (element.text or "").strip()
+    return ""
+
+
+def description_of(component):
+    for element in component.findall("description"):
+        if LANG in element.attrib:
+            continue
+        lines = []
+        for part in element:
+            if part.tag == "p":
+                lines.append(" ".join("".join(part.itertext()).split()))
+            else:
+                lines += ["• " + " ".join("".join(item.itertext()).split()) for item in part if LANG not in item.attrib]
+        return "\n\n".join(line for line in lines)
+    return ""
+
+
+def screenshots_of(component):
+    """Up to three screenshots: the thumbnail nearest the page's width."""
+    urls = []
+    for shot in component.findall("screenshots/screenshot")[:3]:
+        images = [i for i in shot.findall("image") if i.text]
+        thumbnails = [i for i in images if i.get("type") == "thumbnail" and i.get("width", "").isdigit()]
+        if thumbnails:
+            urls.append(min(thumbnails, key=lambda i: abs(int(i.get("width")) - 620)).text.strip())
+        elif images:
+            urls.append(images[0].text.strip())
+    return urls
+
+
+def entry_of(component):
+    custom = {v.get("key"): v.text for v in component.findall("custom/value")}
+    return {
+        "id": component.findtext("id", "").strip().removesuffix(".desktop"),
+        "name": text_of(component, "name"),
+        "summary": text_of(component, "summary"),
+        "keywords": " ".join(k.text or "" for k in component.findall("keywords/keyword") if LANG not in k.attrib).lower(),
+        "developer": text_of(component, "developer/name") or text_of(component, "developer_name"),
+        "license": text_of(component, "project_license"),
+        "categories": [c.text for c in component.findall("categories/category")],
+        "homepage": next((u.text for u in component.findall("url") if u.get("type") == "homepage"), ""),
+        "verified": custom.get("flathub::verification::verified") == "true",
+        "description": description_of(component),
+        "screenshots": screenshots_of(component),
+    }
+
+
+def catalog():
+    """Flathub's apps by id, read once from each download of them."""
+    source = (APPSTREAM / "active").resolve()
+    try:
+        cached = json.loads(CACHE.read_text())
+        if cached["source"] == str(source) and cached["format"] == FORMAT:
+            return cached["apps"]
+    except (OSError, ValueError, KeyError):
+        pass
+    apps = {}
+    try:
+        with gzip.open(source / "appstream.xml.gz") as data:
+            for _, element in ElementTree.iterparse(data):
+                if element.tag != "component":
+                    continue
+                if element.get("type") in ("desktop-application", "desktop"):
+                    entry = entry_of(element)
+                    if entry["id"] and entry["name"]:
+                        apps[entry["id"]] = entry
+                element.clear()
+    except (OSError, ElementTree.ParseError):
+        raise Failed("The list of apps isn't available yet")
+    CACHE.parent.mkdir(parents=True, exist_ok=True)
+    partial = CACHE.with_suffix(f".{os.getpid()}")
+    partial.write_text(json.dumps({"source": str(source), "format": FORMAT, "apps": apps}))
+    partial.replace(CACHE)
+    return apps
+
+
+def icon_of(app_id):
+    for size in ("128x128", "64x64"):
+        path = APPSTREAM / "active/icons" / size / f"{app_id}.png"
+        if path.exists():
+            return str(path)
+    return ""
+
+
+def brief(entry):
+    """An app, as a list shows it."""
+    return {"id": entry["id"], "name": entry["name"], "summary": entry["summary"], "icon": icon_of(entry["id"])}
+
+
+def default_browser():
+    try:
+        output = run("gio", "mime", "x-scheme-handler/https")
+    except (Failed, OSError):
+        return ""
+    first = output.splitlines()[0] if output else ""
+    return first.rsplit(":", 1)[-1].strip().removesuffix(".desktop") if first.startswith("Default") else ""
+
+
+def installed():
+    columns = "application,name,version,size,installation"
+    output = run("flatpak", "list", "--app", f"--columns={columns}")
+    try:
+        known = catalog()
+    except Failed:
+        known = {}
+    browser = default_browser()
+    apps = []
+    for line in output.splitlines():
+        app_id, name, version, size, installation = (line.split("\t") + [""] * 5)[:5]
+        entry = known.get(app_id, {})
+        apps.append({
+            "id": app_id,
+            "name": entry.get("name") or name,
+            "summary": entry.get("summary", ""),
+            "icon": icon_of(app_id),
+            "version": version,
+            "size": size,
+            # A Flatpak on the whole computer isn't the person's to remove.
+            "removable": installation == "user",
+            "browser": app_id == browser,
+        })
+    apps += [{"id": app_id, "name": name, "summary": summary, "icon": "", "version": "", "size": "",
+              "removable": False, "browser": False, "builtIn": True}
+             for app_id, name, summary in BUILT_IN if Path(f"/usr/share/applications/{app_id}.desktop").exists()]
+    return {"apps": sorted(apps, key=lambda a: a["name"].casefold())}
+
+
+def search(args):
+    """The apps matching, best first; verified ones first among equals."""
+    category = None
+    limit = LIMIT
+    while args and args[0] in ("--category", "--limit"):
+        if args[0] == "--category":
+            category = args[1]
+        else:
+            limit = int(args[1])
+        args = args[2:]
+    words = [word.casefold() for word in args]
+
+    def rank(entry):
+        """How well an app matches, best first, or None."""
+        name = entry["name"].casefold()
+        fields = f"{name} {entry['id'].casefold()} {entry['keywords']} {entry['summary'].casefold()}"
+        if not all(word in fields for word in words):
+            return None
+        phrase = " ".join(words)
+        if name.startswith(phrase):
+            return 0
+        if phrase in name:
+            return 1
+        return 2 if all(word in name or word in entry["keywords"] for word in words) else 3
+
+    ranked = [(rank(entry), entry) for entry in catalog().values() if not category or category in entry["categories"]]
+    matches = sorted(((r, e) for r, e in ranked if r is not None), key=lambda m: (m[0], not m[1]["verified"], m[1]["name"].casefold()))
+    return {"apps": [brief(entry) for _, entry in matches[:limit]], "more": len(matches) > limit}
+
+
+def permissions_of(metadata):
+    """What the app's metadata lets it reach, as people read it."""
+    wanted = []
+    in_context = False
+    for line in metadata.splitlines():
+        if line.startswith("["):
+            in_context = line == "[Context]"
+        elif in_context and "=" in line:
+            kind, values = line.split("=", 1)
+            values = [v for v in values.split(";") if v and not v.startswith("!")]
+            if kind == "filesystems":
+                others = 0
+                for value in values:
+                    name = value.split(":")[0]
+                    if name in FILES:
+                        wanted.append(FILES[name])
+                    else:
+                        others += 1
+                if others:
+                    wanted.append("Some of your folders")
+            elif kind in ("shared", "sockets", "devices"):
+                wanted += [PERMISSIONS.get(value, value) for value in values]
+    return list(dict.fromkeys(w for w in wanted if w))
+
+
+def metadata_of(app_id):
+    for command in (["flatpak", "info", "--show-metadata", app_id],
+                    ["flatpak", "--user", "remote-info", "--show-metadata", "flathub", app_id]):
+        try:
+            return run(*command)
+        except (Failed, OSError):
+            pass
+    return None
+
+
+def details(app_id):
+    try:
+        entry = catalog().get(app_id)
+    except Failed:
+        entry = None
+    entry = dict(entry) if entry else {"id": app_id, "name": "", "summary": "", "developer": "", "license": "",
+                                       "homepage": "", "verified": False, "description": "", "screenshots": []}
+    entry.pop("keywords", None)
+    entry.pop("categories", None)
+    entry["icon"] = icon_of(app_id)
+    metadata = metadata_of(app_id)
+    # None when they couldn't be read: not the same as asking for nothing.
+    entry["permissions"] = None if metadata is None else permissions_of(metadata)
+    return {"app": entry}
+
+
+def main():
+    args = sys.argv[1:]
+    actions = {
+        "refresh": (0, lambda: refresh()),
+        "installed": (0, lambda: installed()),
+        "search": (0, lambda: search(args[1:])),
+        "details": (1, lambda: details(args[1])),
+    }
+    if not args or args[0] not in actions or len(args) - 1 < actions[args[0]][0]:
+        print("usage: app-catalog refresh | installed | search [--category NAME] [--limit COUNT] [TEXT...] | details APP_ID", file=sys.stderr)
+        return 2
+    try:
+        print(json.dumps(actions[args[0]][1]()), flush=True)
+    except (Failed, OSError) as error:
+        print(json.dumps({"error": str(error)}), flush=True)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
