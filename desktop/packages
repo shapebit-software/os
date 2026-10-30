@@ -1,9 +1,12 @@
 # The Fedora packages that the desktop runs on, one per line; the OS image
-# installs them (Containerfile). Hyprland, hypridle, xdg-desktop-portal-hyprland,
-# and Quickshell come from a third-party COPR, which the image enables for this.
+# installs them (Containerfile). Hyprland, its dialogs, hypridle,
+# xdg-desktop-portal-hyprland, and Quickshell come from a third-party COPR, which the image enables for this.
 
 # The compositor, the shell's runtime, and the session.
 hyprland
+# Hyprland's own dialogs, such as when an application stops responding; it warns
+# on the screen without them.
+hyprland-guiutils
 quickshell
 uwsm
 # Idle time, the lock screen, and sleep (shell/Idle.qml).
