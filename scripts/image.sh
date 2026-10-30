@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build a bootable image in two phases: the unsealed system from CONTAINERFILE,
-# then IMAGE, sealed with its signed UKI (Containerfile.seal). Saves the result
+# then IMAGE, sealed with its signed UKI (image/Containerfile.seal). Saves the result
 # as the OCI archive ARCHIVE, which bootc installs from.
 # Usage: image.sh CONTAINERFILE IMAGE ARCHIVE [BUILD_OPTION...]
 #        (called by `make image` and `make installer`; the build options go to
@@ -34,7 +34,7 @@ done
 # the key changes.
 keys_id=$(sha256sum "$KEYS_DIR/$SIGNING_KEY.crt" | cut -d ' ' -f 1)
 
-$ENGINE build --build-arg KEYS_ID="$keys_id" "${secrets[@]}" "$@" -f "$containerfile" -t "$unsealed" .
+$ENGINE build --build-arg KEYS_ID="$keys_id" "${secrets[@]}" "$@" -f "$containerfile" -t "$unsealed" image
 
 # The digest comes from the image as `bootc install` reads it: imported into
 # container storage (an anonymous volume) from an OCI archive.
@@ -49,5 +49,5 @@ digest=$($ENGINE run --rm --privileged \
 [[ $digest =~ ^[0-9a-f]{128}$ ]] || { echo "error: bad composefs digest: $digest" >&2; exit 1; }
 
 $ENGINE build --build-arg UNSEALED="$unsealed" --build-arg COMPOSEFS_DIGEST="$digest" --build-arg KEYS_ID="$keys_id" \
-  "${secrets[@]}" -f Containerfile.seal -t "$image" .
+  "${secrets[@]}" -f image/Containerfile.seal -t "$image" image
 save "$image" "$archive"

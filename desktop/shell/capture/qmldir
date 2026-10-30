@@ -1,0 +1,3 @@
+module qs.capture
+CaptureMarkup CaptureMarkup.qml
+CaptureOverlay CaptureOverlay.qml

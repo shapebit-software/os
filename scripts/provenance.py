@@ -16,6 +16,7 @@ Usage: provenance.py digest IMAGE_TAR                 print an image's digest
        provenance.py medium IMAGE_TAR MEDIUM OUT      record a new medium
        provenance.py disk MEDIUM_RECORD DISK OUT      record a new disk
        provenance.py run KIND PLAN OUTCOME OUT RECORD write a run's provenance
+       provenance.py field RECORD KEY                 print one value of a record
 """
 
 import datetime
@@ -94,6 +95,9 @@ def main(command, *args):
     elif command == "run":
         kind, plan, outcome, out, record = args
         write(out, run_record(plan, outcome, kind, record))
+    elif command == "field":
+        record, key = args
+        print(json.loads(pathlib.Path(record).read_text())[key])
     else:
         sys.exit(__doc__)
 

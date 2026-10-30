@@ -1,0 +1,5 @@
+module qs.dialogs
+FileChooserDialog FileChooserDialog.qml
+QuestionDialog QuestionDialog.qml
+ShortcutsWindow ShortcutsWindow.qml
+Welcome Welcome.qml

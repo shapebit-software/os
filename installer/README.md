@@ -75,7 +75,7 @@ page.
 build/ctl/installerctl --session disks
 ```
 
-To install for real, in a VM, use `make installer-vm` in the image repository.
+To install for real, in a VM, use `make installer-vm` from the repository root.
 
 ## Layout
 

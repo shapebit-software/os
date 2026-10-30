@@ -12,9 +12,13 @@ host_bus := /run/host/run/dbus/system_bus_socket
 
 .PHONY: check run install help
 
+# The shell's folders import each other as qs.<folder>, which qmllint looks up
+# in a directory named qs.
 check: ## Verify the compositor configuration and lint the shell
 	Hyprland --verify-config --config compositor/hyprland.lua
-	qmllint-qt6 --max-warnings 0 --uncreatable-type disable -I shell shell/*.qml
+	lint=$$(mktemp -d); ln -s $(CURDIR)/shell $$lint/qs; \
+	qmllint-qt6 --max-warnings 0 --uncreatable-type disable -I $$lint shell/*.qml shell/*/*.qml; \
+	status=$$?; rm -rf $$lint; exit $$status
 
 # The host session's desktop name is not this one's; Hyprland sets its own.
 # The fonts include the OS image's (fonts.conf). The desktop has a session
@@ -26,7 +30,7 @@ run: ## Run the desktop in a window, inside the current Wayland session
 
 install: ## Install into DESTDIR
 	install -Dm644 -t $(share)/desktop/compositor compositor/*
-	install -Dm644 -t $(share)/desktop/shell shell/*
+	find shell -type f -exec install -Dm644 {} $(share)/desktop/{} \;
 	install -Dm644 -t $(share)/wayland-sessions session/desktop.desktop
 	install -Dm644 session/portals.conf $(share)/xdg-desktop-portal/shapebit-portals.conf
 	install -Dm644 -t $(share)/glib-2.0/schemas session/window-buttons.gschema.override

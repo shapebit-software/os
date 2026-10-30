@@ -1,4 +1,0 @@
-# The image copies only rootfs/ from its build context; the rest, with build/
-# and its keys and disks, stays out.
-*
-!rootfs/

@@ -16,9 +16,8 @@
 
 ## Image
 
-These rules cover the image: the `Containerfile`s, `Makefile`, `rootfs/`,
-`scripts/`, and `tests/`, and any change in `desktop/` or `installer/` that the
-image installs.
+These rules cover the image: `image/`, `Makefile`, `scripts/`, and `tests/`, and
+any change in `desktop/` or `installer/` that the image installs.
 
 - **Verify with `make test`.** A change is done only when it passes; run
   `make test-release` too when it changes what a person sees. Add
@@ -30,7 +29,7 @@ image installs.
 - **Make owns configuration.** Defaults live only in the `Makefile`. Scripts
   read them from the environment and fail fast on missing values
   (`: "${VAR:?}"`).
-- **`rootfs/` mirrors the target filesystem.** Put vendor defaults under `/usr`.
+- **`image/rootfs/` mirrors the target filesystem.** Put vendor defaults under `/usr`.
   `/etc` and `/var` are machine state.
 - **Every behavior gets a check.** See [docs/Testing.md](docs/Testing.md). Image
   content goes in `tests/image/`; the installer medium in `tests/medium/`;

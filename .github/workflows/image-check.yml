@@ -5,10 +5,10 @@ name: Image check
 on:
   push:
     paths:
-      - Containerfile*
+      - image/Containerfile*
   pull_request:
     paths:
-      - Containerfile*
+      - image/Containerfile*
 
 permissions:
   contents: read

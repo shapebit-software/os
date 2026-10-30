@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Push IMAGE to the local update registry, starting the registry if needed.
 # A VM switched to DEV_UPDATE_REF updates from it (tests/update/).
-# Usage: publish.sh [TAG]   TAG instead of DEV_UPDATE_REF's (update-test.sh).
+# Usage: publish.sh [TAG]   TAG instead of DEV_UPDATE_REF's (`make test-update`).
 set -euo pipefail
 : "${ENGINE:?}" "${IMAGE:?}" "${REGISTRY_PORT:?}" "${DEV_UPDATE_REF:?}"
 

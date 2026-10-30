@@ -1,0 +1,13 @@
+module qs.settings
+AppPage AppPage.qml
+AppsPage AppsPage.qml
+ConnectionsPage ConnectionsPage.qml
+DisplayArrangement DisplayArrangement.qml
+ImagePicker ImagePicker.qml
+KeyboardsPage KeyboardsPage.qml
+PasswordPage PasswordPage.qml
+SettingsChoice SettingsChoice.qml
+SettingsRow SettingsRow.qml
+SettingsSelect SettingsSelect.qml
+SettingsWindow SettingsWindow.qml
+ShellEditor ShellEditor.qml

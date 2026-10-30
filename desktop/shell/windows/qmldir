@@ -1,0 +1,9 @@
+module qs.windows
+FullscreenExit FullscreenExit.qml
+LayoutMenu LayoutMenu.qml
+Resizer Resizer.qml
+WindowMenu WindowMenu.qml
+WindowSwitcher WindowSwitcher.qml
+WindowTabs WindowTabs.qml
+WorkspaceMap WorkspaceMap.qml
+Workspaces Workspaces.qml

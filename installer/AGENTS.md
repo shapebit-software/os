@@ -2,7 +2,7 @@
 
 - **Verify with `ctest`.** A change is done only when `ctest --test-dir build`
   passes in the development container, and, for anything the real backend
-  does, when `make test` passes in the image repository.
+  does, when `make test` passes at the repository root.
 - **The backend owns every privileged operation.** The UI is unprivileged and
   reaches the backend only through `interface/installer.xml`. The backend
   builds every command line itself; nothing the frontend sends is executed.
@@ -18,5 +18,5 @@
   nothing built in fits, and say why in a comment.
 - **Every behavior gets a check.** Backend rules go in `tests/tst_backend.cpp`,
   the D-Bus interface in `tests/interface.sh`, pages in `tests/tst_ui.cpp`.
-  Behavior on a real disk is checked by the image repository's tests.
+  Behavior on a real disk is checked by the tests in the root `tests/`.
 - **Name files by function.** No product prefix in file names.

@@ -73,3 +73,10 @@ def test_a_disk_run_names_the_disk_and_what_it_came_from(tmp_path):
 def test_a_kind_it_does_not_know_is_an_error():
     with pytest.raises(ValueError):
         provenance.run_record("system", "passed", kind="vm", disk_record=None)
+
+
+def test_field_prints_one_value_of_a_record(tmp_path, capsys):
+    record = tmp_path / "record.json"
+    record.write_text(json.dumps({"image_digest": "sha256:abc"}))
+    provenance.main("field", str(record), "image_digest")
+    assert capsys.readouterr().out == "sha256:abc\n"

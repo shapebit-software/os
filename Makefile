@@ -71,18 +71,18 @@ dev: ## Enter the development container of the desktop and installer
 	DBX_CONTAINER_MANAGER=docker distrobox enter shapebit-dev
 
 image: $(KEYS) ## Build the container image with its signed UKI
-	scripts/image.sh Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \
+	scripts/image.sh image/Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \
 	  --build-arg FEDORA_VERSION=$(FEDORA_VERSION) --build-arg IMAGE_VERSION=$(IMAGE_VERSION) \
 	  --build-arg IMAGE_REVISION=$(IMAGE_REVISION) \
 	  --build-context desktop=$(DESKTOP_SRC)
 
 test-unit: $(VENV)/.done ## Run isolated unit tests and lint on this host, without a VM
 	$(VENV)/bin/pytest -c tests/pytest.ini --rootdir=tests -p no:cacheprovider tests/unit
-	$(VENV)/bin/python -m pyflakes tests/conftest.py tests/image tests/medium tests/system tests/update tests/host tests/unit tests/openqa/lib scripts/provenance.py scripts/report.py
+	$(VENV)/bin/python -m pyflakes tests/conftest.py tests/image tests/medium tests/system tests/update tests/host tests/unit tests/openqa/lib tests/openqa/run.py scripts/provenance.py scripts/report.py
 	$(VENV)/bin/tmt --root tests lint >/dev/null
 	bash -n scripts/*.sh tests/pytest.sh tests/system/*.sh tests/update/*.sh
 
-static-checks: ## Check the desktop, the installer, and rootfs without building the image; in Fedora, as `make dev`
+static-checks: ## Check the desktop, the installer, and image/rootfs without building the image; in Fedora, as `make dev`
 	scripts/static-checks.sh
 
 check: image $(TEST_DEPS)/.done ## Run checks inside the container image
@@ -92,7 +92,7 @@ publish: image ## Push the image to the local update registry
 	scripts/publish.sh
 
 installer: image ## Build the installer medium, which carries the image
-	scripts/image.sh Containerfile.installer $(INSTALLER_IMAGE) $(BUILD)/installer.tar \
+	scripts/image.sh image/Containerfile.installer $(INSTALLER_IMAGE) $(BUILD)/installer.tar \
 	  --build-arg BASE=$(IMAGE)-unsealed --build-arg UPDATE_REF=$(UPDATE_REF) \
 	  --build-context installer=$(INSTALLER_SRC) --build-context payload=$(BUILD)
 	scripts/medium.sh
@@ -116,10 +116,17 @@ test-plan: $(VENV)/.done $(TEST_DEPS)/.done ## Run one tmt plan on a clone of th
 	scripts/test-machine.sh $(PLAN)
 
 update-builds: $(KEYS) ## Build the two newer images that the update test moves through
-	scripts/update-builds.sh
+	set -e; for tag in next next2; do \
+	  $(MAKE) --no-print-directory image IMAGE="$${IMAGE%:*}:$$tag" \
+	    IMAGE_VERSION=$(IMAGE_VERSION).$$tag IMAGE_ARCHIVE=$(BUILD)/image-$$tag.tar; \
+	done
 
 test-update: disk update-builds $(VENV)/.done $(TEST_DEPS)/.done ## On a disposable clone: update to a new build, then roll back
-	scripts/update-test.sh
+	set -e; for tag in next next2; do \
+	  $(ENGINE) load -q -i $(BUILD)/image-$$tag.tar >/dev/null; \
+	  IMAGE="$${IMAGE%:*}:$$tag" scripts/publish.sh $$tag; \
+	done
+	scripts/test-machine.sh update
 
 test-release: $(SSH_KEY) ## Full OS and UI tests of the built medium itself, with openQA, as it stands
 	scripts/openqa.sh

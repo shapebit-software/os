@@ -41,7 +41,7 @@ while IFS= read -r file; do
     '#!'*bash* | '#!'*/sh*) bash -n "$file" || exit_code=1 ;;
     '#!'*python*) python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' "$file" || exit_code=1 ;;
   esac
-done < <(find rootfs -type f -perm /111)
+done < <(find image/rootfs -type f -perm /111)
 
 # Units parse. Their programs are in rootfs, not on this machine, so only
 # syntax counts here; the image and system checks run them.
@@ -50,5 +50,5 @@ while IFS= read -r unit; do
     echo "error: $unit does not parse" >&2
     exit_code=1
   fi
-done < <(find rootfs -type f \( -name '*.service' -o -name '*.timer' \))
+done < <(find image/rootfs -type f \( -name '*.service' -o -name '*.timer' \))
 exit "$exit_code"

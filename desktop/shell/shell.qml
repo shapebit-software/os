@@ -7,6 +7,15 @@
 // portals show, the window switcher and the list of keyboard shortcuts, and
 // Welcome.
 import Quickshell
+import qs.bar
+import qs.capture
+import qs.dialogs
+import qs.lock
+import qs.notifications
+import qs.services
+import qs.settings
+import qs.wallpaper
+import qs.windows
 
 ShellRoot {
     // hypridle runs from the start (Idle.qml) and locks through the lock

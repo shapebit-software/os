@@ -9,6 +9,7 @@ set -euo pipefail
 : "${BUILD:?}" "${RESULTS:?}" "${DISK:?}" "${DISK_SIZE:?}" "${MEDIUM:?}" "${RECOVERY_KEY:?}" "${OWNER_NAME:?}" "${OWNER_PASSWORD:?}" \
   "${LOCALE:?}" "${KEYBOARD_LAYOUT:?}" "${TIME_ZONE:?}"
 cd "$(dirname "$0")/.."
+source scripts/results.sh
 
 [[ -f $MEDIUM ]] || { echo "error: $MEDIUM not found; run 'make installer'" >&2; exit 1; }
 
@@ -22,14 +23,11 @@ fi
 
 trap 'scripts/vm.sh --stop' EXIT
 scripts/vm.sh --installer --background
-IMAGE_DIGEST=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["image_digest"])' "$MEDIUM.json")
+IMAGE_DIGEST=$(python3 scripts/provenance.py field "$MEDIUM.json" image_digest)
 export IMAGE_DIGEST
-run=$RESULTS/$(date -u +%Y%m%dT%H%M%SZ)-medium
-outcome=failed
-provenance() { python3 scripts/provenance.py run installer-medium medium "$outcome" "$run/provenance.json" "$MEDIUM.json"; }
-scripts/tmt.sh medium "$run" || { provenance; exit 1; }
-outcome=passed
-provenance
+start_run medium
+scripts/tmt.sh medium "$run" || outcome=failed
+finish_run installer-medium medium "$MEDIUM.json"
 
 # The password and the recovery key stay in the VM's memory (/run). The small
 # home leaves the disk to the system.

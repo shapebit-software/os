@@ -108,15 +108,15 @@ distrobox leaves empty, so any password unlocks it. Set one with
 
 `make install DESTDIR=<directory>` installs the files as the image does.
 
-Every QML file in `shell/` must be listed in `shell/qmldir`; Quickshell
-ignores the others.
+Each folder of `shell/` is a QML module, `qs.<folder>`. Every QML file must be
+listed in its folder's `qmldir`, and a file imports the other folders it uses.
 
 ## Layout
 
 | Path          | Purpose                                                                                                                    |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `compositor/` | The Hyprland configuration (Lua): look, key bindings, layouts and resizing (`layouts.lua`), workspaces (`workspaces.lua`). |
-| `shell/`      | The Quickshell configuration (QML): every shell surface.                                                                   |
+| `shell/`      | The Quickshell configuration (QML): `services/` (singletons that hold state), `controls/`, `wallpaper/`, `bar/`, `windows/`, `settings/`, `lock/`, `capture/`, `notifications/`, `dialogs/`. |
 | `session/`    | The session entry that the login screen starts, the session's portals and agents, and the app helpers.                   |
 | `dev/`        | Development only: the session bus of `make run`, and the Portal Tester.                                                    |
 

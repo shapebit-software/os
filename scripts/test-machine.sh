@@ -9,13 +9,14 @@ set -euo pipefail
 : "${BUILD:?}" "${DISK:?}" "${RESULTS:?}" "${TEST_SSH_PORT:?}" "${VENV:?}" "${RECOVERY_KEY:?}"
 plan=$1
 cd "$(dirname "$0")/.."
+source scripts/results.sh
 
 record=$DISK.json
 [[ -f $record ]] || { echo "error: $record not found; run 'make disk'" >&2; exit 1; }
-IMAGE_DIGEST=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["image_digest"])' "$record")
+IMAGE_DIGEST=$(python3 scripts/provenance.py field "$record" image_digest)
 export IMAGE_DIGEST
 
-run=$RESULTS/$(date -u +%Y%m%dT%H%M%SZ)-$plan
+start_run "$plan"
 machine=$run/machine
 mkdir -p "$machine"
 qemu-img create -q -f qcow2 -F raw -b "$(realpath "$DISK")" "$machine/disk.qcow2"
@@ -32,12 +33,9 @@ finish() {
 trap finish EXIT
 scripts/vm.sh --background
 
-outcome=passed
 scripts/tmt.sh "$plan" "$run" || outcome=failed
 if [[ $plan == system ]]; then
   "$VENV/bin/pytest" -c tests/pytest.ini --rootdir=tests -p no:cacheprovider \
     --junitxml="$run/junit-host.xml" tests/host || outcome=failed
 fi
-python3 scripts/provenance.py run installed-disk "$plan" "$outcome" "$run/provenance.json" "$record"
-echo "$outcome: $plan (results in $run)"
-[[ $outcome == passed ]]
+finish_run installed-disk "$plan" "$record"
