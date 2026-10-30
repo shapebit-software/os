@@ -1,0 +1,84 @@
+# Releases a tested candidate: moves os:stable, which installed systems update
+# from, to the image that the Image workflow built and tested for COMMIT,
+# unchanged. With "Publish the installer", also moves os:iso to it and
+# uploads the medium that the same run installed from to Cloudflare R2, as
+# installer.raw.zst, keeping the one before as installer-previous.raw.zst.
+# Runs only by hand, in the environment "Release", which can require a
+# person's approval (Settings > Environments).
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Commit on main whose tested image to release
+        required: true
+      installer:
+        description: Publish the installer
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+  actions: read
+
+env:
+  REPOSITORY: ghcr.io/shapebit-software/os
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    environment: Release
+    steps:
+      - name: Find the Image run that tested the commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          commit=$(gh api "repos/$GITHUB_REPOSITORY/commits/$COMMIT" --jq .sha)
+          run=$(gh run list -R "$GITHUB_REPOSITORY" --workflow image.yml --commit "$commit" --status success \
+            --limit 1 --json databaseId --jq '.[0].databaseId')
+          if [ -z "$run" ]; then echo "::error::No successful Image run for $commit"; exit 1; fi
+          echo "COMMIT=$commit" >>"$GITHUB_ENV"
+          echo "RUN=$run" >>"$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        run: skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin <<<"${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Move os:stable to the candidate
+        run: skopeo copy -q --preserve-digests "docker://$REPOSITORY:sha-$COMMIT" "docker://$REPOSITORY:stable"
+
+      - name: Take the tested medium
+        if: inputs.installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n installer
+          sha256sum installer.raw.zst >installer.raw.zst.sha256
+
+      # The previous medium is copied within R2, without a download; the
+      # checksum goes last, so it never names a file not yet uploaded. The
+      # fixed name changes with each release, so caches keep it 5 minutes.
+      - name: Upload the medium to R2
+        if: inputs.installer
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2: s3://${{ vars.R2_BUCKET }}
+          ENDPOINT: https://${{ vars.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+        run: |
+          s3() { aws s3 --endpoint-url "$ENDPOINT" --only-show-errors "$@"; }
+          for name in installer.raw.zst installer.raw.zst.sha256; do
+            if s3 ls "$R2/$name" >/dev/null; then
+              s3 cp "$R2/$name" "$R2/${name/installer/installer-previous}"
+            fi
+          done
+          version=$(skopeo inspect "docker://$REPOSITORY:sha-$COMMIT" --format '{{index .Labels "org.opencontainers.image.version"}}')
+          s3 cp installer.raw.zst "$R2/installer.raw.zst" --cache-control max-age=300 --metadata "version=$version"
+          s3 cp installer.raw.zst.sha256 "$R2/installer.raw.zst.sha256" --cache-control max-age=300
+
+      - name: Move os:iso to the candidate
+        if: inputs.installer
+        run: skopeo copy -q --preserve-digests "docker://$REPOSITORY:sha-$COMMIT" "docker://$REPOSITORY:iso"
