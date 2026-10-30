@@ -1,0 +1,51 @@
+#!/usr/bin/python3
+# Removes, for Settings > Apps (shell/Apps.qml), an app from the person's own
+# Flatpak installation, with its data if asked, and then the runtimes that
+# nothing uses anymore.
+# Usage: app-remove APP_ID [--delete-data]
+#
+# To the shell, one JSON line at a time: {"step": text}, then {"done": app id}
+# or {"error": text}, as app-install.
+import json
+import subprocess
+import sys
+
+
+class Failed(Exception):
+    pass
+
+
+def say(**message):
+    print(json.dumps(message), flush=True)
+
+
+def flatpak(*args):
+    """Runs Flatpak; fails with the last line it printed."""
+    result = subprocess.run(["flatpak", "--user", "uninstall", "--noninteractive", *args], capture_output=True, text=True)
+    if result.returncode != 0:
+        lines = (result.stderr or result.stdout).strip().splitlines()
+        raise Failed(lines[-1] if lines else "flatpak failed")
+
+
+def main():
+    args = sys.argv[1:]
+    if not args or args[1:] not in ([], ["--delete-data"]):
+        print("usage: app-remove APP_ID [--delete-data]", file=sys.stderr)
+        return 2
+    try:
+        say(step="Removing")
+        flatpak(*args[1:], args[0])
+        # The app is gone either way; what is left only takes up room.
+        try:
+            flatpak("--unused")
+        except Failed:
+            pass
+        say(done=args[0])
+    except (Failed, OSError) as error:
+        say(error=str(error))
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

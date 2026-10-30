@@ -1,0 +1,408 @@
+#!/usr/bin/python3
+# The connection agent, which the shell runs (shell/Connectivity.qml) and talks
+# to over its standard input and output, one JSON line at a time. It joins
+# Wi-Fi networks with the password the person types in the network panel and
+# pairs Bluetooth devices, which Quickshell cannot; and it is NetworkManager's
+# secret agent and BlueZ's pairing agent, so that what they ask the person, a
+# network's password again or a device's pairing code, the shell asks
+# (QuestionDialog.qml).
+#
+# From the shell: {"join": ssid, "password": text}, {"pair": device path},
+# and answers, {"answer": id, "granted": bool, "fields": {id: text}}.
+# To the shell: questions, {"ask": id, "kind": ..., "title": ..., ...}, and
+# their withdrawal, {"cancel": id}; and what came of joining and pairing,
+# {"event": "join" or "pair", "target": ssid or path, "ok": bool, "reason": text}.
+#
+# In development (DESKTOP_SHELL set, make run), the host's own agents stay
+# NetworkManager's and BlueZ's default: this one only answers for what the
+# shell starts itself.
+import itertools
+import json
+import os
+import sys
+
+from gi.repository import Gio, GLib
+
+DEVELOPMENT = "DESKTOP_SHELL" in os.environ
+NM = "org.freedesktop.NetworkManager"
+NM_PATH = "/org/freedesktop/NetworkManager"
+NM_AGENT = "org.freedesktop.NetworkManager.SecretAgent"
+BLUEZ = "org.bluez"
+AGENT_PATH = "/org/freedesktop/NetworkManager/SecretAgent"
+BLUEZ_AGENT_PATH = "/desktop/agent"
+PROPERTIES = "org.freedesktop.DBus.Properties"
+
+# NetworkManager's secret flags, its access point security flags, and the
+# states of an active connection.
+ALLOW_INTERACTION, REQUEST_NEW = 0x1, 0x2
+AP_PRIVACY, KEY_MGMT_PSK, KEY_MGMT_802_1X, KEY_MGMT_SAE = 0x1, 0x100, 0x200, 0x400
+ACTIVATED, DEACTIVATED = 2, 4
+# Why an activation failed, as the person reads it.
+REASONS = {9: "Wrong password", 10: "Wrong password", 5: "Network not found", 6: "Timed out"}
+
+INTERFACES = {i.name: i for i in Gio.DBusNodeInfo.new_for_xml("""
+<node>
+  <interface name="org.freedesktop.NetworkManager.SecretAgent">
+    <method name="GetSecrets">
+      <arg type="a{sa{sv}}" direction="in"/><arg type="o" direction="in"/><arg type="s" direction="in"/>
+      <arg type="as" direction="in"/><arg type="u" direction="in"/><arg type="a{sa{sv}}" direction="out"/>
+    </method>
+    <method name="CancelGetSecrets"><arg type="o" direction="in"/><arg type="s" direction="in"/></method>
+    <method name="SaveSecrets"><arg type="a{sa{sv}}" direction="in"/><arg type="o" direction="in"/></method>
+    <method name="DeleteSecrets"><arg type="a{sa{sv}}" direction="in"/><arg type="o" direction="in"/></method>
+  </interface>
+  <interface name="org.bluez.Agent1">
+    <method name="Release"/>
+    <method name="RequestPinCode"><arg type="o" direction="in"/><arg type="s" direction="out"/></method>
+    <method name="DisplayPinCode"><arg type="o" direction="in"/><arg type="s" direction="in"/></method>
+    <method name="RequestPasskey"><arg type="o" direction="in"/><arg type="u" direction="out"/></method>
+    <method name="DisplayPasskey"><arg type="o" direction="in"/><arg type="u" direction="in"/><arg type="q" direction="in"/></method>
+    <method name="RequestConfirmation"><arg type="o" direction="in"/><arg type="u" direction="in"/></method>
+    <method name="RequestAuthorization"><arg type="o" direction="in"/></method>
+    <method name="AuthorizeService"><arg type="o" direction="in"/><arg type="s" direction="in"/></method>
+    <method name="Cancel"/>
+  </interface>
+</node>
+""").interfaces}
+
+system = Gio.bus_get_sync(Gio.BusType.SYSTEM)
+ids = itertools.count(1)
+# The open questions: what to do with each answer, by id.
+asked = {}
+
+
+def tell(message):
+    print(json.dumps(message), flush=True)
+
+
+def ask(question, answered):
+    """Asks the shell; `answered` gets the answer, or None if the question
+    was dismissed or withdrawn."""
+    id_ = next(ids)
+    asked[id_] = answered
+    tell({"ask": id_, **question})
+    return id_
+
+
+def withdraw(id_):
+    if asked.pop(id_, None):
+        tell({"cancel": id_})
+
+
+def heard(message):
+    if "answer" in message:
+        answered = asked.pop(message["answer"], None)
+        if answered:
+            answered(message if message.get("granted") else None)
+    elif "join" in message:
+        join(message["join"], message.get("password", ""))
+    elif "pair" in message:
+        pair(message["pair"])
+
+
+def call(name, path, interface, method, parameters, reply, done, timeout=-1):
+    """Calls a system service; `done` gets the reply, or the error."""
+    def finished(bus, result):
+        try:
+            done(bus.call_finish(result), None)
+        except GLib.Error as error:
+            done(None, error)
+
+    system.call(name, path, interface, method, parameters, GLib.VariantType(reply) if reply else None,
+                Gio.DBusCallFlags.NONE, timeout, None, finished)
+
+
+def get(name, path, interface, prop):
+    try:
+        return system.call_sync(name, path, PROPERTIES, "Get", GLib.Variant("(ss)", (interface, prop)),
+                                GLib.VariantType("(v)"), Gio.DBusCallFlags.NONE, 2000, None).unpack()[0]
+    except GLib.Error:
+        return None
+
+
+# Wi-Fi.
+
+def join(ssid, password):
+    """Joins a network with its password: a new connection, which goes if it
+    does not come up."""
+    def failed(reason):
+        tell({"event": "join", "target": ssid, "ok": False, "reason": reason})
+
+    device, point = strongest_access_point(ssid)
+    if not point:
+        failed("Network not found")
+        return
+    rsn, wpa = get(NM, point, NM + ".AccessPoint", "RsnFlags") or 0, get(NM, point, NM + ".AccessPoint", "WpaFlags") or 0
+    flags = get(NM, point, NM + ".AccessPoint", "Flags") or 0
+    security = {}
+    if (rsn | wpa) & KEY_MGMT_PSK:
+        security = {"key-mgmt": GLib.Variant("s", "wpa-psk"), "psk": GLib.Variant("s", password)}
+    elif rsn & KEY_MGMT_SAE:
+        security = {"key-mgmt": GLib.Variant("s", "sae"), "psk": GLib.Variant("s", password)}
+    elif (rsn | wpa) & KEY_MGMT_802_1X:
+        failed("Enterprise networks are not supported yet")
+        return
+    elif flags & AP_PRIVACY:
+        security = {"key-mgmt": GLib.Variant("s", "none"), "wep-key0": GLib.Variant("s", password),
+                    "wep-key-type": GLib.Variant("u", 2)}
+    settings = {
+        "connection": {"type": GLib.Variant("s", "802-11-wireless"), "id": GLib.Variant("s", ssid)},
+        "802-11-wireless": {"ssid": GLib.Variant("ay", ssid.encode()), "mode": GLib.Variant("s", "infrastructure")},
+    }
+    if security:
+        settings["802-11-wireless-security"] = security
+
+    def added(reply, error):
+        if error:
+            failed(error.message)
+            return
+        connection, active = reply.unpack()
+        watch_activation(ssid, connection, active)
+
+    call(NM, NM_PATH, NM, "AddAndActivateConnection", GLib.Variant("(a{sa{sv}}oo)", (settings, device, point)),
+         "(oo)", added)
+
+
+def strongest_access_point(ssid):
+    """The Wi-Fi device and its strongest access point of the network."""
+    try:
+        (devices,) = system.call_sync(NM, NM_PATH, NM, "GetDevices", None, GLib.VariantType("(ao)"),
+                                      Gio.DBusCallFlags.NONE, 2000, None).unpack()
+    except GLib.Error:
+        return None, None
+    found = []
+    for device in devices:
+        if get(NM, device, NM + ".Device", "DeviceType") != 2:
+            continue
+        for point in get(NM, device, NM + ".Device.Wireless", "AccessPoints") or []:
+            if bytes(get(NM, point, NM + ".AccessPoint", "Ssid") or b"").decode(errors="replace") == ssid:
+                found.append((get(NM, point, NM + ".AccessPoint", "Strength") or 0, device, point))
+    if not found:
+        return None, None
+    _, device, point = max(found)
+    return device, point
+
+
+def watch_activation(ssid, connection, active):
+    """Tells the shell whether the network came up; a connection that did not
+    goes, so a wrong password is not kept."""
+    done = []
+
+    def finish(ok, reason=0):
+        if done:
+            return
+        done.append(True)
+        system.signal_unsubscribe(subscription)
+        if not ok:
+            call(NM, connection, NM + ".Settings.Connection", "Delete", None, None, lambda *_: None)
+        tell({"event": "join", "target": ssid, "ok": ok, "reason": "" if ok else REASONS.get(reason, "Could not connect")})
+
+    def changed(bus, sender, path, interface, signal, parameters):
+        state, reason = parameters.unpack()
+        if state == ACTIVATED:
+            finish(True)
+        elif state == DEACTIVATED:
+            finish(False, reason)
+
+    subscription = system.signal_subscribe(NM, NM + ".Connection.Active", "StateChanged", active, None,
+                                           Gio.DBusSignalFlags.NONE, changed)
+    state = get(NM, active, NM + ".Connection.Active", "State")
+    if state == ACTIVATED:
+        finish(True)
+    elif state is None or state == DEACTIVATED:
+        finish(False)
+
+
+# NetworkManager's secret agent: a network's password, asked again when it
+# does not work or was never kept.
+pending_secrets = {}
+
+
+def get_secrets(invocation, connection, path, setting, flags):
+    if not flags & ALLOW_INTERACTION or setting not in ("802-11-wireless-security", "802-1x"):
+        invocation.return_dbus_error(NM_AGENT + ".NoSecrets", "Nothing to ask")
+        return
+    ssid = bytes(connection.get("802-11-wireless", {}).get("ssid", b"")).decode(errors="replace") \
+        or connection.get("connection", {}).get("id", "")
+    security = connection.get("802-11-wireless-security", {})
+    if setting == "802-1x":
+        fields = [{"id": "identity", "label": "User name", "value": connection.get("802-1x", {}).get("identity", "")},
+                  {"id": "password", "label": "Password", "secret": True}]
+    else:
+        fields = [{"id": "password", "label": "Password", "secret": True}]
+    question = {
+        "kind": "secret",
+        "icon": "network-wireless",
+        "title": f"Password for “{ssid}”",
+        "subtitle": "The password did not work. Type it again." if flags & REQUEST_NEW
+        else "The network needs its password.",
+        "fields": fields,
+        "grant": "Join",
+        "deny": "Cancel",
+    }
+
+    def answered(answer):
+        pending_secrets.pop((path, setting), None)
+        if answer is None:
+            invocation.return_dbus_error(NM_AGENT + ".UserCanceled", "The person cancelled")
+            return
+        typed = answer.get("fields", {})
+        if setting == "802-1x":
+            secrets = {"identity": GLib.Variant("s", typed.get("identity", "")),
+                       "password": GLib.Variant("s", typed.get("password", ""))}
+        elif security.get("key-mgmt") == "none":
+            secrets = {"wep-key0": GLib.Variant("s", typed.get("password", ""))}
+        else:
+            secrets = {"psk": GLib.Variant("s", typed.get("password", ""))}
+        invocation.return_value(GLib.Variant("(a{sa{sv}})", ({setting: secrets},)))
+
+    pending_secrets[(path, setting)] = ask(question, answered)
+
+
+def on_secret_agent(connection, sender, path, interface, method, parameters, invocation):
+    if method == "GetSecrets":
+        settings, connection_path, setting, _, flags = parameters.unpack()
+        get_secrets(invocation, settings, connection_path, setting, flags)
+        return
+    if method == "CancelGetSecrets":
+        id_ = pending_secrets.get(parameters.unpack())
+        answered = asked.get(id_)
+        withdraw(id_)
+        if answered:
+            answered(None)
+    invocation.return_value(None)
+
+
+def register_secret_agent(*_):
+    call(NM, NM_PATH + "/AgentManager", NM + ".AgentManager", "RegisterWithCapabilities",
+         GLib.Variant("(su)", ("desktop.connection-agent", 0)), None, lambda *_: None)
+
+
+# Bluetooth: pairing, which this agent does so that BlueZ asks it, and
+# BlueZ's pairing agent. The questions BlueZ asked, and the codes shown, by
+# device.
+bluez_questions = set()
+showing = {}
+
+
+def device_name(path):
+    return get(BLUEZ, path, "org.bluez.Device1", "Alias") or "the device"
+
+
+def pair(path):
+    def done(ok, reason=""):
+        withdraw(showing.pop(path, None))
+        tell({"event": "pair", "target": path, "ok": ok, "reason": reason})
+
+    def connected(reply, error):
+        done(True)
+
+    def paired(reply, error):
+        if error and "AlreadyExists" not in (Gio.DBusError.get_remote_error(error) or ""):
+            done(False, "Pairing failed" if "AuthenticationFailed" in error.message else error.message)
+            return
+        system.call(BLUEZ, path, PROPERTIES, "Set", GLib.Variant("(ssv)", ("org.bluez.Device1", "Trusted",
+                    GLib.Variant("b", True))), None, Gio.DBusCallFlags.NONE, -1, None, None)
+        call(BLUEZ, path, "org.bluez.Device1", "Connect", None, None, connected)
+
+    call(BLUEZ, path, "org.bluez.Device1", "Pair", None, None, paired, timeout=120000)
+
+
+def confirm(invocation, question, reply=None):
+    """Asks; BlueZ gets `reply` of the answer if granted, otherwise it is
+    told the person refused."""
+    def answered(answer):
+        if answer is None:
+            invocation.return_dbus_error("org.bluez.Error.Rejected", "The person refused")
+        else:
+            invocation.return_value(reply(answer) if reply else None)
+
+    bluez_questions.add(ask({"kind": "pairing", "icon": "bluetooth", "deny": "Cancel", **question}, answered))
+
+
+def on_bluez_agent(connection, sender, path, interface, method, parameters, invocation):
+    args = parameters.unpack()
+    name = device_name(args[0]) if args else ""
+    if method == "RequestConfirmation":
+        confirm(invocation, {"title": f"Pair with {name}?", "subtitle": "Check that it shows the same code.",
+                             "code": f"{args[1]:06d}", "grant": "Pair"})
+    elif method == "RequestAuthorization":
+        confirm(invocation, {"title": f"Pair with {name}?", "grant": "Pair"})
+    elif method == "RequestPinCode":
+        confirm(invocation, {"title": f"PIN for {name}", "subtitle": "Type the PIN the device shows or came with.",
+                             "fields": [{"id": "pin", "label": "PIN"}], "grant": "Pair"},
+                lambda answer: GLib.Variant("(s)", (answer["fields"].get("pin", ""),)))
+    elif method == "RequestPasskey":
+        confirm(invocation, {"title": f"Passkey for {name}", "subtitle": "Type the six digits the device shows.",
+                             "fields": [{"id": "passkey", "label": "Passkey"}], "grant": "Pair"},
+                lambda answer: GLib.Variant("(u)", (int("0" + "".join(c for c in answer["fields"].get("passkey", "")
+                                                                       if c.isdigit())[:6]),)))
+    elif method in ("DisplayPinCode", "DisplayPasskey"):
+        code = args[1] if method == "DisplayPinCode" else f"{args[1]:06d}"
+        if args[0] not in showing:
+            showing[args[0]] = ask({"kind": "pairing", "icon": "bluetooth", "title": f"Pair with {name}",
+                                    "subtitle": "Type this code on the device, then Enter.", "code": code,
+                                    "deny": "Cancel"}, lambda answer: cancel_pairing(args[0]))
+        invocation.return_value(None)
+    elif method == "AuthorizeService":
+        # Paired devices may use their services; BlueZ asks only for those
+        # not trusted.
+        if get(BLUEZ, args[0], "org.bluez.Device1", "Paired"):
+            invocation.return_value(None)
+        else:
+            invocation.return_dbus_error("org.bluez.Error.Rejected", "Not paired")
+    else:
+        # Cancel or Release: BlueZ gave up on what it asked.
+        for id_ in bluez_questions & set(asked):
+            answered = asked[id_]
+            withdraw(id_)
+            answered(None)
+        bluez_questions.clear()
+        for id_ in showing.values():
+            withdraw(id_)
+        showing.clear()
+        invocation.return_value(None)
+
+
+def cancel_pairing(path):
+    showing.pop(path, None)
+    call(BLUEZ, path, "org.bluez.Device1", "CancelPairing", None, None, lambda *_: None)
+
+
+def register_bluez_agent(*_):
+    def registered(reply, error):
+        if not error and not DEVELOPMENT:
+            call(BLUEZ, "/org/bluez", "org.bluez.AgentManager1", "RequestDefaultAgent",
+                 GLib.Variant("(o)", (BLUEZ_AGENT_PATH,)), None, lambda *_: None)
+
+    call(BLUEZ, "/org/bluez", "org.bluez.AgentManager1", "RegisterAgent",
+         GLib.Variant("(os)", (BLUEZ_AGENT_PATH, "KeyboardDisplay")), None, registered)
+
+
+def read(lines):
+    def line_read(lines, result):
+        try:
+            line, _ = lines.read_line_finish_utf8(result)
+        except GLib.Error:
+            line = None
+        if line is None:
+            # The shell has gone.
+            loop.quit()
+            return
+        try:
+            heard(json.loads(line))
+        except (ValueError, KeyError, TypeError) as error:
+            print(f"connection-agent: {error}", file=sys.stderr)
+        read(lines)
+
+    lines.read_line_async(GLib.PRIORITY_DEFAULT, None, line_read)
+
+
+system.register_object_with_closures2(BLUEZ_AGENT_PATH, INTERFACES["org.bluez.Agent1"], on_bluez_agent, None, None)
+Gio.bus_watch_name_on_connection(system, BLUEZ, Gio.BusNameWatcherFlags.NONE, register_bluez_agent, None)
+if not DEVELOPMENT:
+    system.register_object_with_closures2(AGENT_PATH, INTERFACES[NM_AGENT], on_secret_agent, None, None)
+    Gio.bus_watch_name_on_connection(system, NM, Gio.BusNameWatcherFlags.NONE, register_secret_agent, None)
+read(Gio.DataInputStream.new(Gio.UnixInputStream.new(0, False)))
+loop = GLib.MainLoop()
+loop.run()
