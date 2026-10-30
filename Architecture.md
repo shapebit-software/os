@@ -9,7 +9,7 @@ ShapeBit OS is an image-based Linux desktop operating system built on Fedora.
 - [Installation](Architecture-Installation) — installer capabilities, disk
   selection, credential handling, and installation verification.
 - [System Lifecycle](Architecture-Lifecycle) — signing, boot trust, release
-  identity, channels, updates, rollback, and release withdrawal.
+  identity, channels, distribution, updates, rollback, and release withdrawal.
 - [Security](Architecture-Security) — disk encryption and the TPM unlock
   policy.
 - [Recovery](Architecture-Recovery) — the recovery key and when it is needed.

@@ -10,7 +10,6 @@ versions, and they update and roll back together with the OS:
 
 - **Settings**
 - **Files** (Nautilus, Fedora's RPM: GNOME publishes no Flatpak of it)
-- **Apps**
 - **Diagnostics**
 
 Each one has a defined scope, so it is clear which app owns a given task:
@@ -21,7 +20,8 @@ Each one has a defined scope, so it is clear which app owns a given task:
   configuration.
 - The shell (not an app) owns screenshots and screen recording.
 
-Settings is part of the shell. Apps and Diagnostics are not built yet.
+Settings is part of the shell, and installing and removing apps is its **Apps**
+section ([below](#installing-apps)). Diagnostics is not built yet.
 
 ## Recommended Apps
 
@@ -44,14 +44,24 @@ for media, and browsers are installed separately.
 ## Installing Apps
 
 The image ships Flatpak, with Flathub as its system-wide remote, which
-Flatpak adds by itself on first use. The Apps installer below is not built
-yet.
+Flatpak adds by itself on first use.
 
-The Apps installer shows exactly two sources:
+**Settings > Apps** ([Desktop](Architecture-Desktop#settings)) is a store that
+opens on all apps, verified ones first, with a search and categories, and can
+show only the installed. It installs and removes them in the person's own
+Flatpak installation. It is drawn by the shell; separate helper
+programs do the work, so a failure there can't take the shell down. Searches
+run on Flathub's catalogue as Flatpak downloads it, on the computer, so what
+someone looks for isn't sent anywhere; an app's screenshots come from Flathub
+when its details open.
+
+Apps is to show exactly two sources; today it shows Flathub:
 
 - **Flathub**, for third-party applications.
 - The **OS repository**, for apps and integration packages that
-  OS itself builds and maintains.
+  OS itself builds and maintains. It is to be built with AetherPak
+  ([Distribution](Architecture-Lifecycle#distribution)); it doesn't exist
+  yet.
 
 The OS repository may contain own binaries, but it never
 stores, mirrors, or redistributes a third party's binaries — those always
@@ -60,10 +70,8 @@ come from Flathub or the vendor directly.
 Adding other Flatpak remotes is possible, but it is an advanced, per-user
 option that most users won't need.
 
-**Recommendations** is a manually curated, signed list maintained by
-OS. Nothing outside the OS image's built-in apps is preinstalled — every
-recommended app still has to be installed. Until the Apps installer exists,
-Welcome's recommended apps are the list.
+Removing an app asks first and keeps its data unless told to delete it, and
+then removes the runtimes nothing uses anymore. Built-in apps can't be removed.
 
 ### Internet Browsers
 
@@ -82,19 +90,17 @@ their default.
 
 How each browser is packaged:
 
-- **Chrome** — Google's official RPM, downloaded directly from Google,
-  checked against Google's signing key, and wrapped locally as a per-user
-  Flatpak on Fedora's Flatpak runtime. Its sandbox runs through zypak, which
-  the OS image builds from source. A daily check rebuilds it when Google
-  publishes a new release or the image moves to a new Fedora version.
+- **Chrome** — Flathub's package, which downloads Google's official
+  package from Google when it installs and checks it against the checksum
+  that the package pins. Flathub, not Google, maintains it.
 - **Chromium** — Fedora's official Flatpak, from Fedora's registry
   (registry.fedoraproject.org), built by Fedora from its own packages.
 - **Firefox** and **GNOME Web** — installed from their regular Flathub
   packages.
 
-Chrome and Chromium add Fedora's registry, and Chrome also a local
-repository, to that user's Flatpak remotes, only for the browser; the Apps
-installer doesn't show them as sources.
+Chromium adds Fedora's registry to that user's Flatpak remotes, only for the
+browser; Settings > Apps lists it once installed but doesn't offer it. A daily check
+updates every app a user installed, the browser included.
 
 ## Portable Apps (AppImage)
 

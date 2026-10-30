@@ -149,6 +149,45 @@ mixed, even when each one is individually valid.
 - Promoting a release to `stable` is a deliberate decision, not something
   that happens automatically just because CI passed.
 
+### Developer Preview
+
+Until production signing exists, every image is signed with one development
+key, which fills Secure Boot's PK, KEK, and db and signs the UKI and its PCR
+values, and the OS is a rolling release: an image has no release line, only
+its build: `IMAGE_VERSION` in `os-release` is the build date and the
+monorepo commit, such as `20261030_e0920a`. Images are published to
+`ghcr.io/shapebit-software/os` with these tags:
+
+| Tag            | Set by                                    | What it holds                                  |
+|----------------|-------------------------------------------|------------------------------------------------|
+| `sha-<commit>` | CI, for each commit on `main` and weekly  | A candidate                                    |
+| `dev`          | CI, once the candidate passed its tests   | The latest tested build                        |
+| `stable`       | The Release workflow, started by a person | What installed systems update from             |
+| `iso`          | The Release workflow, when it publishes the installer medium | The image the current medium installs |
+
+CI installs each candidate from its installer medium in a VM and checks the
+installed system and an update before it moves `dev`. The Release workflow
+moves `stable`, and `iso` with it when asked, to a tested candidate
+unchanged, and publishes the medium that the same run installed from:
+`installer.raw.zst`, with the medium before it kept as
+`installer-previous.raw.zst`.
+
+## Distribution
+
+Where each kind of software is published, so that it needs no servers of
+ShapeBit's own:
+
+| What | Where | State |
+|------|-------|-------|
+| OS images | GHCR, `ghcr.io/shapebit-software/os`, with the tags in [Developer Preview](#developer-preview) | Built: the Image and Release workflows of the [monorepo](https://github.com/shapebit-software/os) |
+| Installer medium | Cloudflare R2, at a fixed name for the website to link to, at most two media: `installer.raw.zst` and `installer-previous.raw.zst` | The Release workflow uploads it; the bucket and its domain are not set up yet |
+| ShapeBit's own apps | A Flatpak repository of ShapeBit's own (the OS repository of [Applications](Architecture-Applications#installing-apps)), built with [AetherPak](https://github.com/aetherpak/actions): apps as OCI images on GHCR, their index on GitHub Pages | Decided; not built, as there are no such apps yet |
+| ShapeBit's own RPMs | None: the image installs ShapeBit's components directly, and the image's version is theirs | Decided. If something outside the image ever needs them, a signed repository built by GitHub Actions on GitHub Pages |
+
+Third-party software comes from Fedora's repositories (into the image) and
+from Flathub and Fedora's Flatpaks (onto the computer); ShapeBit does not
+mirror it.
+
 ## System Updates
 
 ### Update Pipeline
@@ -171,6 +210,18 @@ The OS never makes a downloaded release bootable until it has verified
 the signed manifest, the artifact identities, the UKI, the rootfs
 binding, and TPM authorization. Updates never force the user to end an
 active desktop session.
+
+### Checking for Updates
+
+Installed systems follow `stable`. `os-update` checks it soon after boot and
+then every 6 hours, but not on a metered connection unless the user asks
+with **Check now** in Settings. It downloads a new image and stages it; the
+next restart or shutdown installs it, and it never restarts by itself. Its
+state, for the desktop, is in `/run/os-update/status.json`.
+
+Until the release manifest and image signatures exist, an update is accepted
+by its registry and tag alone; the staged UKI is still checked by Secure
+Boot when it boots.
 
 ### Trial Boot, Rollback, and Health
 
