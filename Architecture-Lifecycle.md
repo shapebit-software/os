@@ -69,11 +69,20 @@ A few things worth knowing about this chain:
 
 ### Development
 
-Development machines boot through a separate, disposable chain instead:
+Until ShapeBit's own shim is signed, machines boot through Fedora's shim,
+which Microsoft signed, and keep their factory keys:
 
 ```
-OVMF → ShapeBit Dev CA → dev-signed UKI
+UEFI Secure Boot
+  → Fedora's shim
+  → dev-signed systemd-boot
+  → dev-signed UKI
 ```
+
+Shim trusts the development key only once a person enrolls its certificate as
+a Machine Owner Key: the first boot of the installer medium stops at shim's
+MOK manager, once per machine, and needs no password. Moving to ShapeBit's own
+shim is the path to no such step.
 
 ## Release Identity
 
@@ -151,10 +160,8 @@ mixed, even when each one is individually valid.
 
 ### Developer Preview
 
-Until production signing exists, every image is signed with one development
-key, which fills Secure Boot's PK, KEK, and db and signs the UKI and its PCR
-values, and the OS is a rolling release: an image has no release line, only
-its build: `IMAGE_VERSION` in `os-release` is the build date and the
+The OS is a rolling release: an image has no release line, only its build:
+`IMAGE_VERSION` in `os-release` is the build date and the
 monorepo commit, such as `20261030_e0920a`. Images are published to
 `ghcr.io/shapebit-software/os` with these tags:
 
@@ -171,6 +178,62 @@ moves `stable`, and `iso` with it when asked, to a tested candidate
 unchanged, and publishes the medium that the same run installed from:
 `installer.raw.zst`, with the medium before it kept as
 `installer-previous.raw.zst`.
+
+#### Signing Keys
+
+Each key signs systemd-boot, the UKI, and its PCR values. Two keys are used
+until the production hierarchy above exists:
+
+| Key           | Certificate name       | CI secret             | Readable by                 | State |
+|---------------|------------------------|-----------------------|-----------------------------|-------|
+| `dev.key`     | `ShapeBit Development` | `DEV_SIGNING_KEY`     | Every Image workflow run    | In use: it signs every image today, `stable` included |
+| `release.key` | `ShapeBit`             | `RELEASE_SIGNING_KEY` | Only approved release jobs  | Decided; not created yet |
+
+The release key must exist before anyone outside ShapeBit's test machines
+installs, because machines that enrolled the development key would need to
+enroll the release key too. With it, the Release workflow will build the chosen
+commit with the release key after a person approves, and test that build,
+before moving `stable`; the same key will then also sign the release image.
+Builds never generate the release key.
+
+Both keys are GitHub secrets for now, so they differ in who can read them, not
+in how strongly they are stored. Whoever can approve a release can ship code to
+every machine, so the safety of the approver's account matters as much as the
+key's.
+
+#### Path to a Public Release
+
+These steps are planned; none is done yet.
+
+Before anyone outside ShapeBit's test machines installs:
+
+- Create the release key, with an offline backup, and change the Release
+  workflow to build, sign, and test as described above.
+- Require a hardware security key or passkey for everyone in the GitHub
+  organization.
+- Protect `main`, and restrict the `Release` environment to `main`, with a
+  required reviewer.
+- Pin every action in the workflows to a commit, and give the signing key only
+  to the steps that sign.
+- Sign release images, with machines refusing any others.
+- Let updates replace shim, so that a revoked shim does not stop machines from
+  booting.
+
+Before a public release:
+
+- Move the release key to hardware-backed signing, so that the private key never
+  reaches a CI runner.
+- Replace the third-party Hyprland repository, whose packages the release key
+  would otherwise vouch for, with Fedora's packages or ShapeBit's own builds.
+- Get ShapeBit's own shim reviewed and signed by Microsoft, so that a PC with its
+  factory keys boots without the MOK step, and migrate machines to it by an
+  update, including their TPM enrollment.
+- Have a shim signed with Microsoft's 2023 certificate, which newer PCs may
+  trust alone.
+- Test on a range of real PCs.
+
+The production key hierarchy above, with its offline root, follows as the project
+and its release process grow.
 
 ## Distribution
 
