@@ -165,19 +165,23 @@ The OS is a rolling release: an image has no release line, only its build:
 monorepo commit, such as `20261030_e0920a`. Images are published to
 `ghcr.io/shapebit-software/os` with these tags:
 
-| Tag            | Set by                                    | What it holds                                  |
-|----------------|-------------------------------------------|------------------------------------------------|
-| `sha-<commit>` | CI, for each commit on `main` and weekly  | A candidate                                    |
-| `dev`          | CI, once the candidate passed its tests   | The latest tested build                        |
-| `stable`       | The Release workflow, started by a person | What installed systems update from             |
-| `iso`          | The Release workflow, when it publishes the installer medium | The image the current medium installs |
+| Tag               | Set by                                    | What it holds                                  |
+|-------------------|-------------------------------------------|------------------------------------------------|
+| `candidate`       | The Weekly workflow, once every test passed | The latest build that passed every test      |
+| `stable`          | The Release workflow, started by a person | What installed systems update from             |
+| `stable-previous` | The Release workflow                      | The release before, for undoing a release      |
+| `iso`             | The Release workflow, when it publishes the installer medium | The image the current medium installs |
 
-CI installs each candidate from its installer medium in a VM and checks the
-installed system and an update before it moves `dev`. The Release workflow
-moves `stable`, and `iso` with it when asked, to a tested candidate
-unchanged, and publishes the medium that the same run installed from:
+The Weekly workflow builds an image each week, or when started by hand, with no
+build cache, so that it picks up Fedora's updates. It tests the image and its
+medium fully ([Testing](Testing)), and publishes it as `candidate` only if every
+test passes, with a report of the commits and packages changed since `stable`.
+A person can try the candidate on a real machine with `bootc switch`, then start
+the Release workflow, which moves `stable`, and `iso` with it when asked, to the
+candidate unchanged, and publishes the medium that the same Weekly run tested:
 `installer.raw.zst`, with the medium before it kept as
-`installer-previous.raw.zst`.
+`installer-previous.raw.zst`. `IMAGE_REVISION` in `os-release` and the image's
+`org.opencontainers.image.revision` label name the full commit.
 
 #### Signing Keys
 
@@ -186,18 +190,14 @@ until the production hierarchy above exists:
 
 | Key           | Certificate name       | CI secret             | Readable by                 | State |
 |---------------|------------------------|-----------------------|-----------------------------|-------|
-| `dev.key`     | `ShapeBit Development` | `DEV_SIGNING_KEY`     | Every Image workflow run    | In use: it signs every image today, `stable` included |
-| `release.key` | `ShapeBit`             | `RELEASE_SIGNING_KEY` | Only approved release jobs  | Decided; not created yet |
+| `dev.key`     | `ShapeBit Development` | none                  | Local builds; pull requests and pushes generate a throwaway one | In use for development |
+| `release.key` | `ShapeBit`             | `RELEASE_SIGNING_KEY` | The Weekly workflow's build job, in the environment `Signing`, on `main` | Signs every candidate, so every `stable` |
 
-The release key must exist before anyone outside ShapeBit's test machines
-installs, because machines that enrolled the development key would need to
-enroll the release key too. With it, the Release workflow will build the chosen
-commit with the release key after a person approves, and test that build,
-before moving `stable`; the same key will then also sign the release image.
-Builds never generate the release key.
+Machines that enrolled the development key must enroll the release key.
+Promotion copies an image unchanged, so the key is chosen when the image is
+built. Builds never generate the release key.
 
-Both keys are GitHub secrets for now, so they differ in who can read them, not
-in how strongly they are stored. Whoever can approve a release can ship code to
+The release key is a GitHub secret for now. Whoever can approve a release can ship code to
 every machine, so the safety of the approver's account matters as much as the
 key's.
 

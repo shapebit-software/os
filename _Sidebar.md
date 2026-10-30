@@ -11,4 +11,5 @@
   - [Applications](Architecture-Applications)
   - [Desktop](Architecture-Desktop)
 - [Development](Development)
+- [Testing](Testing)
 - [License](License)
