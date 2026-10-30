@@ -15,7 +15,7 @@ ShapeBit is tested at three levels. Levels 1 and 2 exist; level 3 is reserved.
 | Workflow | Starts | Does |
 | --- | --- | --- |
 | Checks | Every push and pull request | `make test-unit`, `make static-checks`: no image, no VM |
-| Image check | A change to `Containerfile*` | `make check`, with a throwaway key; publishes nothing |
+| Image check | A change to `image/Containerfile*` | `make check`, with a throwaway key; publishes nothing |
 | Weekly | Monday night, or by hand, on `main` | Builds without a cache, signed with the release key; runs levels 1 and 2 in parallel jobs; if all pass, publishes `os:candidate` and a report |
 | Release | Only by hand, on `main` | Moves `os:stable` to `os:candidate`, or back to `os:stable-previous` |
 

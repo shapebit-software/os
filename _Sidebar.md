@@ -10,6 +10,7 @@
   - [Recovery](Architecture-Recovery)
   - [Applications](Architecture-Applications)
   - [Desktop](Architecture-Desktop)
+- [Building](Building)
 - [Development](Development)
 - [Testing](Testing)
 - [License](License)
