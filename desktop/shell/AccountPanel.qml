@@ -18,7 +18,7 @@ BarPanel {
     property string confirming
     readonly property var confirmations: ({
         logout: { title: "Log out?", label: "Log out" },
-        reboot: { title: "Restart?", label: "Restart" },
+        reboot: { title: OsUpdate.ready ? "Restart and update?" : "Restart?", label: "Restart" },
         poweroff: { title: "Shut down?", label: "Shut down" },
     })
 
@@ -143,7 +143,7 @@ BarPanel {
             model: [
                 { label: "Lock", action: "lock", icon: "M3.2 7.5a.5.5 0 0 1 .5-.5h8.6a.5.5 0 0 1 .5.5v5.8a.5.5 0 0 1-.5.5H3.7a.5.5 0 0 1-.5-.5zM5.3 7V5a2.7 2.7 0 0 1 5.4 0v2" },
                 { label: "Suspend", action: "suspend", icon: "M12.8 9.6A5.4 5.4 0 1 1 6.4 3.2a4.3 4.3 0 0 0 6.4 6.4z" },
-                { label: "Restart", action: "reboot", icon: "M13 8a5 5 0 1 1-1.5-3.6M11.8 1.8v2.8H9" },
+                { label: OsUpdate.ready ? "Restart to update" : "Restart", action: "reboot", icon: "M13 8a5 5 0 1 1-1.5-3.6M11.8 1.8v2.8H9" },
                 { label: "Shut down", action: "poweroff", icon: "M8 1.8v5.6M4.6 4a5.2 5.2 0 1 0 6.8 0" },
             ]
 

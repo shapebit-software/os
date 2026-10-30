@@ -31,11 +31,11 @@ install: ## Install into DESTDIR
 	install -Dm644 session/portals.conf $(share)/xdg-desktop-portal/shapebit-portals.conf
 	install -Dm644 -t $(share)/glib-2.0/schemas session/window-buttons.gschema.override
 	install -Dm644 session/shell.portal $(share)/xdg-desktop-portal/portals/shell.portal
-	install -Dm755 -t $(DESTDIR)$(PREFIX)/libexec/desktop session/portal session/share-picker session/connection-agent session/app-install
-	install -Dm644 -t $(share)/desktop/browsers session/google-signing-key.pub session/fedora.filter
-	install -Dm644 -t $(DESTDIR)$(PREFIX)/lib/systemd/user session/browser-update.service session/browser-update.timer
+	install -Dm755 -t $(DESTDIR)$(PREFIX)/libexec/desktop session/portal session/share-picker session/connection-agent session/app-install session/app-catalog session/app-remove
+	install -Dm644 -t $(share)/desktop/browsers session/fedora.filter
+	install -Dm644 -t $(DESTDIR)$(PREFIX)/lib/systemd/user session/app-update.service session/app-update.timer
 	install -d $(DESTDIR)$(PREFIX)/lib/systemd/user/timers.target.wants
-	ln -sf ../browser-update.timer $(DESTDIR)$(PREFIX)/lib/systemd/user/timers.target.wants/browser-update.timer
+	ln -sf ../app-update.timer $(DESTDIR)$(PREFIX)/lib/systemd/user/timers.target.wants/app-update.timer
 	install -Dm644 session/portal.dbus.service $(share)/dbus-1/services/org.freedesktop.impl.portal.desktop.shell.service
 	install -Dm644 session/xdph.conf $(share)/desktop/portal/hypr/xdph.conf
 	install -Dm644 session/xdph.service.conf $(DESTDIR)$(PREFIX)/lib/systemd/user/xdg-desktop-portal-hyprland.service.d/10-picker.conf

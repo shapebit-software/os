@@ -7,7 +7,9 @@
 local shell = os.getenv("DESKTOP_SHELL") or "/usr/share/desktop/shell"
 
 hl.on("hyprland.start", function()
-    hl.exec_cmd("qs --path " .. shell)
+    -- Flatpak's apps folder must exist first: the shell only notices changes
+    -- in folders that were there when it started.
+    hl.exec_cmd('mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/exports/share/applications"; exec qs --path ' .. shell)
     -- UWSM runs the session (session/desktop.desktop) and waits for the
     -- compositor to give systemd its environment; then the session's units
     -- start, such as XDG autostart. UWSM sets NOTIFY_SOCKET; make run does

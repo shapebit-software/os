@@ -1,0 +1,11 @@
+# Updates the person's apps, Chrome included, from the remotes they came from,
+# and removes the runtimes that no app uses any more.
+[Unit]
+Description=Update apps
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=flatpak update --user --noninteractive
+ExecStart=flatpak uninstall --user --unused --noninteractive

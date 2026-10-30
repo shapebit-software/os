@@ -98,7 +98,9 @@ Welcome opens until it is finished or skipped (`welcomed` in
 `~/.config/desktop/settings.json`), and Settings > Account opens it again.
 Its **Install** (`session/app-install`) installs the browser and the apps into the
 host account's own Flatpak installation for real and makes it the default.
-Chrome needs zypak, which only the OS image builds, so it fails here.
+
+Settings > Apps (`session/app-catalog`, `session/app-remove`) lists and changes
+the same installation, through Flatpak on the host; without one, it says so.
 
 The lock screen checks the password of the container's account, which
 distrobox leaves empty, so any password unlocks it. Set one with
@@ -115,7 +117,7 @@ ignores the others.
 | ------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `compositor/` | The Hyprland configuration (Lua): look, key bindings, layouts and resizing (`layouts.lua`), workspaces (`workspaces.lua`). |
 | `shell/`      | The Quickshell configuration (QML): every shell surface.                                                                   |
-| `session/`    | The session entry that the login screen starts, the session's portals and agents, and the browser installer.                   |
+| `session/`    | The session entry that the login screen starts, the session's portals and agents, and the app helpers.                   |
 | `dev/`        | Development only: the session bus of `make run`, and the Portal Tester.                                                    |
 
 ## Not yet implemented

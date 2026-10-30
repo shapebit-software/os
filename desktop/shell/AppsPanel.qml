@@ -1,7 +1,8 @@
 // Apps, as in the demo: the installed applications beside the Apps button, a
 // row of ten to a page, with a search field and the pages' arrows and marks. A click, or Enter for the first match, opens an
 // application on the current workspace; dragged to a map in the strip, it
-// opens there. Escape or a click elsewhere closes it.
+// opens there. A right click offers its details and, for a Flatpak, removing
+// it, both in Settings > Apps. Escape or a click elsewhere closes it.
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
@@ -23,6 +24,16 @@ Popout {
     property int page
     readonly property int shownPage: Math.min(page, pages - 1)
 
+    // The application that a right click offered choices for, by id.
+    property string offering
+
+    // Opens Settings > Apps at an application, asking first if to remove it.
+    function manage(app: DesktopEntry, removing: bool) {
+        Settings.appToShow = { id: app.id.replace(/\.desktop$/, ""), name: app.name, summary: app.comment, confirming: removing };
+        dismissed();
+        Settings.open(screenName, "apps");
+    }
+
     function launch(app: DesktopEntry) {
         app.execute();
         dismissed();
@@ -33,6 +44,7 @@ Popout {
     onVisibleChanged: {
         search.text = "";
         page = 0;
+        offering = "";
         if (visible)
             search.forceActiveFocus();
     }
@@ -80,7 +92,10 @@ Popout {
                         selectionColor: Theme.accent
                         font { family: Theme.font; pixelSize: 13 }
                         clip: true
-                        onTextChanged: panel.page = 0
+                        onTextChanged: {
+                            panel.page = 0;
+                            panel.offering = "";
+                        }
 
                         Keys.onEscapePressed: panel.dismissed()
                         Keys.onReturnPressed: {
@@ -220,6 +235,44 @@ Popout {
 
                             TapHandler {
                                 onTapped: panel.launch(app.modelData)
+                            }
+                            TapHandler {
+                                acceptedButtons: Qt.RightButton
+                                onTapped: panel.offering = panel.offering === app.modelData.id ? "" : app.modelData.id
+                            }
+
+                            // What a right click offers, over the application.
+                            Rectangle {
+                                visible: panel.offering === app.modelData.id
+                                anchors.fill: parent
+                                color: Theme.popoverTop
+
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width
+                                    spacing: 10
+
+                                    Repeater {
+                                        // Flatpak's exported entries run it.
+                                        model: [["Details", false], ...(app.modelData.command[0]?.endsWith("flatpak") ? [["Remove", true]] : [])]
+
+                                        Text {
+                                            required property var modelData
+
+                                            width: app.width
+                                            horizontalAlignment: Text.AlignHCenter
+                                            text: modelData[0]
+                                            color: modelData[1] ? Theme.danger : Theme.ink
+                                            font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
+
+                                            TapHandler {
+                                                onTapped: panel.manage(app.modelData, parent.modelData[1])
+                                            }
+                                        }
+                                    }
+                                }
+                                // Clicks here don't open the application.
+                                TapHandler {}
                             }
                             // Dragged to a map on the dock, the application
                             // opens there (WorkspaceMap.qml).

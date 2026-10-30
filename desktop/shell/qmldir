@@ -1,4 +1,5 @@
 singleton Account Account.qml
+singleton Apps Apps.qml
 singleton Audio Audio.qml
 singleton Authorization Authorization.qml
 singleton Battery Battery.qml
@@ -15,6 +16,7 @@ singleton Keyboard Keyboard.qml
 singleton Layouts Layouts.qml
 singleton Lock Lock.qml
 singleton Notifications Notifications.qml
+singleton OsUpdate OsUpdate.qml
 singleton Pointer Pointer.qml
 singleton Portal Portal.qml
 singleton Question Question.qml
@@ -26,6 +28,8 @@ singleton Switcher Switcher.qml
 singleton Theme Theme.qml
 AccountPanel AccountPanel.qml
 AppsButton AppsButton.qml
+AppPage AppPage.qml
+AppsPage AppsPage.qml
 AppsPanel AppsPanel.qml
 AssistantPanel AssistantPanel.qml
 AuthorizationPrompt AuthorizationPrompt.qml

@@ -53,7 +53,9 @@ for portal in hyprland gnome-keyring; do
 done
 cp "$tree/session/portals.conf" "$dir/portals/shapebit-portals.conf"
 sed "s|/usr/libexec/desktop/share-picker|$tree/session/share-picker|" "$tree/session/xdph.conf" >"$dir/hypr/xdph.conf"
-data_dirs="$dir/data:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+# The person's Flatpak apps too, which the host's session may not know of if it
+# started before Flatpak was installed.
+data_dirs="$dir/data:${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/exports/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 
 # D-Bus starts them on the first request, from here before the system's.
 cat >"$dir/services/org.freedesktop.portal.Desktop.service" <<EOF

@@ -50,7 +50,7 @@ PanelWindow {
     }
 
     // The open page, or none: "picture", "wallpaper", "keyboards",
-    // "password", "wifi", or "bluetooth".
+    // "password", "wifi", "bluetooth", or "app".
     property string page
 
     // Each section: { id, name, icon, rows }, rows as in SettingsRow.qml.
@@ -189,6 +189,18 @@ PanelWindow {
             ...(Connectivity.adapter?.enabled ? [{ label: "Bluetooth devices",
               detail: "Pair, connect, or forget devices", value: "Manage", open: () => page = "bluetooth" }] : []),
         ] },
+        // Its page is its own (AppsPage.qml); the row is for the search.
+        { id: "apps", name: "Apps", own: true, icon: "M2.4 2.4h4.4v4.4H2.4zM9.2 2.4h4.4v4.4H9.2zM2.4 9.2h4.4v4.4H2.4zM9.2 9.2h4.4v4.4H9.2z", rows: [
+            { label: "Apps", detail: "Find, install, and remove apps", value: "Open",
+              open: () => window.show("apps") },
+        ] },
+        { id: "updates", name: "Updates", icon: "M13 8a5 5 0 1 1-1.5-3.6M11.8 1.8v2.8H9", rows: [
+            { label: "System", detail: Account.system, value: OsUpdate.describe(OsUpdate.version) },
+            { label: "System updates", detail: OsUpdate.stateText,
+              value: OsUpdate.checking ? "Checking…" : "Check now",
+              open: () => OsUpdate.checking || OsUpdate.checkNow() },
+            { label: "Apps", detail: "Updated automatically every day", kind: "info" },
+        ] },
         { id: "sound", name: "Sound", icon: "M10.8 5.9a3 3 0 0 1 0 4.2M12.7 4.2a5.6 5.6 0 0 1 0 7.6M3 6.2h2.2L8.6 3.4v9.2L5.2 9.8H3z", rows: [
             { label: "Output", detail: Audio.output?.description ?? "No device",
               value: `${Math.round((Audio.output?.audio?.volume ?? 0) * 100)}%` },
@@ -201,6 +213,7 @@ PanelWindow {
         ["account", "assistant", "language", "time"],
         ["desktop", "shell", "windows"],
         ["display", "pointing", "network", "sound"],
+        ["apps", "updates"],
     ]
     // The pages: their title, and the section they belong to.
     readonly property var pages: ({
@@ -210,13 +223,14 @@ PanelWindow {
         "password": ["Change password", "account"],
         "wifi": ["Wi-Fi networks", "network"],
         "bluetooth": ["Bluetooth devices", "network"],
+        "app": ["App details", "apps"],
     })
 
     readonly property string query: search.text.trim().toLowerCase()
     readonly property var section: sections.find(s => s.id === Settings.section) ?? sections[0]
     readonly property var rows: query
-        ? sections.flatMap(s => s.rows).filter(r => (r.label + " " + r.detail).toLowerCase().includes(query))
-        : section.rows
+        ? [].concat(...sections.map(s => s.rows)).filter(r => (r.label + " " + r.detail).toLowerCase().includes(query))
+        : section.own ? [] : section.rows
 
     function close() {
         Settings.openOn = "";
@@ -243,7 +257,17 @@ PanelWindow {
         page = "";
         displayName = "";
         if (visible) {
-            search.forceActiveFocus();
+            // From the Apps panel: an app's details.
+            if (Settings.appToShow) {
+                Apps.open();
+                Apps.show(Settings.appToShow);
+                page = "app";
+                Settings.appToShow = null;
+            }
+            if (section.id === "apps" && !page)
+                store.focusSearch();
+            else
+                search.forceActiveFocus();
             zone.running = true;
             // A mouse or touchpad may have come since.
             Pointer.refresh();
@@ -261,9 +285,9 @@ PanelWindow {
         command: ["timedatectl", "show", "--property=Timezone", "--property=NTP"]
         stdout: StdioCollector {
             onStreamFinished: {
-                const values = Object.fromEntries(text.trim().split("\n").map(line => line.split("=")));
-                window.timeZone = values.Timezone ?? "";
-                window.automaticTime = values.NTP === "yes";
+                const value = name => (text.match(new RegExp(`^${name}=(.*)$`, "m")) ?? [])[1] ?? "";
+                window.timeZone = value("Timezone");
+                window.automaticTime = value("NTP") === "yes";
             }
         }
     }
@@ -473,7 +497,8 @@ PanelWindow {
         Flickable {
             x: 36
             y: 62
-            width: Math.min(620, parent.width - 72)
+            // The store of apps has room for more.
+            width: Math.min(window.section.id === "apps" && !window.query ? 980 : 620, parent.width - 72)
             height: parent.height - y
             contentHeight: content.height + 36
             clip: true
@@ -550,6 +575,22 @@ PanelWindow {
                     width: parent.width
                 }
 
+                AppsPage {
+                    id: store
+
+                    visible: window.page === "" && !window.query && window.section.id === "apps"
+                    width: parent.width
+                    onOpened: app => {
+                        Apps.show(app);
+                        window.page = "app";
+                    }
+                }
+
+                AppPage {
+                    visible: window.page === "app"
+                    width: parent.width
+                }
+
                 Rectangle {
                     visible: window.page === "" && window.rows.length > 0
                     width: parent.width
@@ -593,7 +634,7 @@ PanelWindow {
                 }
 
                 Text {
-                    visible: window.page === "" && window.rows.length === 0
+                    visible: window.page === "" && window.query !== "" && window.rows.length === 0
                     text: `No settings match “${search.text.trim()}”`
                     color: "#5f6469"
                     font { family: Theme.font; pixelSize: 13 }
