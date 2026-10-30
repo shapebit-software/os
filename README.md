@@ -28,8 +28,8 @@ libraries. Use the same container manager for creation and entry; replace
 `docker` with `podman` if that is your host's engine.
 
 Image builds and VM tests still use the host's container engine and QEMU;
-see [Requirements](#requirements). The website keeps its
-Ruby environment managed by [mise](website/README.md#local-development).
+see [Requirements](#requirements). The website lives in its own repository,
+[shapebit-software/website](https://github.com/shapebit-software/website).
 
 ## Requirements
 
@@ -307,7 +307,7 @@ installer the first owner, `OWNER_NAME` (default `dev`) with the password in
 | `build/`                  | Generated outputs (ignored by Git).                                 |
 | `desktop/`                | The desktop: compositor configuration, shell, and session.          |
 | `installer/`              | The installer: backend, UI, and `installerctl`.                     |
-| `website/`, `docs/`       | The website and its wiki, each a separate repository (submodules).  |
+| `docs/`                   | The documentation wiki, a separate repository (submodule).          |
 | `.agents/`                | Skills for coding agents.                                           |
 
 ## Not yet implemented

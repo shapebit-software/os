@@ -1,6 +1,3 @@
 [submodule "docs"]
 	path = docs
 	url = git@github.com:shapebit-software/website.wiki.git
-[submodule "website"]
-	path = website
-	url = https://github.com/shapebit-software/website
