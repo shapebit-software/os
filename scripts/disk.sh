@@ -27,7 +27,7 @@ IMAGE_DIGEST=$(python3 scripts/provenance.py field "$MEDIUM.json" image_digest)
 export IMAGE_DIGEST
 start_run medium
 scripts/tmt.sh medium "$run" || outcome=failed
-finish_run installer-medium medium "$MEDIUM.json"
+finish_run
 
 # The password and the recovery key stay in the VM's memory (/run). The small
 # home leaves the disk to the system.
@@ -38,7 +38,8 @@ scripts/ssh.sh installerctl install --disk serial-target --user "$OWNER_NAME" \
   --password-file /run/owner-password --recovery-key-file /run/recovery-key
 (umask 077 && scripts/ssh.sh cat /run/recovery-key >"$RECOVERY_KEY")
 
-# Powered off, so that the disk's checksum is of what it holds.
+# Powered off, so that the disk holds everything. A later build replaces the
+# medium's record, so the disk keeps its own.
 scripts/vm.sh --stop
 trap - EXIT
-python3 scripts/provenance.py disk "$MEDIUM.json" "$DISK" "$DISK.json"
+cp "$MEDIUM.json" "$DISK.json"

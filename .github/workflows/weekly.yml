@@ -190,21 +190,28 @@ jobs:
       - name: Write the report
         run: |
           inspect() { skopeo inspect "docker://$REPOSITORY:$1" --format "{{index .Labels \"$2\"}}"; }
-          list() { docker run --rm "$1" rpm -qa --qf '%{NAME} %{VERSION}-%{RELEASE}\n'; }
+          list() { docker run --rm "$1" rpm -qa --qf '%{NAME} %{VERSION}-%{RELEASE}\n' | sort; }
           list "$REPOSITORY:candidate" >new-packages
-          old=()
+          : >old-packages
           range=HEAD
           if stable=$(inspect stable org.opencontainers.image.revision 2>/dev/null); then
             list "$REPOSITORY:stable" >old-packages
-            old=(old-packages)
             # A stable image from before the revision label has no commit to compare.
             if [ -n "$stable" ] && [ "$stable" != "<no value>" ]; then range=$stable..HEAD; fi
           fi
-          git log --oneline "$range" >commits
-          python3 - <<'PY' >provenance.json
-          import json, subprocess
-          artifact = json.load(open("installer/installer.raw.json"))
-          commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-          print(json.dumps({"artifact": artifact, "source": {"commit": commit}}))
-          PY
-          python3 scripts/report.py provenance.json commits new-packages "${old[@]}" >>"$GITHUB_STEP_SUMMARY"
+          {
+            echo "# Candidate"
+            echo
+            echo "- Image digest: \`$(jq -r .image_digest installer/installer.raw.json)\`"
+            echo "- Medium SHA-256: \`$(jq -r .medium_sha256 installer/installer.raw.json)\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo
+            echo "## Commits since stable"
+            echo '```'
+            git log --oneline "$range"
+            echo '```'
+            echo "## Packages changed since stable: < before, > now"
+            echo '```'
+            diff old-packages new-packages || true
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"

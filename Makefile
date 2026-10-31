@@ -78,7 +78,7 @@ image: $(KEYS) ## Build the container image with its signed UKI
 
 test-unit: $(VENV)/.done ## Run isolated unit tests and lint on this host, without a VM
 	$(VENV)/bin/pytest -c tests/pytest.ini --rootdir=tests -p no:cacheprovider tests/unit
-	$(VENV)/bin/python -m pyflakes tests/conftest.py tests/image tests/medium tests/system tests/update tests/host tests/unit tests/openqa/lib tests/openqa/run.py scripts/provenance.py scripts/report.py
+	$(VENV)/bin/python -m pyflakes tests/conftest.py tests/image tests/medium tests/system tests/update tests/host tests/unit tests/openqa/lib tests/openqa/run.py scripts/provenance.py
 	$(VENV)/bin/tmt --root tests lint >/dev/null
 	bash -n scripts/*.sh tests/pytest.sh tests/system/*.sh tests/update/*.sh
 
@@ -86,7 +86,7 @@ static-checks: ## Check the desktop, the installer, and image/rootfs without bui
 	scripts/static-checks.sh
 
 check: image $(TEST_DEPS)/.done ## Run checks inside the container image
-	scripts/check.sh
+	$(ENGINE) run --rm --network none -v "$(CURDIR)/tests:/tests:ro,z" $(IMAGE) /tests/pytest.sh /tests/image
 
 publish: image ## Push the image to the local update registry
 	scripts/publish.sh

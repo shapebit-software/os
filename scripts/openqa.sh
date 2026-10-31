@@ -2,9 +2,9 @@
 # Level 2: test the release medium MEDIUM itself, whole, as a person uses it, with
 # isotovideo, openQA's test engine: enroll the key, install through the UI, boot,
 # sign in, and so on (tests/openqa/main.pm). The medium is never written; the
-# target disk and the TPM are new. Results stay in RESULTS/<time>-release, tied
-# to the medium's checksum by provenance.json; a test that fails keeps its
-# screenshots, and the medium's checksum is verified before anything starts.
+# target disk and the TPM are new. Results stay in RESULTS/<time>-release; a
+# test that fails keeps its screenshots, and the medium's checksum is verified
+# before anything starts.
 # Usage: openqa.sh (called by `make test-release`).
 set -euo pipefail
 : "${ENGINE:?}" "${MEDIUM:?}" "${RESULTS:?}" "${SSH_KEY:?}" "${OWNER_NAME:?}" "${OPENQA_IMAGE:?}" "${OPENQA_DISTRI:?}" "${DISK_SIZE:?}" "${MEDIUM_SIZE:?}"
@@ -39,4 +39,4 @@ $ENGINE run --rm -v "$run/pool:/pool:z" --entrypoint sh "$OPENQA_IMAGE" -c \
   "rm -rf /pool/raid /pool/tpm1 /pool/qemuscreenshot; chown -R $(id -u):$(id -g) /pool"
 
 python3 tests/openqa/run.py check "$run/pool/testresults" || outcome=failed
-finish_run release-medium release "$record"
+finish_run

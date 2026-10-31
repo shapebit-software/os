@@ -3,7 +3,7 @@
 # the clone. The clone has its own disk overlay, EFI variables, and TPM: the
 # installed disk unlocks only with the TPM it was sealed to, so all three go
 # together, and the installed disk itself is never written. Results stay in
-# RESULTS/<time>-<plan>, tied to the disk by provenance.json.
+# RESULTS/<time>-<plan>.
 # Usage: test-machine.sh PLAN
 set -euo pipefail
 : "${BUILD:?}" "${DISK:?}" "${RESULTS:?}" "${TEST_SSH_PORT:?}" "${VENV:?}" "${RECOVERY_KEY:?}"
@@ -38,4 +38,4 @@ if [[ $plan == system ]]; then
   "$VENV/bin/pytest" -c tests/pytest.ini --rootdir=tests -p no:cacheprovider \
     --junitxml="$run/junit-host.xml" tests/host || outcome=failed
 fi
-finish_run installed-disk "$plan" "$record"
+finish_run
