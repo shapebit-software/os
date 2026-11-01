@@ -76,7 +76,8 @@ PanelWindow {
               } },
         ] },
         { id: "assistant", name: "Assistant", icon: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z", rows: [
-            { label: "Coming soon", detail: "Assistant settings will be available in a future update.", kind: "info" },
+            ...Extras.list.map(e => ({ label: e.name, detail: e.detail, kind: "extra", extra: e })),
+            { label: "Assistant", detail: "Assistant settings will be available in a future update.", kind: "info" },
         ] },
         { id: "language", name: "Language", icon: "M2 8a6 6 0 1 0 12 0a6 6 0 1 0-12 0zM2 8h12M8 2c-2.2 2.4-2.2 9.6 0 12M8 2c2.2 2.4 2.2 9.6 0 12", rows: [
             { label: "System language", detail: "For the whole computer, from the next sign-in; needs an administrator",
@@ -84,9 +85,10 @@ PanelWindow {
               selected: systemLocale, select: l => window.localectl(["set-locale", "LANG=" + l]) },
             { label: "Region format", detail: "Dates in the bar and on the lock screen", kind: "choice",
               options: ["US", "UK", "EU"], selected: Settings.regionShown, select: o => Settings.region = o },
-            { label: "Dictation language", detail: "For the keyboard layout in use", kind: "choice",
-              options: ["The layout's", "Any"], selected: Dictation.language === "auto" ? "Any" : "The layout's",
-              select: o => Dictation.chooseLanguage(o === "Any") },
+            { label: "Dictation language", detail: "For the keyboard layout in use. Any: 25 languages, live. All: 100, slower, no live text", kind: "choice",
+              options: ["The layout's", "Any", "All"],
+              selected: Dictation.language === "all" ? "All" : Dictation.language === "auto" ? "Any" : "The layout's",
+              select: o => Dictation.chooseLanguage(o === "All" ? "all" : o === "Any" ? "any" : "layout") },
             { label: "Keyboards", value: "Manage", open: () => page = "keyboards",
               detail: `${(Settings.keyboards.length ? Settings.keyboards : Keyboard.layouts).map(k => Keyboard.nameOf(k)).join(", ")} · switch with Super+Space` },
         ] },

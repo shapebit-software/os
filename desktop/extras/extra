@@ -1,0 +1,183 @@
+#!/usr/bin/python3
+# Downloads what is too large for the OS image and not everyone needs, such as speech
+# and language models, for Welcome and Settings > Assistant (shell/services/Extras.qml).
+# extras.json lists them; to add one is to add an entry there. They go to /var/lib/
+# extras/ID, for everyone on the computer; administrators may write there
+# (image/rootfs/usr/lib/tmpfiles.d/extras.conf). What was downloaded stays until it is
+# complete and its hash is right, and a later try goes on from where this one stopped.
+# Only a whole extra ever appears under its ID.
+#
+# Usage: extra list | extra install ID | extra remove ID
+#
+# list prints {"writable": bool, "extras": [{"id", "name", "detail", "bytes", "installed"}]}.
+# install and remove print JSON lines: {"step": text, "percent": 0..100}, then
+# {"done": ID} or {"error": text}.
+import fcntl
+import hashlib
+import http.client
+import json
+import os
+import pathlib
+import shutil
+import sys
+import tarfile
+import urllib.error
+import urllib.request
+
+HERE = pathlib.Path(__file__).resolve().parent
+# The source tree's list in development (make run), otherwise the installed one.
+CATALOG = os.environ.get("EXTRAS_CATALOG", HERE / "extras.json" if "DESKTOP_SHELL" in os.environ else "/usr/share/desktop/extras.json")
+PLACE = pathlib.Path(os.environ.get("EXTRAS_DIR", "/var/lib/extras"))
+TIMEOUT = 30
+CHUNK = 1024 * 1024
+
+
+class Failed(Exception):
+    pass
+
+
+def say(**message):
+    print(json.dumps(message), flush=True)
+
+
+def catalog():
+    with open(CATALOG, encoding="utf-8") as file:
+        return json.load(file)
+
+
+def installed(extra):
+    return (PLACE / extra["id"]).is_dir()
+
+
+def download_bytes(extra):
+    return sum(item["bytes"] for item in extra["downloads"])
+
+
+def listing():
+    say(writable=os.access(PLACE, os.W_OK), extras=[
+        {"id": extra["id"], "name": extra["name"], "detail": extra["detail"], "bytes": download_bytes(extra), "installed": installed(extra)}
+        for extra in catalog()
+    ])  # fmt: skip
+
+
+def hash_of(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as file:
+        while chunk := file.read(CHUNK):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def fetch(item, path, done, total):
+    """Goes on from what is already in path; only then is the hash checked."""
+    have = path.stat().st_size if path.exists() else 0
+    if have < item["bytes"]:
+        request = urllib.request.Request(item["url"], headers={"Range": f"bytes={have}-"} if have else {})
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as reply:
+            # A server that ignores the range sends it all again.
+            if have and reply.status != 206:
+                have = 0
+            with open(path, "ab" if have else "wb") as file:
+                while chunk := reply.read(CHUNK):
+                    file.write(chunk)
+                    have += len(chunk)
+                    say(step="Downloading", percent=int(100 * (done + have) / total))
+        # A connection that ended early keeps what came, for the next try.
+        if have < item["bytes"]:
+            raise Failed("The connection was lost. Try again to go on.")
+    if hash_of(path) != item["sha256"]:
+        path.unlink()
+        raise Failed("The download was damaged. Try again.")
+
+
+def unpack(archive, names, into):
+    """Only the files named, by their own names: an archive chooses no other place."""
+    wanted = {name: pathlib.PurePosixPath(name).name for name in names}
+    with tarfile.open(archive) as tar:
+        for member in tar:
+            if member.name in wanted and member.isfile():
+                with tar.extractfile(member) as source, open(into / wanted.pop(member.name), "wb") as target:
+                    shutil.copyfileobj(source, target, CHUNK)
+    if wanted:
+        raise Failed("The download is missing files.")
+
+
+def install(extra):
+    final = PLACE / extra["id"]
+    if final.is_dir():
+        return
+    partial = PLACE / f".partial-{extra['id']}"
+    partial.mkdir(exist_ok=True)
+    total = download_bytes(extra)
+    room = shutil.disk_usage(PLACE).free
+    if room < total + extra["unpacked"] - sum(path.stat().st_size for path in partial.iterdir() if path.is_file()):
+        raise Failed("There is not enough free disk space.")
+    done = 0
+    for number, item in enumerate(extra["downloads"]):
+        fetch(item, partial / f"download-{number}", done, total)
+        done += item["bytes"]
+    say(step="Unpacking", percent=100)
+    ready = PLACE / f".ready-{extra['id']}"
+    shutil.rmtree(ready, ignore_errors=True)
+    ready.mkdir()
+    for number, item in enumerate(extra["downloads"]):
+        path = partial / f"download-{number}"
+        if "files" in item:
+            unpack(path, item["files"], ready)
+        else:
+            shutil.copyfile(path, ready / pathlib.PurePosixPath(item["url"]).name)
+    (ready / "NOTICE").write_text(extra["notice"] + "\n", encoding="utf-8")
+    # Readable by everyone; the directory is the group's, so these stay safe from others.
+    for path in [ready, *ready.iterdir()]:
+        path.chmod(0o755 if path.is_dir() else 0o644)
+    os.rename(ready, final)
+    shutil.rmtree(partial)
+
+
+def remove(extra):
+    """Gone from its name first, so that nothing starts on half of it."""
+    final = PLACE / extra["id"]
+    going = PLACE / f".removing-{extra['id']}"
+    if final.is_dir():
+        os.rename(final, going)
+    shutil.rmtree(going, ignore_errors=True)
+    shutil.rmtree(PLACE / f".partial-{extra['id']}", ignore_errors=True)
+    shutil.rmtree(PLACE / f".ready-{extra['id']}", ignore_errors=True)
+
+
+def main():
+    args = sys.argv[1:]
+    if args == ["list"]:
+        listing()
+        return 0
+    if len(args) != 2 or args[0] not in ("install", "remove"):
+        print(__doc__ or "usage: extra list | extra install ID | extra remove ID", file=sys.stderr)
+        return 2
+    extra = next((extra for extra in catalog() if extra["id"] == args[1]), None)
+    if extra is None:
+        say(error=f"There is no extra {args[1]}.")
+        return 1
+    try:
+        if not os.access(PLACE, os.W_OK):
+            raise Failed("Only an administrator can do this.")
+        with open(PLACE / ".lock", "a", encoding="utf-8") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise Failed("Another download is under way.") from None
+            (install if args[0] == "install" else remove)(extra)
+    except Failed as error:
+        say(error=str(error))
+        return 1
+    except (urllib.error.URLError, http.client.HTTPException):
+        say(error="Couldn't connect. Check the network and try again.")
+        return 1
+    except OSError as error:
+        say(error=error.strerror or str(error))
+        return 1
+    say(done=extra["id"])
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -153,6 +153,7 @@ class Dictation:
                 "FAKES": str(self.fakes),
                 "XDG_RUNTIME_DIR": str(self.runtime),
                 "WAYLAND_DISPLAY": "test" if compositor else "none",
+                "DICTATION_PARAKEET": "/nonexistent",
                 **(env or {}),
             },
         )
@@ -689,3 +690,189 @@ def test_wanted_sounds_mark_the_start_and_the_stop(dictate):
     dictation.say()
     dictation.wait_for("waiting")
     assert len(dictation.file("played").splitlines()) == 2
+
+
+# Live, with the engine -----------------------------------------------------
+
+ENGINE = """#!/bin/bash
+# As the real one: says the draft at once, reads to the end, then says the phrases.
+echo "$*" >"$FAKES/engine-args"
+[ ! -e "$FAKES/engine-draft" ] || cat "$FAKES/engine-draft"
+cat >"$FAKES/engine-audio"
+[ ! -e "$FAKES/engine-hangs" ] || exec sleep 60
+while [ -e "$FAKES/engine-waits" ] && [ ! -e "$FAKES/engine-go" ]; do sleep 0.02; done
+[ ! -e "$FAKES/engine-fails" ] || exit 1
+cat "$FAKES/engine-finals"
+"""
+
+
+def live(dictate, tmp_path, finals=(), draft=None, marks=(), **kwargs):
+    """Dictation with a made-up engine, in place before it starts."""
+    fakes = tmp_path / "engine"
+    fakes.mkdir()
+    engine = fakes / "dictate-engine"
+    engine.write_text(ENGINE)
+    engine.chmod(0o755)
+    # The fakes' folder comes when Dictation makes it, so the engine reads from FAKES.
+    env = {"DICTATION_ENGINE": str(engine), "DICTATION_PARAKEET": str(fakes), "DICTATION_ENGINE_WAIT": "1", **kwargs.pop("env", {})}
+    prepared = tmp_path / "prepared"
+    prepared.mkdir()
+    (prepared / "engine-finals").write_text("".join(json.dumps({"final": text}) + "\n" for text in finals))
+    if draft:
+        (prepared / "engine-draft").write_text(json.dumps(draft) + "\n")
+    for mark in marks:
+        (prepared / mark).touch()
+    engine.write_text(ENGINE.replace("$FAKES/engine-", f"{prepared}/engine-"))
+    return dictate(env=env, **kwargs)
+
+
+def test_phrases_become_one_text_with_no_whisper(dictate, tmp_path):
+    dictation = live(dictate, tmp_path, finals=["Dzień dobry.", "Jak się masz?"], said="whisper")
+    dictation.compositor.focus_field()
+    dictation.say()
+    assert dictation.wait_for("done")["text"] == "Dzień dobry. Jak się masz?"
+    assert dictation.inserted == ["Dzień dobry. Jak się masz?"]
+    assert dictation.file("whisper-args") is None
+    assert dictation.left_behind == []
+
+
+def test_the_engine_hears_the_recording(dictate, tmp_path):
+    dictation = live(dictate, tmp_path, finals=["Tak."])
+    dictation.compositor.focus_field()
+    dictation.say()
+    dictation.wait_for("done")
+    assert (tmp_path / "prepared" / "engine-audio").read_bytes().startswith(LOUD)
+
+
+def test_the_draft_goes_to_the_shell_and_nowhere_else(dictate, tmp_path):
+    draft = {"draft": "Dzień", "tail": "dobry"}
+    dictation = live(dictate, tmp_path, finals=["Dzień dobry."], draft=draft)
+    dictation.compositor.focus_field()
+    message = dictation.wait_for("draft")
+    assert (message["text"], message["tail"]) == ("Dzień", "dobry")
+    assert dictation.inserted == []
+    assert dictation.typed is None
+
+
+def test_a_window_left_after_the_stop_gets_nothing(dictate, tmp_path):
+    dictation = live(dictate, tmp_path, finals=["Tajne."], marks=["engine-waits"])
+    dictation.compositor.focus_field()
+    dictation.say()
+    dictation.wait_for("writing")
+    dictation.window(OTHER)
+    (tmp_path / "prepared" / "engine-go").touch()
+    assert dictation.wait_for("waiting")["text"] == "Tajne."
+    assert dictation.inserted == []
+
+
+def test_a_failed_engine_leaves_it_to_whisper(dictate, tmp_path):
+    dictation = live(dictate, tmp_path, finals=["Lost."], marks=["engine-fails"], said="Z Whispera.\n")
+    dictation.compositor.focus_field()
+    dictation.say()
+    assert dictation.wait_for("done")["text"] == "Z Whispera."
+    assert dictation.left_behind == []
+
+
+def test_a_hung_engine_leaves_it_to_whisper(dictate, tmp_path):
+    dictation = live(dictate, tmp_path, marks=["engine-hangs"], said="Z Whispera.\n")
+    dictation.compositor.focus_field()
+    dictation.say()
+    assert dictation.wait_for("done")["text"] == "Z Whispera."
+
+
+def test_no_engine_in_a_language_parakeet_lacks(dictate, tmp_path):
+    dictation = live(dictate, tmp_path, finals=["Lost."], language="ja", said="日本語\n")
+    dictation.compositor.focus_field()
+    dictation.say()
+    assert dictation.wait_for("done")["text"] == "日本語"
+    assert not (tmp_path / "prepared" / "engine-audio").exists()
+
+
+def test_any_language_is_live_as_parakeet_tells_them_apart(dictate, tmp_path):
+    dictation = live(dictate, tmp_path, finals=["Dzień dobry."], language="auto", said="whisper\n")
+    dictation.compositor.focus_field()
+    dictation.say()
+    assert dictation.wait_for("done")["text"] == "Dzień dobry."
+    assert dictation.file("whisper-args") is None
+
+
+def test_all_languages_leave_it_to_whisper_detecting_the_language(dictate, tmp_path):
+    dictation = live(dictate, tmp_path, finals=["Lost."], language="all", said="日本語\n")
+    dictation.compositor.focus_field()
+    dictation.say()
+    assert dictation.wait_for("done")["text"] == "日本語"
+    args = dictation.file("whisper-args").split()
+    assert args[args.index("-l") + 1] == "auto"
+
+
+def test_a_change_to_another_language_leaves_it_to_whisper(dictate, tmp_path):
+    dictation = live(dictate, tmp_path, finals=["Lost."], said="日本語\n")
+    dictation.compositor.focus_field()
+    dictation.recording()
+    dictation.do("language", language="ja")
+    dictation.do("stop")
+    assert dictation.wait_for("done")["text"] == "日本語"
+
+
+def test_silence_says_nothing_was_caught_with_no_whisper(dictate, tmp_path):
+    dictation = live(dictate, tmp_path, said="[muzyka]\n")
+    dictation.compositor.focus_field()
+    dictation.say()
+    dictation.wait_for("nothing")
+    assert dictation.ended() == 0
+    assert dictation.file("whisper-args") is None
+    assert dictation.inserted == []
+
+
+def test_discarding_stops_the_engine_and_leaves_nothing(dictate, tmp_path):
+    dictation = live(dictate, tmp_path, finals=["Tajne."], marks=["engine-hangs"])
+    dictation.compositor.focus_field()
+    dictation.recording()
+    dictation.do("discard")
+    assert dictation.ended() == 130
+    assert dictation.inserted == []
+    assert dictation.left_behind == []
+
+
+def test_keeping_talking_adds_to_the_text(dictate, tmp_path):
+    dictation = live(dictate, tmp_path, finals=["Dalej."])
+    dictation.say()
+    assert dictation.wait_for("waiting")["text"] == "Dalej."
+    dictation.do("add")
+    dictation.wait_for("listening")
+    dictation.do("stop")
+    assert dictation.wait_for("waiting", text="Dalej. Dalej.")
+
+
+def test_words_agree_ignoring_case_and_punctuation():
+    import importlib.machinery
+    import importlib.util
+
+    loader = importlib.machinery.SourceFileLoader("engine", str(DICTATE.with_name("dictate-engine")))
+    spec = importlib.util.spec_from_loader("engine", loader)
+    engine = importlib.util.module_from_spec(spec)
+    loader.exec_module(engine)
+    assert engine.agreed(["Ask", "not,", "what"], ["ask", "not", "when", "what"]) == 2
+    assert engine.agreed([], ["ask"]) == 0
+
+
+def test_silence_goes_to_no_engine_as_whisper_invents_words(dictate):
+    dictation = dictate(said="you\n", sound=struct.pack("<h", 0) * 800)
+    dictation.compositor.focus_field()
+    dictation.say()
+    dictation.wait_for("nothing")
+    assert dictation.ended() == 0
+    assert dictation.file("whisper-args") is None
+    assert dictation.inserted == []
+    assert dictation.left_behind == []
+
+
+def test_silence_after_text_keeps_the_text(dictate, tmp_path):
+    dictation = dictate(said="Dzień dobry\n")
+    dictation.say()
+    dictation.wait_for("waiting", text="Dzień dobry")
+    (dictation.fakes / "sound").write_bytes(struct.pack("<h", 0) * 800)
+    dictation.do("add")
+    dictation.wait_for("listening")
+    dictation.do("stop")
+    assert dictation.wait_for("waiting", text="Dzień dobry")

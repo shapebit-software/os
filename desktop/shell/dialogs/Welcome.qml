@@ -3,7 +3,9 @@
 // offline when it opened, with the network panel's Wi-Fi list (WifiList.qml);
 // then, only when online, the default browser and the recommended apps, all
 // kept unless turned off, which apps/app-install installs one after the
-// other, going on if Welcome closes; and the ways around the desktop. Every
+// other, going on if Welcome closes; what can be downloaded beyond the OS, also
+// kept unless turned off and going on if Welcome closes (Extras.qml), or from
+// Settings > Assistant later; and the ways around the desktop. Every
 // step can be skipped; Escape or closing ends it, and it does not open on its
 // own again (Settings.welcomed).
 pragma ComponentBehavior: Bound
@@ -28,7 +30,8 @@ PanelWindow {
     property bool startedOffline
     // Whether the first answer came, before which Welcome waits.
     property bool known
-    readonly property list<string> steps: [...(startedOffline ? ["network"] : []), ...(online ? ["browser", "apps"] : []), "around"]
+    readonly property list<string> steps: [...(startedOffline ? ["network"] : []), ...(online ? ["browser", "apps"] : []),
+        ...(online && offered.length > 0 ? ["extras"] : []), "around"]
     property int stepIndex
     readonly property string step: steps[Math.min(stepIndex, steps.length - 1)]
     readonly property bool last: stepIndex >= steps.length - 1
@@ -71,6 +74,25 @@ PanelWindow {
     readonly property string installerPath: Quickshell.env("DESKTOP_SHELL")
         ? `${Quickshell.env("DESKTOP_SHELL")}/../apps/app-install`
         : "/usr/libexec/desktop/app-install"
+
+    // The extras offered, fixed when Welcome opens, so that the steps stay the same
+    // while they download; those kept; and whether they were asked for.
+    property var offered: []
+    property list<string> keptExtras
+    property bool extrasStarted
+
+    function offer() {
+        offered = Extras.writable ? Extras.missing : [];
+        keptExtras = offered.map(e => e.id);
+        extrasStarted = false;
+    }
+
+    function installExtras() {
+        for (const id of keptExtras)
+            Extras.install(id);
+        extrasStarted = true;
+        next();
+    }
 
     function finish() {
         Settings.welcomed = true;
@@ -136,7 +158,7 @@ PanelWindow {
             setState(current, "failed", message.error);
     }
 
-    visible: here && known
+    visible: here && known && Extras.listed
     screen: modelData
     color: "transparent"
     WlrLayershell.layer: WlrLayer.Overlay
@@ -161,9 +183,20 @@ PanelWindow {
             kept = recommended.map(a => a.id);
             appsState = "";
         }
+        offer();
         connectivity.opening = true;
         connectivity.running = true;
         keys.forceActiveFocus();
+    }
+
+    // At login, the list may come after Welcome opens.
+    Connections {
+        target: Extras
+
+        function onListedChanged() {
+            if (window.here)
+                window.offer();
+        }
     }
 
     // It opens at login before this window exists.
@@ -248,7 +281,7 @@ PanelWindow {
                 Text {
                     id: title
                     text: ({ network: "Connect to the internet", browser: "Choose a browser",
-                        apps: "Recommended apps", around: "Getting around" })[window.step]
+                        apps: "Recommended apps", extras: "Optional downloads", around: "Getting around" })[window.step]
                     color: Theme.ink
                     font { family: Theme.font; pixelSize: 20; weight: Font.DemiBold }
                 }
@@ -277,6 +310,7 @@ PanelWindow {
                     network: window.online ? "You're connected." : "Join a Wi-Fi network to install a browser. You can do it later from the network panel.",
                     browser: "It's installed for you and opens your links. You can change it later.",
                     apps: "These are installed for you. Turn off any you don't want.",
+                    extras: "These run on this computer. Turn off any you don't want, and get them later in Settings > Assistant.",
                     around: "A few things to know about the desktop.",
                 })[window.step]
                 color: Theme.inkSoft
@@ -410,6 +444,57 @@ PanelWindow {
                 font { family: Theme.font; pixelSize: 12 }
             }
 
+            // The extras, each with a switch, all on at first.
+            Column {
+                visible: window.step === "extras"
+                width: parent.width
+                spacing: 8
+
+                Repeater {
+                    model: window.offered
+
+                    Item {
+                        id: extraItem
+
+                        required property var modelData
+                        readonly property bool on: window.keptExtras.includes(modelData.id)
+
+                        width: parent.width
+                        height: extraText.height + 8
+
+                        Column {
+                            id: extraText
+
+                            x: 4
+                            width: parent.width - 70
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            Text {
+                                text: `${extraItem.modelData.name} · ${Extras.sizeOf(extraItem.modelData)}`
+                                color: extraItem.on ? Theme.ink : Theme.inkFaint
+                                font { family: Theme.font; pixelSize: 13; weight: Font.Medium }
+                            }
+                            Text {
+                                width: parent.width
+                                wrapMode: Text.Wrap
+                                text: extraItem.modelData.detail
+                                color: Theme.inkFaint
+                                font { family: Theme.font; pixelSize: 11 }
+                            }
+                        }
+                        Switch {
+                            anchors { right: parent.right; rightMargin: 4; verticalCenter: parent.verticalCenter }
+                            enabled: !window.extrasStarted
+                            on: extraItem.on
+                            onToggled: {
+                                const id = extraItem.modelData.id;
+                                window.keptExtras = extraItem.on ? window.keptExtras.filter(k => k !== id) : [...window.keptExtras, id];
+                            }
+                        }
+                    }
+                }
+            }
+
             // The ways around the desktop.
             Column {
                 visible: window.step === "around"
@@ -467,6 +552,17 @@ PanelWindow {
                     font { family: Theme.font; pixelSize: 12 }
                 }
                 Text {
+                    readonly property var working: Extras.list.find(e => e.id === Extras.current) ?? null
+                    readonly property var progress: working ? Extras.progress[working.id] ?? null : null
+
+                    visible: progress !== null
+                    width: parent.width
+                    wrapMode: Text.Wrap
+                    text: progress ? `${working.name}: ${progress.note}${progress.percent > 0 ? ` ${progress.percent}%` : "…"} It goes on if you close this.` : ""
+                    color: Theme.inkFaint
+                    font { family: Theme.font; pixelSize: 12 }
+                }
+                Text {
                     visible: window.installState === "failed" || window.appsState === "failed"
                     width: parent.width
                     wrapMode: Text.Wrap
@@ -499,20 +595,24 @@ PanelWindow {
                     }
                     DialogButton {
                         visible: (window.step === "browser" && !window.browserStarted) || window.step === "apps"
+                            || (window.step === "extras" && !window.extrasStarted)
                         text: "Skip"
                         onActivated: window.next()
                     }
                     DialogButton {
                         readonly property bool installs: (window.step === "browser" && !window.browserStarted)
                             || (window.step === "apps" && window.kept.length > 0)
+                        readonly property bool downloads: window.step === "extras" && !window.extrasStarted && window.keptExtras.length > 0
 
                         strong: true
                         enabled: window.step !== "browser" || !installs || window.browser !== ""
                         opacity: enabled ? 1 : 0.45
-                        text: installs ? (window.step === "browser" && window.installState === "failed" ? "Try again" : "Install")
+                        text: downloads ? "Download" : installs ? (window.step === "browser" && window.installState === "failed" ? "Try again" : "Install")
                             : window.last ? "Done" : "Next"
                         onActivated: {
-                            if (!installs)
+                            if (downloads)
+                                window.installExtras();
+                            else if (!installs)
                                 window.next();
                             else if (window.step === "browser")
                                 window.installBrowser();

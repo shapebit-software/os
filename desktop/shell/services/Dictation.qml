@@ -31,6 +31,10 @@ Singleton {
     property int seconds
     // Writing it down, in percent.
     property int progress
+    // While the person speaks: the words so far, and those that may still change.
+    // Only the overlay shows them; they go nowhere until the stop.
+    property string draft
+    property string draftTail
     // Waiting: the text; where it would go, as the helper says; and the app.
     property string text
     property string where: "none"
@@ -61,7 +65,7 @@ Singleton {
         if (listening) {
             const said = quiet ? "Can't hear you" : idle ? "Still listening" : "Dictating";
             const time = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-            return `${said} ${time} · ${language === "auto" ? "any language" : language.toUpperCase()} · click to stop`;
+            return `${said} ${time} · ${language === "all" ? "all languages" : language === "auto" ? "any language" : language.toUpperCase()} · click to stop`;
         }
         return last ? "Dictate into this app · right click for the last one" : "Dictate into this app";
     }
@@ -87,8 +91,10 @@ Singleton {
 
     readonly property string language: {
         const layout = Keyboard.layouts[Keyboard.active];
+        if (Settings.dictationAllLanguages.includes(layout))
+            return "all";
         return Settings.dictationAnyLanguage.includes(layout) ? "auto"
-            : (Keyboard.languages[layout] ?? "auto").toLowerCase();
+            : (Keyboard.languages[layout] ?? "all").toLowerCase();
     }
 
     // The helper: the source tree's in development (make run), otherwise the
@@ -105,6 +111,7 @@ Singleton {
     function start(held: bool) {
         notice = "";
         text = "";
+        draft = draftTail = "";
         seconds = 0;
         cardFocused = false;
         const sounds = `DICTATION_SOUNDS=${Settings.dictationSounds ? "1" : ""}`;
@@ -192,10 +199,12 @@ Singleton {
         afterFocus.restart();
     }
 
-    function chooseLanguage(any: bool) {
+    // "layout", "any", the 25 languages that dictate live, or "all", also the others.
+    function chooseLanguage(choice: string) {
         const layout = Keyboard.layouts[Keyboard.active];
-        const others = Settings.dictationAnyLanguage.filter(l => l !== layout);
-        Settings.dictationAnyLanguage = any ? [...others, layout] : others;
+        const without = list => list.filter(l => l !== layout);
+        Settings.dictationAnyLanguage = [...without(Settings.dictationAnyLanguage), ...(choice === "any" ? [layout] : [])];
+        Settings.dictationAllLanguages = [...without(Settings.dictationAllLanguages), ...(choice === "all" ? [layout] : [])];
         if (process.running)
             send({ do: "language", language: language });
     }
@@ -209,11 +218,16 @@ Singleton {
             idle = message.idle;
             state = "listening";
             break;
+        case "draft":
+            draft = message.text;
+            draftTail = message.tail;
+            break;
         case "writing":
             progress = message.progress;
             state = "writing";
             break;
         case "waiting":
+            draft = draftTail = "";
             text = message.text;
             if (!cardFocused) {
                 where = message.where;
@@ -257,6 +271,11 @@ Singleton {
             return dictation.state;
         }
 
+        // The words so far, while the person speaks.
+        function draft(): string {
+            return [dictation.draft, dictation.draftTail].filter(part => part).join(" ");
+        }
+
         // What Waiting would deliver, and to where.
         function where(): string {
             return dictation.waiting ? dictation.where : "";
@@ -281,6 +300,7 @@ Singleton {
         // Quickshell does not declare the status's type to tooling.
         onExited: exitCode => { // qmllint disable signal-handler-parameters
             dictation.cardFocused = false;
+            dictation.draft = dictation.draftTail = "";
             dictation.state = exitCode !== 0 && exitCode !== 130 ? "failed" : "idle";
         }
     }

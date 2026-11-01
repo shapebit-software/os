@@ -1,6 +1,7 @@
 """The container image: the desktop session, its portals, and its applications."""
 
 import ast
+import json
 
 import pytest
 
@@ -56,6 +57,21 @@ def test_desktop_file_is_installed(host, path):
 def test_dictation_helper_is_installed(host, sh):
     assert host.file("/usr/libexec/desktop/dictate").mode & 0o111
     sh("python3 -c 'import ast; ast.parse(open(\"/usr/libexec/desktop/dictate\").read())'")
+
+
+def test_live_dictation_has_its_runtime_but_not_its_models(sh, host):
+    # An engine with no models fails, and dictate leaves it to Whisper; it gets as far
+    # as loading them only with sherpa-onnx and NumPy in place.
+    sh("PYTHONPATH=/usr/lib64/dictation python3 -c 'import numpy, sherpa_onnx'")
+    assert host.file("/usr/libexec/desktop/dictate-engine").mode & 0o111
+    assert not host.file("/usr/share/parakeet").exists
+
+
+def test_extras_can_be_downloaded_by_administrators(host, sh):
+    assert host.file("/usr/libexec/desktop/extra").mode & 0o111
+    assert "d /var/lib/extras 2775 root wheel" in host.file("/usr/lib/tmpfiles.d/extras.conf").content_string
+    catalog = json.loads(sh("EXTRAS_DIR=/tmp /usr/libexec/desktop/extra list"))
+    assert "parakeet" in [extra["id"] for extra in catalog["extras"]]
 
 
 def test_whisper_understands_speech_with_the_shipped_model(sh):

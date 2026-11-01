@@ -14,6 +14,7 @@
 //   gaps        the space between windows
 //   shell       the bars' layout (ShellEditor)
 //   displays    { selected, select(name) }: the displays' arrangement
+//   extra       { extra }: downloading or removing one of Extras
 //   info        nothing beside the text
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -180,6 +181,38 @@ Item {
             width: 180
             value: row.modelData.value ?? 0
             onMoved: value => row.modelData.move(value)
+        }
+
+        // An extra: its state and what can be done.
+        Row {
+            id: extra
+
+            readonly property var info: row.modelData.extra ?? null
+            readonly property var progress: info ? Extras.progress[info.id] ?? null : null
+            readonly property bool working: progress !== null && progress.state !== "failed"
+
+            visible: row.kind === "extra"
+            spacing: 10
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: text !== ""
+                width: Math.min(implicitWidth, 200)
+                wrapMode: Text.Wrap
+                text: !extra.info ? ""
+                    : extra.progress?.state === "failed" ? extra.progress.note
+                    : extra.working ? (extra.progress.percent > 0 ? `${extra.progress.note} ${extra.progress.percent}%` : extra.progress.note)
+                    : extra.info.installed ? "Installed"
+                    : !Extras.writable ? "An administrator can download this"
+                    : Extras.sizeOf(extra.info)
+                color: extra.progress?.state === "failed" ? Theme.danger : "#44484d"
+                font { family: Theme.font; pixelSize: 12 }
+            }
+            DialogButton {
+                visible: extra.info !== null && !extra.working && Extras.writable
+                text: !extra.info ? "" : extra.info.installed ? "Remove" : extra.progress ? "Try again" : "Download"
+                onActivated: extra.info.installed ? Extras.remove(extra.info.id) : Extras.install(extra.info.id)
+            }
         }
 
         Switch {

@@ -12,6 +12,7 @@ singleton Connectivity Connectivity.qml
 singleton Dictation Dictation.qml
 singleton Displays Displays.qml
 singleton Dragging Dragging.qml
+singleton Extras Extras.qml
 singleton FileChooser FileChooser.qml
 singleton Idle Idle.qml
 singleton Keyboard Keyboard.qml

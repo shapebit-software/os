@@ -1,0 +1,275 @@
+"""desktop/extras/extra, against a made-up server on this machine: only a whole,
+correct extra ever appears, and a broken download goes on from where it stopped."""
+
+import hashlib
+import http.server
+import io
+import json
+import os
+import pathlib
+import subprocess
+import tarfile
+import threading
+
+import pytest
+
+ROOT = pathlib.Path(__file__).parents[2]
+EXTRA = ROOT / "desktop" / "extras" / "extra"
+
+
+def tar_of(files):
+    data = io.BytesIO()
+    with tarfile.open(fileobj=data, mode="w:bz2") as tar:
+        for name, content in files.items():
+            info = tarfile.TarInfo(name)
+            info.size = len(content)
+            tar.addfile(info, io.BytesIO(content))
+    return data.getvalue()
+
+
+class Server:
+    def __init__(self):
+        self.files = {}
+        self.ranges = []
+        self.cut_after = None
+        self.ignore_ranges = False
+        outer = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_GET(self):
+                data = outer.files.get(self.path)
+                if data is None:
+                    self.send_error(404)
+                    return
+                wanted = self.headers.get("Range")
+                outer.ranges.append(wanted)
+                start = 0
+                if wanted and not outer.ignore_ranges:
+                    start = int(wanted.removeprefix("bytes=").removesuffix("-"))
+                    self.send_response(206)
+                else:
+                    self.send_response(200)
+                body = data[start:]
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                if outer.cut_after is not None:
+                    self.wfile.write(body[: outer.cut_after])
+                    self.wfile.flush()
+                    self.connection.close()
+                    outer.cut_after = None
+                    return
+                self.wfile.write(body)
+
+        self.http = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=self.http.serve_forever, daemon=True).start()
+
+    def url(self, path):
+        return f"http://127.0.0.1:{self.http.server_port}{path}"
+
+
+class Extras:
+    def __init__(self, tmp_path):
+        self.server = Server()
+        self.place = tmp_path / "extras"
+        self.place.mkdir()
+        self.catalog = tmp_path / "extras.json"
+        self.archive = tar_of({"model/weights.onnx": b"weights" * 1000, "model/tokens.txt": b"tokens", "model/other.txt": b"not wanted"})
+        self.plain = b"detector" * 100
+        self.server.files = {"/model.tar.bz2": self.archive, "/detector.onnx": self.plain}
+        self.write_catalog()
+
+    def write_catalog(self, archive_hash=None, unpacked=1000):
+        self.catalog.write_text(json.dumps([{
+            "id": "model", "name": "A model", "detail": "For tests", "unpacked": unpacked, "notice": "By someone, under a license",
+            "downloads": [
+                {"url": self.server.url("/model.tar.bz2"), "bytes": len(self.archive), "files": ["model/weights.onnx", "model/tokens.txt"],
+                 "sha256": archive_hash or hashlib.sha256(self.archive).hexdigest()},
+                {"url": self.server.url("/detector.onnx"), "bytes": len(self.plain), "sha256": hashlib.sha256(self.plain).hexdigest()},
+            ],
+        }]))  # fmt: skip
+
+    def run(self, *args):
+        env = {**os.environ, "EXTRAS_DIR": str(self.place), "EXTRAS_CATALOG": str(self.catalog)}
+        done = subprocess.run([EXTRA, *args], capture_output=True, text=True, env=env, timeout=30)
+        return done.returncode, [json.loads(line) for line in done.stdout.splitlines()]
+
+    def listed(self):
+        return self.run("list")[1][0]
+
+    @property
+    def visible(self):
+        return sorted(path.name for path in self.place.iterdir() if not path.name.startswith("."))
+
+
+@pytest.fixture
+def extras(tmp_path):
+    return Extras(tmp_path)
+
+
+def test_install_makes_the_named_files_appear_and_nothing_else(extras):
+    code, said = extras.run("install", "model")
+    assert code == 0
+    assert said[-1] == {"done": "model"}
+    files = sorted(path.name for path in (extras.place / "model").iterdir())
+    assert files == ["NOTICE", "detector.onnx", "tokens.txt", "weights.onnx"]
+    assert (extras.place / "model" / "tokens.txt").read_bytes() == b"tokens"
+    assert "under a license" in (extras.place / "model" / "NOTICE").read_text()
+
+
+def test_install_leaves_no_working_files(extras):
+    extras.run("install", "model")
+    assert [path.name for path in extras.place.iterdir() if path.name != ".lock"] == ["model"]
+
+
+def test_everyone_can_read_what_was_installed(extras):
+    extras.run("install", "model")
+    assert (extras.place / "model").stat().st_mode & 0o777 == 0o755
+    assert (extras.place / "model" / "weights.onnx").stat().st_mode & 0o777 == 0o644
+
+
+def test_progress_is_told_and_ends_at_the_whole(extras):
+    _, said = extras.run("install", "model")
+    percents = [line["percent"] for line in said if "percent" in line]
+    assert percents == sorted(percents)
+    assert percents[-1] == 100
+
+
+def test_list_tells_size_and_state(extras):
+    before = extras.listed()
+    assert before["writable"] is True
+    assert before["extras"][0]["installed"] is False
+    assert before["extras"][0]["bytes"] == len(extras.archive) + len(extras.plain)
+    extras.run("install", "model")
+    assert extras.listed()["extras"][0]["installed"] is True
+
+
+def test_a_wrong_hash_installs_nothing_and_the_next_try_starts_over(extras):
+    extras.write_catalog(archive_hash="0" * 64)
+    code, said = extras.run("install", "model")
+    assert code == 1
+    assert "damaged" in said[-1]["error"]
+    assert extras.visible == []
+    extras.write_catalog()
+    extras.server.ranges.clear()
+    assert extras.run("install", "model")[0] == 0
+    assert extras.server.ranges[0] is None
+
+
+def test_a_broken_connection_installs_nothing_and_the_next_try_goes_on(extras):
+    extras.server.cut_after = 100
+    code, said = extras.run("install", "model")
+    assert code == 1
+    assert "error" in said[-1]
+    assert extras.visible == []
+    extras.server.ranges.clear()
+    assert extras.run("install", "model")[0] == 0
+    assert extras.server.ranges[0] == "bytes=100-"
+    assert (extras.place / "model" / "weights.onnx").read_bytes() == b"weights" * 1000
+
+
+def test_a_server_that_ignores_the_range_still_gives_the_right_file(extras):
+    extras.server.cut_after = 100
+    extras.run("install", "model")
+    extras.server.ignore_ranges = True
+    assert extras.run("install", "model")[0] == 0
+    assert (extras.place / "model" / "tokens.txt").read_bytes() == b"tokens"
+
+
+def test_no_connection_says_so(extras):
+    extras.server.http.shutdown()
+    extras.server.http.server_close()
+    code, said = extras.run("install", "model")
+    assert code == 1
+    assert "connect" in said[-1]["error"]
+
+
+def test_an_archive_without_its_files_installs_nothing(extras):
+    extras.archive = tar_of({"model/weights.onnx": b"weights"})
+    extras.server.files["/model.tar.bz2"] = extras.archive
+    extras.write_catalog()
+    code, said = extras.run("install", "model")
+    assert code == 1
+    assert "missing" in said[-1]["error"]
+    assert extras.visible == []
+
+
+def test_an_archive_cannot_write_elsewhere(extras, tmp_path):
+    extras.archive = tar_of({"model/weights.onnx": b"w", "model/tokens.txt": b"t", "../../escaped": b"bad"})
+    extras.server.files["/model.tar.bz2"] = extras.archive
+    extras.write_catalog()
+    assert extras.run("install", "model")[0] == 0
+    assert not (tmp_path / "escaped").exists()
+    assert not (extras.place / "escaped").exists()
+
+
+def test_too_little_room_downloads_nothing(extras):
+    extras.write_catalog(unpacked=2**62)
+    extras.server.ranges.clear()
+    code, said = extras.run("install", "model")
+    assert code == 1
+    assert "disk space" in said[-1]["error"]
+    assert extras.server.ranges == []
+
+
+def test_installing_what_is_installed_downloads_nothing(extras):
+    extras.run("install", "model")
+    extras.server.ranges.clear()
+    assert extras.run("install", "model") == (0, [{"done": "model"}])
+    assert extras.server.ranges == []
+
+
+def test_remove_takes_it_away_and_what_was_half_downloaded(extras):
+    extras.run("install", "model")
+    assert extras.run("remove", "model")[0] == 0
+    assert extras.visible == []
+    assert extras.listed()["extras"][0]["installed"] is False
+    extras.server.cut_after = 100
+    extras.run("install", "model")
+    assert extras.run("remove", "model")[0] == 0
+    assert [path.name for path in extras.place.iterdir() if path.name != ".lock"] == []
+
+
+def test_a_person_who_may_not_write_is_told(extras):
+    extras.place.chmod(0o555)
+    try:
+        if os.access(extras.place, os.W_OK):
+            pytest.skip("running as root")
+        assert extras.listed()["writable"] is False
+        code, said = extras.run("install", "model")
+        assert code == 1
+        assert "administrator" in said[-1]["error"]
+    finally:
+        extras.place.chmod(0o755)
+
+
+def test_unknown_extra_is_refused(extras):
+    code, said = extras.run("install", "../../etc")
+    assert code == 1
+    assert "no extra" in said[-1]["error"]
+    assert extras.visible == []
+
+
+def test_shipped_catalog_is_complete():
+    entries = json.loads((ROOT / "desktop" / "extras" / "extras.json").read_text())
+    assert entries
+    for extra in entries:
+        assert {"id", "name", "detail", "unpacked", "notice", "downloads"} <= set(extra)
+        for item in extra["downloads"]:
+            assert item["url"].startswith("https://")
+            assert len(item["sha256"]) == 64
+            assert item["bytes"] > 0
+
+
+def test_live_dictation_finds_what_its_extra_installs():
+    entries = json.loads((ROOT / "desktop" / "extras" / "extras.json").read_text())
+    parakeet = next(extra for extra in entries if extra["id"] == "parakeet")
+    names = {pathlib.PurePosixPath(name).name for item in parakeet["downloads"] for name in item.get("files", [])}
+    names |= {pathlib.PurePosixPath(item["url"]).name for item in parakeet["downloads"] if "files" not in item}
+    engine = (ROOT / "desktop" / "dictation" / "dictate-engine").read_text()
+    for name in ("encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt", "silero_vad_v5.onnx"):
+        assert name in names
+        assert name in engine
+    assert '"/var/lib/extras/parakeet"' in (ROOT / "desktop" / "dictation" / "dictate").read_text()

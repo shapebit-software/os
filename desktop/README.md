@@ -126,7 +126,10 @@ listed in its folder's `qmldir`, and a file imports the other folders it uses.
 
 - The assistant: its button, the Settings section, and the hot corner say it is
   coming. `make run` needs Whisper installed in the development container to
-  dictate; Whisper is in the OS image.
+  dictate, and sherpa-onnx with Parakeet for the live draft
+  (`DICTATION_PYTHON`, `DICTATION_PARAKEET`). The OS image has Whisper and
+  sherpa-onnx; Parakeet is an extra, downloaded from Welcome or Settings > Assistant
+  (`extras/`).
 - Settings has only what works: no password change, no system language, or
   first day of the week.
 - Tabs cannot be dragged.

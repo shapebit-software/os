@@ -148,9 +148,19 @@ curl -fsSL -o /out/usr/share/whisper/ggml-small-q5_1.bin \
 echo "$WHISPER_MODEL_SHA256 /out/usr/share/whisper/ggml-small-q5_1.bin" | sha256sum -c
 EOF
 
+# What the live speech recognition of dictation runs on (desktop/dictation/
+# dictate-engine): sherpa-onnx, which Fedora does not package. The wheels are checked
+# against their hashes (desktop/dictation/requirements.txt), and pip stays here. Its
+# models are too large for the image, and are downloaded (desktop/extras).
+FROM tools AS sherpa
+RUN dnf -y install python3-pip
+RUN --mount=type=bind,from=desktop,source=dictation/requirements.txt,target=/run/requirements.txt \
+    pip install --require-hashes --only-binary :all: --no-deps --target /out/usr/lib64/dictation -r /run/requirements.txt
+
 FROM system
 COPY --from=desktop-files /out/ /
 COPY --from=whisper /out/ /
+COPY --from=sherpa /out/ /
 # The desktop's settings defaults (window-buttons.gschema.override) apply
 # once the schemas are compiled again.
 RUN glib-compile-schemas /usr/share/glib-2.0/schemas

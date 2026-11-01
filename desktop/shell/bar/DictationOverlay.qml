@@ -1,5 +1,6 @@
 // What dictation shows beyond its button, in the bottom right corner of the
-// focused screen: a card when the text has to wait for the person to say where it
+// focused screen: the draft while the person speaks, which the pointer passes
+// through; a card when the text has to wait for the person to say where it
 // goes; and, only with no button to show the state, a pill, so that an open
 // microphone is never out of sight. It takes no keyboard, so the application keeps its text field,
 // until the person asks for the card with the shortcut or edits the text.
@@ -22,6 +23,7 @@ PanelWindow {
     readonly property bool pill: noButton && (Dictation.listening || Dictation.writing || Dictation.notice !== ""
         || Dictation.state === "failed" && !Dictation.retryable)
     readonly property bool card: Dictation.waiting || Dictation.retryable
+    readonly property bool preview: !card && Dictation.draft + Dictation.draftTail !== ""
 
     // The card's actions, the first the main one.
     readonly property var actions: {
@@ -61,7 +63,7 @@ PanelWindow {
     }
 
     screen: modelData
-    visible: (pill || card) && Hyprland.focusedMonitor?.name === modelData.name
+    visible: (pill || card || preview) && Hyprland.focusedMonitor?.name === modelData.name
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "dictation"
     WlrLayershell.keyboardFocus: Dictation.cardFocused ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
@@ -80,6 +82,42 @@ PanelWindow {
 
         function onCardFocusedChanged() {
             overlay.selected = 0;
+        }
+    }
+
+    // The draft, its newest lines, above the pill if there is one; the words that may
+    // still change are faint.
+    PopoverFrame {
+        visible: overlay.preview
+        anchors { right: parent.right; bottom: parent.bottom; rightMargin: overlay.fromRight
+            bottomMargin: overlay.fromBottom + (overlay.pill ? pillShape.height + 8 : 0) }
+        padding: 12
+
+        Item {
+            width: 420
+            height: Math.min(draftText.implicitHeight, 3 * draftMetrics.lineSpacing)
+            clip: true
+
+            FontMetrics {
+                id: draftMetrics
+                font: draftText.font
+            }
+            Text {
+                id: draftText
+
+                function escaped(text: string): string {
+                    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                }
+
+                anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                wrapMode: Text.Wrap
+                textFormat: Text.StyledText
+                text: `${escaped(Dictation.draft)} <font color="${Theme.inkFaint}">${escaped(Dictation.draftTail)}</font>`
+                color: Theme.ink
+                font { family: Theme.font; pixelSize: 14 }
+                Accessible.role: Accessible.StatusBar
+                Accessible.name: `${Dictation.draft} ${Dictation.draftTail}`
+            }
         }
     }
 
