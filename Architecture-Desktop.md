@@ -148,9 +148,18 @@ the [future design](#future-design) of features that are not built yet.
   while the text waits, red when something is wrong; its tooltip says the rest.
   With no button (a hot corner, or the button turned off), a pill does this
   instead, so an open microphone is never out of sight. The language follows the
-  keyboard layout or is any language, per layout (Settings > Language). It says
+  keyboard layout, is any of Parakeet's 25, or is any of Whisper's 100, per layout
+  (Settings > Language). It says
   when the microphone hears nothing or the person seems gone, and stops by
   itself after a long silence.
+  - **Writing it down.** With Parakeet downloaded (an
+    [extra](#extras)), in its 25 languages, `dictation/dictate-engine` writes it down while the person speaks, and a draft shows in the corner, with
+    the words that may still change faint. The draft goes nowhere else: nothing
+    enters an application before the stop, and the pointer passes through it. At
+    each pause Silero cuts a phrase, and at the stop only the last one is left, so
+    the text comes at once. Parakeet hears all the audio, as Silero can take a
+    short phrase for silence. Without it, in other languages, with all of Whisper's
+    chosen, or should the engine fail, Whisper writes down the whole recording at the stop.
   - **Where the text goes.** While it runs, `dictation/dictate` is the Wayland
     input method, so applications tell it when a text field has the focus, and
     of what kind. If the same field has the focus at the stop and when the text
@@ -166,7 +175,7 @@ the [future design](#future-design) of features that are not built yet.
   - **Password fields** never get dictated text, by either way in.
   - **Recovering.** If Whisper fails, the audio stays for Try again until
     discarded. A right click on the button brings back the last dictation.
-  - **Privacy.** Whisper runs on the computer; audio is in the runtime directory
+  - **Privacy.** Parakeet and Whisper run on the computer; audio is in the runtime directory
     and goes when the dictation ends. Locking the screen discards everything
     under way, and the last dictation.
 - Capturing opens the **capture overlay**: the screen dims, with a panel at
@@ -301,10 +310,21 @@ the [future design](#future-design) of features that are not built yet.
 - Apps installed from Flatpak, the browser included, update daily in the
   background; a running app gets its update the next time it opens.
 
+### Extras
+
+Extras are what is too large for the OS image and not everyone needs, such as
+speech and language models. `extras/extras.json` lists them, with the hash of each
+download; adding one is adding an entry. Welcome offers them when online, kept unless
+turned off, and Settings > Assistant downloads and removes them later. They go to
+`/var/lib/extras`, for everyone on the computer, and only administrators may change
+them. They stay private: nothing is sent, only downloaded. A download goes on where
+it stopped, and an extra appears only when whole and correct. In `/var`, they are not
+in the sealed image, so the OS needs none of them and updates without them.
+
 ### Welcome
 
 Each person's first login opens Welcome, full screen over the desktop on
-the primary display. It asks only what the installer didn't, in four steps:
+the primary display. It asks only what the installer didn't, in five steps:
 
 1. **Network**: only when the computer was offline when Welcome opened,
    with the network panel's Wi-Fi list and inline password.
@@ -316,11 +336,14 @@ the primary display. It asks only what the installer didn't, in four steps:
    ([Recommended Apps](Architecture-Applications#recommended-apps)), only
    when online: all on, each with a switch to leave it out; **Install**
    installs those kept.
-4. **Getting around**: Super for Apps, workspaces, moving between windows,
+4. **Optional downloads** ([Extras](#extras)): only when online, with something
+   to download, for administrators: all on, each with a switch to leave it out;
+   **Download** starts those kept.
+5. **Getting around**: Super for Apps, workspaces, moving between windows,
    and Super+/ for every shortcut.
 
-The browser and the apps install one after the other and go on if Welcome
-closes; the last step says what is still installing or what failed.
+The browser, the apps, and the extras go on if Welcome closes; the last step says
+what is still installing or what failed.
 
 Every step can be skipped, and nothing blocks the desktop. Once finished or
 skipped, Welcome doesn't open again on its own; Settings > Account opens it
