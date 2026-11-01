@@ -13,7 +13,7 @@ PORTAL_DIR = "/usr/share/xdg-desktop-portal/portals"
     [
         "start-hyprland", "hyprland-dialog", "qs", "grim", "slurp", "wf-recorder", "xdg-user-dir", "wl-copy", "wl-paste",
         "pipewire", "wireplumber", "pipewire-pulse", "upower", "hypridle", "brightnessctl", "clipman",
-        "gnome-keyring-daemon", "flatpak", "distrobox",
+        "gnome-keyring-daemon", "flatpak", "distrobox", "pw-record", "pw-play", "wtype", "whisper-cli", "setpriv",
     ],
 )  # fmt: skip
 def test_desktop_command_is_installed(host, command):
@@ -51,6 +51,29 @@ def test_desktop_helper_is_python(host, path):
 )
 def test_desktop_file_is_installed(host, path):
     assert host.file(path).size > 0
+
+
+def test_dictation_helper_is_installed(host, sh):
+    assert host.file("/usr/libexec/desktop/dictate").mode & 0o111
+    sh("python3 -c 'import ast; ast.parse(open(\"/usr/libexec/desktop/dictate\").read())'")
+
+
+def test_whisper_understands_speech_with_the_shipped_model(sh):
+    # The helper's default model, offline, on the installed libraries.
+    text = sh("whisper-cli -m /usr/share/whisper/ggml-small-q5_1.bin -f /tests/image/speech.wav -l en -nt -np")
+    assert "ask not what your country can do for you" in text
+
+
+def test_whisper_needs_no_build_directory(sh):
+    assert "not found" not in sh("ldd /usr/bin/whisper-cli")
+
+
+def test_whisper_can_use_a_fast_cpu(host):
+    assert host.file("/usr/lib64/whisper/libggml-cpu-haswell.so").size > 0
+
+
+def test_whisper_licenses_are_installed(host):
+    assert host.file("/usr/share/licenses/whisper.cpp/LICENSE").size > 0
 
 
 def test_compositor_configuration_is_valid(sh):

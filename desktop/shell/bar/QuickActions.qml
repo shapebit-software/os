@@ -5,8 +5,12 @@
 // While recording, the capture button is red with the recording's length,
 // and a click on it stops the recording. While the screen is shared
 // (SharePicker.qml), it is filled with the accent and shows a screen, and
-// says with which applications. The assistant and
-// dictation are still to come: their buttons say so (AssistantPanel.qml).
+// says with which applications. While dictating (Dictation.qml), the dictation
+// button is filled with the accent and its icon says the state: sound bars while
+// listening, a pencil while writing it down, lines while the text waits, red when
+// something is wrong; a click stops, a right click discards, and with nothing
+// under way, brings back the last dictation. The assistant is still to come: its button says so
+// (AssistantPanel.qml).
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
@@ -26,7 +30,6 @@ GridLayout {
     readonly property string frame: "M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3"
         + "M5.8 8a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0-4.4 0z"
     readonly property string screen: "M2 2.5h12v8H2zM5.5 13.5h5M8 10.5v3M8 8.5v-4M6.25 6.25 8 4.5l1.75 1.75"
-    readonly property string wave: "M2 7v2M5 5v6M8 2.5v11M11 5v6M14 7v2"
 
     function capture(button: Item) {
         if (Capture.recording)
@@ -46,10 +49,14 @@ GridLayout {
         property string strokes
         property bool red
         property bool shared
+        property bool dictate
+        readonly property bool dictating: dictate && (Dictation.listening || Dictation.writing || Dictation.waiting)
+        readonly property bool hearing: dictate && Dictation.listening && !Dictation.quiet
+        readonly property bool wrong: dictate && (Dictation.state === "failed" || Dictation.notice.startsWith("No m") || Dictation.notice.startsWith("Mic"))
 
         tile: actions.tile
         size: actions.small
-        fill: red ? "#d23a3a" : shared ? Theme.accent : "transparent"
+        fill: red || wrong ? "#d23a3a" : shared || dictating ? Theme.accent : "transparent"
 
         // While recording, its length so far; as wide as the button, so the
         // button keeps its size.
@@ -64,17 +71,25 @@ GridLayout {
         Tooltip {
             target: small
             edge: actions.bar.edge
-            hovered: small.hovered && (small.red || small.shared)
+            hovered: small.visible && (small.dictate && Dictation.telling
+                || small.hovered && (small.red || small.shared || small.dictate))
             text: small.red ? `Recording ${Capture.elapsed} · click to stop`
+                : small.dictate ? Dictation.status
                 : SharePicker.viewers.length ? `Sharing the screen with ${SharePicker.viewers.join(", ")}`
                 : "Sharing the screen"
         }
+        DictationBars {
+            visible: small.hearing
+            size: actions.tile ? 12 : 16
+            // Narrow enough on the dock's small button that it keeps its size.
+            spacing: actions.tile ? 1 : 2
+        }
         Icon {
-            visible: !small.red
+            visible: !small.red && !small.hearing
             height: actions.tile ? 14 : 18
             color: "#f6f7f9"
             strokeWidth: 1.5
-            strokes: small.shared ? actions.screen : small.strokes
+            strokes: small.dictate ? Dictation.icon : small.shared ? actions.screen : small.strokes
         }
     }
 
@@ -93,9 +108,10 @@ GridLayout {
             onClicked: actions.capture(captureTile)
         }
         Small {
-            id: dictateTile
-            strokes: actions.wave
-            onClicked: actions.bar.open("assistant", dictateTile)
+            visible: Settings.dictationButton
+            dictate: true
+            onClicked: Dictation.toggle()
+            onRightClicked: Dictation.secondary()
         }
     }
     Small {
@@ -107,10 +123,10 @@ GridLayout {
         onClicked: actions.capture(captureButton)
     }
     Small {
-        id: dictateButton
-        visible: !actions.tile
-        strokes: actions.wave
-        onClicked: actions.bar.open("assistant", dictateButton)
+        visible: !actions.tile && Settings.dictationButton
+        dictate: true
+        onClicked: Dictation.toggle()
+        onRightClicked: Dictation.secondary()
     }
 
     // The assistant's button.

@@ -13,6 +13,7 @@ autotest::loadtest("tests/$_.py") for qw(
   login
   settings
   window_layouts
+  dictation
   lock_unlock
   reboot
 );

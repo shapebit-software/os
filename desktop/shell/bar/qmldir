@@ -8,6 +8,8 @@ BarPanel BarPanel.qml
 BatteryPanel BatteryPanel.qml
 BrightnessPanel BrightnessPanel.qml
 ConnectionItem ConnectionItem.qml
+DictationBars DictationBars.qml
+DictationOverlay DictationOverlay.qml
 HotCorner HotCorner.qml
 LanguagePanel LanguagePanel.qml
 NetworkPanel NetworkPanel.qml

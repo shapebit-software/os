@@ -9,6 +9,7 @@ singleton Capture Capture.qml
 singleton Clipboard Clipboard.qml
 singleton Compositor Compositor.qml
 singleton Connectivity Connectivity.qml
+singleton Dictation Dictation.qml
 singleton Displays Displays.qml
 singleton Dragging Dragging.qml
 singleton FileChooser FileChooser.qml

@@ -124,8 +124,9 @@ listed in its folder's `qmldir`, and a file imports the other folders it uses.
 
 ## Not yet implemented
 
-- The assistant and dictation: their buttons, the Settings section, and the
-  hot corner say they are coming.
+- The assistant: its button, the Settings section, and the hot corner say it is
+  coming. `make run` needs Whisper installed in the development container to
+  dictate; Whisper is in the OS image.
 - Settings has only what works: no password change, no system language, or
   first day of the week.
 - Tabs cannot be dragged.

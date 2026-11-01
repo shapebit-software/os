@@ -1,0 +1,532 @@
+#!/usr/bin/python3
+# Dictation, which the shell runs for one dictation (shell/services/Dictation.qml)
+# and talks to over its standard input and output, one JSON line at a time. It
+# hears the microphone, has Whisper write it down, and delivers the text only
+# where it is sure of the place; otherwise the text waits for the person to say
+# where. All the deciding is here; the shell only shows it.
+#
+# It is the Wayland input method for as long as it runs, for two things that
+# nothing else offers: applications tell an input method when a text field has
+# the focus and what kind it is, and text committed to a field cannot press
+# shortcuts, as typed keys can. Should another input method be running, it does
+# without. Applications under XWayland never tell, so they are "unknown".
+#
+# Audio stays in the runtime directory, and it and the text are gone at the end.
+#
+# Usage: dictate LANGUAGE [--held] (a code that Whisper knows, such as "en", or
+# "auto"; --held starts with no recording, to be given text with "hold").
+#
+# From the shell, {"do": ...}: "stop"; "language", with "language"; "text", with
+# "text", for what the person edited; "insert"; "type", for keys, when the person
+# asks; "copy"; "add", to keep talking; "retry"; "hold", with "text"; "discard".
+# The end of the input discards, as do SIGINT and SIGTERM.
+#
+# To the shell: {"state": "listening", "level": 0..1, "quiet": bool, "idle": bool};
+# {"state": "writing", "progress": 0..100};
+# {"state": "waiting", "text": ..., "where": ..., "app": ...}; {"state": "failed"};
+# and at the end, {"state": "done", "text": ...} or {"state": "nothing"}.
+# "where": "field", a text field; "password", where text is refused; "none", a
+# window with no field; "unknown", a window that does not tell; "nowindow".
+import array
+import json
+import math
+import os
+import pathlib
+import re
+import selectors
+import shutil
+import signal
+import socket
+import struct
+import subprocess
+import sys
+import tempfile
+import time
+import wave
+
+MODEL = os.environ.get("DICTATION_MODEL", "/usr/share/whisper/ggml-small-q5_1.bin")
+SOUNDS = bool(os.environ.get("DICTATION_SOUNDS"))
+# Seconds of silence: until the microphone seems not to hear; after speech,
+# until asking if the person is still there; and until stopping by itself.
+QUIET = float(os.environ.get("DICTATION_QUIET", 4))
+IDLE = float(os.environ.get("DICTATION_IDLE", 60))
+GIVE_UP = float(os.environ.get("DICTATION_GIVE_UP", 120))
+# What counts as sound, of the largest sample's 32768.
+SOUND_PEAK = 600
+RATE = 16000
+# How long "insert" waits for the field, after the shell gives the focus back.
+FIELD_WAIT = 0.6
+
+# For a language that it does not know, Whisper succeeds with no text; keyboard
+# layouts can name such languages. This is its list.
+LANGUAGES = set(
+    "en zh de es ru ko fr ja pt tr pl ca nl ar sv it id hi fi vi he uk el ms cs ro da hu ta no th ur hr bg lt "
+    "la mi ml cy sk te fa lv bn sr az sl kn et mk br eu is hy ne mn bs kk sq sw gl mr pa si km sn yo so af oc "
+    "ka be tg sd gu am yi lo uz fo ht ps tk nn mt sa lb my bo tl mg as tt haw ln ha ba jw su yue".split()
+)
+
+# zwp_text_input_v3's purposes and hints that mean a secret.
+PURPOSE_PASSWORD, PURPOSE_PIN = 8, 9
+HINT_SENSITIVE = 0x40
+# No space goes between these, before the cursor, and the text.
+NO_SPACE_AFTER = "([{\"'«„“‘/-"
+
+REGISTRY, SEAT, MANAGER, METHOD = 2, 3, 4, 5
+
+
+def string(text):
+    data = text.encode() + b"\0"
+    return struct.pack("<I", len(data)) + data + b"\0" * (-len(data) % 4)
+
+
+def read_string(data, offset):
+    size = struct.unpack_from("<I", data, offset)[0]
+    return data[offset + 4 : offset + 3 + size], offset + 4 + (size + 3 & ~3)
+
+
+class InputMethod:
+    """zwp_input_method_v2, as much as this needs: it is small and has no fds,
+    and no Python binding ships this protocol."""
+
+    def __init__(self):
+        self.socket = None
+        self.buffer = b""
+        self.found = {}
+        self.available = False
+        self.commits = 0
+        # A field's focus, counted, so that another one, or the same one again,
+        # is seen as a move.
+        self.activations = 0
+        self.active = False
+        self.purpose = self.hint = 0
+        self.before = ""
+        self.pending = {}
+        display = os.environ.get("WAYLAND_DISPLAY", "wayland-0")
+        try:
+            self.socket = socket.socket(socket.AF_UNIX)
+            self.socket.connect(os.path.join(os.environ["XDG_RUNTIME_DIR"], display))
+        except OSError:
+            self.socket = None
+            return
+        self.send(1, 1, struct.pack("<I", REGISTRY))
+
+    def send(self, target, opcode, payload=b""):
+        self.socket.sendall(struct.pack("<IHH", target, opcode, 8 + len(payload)) + payload)
+
+    def read(self):
+        """False when the compositor has gone."""
+        data = self.socket.recv(65536)
+        if not data:
+            self.available = self.active = False
+            return False
+        self.buffer += data
+        while len(self.buffer) >= 8:
+            target, word = struct.unpack_from("<II", self.buffer)
+            opcode, size = word & 0xFFFF, word >> 16
+            if len(self.buffer) < size:
+                break
+            payload, self.buffer = self.buffer[8:size], self.buffer[size:]
+            if target == REGISTRY and opcode == 0:
+                self.announced(payload)
+            elif target == METHOD:
+                self.event(opcode, payload)
+        return True
+
+    def announced(self, payload):
+        name = struct.unpack_from("<I", payload)[0]
+        interface = read_string(payload, 4)[0].decode()
+        if interface in ("wl_seat", "zwp_input_method_manager_v2"):
+            self.found[interface] = name
+        if len(self.found) == 2 and not self.available:
+            self.available = True
+            for interface, number in (("wl_seat", SEAT), ("zwp_input_method_manager_v2", MANAGER)):
+                self.send(REGISTRY, 0, struct.pack("<I", self.found[interface]) + string(interface) + struct.pack("<II", 1, number))
+            self.send(MANAGER, 0, struct.pack("<II", SEAT, METHOD))
+
+    def event(self, opcode, payload):
+        if opcode == 0:  # activate
+            self.pending = {"active": True, "purpose": 0, "hint": 0, "before": ""}
+            self.activations += 1
+        elif opcode == 1:  # deactivate
+            self.pending["active"] = False
+        elif opcode == 2:  # surrounding_text
+            text, offset = read_string(payload, 0)
+            cursor, anchor = struct.unpack_from("<II", payload, offset)
+            # A selection is replaced, so what comes before it does not count.
+            self.pending["before"] = text[:cursor].decode(errors="ignore")[-1:] if cursor == anchor else ""
+        elif opcode == 4:  # content_type
+            self.pending["hint"], self.pending["purpose"] = struct.unpack("<II", payload)
+        elif opcode == 5:  # done
+            self.commits += 1
+            for name, value in self.pending.items():
+                setattr(self, name, value)
+            self.pending = {}
+        elif opcode == 6:  # unavailable: another input method runs
+            self.available = self.active = False
+
+    @property
+    def secret(self):
+        return self.active and (self.purpose in (PURPOSE_PASSWORD, PURPOSE_PIN) or bool(self.hint & HINT_SENSITIVE))
+
+    def commit(self, text):
+        if self.before and not self.before.isspace() and self.before not in NO_SPACE_AFTER:
+            text = " " + text
+        self.send(METHOD, 0, string(text))
+        self.send(METHOD, 3, struct.pack("<I", self.commits))
+
+
+def focused_window():
+    """The focused window, as Hyprland tells; {} with none."""
+    try:
+        result = subprocess.run(["hyprctl", "activewindow", "-j"], capture_output=True, text=True, timeout=2, check=True)
+        return json.loads(result.stdout) or {}
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return {}
+
+
+def clean(said):
+    """One line of text, for a field or a terminal: Whisper marks silence and
+    noises in brackets, such as [BLANK_AUDIO], and no control characters pass."""
+    said = re.sub(r"\[[^]]*\]", "", said)
+    said = "".join(c if c.isprintable() else " " for c in said)
+    return " ".join(said.split())
+
+
+class Dictation:
+    def __init__(self, language, held):
+        self.language = language
+        self.work = pathlib.Path(tempfile.mkdtemp(dir=os.environ["XDG_RUNTIME_DIR"], prefix="dictation-"))
+        self.selector = selectors.DefaultSelector()
+        self.method = InputMethod()
+        self.input = b""
+        self.state = None
+        self.text = ""
+        self.recorder = self.whisper = None
+        self.audio = None
+        self.audio_path = None
+        self.said = b""
+        self.errors = b""
+        self.stopping = False
+        self.was_sent = None
+        self.insert_by = None
+        self.target = None
+        self.last_refresh = 0
+        self.last_level = 0
+        self.peak = 0
+        self.last_sound = time.monotonic()
+        self.heard = False
+
+        wake_read, wake_write = os.pipe()
+        os.set_blocking(wake_write, False)
+        signal.set_wakeup_fd(wake_write)
+        for number in (signal.SIGINT, signal.SIGTERM):
+            signal.signal(number, lambda *_: None)
+        self.selector.register(wake_read, selectors.EVENT_READ, self.woken)
+        self.selector.register(sys.stdin.fileno(), selectors.EVENT_READ, self.commanded)
+        if self.method.socket:
+            self.selector.register(self.method.socket, selectors.EVENT_READ, self.compositor)
+        if not held:
+            self.listen()
+
+    def emit(self, **message):
+        print(json.dumps(message, ensure_ascii=False), flush=True)
+
+    def finish(self, code):
+        for process in (self.recorder, self.whisper):
+            if process and process.poll() is None:
+                process.terminate()
+                process.wait()
+        shutil.rmtree(self.work, ignore_errors=True)
+        sys.exit(code)
+
+    def sound(self, rising):
+        """A soft tone, when the person wants them. It is made here, as nothing
+        the image ships fits, and needs no package."""
+        if not SOUNDS:
+            return
+        path = self.work / f"tone-{rising}.wav"
+        if not path.exists():
+            frequency = 660 if rising else 440
+            count = RATE // 8
+            samples = array.array("h", (
+                int(5000 * math.sin(2 * math.pi * frequency * n / RATE) * math.sin(math.pi * n / count))
+                for n in range(count)
+            ))
+            with wave.open(str(path), "wb") as tone:
+                tone.setnchannels(1)
+                tone.setsampwidth(2)
+                tone.setframerate(RATE)
+                tone.writeframes(samples.tobytes())
+        try:
+            subprocess.Popen(["pw-play", str(path)], stderr=subprocess.DEVNULL)
+        except OSError:
+            pass
+
+    # Commands ------------------------------------------------------------
+
+    def woken(self, source):
+        os.read(source, 64)
+        self.finish(130)
+
+    def commanded(self, source):
+        data = os.read(source, 65536)
+        if not data:
+            self.finish(130)
+        self.input += data
+        *lines, self.input = self.input.split(b"\n")
+        for line in lines:
+            self.command(json.loads(line))
+
+    def command(self, message):
+        what = message["do"]
+        if what == "discard":
+            self.finish(130)
+        elif what == "language":
+            self.language = message["language"]
+        elif what == "stop" and self.state == "listening":
+            self.stop_listening()
+        elif what == "add" and self.state == "waiting":
+            self.listen()
+        elif what == "retry" and self.state == "failed":
+            self.write_down()
+        elif what == "hold":
+            self.text = message["text"]
+            self.wait_for_person()
+        elif self.state == "waiting":
+            if what == "text":
+                self.text = clean(message["text"])
+            elif what == "insert":
+                self.insert_by = time.monotonic() + FIELD_WAIT
+            elif what == "type":
+                self.type_keys()
+            elif what == "copy":
+                self.copy()
+
+    # Listening -----------------------------------------------------------
+
+    def listen(self):
+        self.audio_path = self.work / f"audio-{time.monotonic_ns()}.wav"
+        self.audio = wave.open(str(self.audio_path), "wb")
+        self.audio.setnchannels(1)
+        self.audio.setsampwidth(2)
+        self.audio.setframerate(RATE)
+        self.stopping = False
+        self.last_sound = time.monotonic()
+        self.heard = False
+        self.peak = 0
+        # What is under way ends with this, so the microphone never stays open.
+        self.recorder = subprocess.Popen(
+            ["setpriv", "--pdeathsig", "TERM", "pw-record", "--rate", str(RATE), "--channels", "1", "--format", "s16", "--raw", "-"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+        self.selector.register(self.recorder.stdout, selectors.EVENT_READ, self.recording)
+        self.sound(True)
+        self.state = "listening"
+        self.report_level()
+
+    def recording(self, source):
+        data = os.read(source.fileno(), 8192)
+        if not data:
+            self.recorded()
+            return
+        self.audio.writeframes(data)
+        samples = array.array("h")
+        samples.frombytes(data[: len(data) // 2 * 2])
+        if samples:
+            peak = max(abs(max(samples)), abs(min(samples)))
+            self.peak = max(self.peak, peak)
+            if peak >= SOUND_PEAK:
+                self.heard = True
+                self.last_sound = time.monotonic()
+
+    def recorded(self):
+        self.selector.unregister(self.recorder.stdout)
+        self.recorder.stdout.close()
+        self.recorder.wait()
+        self.recorder = None
+        self.audio.close()
+        if self.stopping:
+            self.write_down()
+        elif self.text:
+            # The recorder failed; what was said before is still there.
+            self.wait_for_person()
+        else:
+            self.emit(state="failed")
+            self.finish(1)
+
+    def report_level(self):
+        now = time.monotonic()
+        if now - self.last_level < 0.08:
+            return
+        self.last_level = now
+        silent = now - self.last_sound
+        self.emit(state="listening", level=round(min(1, self.peak / 12000), 2),
+                  quiet=not self.heard and silent >= QUIET, idle=self.heard and silent >= IDLE)
+        self.peak = 0
+        if silent >= GIVE_UP:
+            self.stop_listening()
+
+    def stop_listening(self):
+        # Where the words were meant to go is where the focus was at the stop.
+        self.target = self.place()
+        self.stopping = True
+        self.sound(False)
+        self.state = "writing"
+        self.emit(state="writing", progress=0)
+        self.recorder.terminate()
+
+    # Writing it down -----------------------------------------------------
+
+    def write_down(self):
+        self.said = b""
+        self.errors = b""
+        self.state = "writing"
+        self.emit(state="writing", progress=0)
+        self.whisper = subprocess.Popen(
+            ["setpriv", "--pdeathsig", "TERM", "whisper-cli", "-m", MODEL, "-f", str(self.audio_path),
+             "-l", self.language if self.language in LANGUAGES else "auto", "-nt", "-np", "-pp"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        self.selector.register(self.whisper.stdout, selectors.EVENT_READ, self.whisper_text)
+        self.selector.register(self.whisper.stderr, selectors.EVENT_READ, self.whisper_progress)
+
+    def whisper_text(self, source):
+        data = os.read(source.fileno(), 65536)
+        if data:
+            self.said += data
+        else:
+            self.selector.unregister(source)
+            self.whisper_ended()
+
+    def whisper_progress(self, source):
+        data = os.read(source.fileno(), 4096)
+        if not data:
+            self.selector.unregister(source)
+            self.whisper_ended()
+            return
+        found = re.findall(rb"progress =\s*(\d+)%", data)
+        if found:
+            self.emit(state="writing", progress=int(found[-1]))
+
+    def whisper_ended(self):
+        process = self.whisper
+        if self.selector_has(process.stdout) or self.selector_has(process.stderr):
+            return
+        code = process.wait()
+        process.stdout.close()
+        process.stderr.close()
+        self.whisper = None
+        if code != 0:
+            self.state = "failed"
+            self.emit(state="failed")
+            return
+        self.audio_path.unlink(missing_ok=True)
+        said = clean(self.said.decode(errors="replace"))
+        had_text = bool(self.text)
+        self.text = f"{self.text} {said}".strip()
+        if not self.text:
+            self.emit(state="nothing")
+            self.finish(0)
+        if not had_text and self.place() == self.target and self.deliverable():
+            self.method.commit(self.text)
+            self.done()
+        self.wait_for_person()
+
+    def selector_has(self, source):
+        try:
+            self.selector.get_key(source)
+            return True
+        except KeyError:
+            return False
+
+    # Delivering ----------------------------------------------------------
+
+    def place(self):
+        """The focused window and field, to tell if the person has moved."""
+        return focused_window().get("address"), self.method.activations
+
+    def deliverable(self):
+        return self.method.active and not self.method.secret
+
+    def where(self):
+        window = focused_window()
+        if self.method.secret:
+            return "password", window
+        if self.method.active:
+            return "field", window
+        if not window:
+            return "nowindow", window
+        if window.get("xwayland") or not self.method.available:
+            return "unknown", window
+        return "none", window
+
+    def wait_for_person(self):
+        self.state = "waiting"
+        self.was_sent = None
+        self.refresh()
+
+    def refresh(self):
+        self.last_refresh = time.monotonic()
+        where, window = self.where()
+        report = dict(state="waiting", text=self.text, where=where, app=window.get("class", ""))
+        if report != self.was_sent:
+            self.was_sent = report
+            self.emit(**report)
+
+    def type_keys(self):
+        where, _ = self.where()
+        if where in ("password", "nowindow"):
+            self.refresh()
+            return
+        subprocess.run(["wtype", "-"], input=self.text.encode(), check=False)
+        self.done()
+
+    def copy(self):
+        subprocess.run(["wl-copy"], input=self.text.encode(), check=False)
+        self.done()
+
+    def done(self):
+        self.emit(state="done", text=self.text)
+        self.finish(0)
+
+    # The loop ------------------------------------------------------------
+
+    def compositor(self, source):
+        if not self.method.read():
+            self.selector.unregister(source)
+            source.close()
+            self.method.socket = None
+        if self.state == "waiting":
+            self.refresh()
+
+    def tick(self):
+        now = time.monotonic()
+        if self.state == "listening" and not self.stopping:
+            self.report_level()
+        if self.state == "waiting":
+            if self.insert_by is not None:
+                if self.deliverable():
+                    self.method.commit(self.text)
+                    self.done()
+                elif now >= self.insert_by:
+                    self.insert_by = None
+            # Hyprland's focus has no event here; XWayland's windows say nothing else.
+            if now - self.last_refresh >= 1:
+                self.refresh()
+
+    def run(self):
+        while True:
+            for key, _ in self.selector.select(0.05):
+                key.data(key.fileobj)
+            self.tick()
+
+
+def main():
+    language = sys.argv[1]
+    Dictation(language, "--held" in sys.argv[2:]).run()
+
+
+if __name__ == "__main__":
+    main()

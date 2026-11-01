@@ -35,7 +35,7 @@ install: ## Install into DESTDIR
 	install -Dm644 portal/portals.conf $(share)/xdg-desktop-portal/shapebit-portals.conf
 	install -Dm644 -t $(share)/glib-2.0/schemas session/window-buttons.gschema.override
 	install -Dm644 portal/shell.portal $(share)/xdg-desktop-portal/portals/shell.portal
-	install -Dm755 -t $(DESTDIR)$(PREFIX)/libexec/desktop portal/portal portal/share-picker session/connection-agent apps/app-install apps/app-catalog apps/app-remove
+	install -Dm755 -t $(DESTDIR)$(PREFIX)/libexec/desktop portal/portal portal/share-picker session/connection-agent apps/app-install apps/app-catalog apps/app-remove dictation/dictate
 	install -Dm644 -t $(share)/desktop/browsers apps/fedora.filter
 	install -Dm644 -t $(DESTDIR)$(PREFIX)/lib/systemd/user apps/app-update.service apps/app-update.timer
 	install -d $(DESTDIR)$(PREFIX)/lib/systemd/user/timers.target.wants

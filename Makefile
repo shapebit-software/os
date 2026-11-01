@@ -5,6 +5,12 @@
 ENGINE         ?= sudo podman
 IMAGE          ?= localhost/shapebit-os:dev
 FEDORA_VERSION ?= 44
+# Dictation's speech recognition, pinned: whisper.cpp's release and the model
+# repository's commit, each with its file's SHA-256.
+WHISPER_VERSION        ?= 1.9.5
+WHISPER_SHA256         ?= ff1a9053feb509ff9d7729703355541ae9690073a6b1c40eb692c962e0dc1720
+WHISPER_MODEL_REVISION ?= 5359861c739e955e79d9a303bcbc70fb988958b1
+WHISPER_MODEL_SHA256   ?= ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb
 IMAGE_VERSION  ?= dev
 # The commit that the image is made from.
 IMAGE_REVISION ?= $(shell git rev-parse HEAD)
@@ -74,6 +80,8 @@ image: $(KEYS) ## Build the container image with its signed UKI
 	scripts/image.sh image/Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \
 	  --build-arg FEDORA_VERSION=$(FEDORA_VERSION) --build-arg IMAGE_VERSION=$(IMAGE_VERSION) \
 	  --build-arg IMAGE_REVISION=$(IMAGE_REVISION) \
+	  --build-arg WHISPER_VERSION=$(WHISPER_VERSION) --build-arg WHISPER_SHA256=$(WHISPER_SHA256) \
+	  --build-arg WHISPER_MODEL_REVISION=$(WHISPER_MODEL_REVISION) --build-arg WHISPER_MODEL_SHA256=$(WHISPER_MODEL_SHA256) \
 	  --build-context desktop=$(DESKTOP_SRC)
 
 test-unit: $(VENV)/.done ## Run isolated unit tests and lint on this host, without a VM

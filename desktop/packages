@@ -32,6 +32,12 @@ wireplumber
 pipewire-pulseaudio
 pipewire-alsa
 rtkit
+# Dictation (dictation/dictate): pw-record hears the microphone. The text goes
+# in as the input method, which needs no package; wtype types it only when the
+# person asks, for applications that do not say if they have a text field.
+# Whisper itself is built in the image (Containerfile).
+pipewire-utils
+wtype
 # Secrets, unlocked by the login password.
 gnome-keyring
 gnome-keyring-pam

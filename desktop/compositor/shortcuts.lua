@@ -192,6 +192,9 @@ end
 bind("SUPER + N", "Notifications", shell("notifications"))
 bind("SUPER + I", "Settings", shell("settings"))
 bind("SUPER + L", "Lock", shell("lock"))
+-- A tap starts and stops dictation; held, it listens until let go.
+bind("SUPER + D", "Dictate", shell("dictate"))
+hl.bind("SUPER + D", shell("dictate-release"), { release = true })
 bind("CTRL + ALT + Delete", "System menu", shell("system"))
 bind("SUPER + code:61", "Keyboard shortcuts", shell("help"))
 -- The keyboard layouts in Settings > Language > Keyboards.

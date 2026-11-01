@@ -40,6 +40,11 @@ Singleton {
     property alias captureMarkup: adapter.captureMarkup
     // Whether recordings take sound from the microphone.
     property alias captureMicrophone: adapter.captureMicrophone
+    // Whether dictation has its quick action, its soft sounds, and the keyboard
+    // layouts for which it understands any language, not only the layout's.
+    property alias dictationButton: adapter.dictationButton
+    property alias dictationSounds: adapter.dictationSounds
+    property alias dictationAnyLanguage: adapter.dictationAnyLanguage
     // Whether an application may share what was picked again without asking.
     property alias shareRemember: adapter.shareRemember
     // One of `accents`, or "Custom" for `accentHue`.
@@ -233,6 +238,9 @@ Singleton {
             property string primary: ""
             property bool captureMarkup: false
             property bool captureMicrophone: false
+            property bool dictationButton: true
+            property bool dictationSounds: false
+            property list<string> dictationAnyLanguage: []
             property bool shareRemember: false
             property bool welcomed: false
             property string updateAnnounced: ""

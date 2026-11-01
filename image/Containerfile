@@ -115,8 +115,42 @@ FROM tools AS desktop-files
 RUN dnf -y install make
 RUN --mount=type=bind,from=desktop,target=/src make -C /src install DESTDIR=/out
 
+# Speech recognition for dictation (desktop/dictation/dictate), on the computer:
+# whisper.cpp and Whisper's small model, quantized (181 MiB), which handles every
+# language. Fedora's whisper-cpp has no command, and installs 718 MiB. One build
+# of the CPU code per kind of processor, chosen as it runs, keeps it fast on
+# each. The sources and the model are checked against their hashes.
+FROM tools AS whisper
+ARG WHISPER_VERSION
+ARG WHISPER_SHA256
+ARG WHISPER_MODEL_REVISION
+ARG WHISPER_MODEL_SHA256
+RUN dnf -y install cmake gcc-c++ make binutils
+RUN <<'EOF'
+set -euo pipefail
+cd /tmp
+curl -fsSL -o source.tar.gz "https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v$WHISPER_VERSION.tar.gz"
+echo "$WHISPER_SHA256 source.tar.gz" | sha256sum -c
+tar xzf source.tar.gz
+cd "whisper.cpp-$WHISPER_VERSION"
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_SKIP_RPATH=ON -DBUILD_SHARED_LIBS=ON \
+  -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_BACKEND_DIR=/usr/lib64/whisper \
+  -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF
+cmake --build build -j"$(nproc)" --target whisper-cli
+strip build/bin/whisper-cli build/bin/*.so
+install -D build/bin/whisper-cli /out/usr/bin/whisper-cli
+install -d /out/usr/lib64/whisper /out/usr/share/whisper
+cp -a build/bin/libwhisper.so.* build/bin/libggml.so.* build/bin/libggml-base.so.* /out/usr/lib64/
+cp build/bin/libggml-cpu-*.so /out/usr/lib64/whisper/
+install -Dm644 LICENSE /out/usr/share/licenses/whisper.cpp/LICENSE
+curl -fsSL -o /out/usr/share/whisper/ggml-small-q5_1.bin \
+  "https://huggingface.co/ggerganov/whisper.cpp/resolve/$WHISPER_MODEL_REVISION/ggml-small-q5_1.bin"
+echo "$WHISPER_MODEL_SHA256 /out/usr/share/whisper/ggml-small-q5_1.bin" | sha256sum -c
+EOF
+
 FROM system
 COPY --from=desktop-files /out/ /
+COPY --from=whisper /out/ /
 # The desktop's settings defaults (window-buttons.gschema.override) apply
 # once the schemas are compiled again.
 RUN glib-compile-schemas /usr/share/glib-2.0/schemas

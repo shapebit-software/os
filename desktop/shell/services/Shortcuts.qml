@@ -1,6 +1,6 @@
 // What the keyboard shortcuts ask of the shell (compositor/shortcuts.lua), on
 // the focused screen: Apps, the notifications, Settings, the system menu,
-// the window menu, the lock screen, the capture overlay, the sound and the
+// the window menu, the lock screen, the capture overlay, dictation, the sound and the
 // media, the window switcher, and the list of shortcuts (ShortcutsWindow.qml).
 // On the lock screen, only the sound and media keys work.
 pragma Singleton
@@ -70,6 +70,12 @@ Singleton {
                 Settings.openOn = "";
             else
                 Settings.open(focused, Settings.section);
+            break;
+        case "dictate":
+            Dictation.press();
+            break;
+        case "dictate-release":
+            Dictation.release();
             break;
         case "lock":
             Lock.lock();

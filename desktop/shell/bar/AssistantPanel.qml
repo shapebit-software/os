@@ -1,6 +1,5 @@
-// What the assistant's and dictation's buttons open until the assistant
-// comes: the demo's command line near the top of the screen, saying that it
-// is coming.
+// What the assistant's button opens until the assistant comes: the demo's
+// command line near the top of the screen, saying that it is coming.
 import QtQuick
 import qs.controls
 import qs.services
