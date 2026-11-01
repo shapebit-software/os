@@ -139,8 +139,36 @@ the [future design](#future-design) of features that are not built yet.
   A right click offers an application's details and, for a Flatpak, removing it,
   both in Settings > Apps.
 - The **quick actions** open from buttons on a bar or from a hot corner
-  (Settings > Shell). The assistant and dictation buttons are placeholders
-  that say the features are coming.
+  (Settings > Shell). The assistant button is a placeholder that says it is
+  coming.
+- **Dictation** starts from its quick action or Super+D (a tap starts and stops;
+  held, it listens until let go). It writes into the app the person is in; the
+  assistant is a separate thing with its own button. The button's icon shows the
+  state: bars following the microphone, a pencil while writing it down, lines
+  while the text waits, red when something is wrong; its tooltip says the rest.
+  With no button (a hot corner, or the button turned off), a pill does this
+  instead, so an open microphone is never out of sight. The language follows the
+  keyboard layout or is any language, per layout (Settings > Language). It says
+  when the microphone hears nothing or the person seems gone, and stops by
+  itself after a long silence.
+  - **Where the text goes.** While it runs, `dictation/dictate` is the Wayland
+    input method, so applications tell it when a text field has the focus, and
+    of what kind. If the same field has the focus at the stop and when the text
+    is ready, the text goes straight in, as text rather than keys, so it cannot
+    press shortcuts. Otherwise it waits in a card, which never goes away by
+    itself: moving elsewhere while it is written down, no field, no window, a
+    password field, or a window that does not tell (XWayland, or another input
+    method running).
+  - **The card** offers Insert when a field has the focus, Copy, Type (keys, only
+    when asked), Keep talking, which adds to the text, and Discard; a click on
+    the text corrects it. It leaves the application its focus; the shortcut goes
+    to the card, for the keyboard.
+  - **Password fields** never get dictated text, by either way in.
+  - **Recovering.** If Whisper fails, the audio stays for Try again until
+    discarded. A right click on the button brings back the last dictation.
+  - **Privacy.** Whisper runs on the computer; audio is in the runtime directory
+    and goes when the dictation ends. Locking the screen discards everything
+    under way, and the last dictation.
 - Capturing opens the **capture overlay**: the screen dims, with a panel at
   the bottom center, in one row of icons named by their tooltips:
   Selection, Window, or Screen; a switch between a
@@ -226,7 +254,9 @@ the [future design](#future-design) of features that are not built yet.
 
 ### Lock, idle, and sleep
 
-- The lock screen shows the time, who is signed in, and the password field.
+- The lock screen looks like the login screen, whatever the wallpaper: the
+  date, time, and system menus along the top, and in the middle who is signed
+  in and the password field.
 - The screen locks after the idle time set in Settings > Account (1 or 5
   minutes, or never) and before the computer sleeps; sleep waits for the
   lock. The screens turn off after their own idle time (2 or 10 minutes, or
@@ -298,8 +328,9 @@ again.
 
 ## Future design
 
-Nothing in this part is built yet. The assistant, dictation, and their
-Settings section are placeholders in the desktop as built.
+Nothing in this part is built yet, except dictation's plain speech to text
+(see above). The assistant and its Settings section are placeholders in the
+desktop as built.
 
 ### Radial Context Menus
 
@@ -659,7 +690,7 @@ Voice interaction lets the user work with ShapeBit through local AI agents.
 
 #### Capture and privacy
 
-- Push-to-talk only — there is no always-listening mode. Capture begins
+- Push-to-talk or a click to start and stop — there is no always-listening mode. Capture begins
   only after the explicit push-to-talk action and stops when the
   interaction ends.
 - ShapeBit provides a default push-to-talk key or button, reconfigurable by
@@ -677,17 +708,17 @@ Media, Privacy, and Notification Policy.
 
 #### Modes
 
-The mode is explicitly selected, visibly indicated, and remembered per
-user — never inferred from speech. **Assistant** is the initial mode for a
-new user.
+There are no modes to select or remember: the two buttons say where the words
+go, so nothing can land in the wrong place because a mode was forgotten.
 
-| Mode | What it does |
+| Button | What it does |
 |---|---|
-| **Assistant** | Sends the utterance to the local agent as a request. |
-| **Speech to text** | Inserts a local transcription into the focused text input. |
-| **Speech to text with translation** | Translates the local transcription and inserts it into the focused text input; the current input language is the default translation target. |
+| **Sparkle** | Holding it, or its shortcut, sends the utterance to the local agent as a request. A click opens chat, which also has a microphone. |
+| **Waveform** | Dictation, as built: writes into the app the person is in (see above). |
 
-Assistant mode uses the shared
+Translation is a request to the assistant.
+
+Talking to the assistant uses the shared
 [assistant framework](#assistant-framework) also used by chat. Ordinary
 responses are spoken through local text-to-speech by default; a per-user
 setting may also show them temporarily as floating assistant bubbles, but
