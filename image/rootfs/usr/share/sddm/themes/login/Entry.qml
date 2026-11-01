@@ -18,7 +18,7 @@ T.TextField {
 
     background: Rectangle {
         color: Theme.field
-        border.color: input.activeFocus ? Qt.rgba(1, 1, 1, 0.4) : Theme.border
+        border.color: Theme.border
     }
     // T.TextField draws no placeholder by itself.
     Text {

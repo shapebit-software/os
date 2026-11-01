@@ -1,5 +1,6 @@
 // The backdrop: dusk behind soft ridges. It is drawn, not a picture, so it
 // fits every screen size.
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
 import QtQuick.Shapes
@@ -9,12 +10,14 @@ Rectangle {
 
     clip: true
     gradient: Gradient {
-        GradientStop { position: 0.00; color: "#1f1a3c" }
-        GradientStop { position: 0.34; color: "#342351" }
-        GradientStop { position: 0.44; color: "#4c2943" }
-        GradientStop { position: 0.535; color: "#653035" }
-        GradientStop { position: 0.63; color: "#7c3829" }
-        GradientStop { position: 0.72; color: "#85482d" }
+        GradientStop { position: 0.00; color: "#272140" }
+        GradientStop { position: 0.175; color: "#2c2346" }
+        GradientStop { position: 0.333; color: "#352551" }
+        GradientStop { position: 0.412; color: "#492f4d" }
+        GradientStop { position: 0.49; color: "#5c3444" }
+        GradientStop { position: 0.57; color: "#703838" }
+        GradientStop { position: 0.649; color: "#814130" }
+        GradientStop { position: 0.73; color: "#854a30" }
     }
 
     // A soft light, placed by its center and radii as fractions of the screen.
@@ -53,9 +56,9 @@ Rectangle {
     }
 
     // Haze at the top, and the sun low in the sky.
-    Glow { centerX: 0.17; centerY: 0.02; radiusX: 0.55; radiusY: 0.4; tint: Qt.rgba(0.66, 0.6, 0.86, 0.13) }
-    Glow { centerX: 0.88; centerY: 0.06; radiusX: 0.4; radiusY: 0.3; tint: Qt.rgba(0.75, 0.62, 0.8, 0.09) }
-    Glow { centerX: 0.63; centerY: 0.67; radiusX: 0.42; radiusY: 0.22; tint: Qt.rgba(0.82, 0.62, 0.3, 0.75) }
+    Glow { centerX: 0.17; centerY: 0.05; radiusX: 0.55; radiusY: 0.4; tint: Qt.rgba(0.66, 0.6, 0.86, 0.13) }
+    Glow { centerX: 0.88; centerY: 0.1; radiusX: 0.4; radiusY: 0.3; tint: Qt.rgba(0.75, 0.62, 0.8, 0.09) }
+    Glow { centerX: 0.62; centerY: 0.66; radiusX: 0.33; radiusY: 0.2; tint: Qt.rgba(0.82, 0.62, 0.3, 0.52) }
 
     // The ridges are drawn small and blurred there, then stretched over the
     // screen, so the blur costs the same on every screen. The drawing reaches
@@ -76,25 +79,22 @@ Rectangle {
             ShapePath {
                 strokeColor: "transparent"
                 fillGradient: LinearGradient {
-                    y1: 660
-                    y2: 1000
-                    GradientStop { position: 0.0; color: "#5e4144" }
-                    GradientStop { position: 0.45; color: "#503a43" }
-                    GradientStop { position: 0.65; color: "#463444" }
-                    GradientStop { position: 0.85; color: "#342a40" }
+                    y1: 690
+                    y2: 890
+                    GradientStop { position: 0.0; color: "#994b445c" }
+                    GradientStop { position: 1.0; color: "#991c2b5d" }
                 }
                 PathSvg {
-                    path: "M-100 725 C0 715 80 745 120 730 C160 715 190 665 235 667 C285 670 300 715 360 730 "
-                        + "C420 745 450 735 510 755 C570 775 610 785 660 760 C710 735 730 745 790 760 "
-                        + "C850 775 910 720 1100 715 V1100 H-100 Z"
+                    path: "M-100 776 L-40 776 L57 734 L144 767 L252 686 L349 752 L468 710 L586 785 "
+                        + "L694 722 L813 776 L921 740 L1040 794 L1100 794 V1100 H-100 Z"
                 }
             }
             ShapePath {
                 strokeColor: "transparent"
-                fillColor: "#1e1a35"
+                fillColor: "#d1221e33"
                 PathSvg {
-                    path: "M-100 965 C50 950 150 960 220 935 C290 910 330 950 420 955 C500 960 540 930 600 935 "
-                        + "C680 940 720 965 800 950 C880 935 950 960 1100 950 V1100 H-100 Z"
+                    path: "M-100 961 L-40 961 L90 914 L198 956 L316 894 L446 951 L565 909 L673 961 "
+                        + "L792 917 L910 964 L1040 925 L1100 925 V1100 H-100 Z"
                 }
             }
         }
@@ -111,9 +111,6 @@ Rectangle {
         }
         blurEnabled: true
         blur: 1
-        blurMax: 24
+        blurMax: 40
     }
-
-    // The sun's light on the haze in front of the ridges.
-    Glow { centerX: 0.63; centerY: 0.76; radiusX: 0.28; radiusY: 0.1; tint: Qt.rgba(0.82, 0.62, 0.3, 0.3) }
 }

@@ -27,3 +27,8 @@ def test_desktop_session_is_installed(host):
 def test_login_screen_offers_only_the_desktop_session():
     assert os.listdir("/usr/share/wayland-sessions") == ["desktop.desktop"]
     assert not os.path.isdir("/usr/share/xsessions") or not os.listdir("/usr/share/xsessions")
+
+
+def test_lock_screen_has_the_login_screens_backdrop(host):
+    login = host.file("/usr/share/sddm/themes/login/Backdrop.qml").content_string
+    assert host.file("/usr/share/desktop/shell/lock/LoginBackdrop.qml").content_string == login

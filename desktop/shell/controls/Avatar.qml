@@ -9,6 +9,8 @@ Rectangle {
     id: avatar
 
     property bool round
+    property string letters: Account.displayName.charAt(0).toUpperCase()
+    property real lettersScale: 0.45
 
     color: Theme.accent
     radius: round ? width / 2 : 0
@@ -17,9 +19,9 @@ Rectangle {
     Text {
         anchors.centerIn: parent
         visible: picture.status !== Image.Ready
-        text: Account.displayName.charAt(0).toUpperCase()
+        text: avatar.letters
         color: "#f5feff"
-        font { family: Theme.font; pixelSize: Math.round(avatar.height * 0.45); weight: Font.DemiBold }
+        font { family: Theme.font; pixelSize: Math.round(avatar.height * avatar.lettersScale); weight: Font.DemiBold }
     }
     Image {
         id: picture
