@@ -24,13 +24,16 @@ env:
 
 jobs:
   static-checks:
+    name: Static checks
     uses: ./.github/workflows/stage-static-checks.yml
 
   unit-tests:
+    name: Unit tests
     needs: static-checks
     uses: ./.github/workflows/stage-unit-tests.yml
 
   build:
+    name: Build and sign
     needs: unit-tests
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -108,6 +111,7 @@ jobs:
 
   # Install from the medium, without its UI, and check the system and an update.
   scripted:
+    name: Test install and update
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -128,9 +132,9 @@ jobs:
           mkdir -p build
           xz -d installer.img.xz
           mv installer.img installer.img.json build/
-      - name: Check the medium, install, and check the system
+      - name: Install from the medium, and test the system
         run: make -o installer disk && make test-plan PLAN=system
-      - name: Check an update and its rollback
+      - name: Test an update and its rollback
         run: make -o disk -o update-builds test-update
       - name: Keep the test results
         if: always()
@@ -142,6 +146,7 @@ jobs:
 
   # The medium itself, through its UI, with openQA.
   openqa:
+    name: Test the installer's UI
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -156,7 +161,7 @@ jobs:
           mkdir -p build
           xz -d installer.img.xz
           mv installer.img installer.img.json build/
-      - name: Test the medium
+      - name: Test the installer's UI with openQA
         run: make test-release
       - name: Keep the test results
         if: always()
@@ -167,6 +172,7 @@ jobs:
           if-no-files-found: ignore
 
   publish:
+    name: Publish os:candidate
     needs: [build, scripted, openqa]
     runs-on: ubuntu-24.04
     permissions:
@@ -191,14 +197,14 @@ jobs:
           docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<<"${{ secrets.GITHUB_TOKEN }}"
 
       # The digest that the tests compared with the booted system, unchanged.
-      - name: Publish the candidate
+      - name: Push the image as os:candidate
         run: |
           expected=$(jq -r .image_digest installer/installer.img.json)
           [ "$(python3 scripts/provenance.py digest build/image.tar)" = "$expected" ]
           skopeo copy -q --preserve-digests oci-archive:build/image.tar "docker://$REPOSITORY:candidate"
           [ "$(skopeo inspect "docker://$REPOSITORY:candidate" --format '{{.Digest}}')" = "$expected" ]
 
-      - name: Write the report
+      - name: Report the changes since os:stable
         run: |
           inspect() { skopeo inspect "docker://$REPOSITORY:$1" --format "{{index .Labels \"$2\"}}"; }
           list() { docker run --rm "$1" rpm -qa --qf '%{NAME} %{VERSION}-%{RELEASE}\n' | sort; }

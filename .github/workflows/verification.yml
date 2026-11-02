@@ -11,9 +11,11 @@ permissions:
 
 jobs:
   static-checks:
+    name: Static checks
     uses: ./.github/workflows/stage-static-checks.yml
 
   unit-tests:
+    name: Unit tests
     needs: static-checks
     uses: ./.github/workflows/stage-unit-tests.yml
 
@@ -21,6 +23,7 @@ jobs:
   # compares with main; a base it cannot compare with, as after a force-push,
   # counts as a change.
   image-changes:
+    name: Look for image changes
     needs: unit-tests
     runs-on: ubuntu-24.04
     outputs:
@@ -41,6 +44,7 @@ jobs:
           fi
 
   image-tests:
+    name: Image tests
     needs: image-changes
     if: needs.image-changes.outputs.changed == 'true'
     uses: ./.github/workflows/stage-image-tests.yml
