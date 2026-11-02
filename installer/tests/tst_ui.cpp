@@ -56,10 +56,11 @@ private slots:
         QCOMPARE(field("layoutName")->property("text").toString(), "English (US)");
         field("search")->setProperty("text", "french azerty");
         QCOMPARE(field("layouts")->property("count").toInt(), 2); // With and without AFNOR.
-        // Down in the search field chooses the first match.
+        // Down in the search field chooses the first match; which of the two
+        // that is depends on the collation.
         auto *keyboard = engine.singletonInstance<Keyboard *>("Installer", "Keyboard");
         QTest::keyClick(m_window, Qt::Key_Down);
-        QCOMPARE(keyboard->layout(), "fr(azerty)");
+        QVERIFY(QStringList({"fr(azerty)", "fr(afnor)"}).contains(keyboard->layout()));
         QCOMPARE(keyboard->rows().at(1).toStringList().first(), "A");
         next();
 
