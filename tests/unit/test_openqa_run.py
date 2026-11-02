@@ -10,17 +10,17 @@ spec.loader.exec_module(run)
 
 
 def run_vars(tmp_path):
-    record = tmp_path / "installer.raw.json"
+    record = tmp_path / "installer.img.json"
     record.write_text(json.dumps({"image_digest": "sha256:abc"}))
     key = tmp_path / "id.pub"
     key.write_bytes(b"ssh-ed25519 AAAA")
-    return run.run_vars(record, key, "dev", "14G", "20G")
+    return run.run_vars(record, key, "dev", "7G", "20G")
 
 
 def test_vars_add_the_runs_values_to_the_fixed_ones(tmp_path):
     values = run_vars(tmp_path)
     assert values["DISTRI"] == "shapebit"
-    assert values["HDDSIZEGB_1"] == 14
+    assert values["HDDSIZEGB_1"] == 7
     assert values["HDDSIZEGB_2"] == 20
     assert values["OWNER_NAME"] == "dev"
     assert values["IMAGE_DIGEST"] == "sha256:abc"

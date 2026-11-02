@@ -2,8 +2,9 @@
 # Write the installer image archive (BUILD/installer.tar) to the raw disk
 # MEDIUM of MEDIUM_SIZE: the installer medium, as it would be written to a USB
 # drive. It is not encrypted and holds no secrets: an EFI System Partition and
-# one Btrfs filesystem with the @base and @machine subvolumes. The layout and
-# install run inside the image, which ships every tool used.
+# one Btrfs filesystem with the @base and @machine subvolumes, compressed so that
+# the medium fits a USB drive sold as 8 GB. The layout and install run inside the
+# image, which ships every tool used.
 # Usage: medium.sh (called by `make installer`).
 set -euo pipefail
 : "${ENGINE:?}" "${INSTALLER_IMAGE:?}" "${BUILD:?}" "${MEDIUM:?}" "${MEDIUM_SIZE:?}"
@@ -36,7 +37,7 @@ trap cleanup EXIT
 # The root has the x86-64 root partition type, so systemd finds it without
 # machine-specific kernel arguments, as on an installed system.
 sfdisk --quiet --label gpt "$loop" <<'LAYOUT'
-size=1GiB, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, name=installer-esp
+size=512MiB, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, name=installer-esp
            type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, name=installer
 LAYOUT
 partx --update "$loop"
@@ -45,8 +46,9 @@ esp=${loop}p1 root=${loop}p2
 mkfs.vfat -F 32 -n INSTALLER "$esp" >/dev/null
 mkfs.btrfs -q -L installer "$root"
 
+# The first mount sets the options of the whole filesystem, compression too.
 mkdir -p "$top" "$target"
-mount "$root" "$top"
+mount -o compress=zstd "$root" "$top"
 btrfs -q subvolume create "$top/@base"
 btrfs -q subvolume create "$top/@machine"
 mount -o subvol=@base "$root" "$target"

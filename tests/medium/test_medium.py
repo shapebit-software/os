@@ -49,10 +49,16 @@ def test_medium_is_sealed_by_a_composefs_digest(host):
     assert re.search(r"(^| )composefs=[0-9a-f]{128}( |$)", host.file("/proc/cmdline").content_string)
 
 
+def test_medium_fits_a_usb_drive_sold_as_8_gb(sh):
+    # Drive makers count decimal gigabytes, and such a drive may hold no more.
+    assert int(sh("blockdev --getsize64 /dev/disk/by-id/virtio-medium")) <= 8_000_000_000
+
+
 def test_payload_is_readable(sh):
-    # Its size alone says nothing: a payload too large for fs-verity keeps its
-    # size, yet opening it fails with an I/O error, as the install then would.
-    sh("cat /usr/share/installer/image.tar >/dev/null")
+    # That the files exist says nothing: fs-verity can refuse to open one, as the
+    # install then would. Every blob is read, not only listed.
+    assert "blobs" in sh("ls /usr/share/installer/image")
+    sh("find /usr/share/installer/image -type f -exec cat {} + >/dev/null")
 
 
 @pytest.mark.parametrize("unit", ["installer-backend", "installer"])

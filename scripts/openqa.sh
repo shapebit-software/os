@@ -27,7 +27,7 @@ $ENGINE build -q -t "$OPENQA_IMAGE" -f tests/openqa/Containerfile tests/openqa >
 # ENGINE is unquoted on purpose: it may be a command with arguments, e.g. "sudo podman".
 $ENGINE run --rm --device /dev/kvm -w /pool \
   -v "$(realpath "$OPENQA_DISTRI"):/distri:ro,z" \
-  -v "$(realpath "$MEDIUM"):/medium/installer.raw:ro,z" \
+  -v "$(realpath "$MEDIUM"):/medium/installer.img:ro,z" \
   -v "$(realpath "$SSH_KEY"):/ssh/key:ro,z" \
   -v "$run/pool:/pool:z" \
   -e LC_ALL=C.UTF-8 -e SSH_KEY=/ssh/key -e SSH_PORT=2222 -e OWNER_NAME="$OWNER_NAME" \

@@ -1,0 +1,17 @@
+# Docker's older image store saves layers uncompressed, which doubles the payload
+# on the medium, so that it no longer fits. It also seems unable to push what the
+# build saved intact. This store is what developers' Docker 29 uses, so every job
+# that builds or loads images uses it too.
+name: Image store
+description: Switch Docker to the containerd image store
+runs:
+  using: composite
+  steps:
+    - name: Use the containerd image store
+      shell: bash
+      run: |
+        config=/etc/docker/daemon.json
+        { sudo cat "$config" 2>/dev/null || echo '{}'; } |
+          jq '.features["containerd-snapshotter"] = true' >"$RUNNER_TEMP/daemon.json"
+        sudo cp "$RUNNER_TEMP/daemon.json" "$config"
+        sudo systemctl restart docker

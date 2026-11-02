@@ -45,18 +45,8 @@ jobs:
           docker image prune -af >/dev/null
           df -h /
 
-      # Docker's older image store saves layers uncompressed. That doubles the
-      # payload on the medium, to a size at which its verity-protected file
-      # cannot be opened; this store is what developers' Docker 29 uses.
-      - name: Keep image layers compressed
-        run: |
-          config=/etc/docker/daemon.json
-          { sudo cat "$config" 2>/dev/null || echo '{}'; } |
-            jq '.features["containerd-snapshotter"] = true' >"$RUNNER_TEMP/daemon.json"
-          sudo cp "$RUNNER_TEMP/daemon.json" "$config"
-          sudo systemctl restart docker
-
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/image-store
 
       # Outside build/, which the installer's build context holds.
       - name: Restore the release key
@@ -91,8 +81,9 @@ jobs:
 
       - name: Compress the medium
         run: |
-          zstd -q -T0 -10 --rm build/installer.raw -o installer.raw.zst
-          cp build/installer.raw.json installer.raw.json
+          xz -T0 build/installer.img
+          mv build/installer.img.xz .
+          cp build/installer.img.json .
 
       - uses: actions/upload-artifact@v4
         with:
@@ -110,8 +101,8 @@ jobs:
         with:
           name: installer
           path: |
-            installer.raw.zst
-            installer.raw.json
+            installer.img.xz
+            installer.img.json
           compression-level: 0
           retention-days: 30
 
@@ -135,8 +126,8 @@ jobs:
       - name: Unpack the medium
         run: |
           mkdir -p build
-          zstd -q -d --rm installer.raw.zst -o build/installer.raw
-          mv installer.raw.json build/
+          xz -d installer.img.xz
+          mv installer.img installer.img.json build/
       - name: Check the medium, install, and check the system
         run: make -o installer disk && make test-plan PLAN=system
       - name: Check an update and its rollback
@@ -163,8 +154,8 @@ jobs:
       - name: Unpack the medium
         run: |
           mkdir -p build
-          zstd -q -d --rm installer.raw.zst -o build/installer.raw
-          mv installer.raw.json build/
+          xz -d installer.img.xz
+          mv installer.img installer.img.json build/
       - name: Test the medium
         run: make test-release
       - name: Keep the test results
@@ -202,7 +193,7 @@ jobs:
       # The digest that the tests compared with the booted system, unchanged.
       - name: Publish the candidate
         run: |
-          expected=$(jq -r .image_digest installer/installer.raw.json)
+          expected=$(jq -r .image_digest installer/installer.img.json)
           [ "$(python3 scripts/provenance.py digest build/image.tar)" = "$expected" ]
           skopeo copy -q --preserve-digests oci-archive:build/image.tar "docker://$REPOSITORY:candidate"
           [ "$(skopeo inspect "docker://$REPOSITORY:candidate" --format '{{.Digest}}')" = "$expected" ]
@@ -222,8 +213,8 @@ jobs:
           {
             echo "# Candidate"
             echo
-            echo "- Image digest: \`$(jq -r .image_digest installer/installer.raw.json)\`"
-            echo "- Medium SHA-256: \`$(jq -r .medium_sha256 installer/installer.raw.json)\`"
+            echo "- Image digest: \`$(jq -r .image_digest installer/installer.img.json)\`"
+            echo "- Medium SHA-256: \`$(jq -r .medium_sha256 installer/installer.img.json)\`"
             echo "- Commit: \`$GITHUB_SHA\`"
             echo
             echo "## Commits since stable"

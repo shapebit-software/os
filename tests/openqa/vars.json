@@ -20,7 +20,7 @@
   "XRES": 1280,
   "YRES": 800,
   "NUMDISKS": 2,
-  "HDD_1": "/medium/installer.raw",
+  "HDD_1": "/medium/installer.img",
   "HDDSERIAL_1": "medium",
   "HDDSERIAL_2": "target",
   "QEMU_DISABLE_SNAPSHOTS": 1,

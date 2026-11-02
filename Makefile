@@ -23,8 +23,8 @@ INSTALLER_IMAGE ?= localhost/shapebit-os-installer:dev
 INSTALLER_SRC   ?= installer
 # The desktop's source tree, which the image installs.
 DESKTOP_SRC     ?= desktop
-MEDIUM          ?= $(BUILD)/installer.raw
-MEDIUM_SIZE     ?= 14G
+MEDIUM          ?= $(BUILD)/installer.img
+MEDIUM_SIZE     ?= 7G
 SSH_PORT       ?= 2222
 SSH_KEY        ?= $(BUILD)/ssh/id_ed25519
 # Disk images are raw, except the disposable clones that the tests make.

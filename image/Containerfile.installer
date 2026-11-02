@@ -28,10 +28,15 @@ RUN systemctl set-default graphical.target && \
     systemctl preset installer-backend.service installer.service && \
     systemctl mask sddm.service
 
-# What the installer installs, and where the installed system updates from.
-COPY --from=payload image.tar /usr/share/installer/image.tar
+# What the installer installs, and where the installed system updates from. An
+# OCI layout, not the archive: bootc would unpack an archive into /var/tmp first,
+# which the medium has no room for, and fs-verity misreads a file of about 4 GB.
+# skopeo flattens Docker's nested index, which bootc cannot read in a layout.
+RUN --mount=type=bind,from=payload,target=/payload \
+    mkdir -p /usr/share/installer && \
+    skopeo copy -q --preserve-digests oci-archive:/payload/image.tar oci:/usr/share/installer/image
 ARG UPDATE_REF
 RUN test -n "$UPDATE_REF" && \
-    printf '[Payload]\nSource=oci-archive:/usr/share/installer/image.tar\nUpdateRef=%s\n' "$UPDATE_REF" \
+    printf '[Payload]\nSource=oci:/usr/share/installer/image\nUpdateRef=%s\n' "$UPDATE_REF" \
       >/usr/share/installer/installer.conf
 RUN bootc container lint

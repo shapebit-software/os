@@ -15,7 +15,7 @@ import sys
 
 
 def run_vars(record, public_key, owner, medium_size, disk_size):
-    """The sizes are in gigabytes, as `14G`. The machine lives for this run, and so
+    """The sizes are in gigabytes, as `7G`. The machine lives for this run, and so
     does its owner's password; vars.json, with it, stays with the results. Only
     letters and digits: the keys typed are the US layout's."""
     credential = base64.b64encode(pathlib.Path(public_key).read_bytes()).decode()
