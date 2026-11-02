@@ -1,8 +1,8 @@
 # ShapeBit installer: agent and contributor rules
 
 - **Verify with `ctest`.** A change is done only when `ctest --test-dir build`
-  passes in the development container, and, for anything the real backend
-  does, when `make test` passes at the repository root.
+  passes in the development container. For anything the real backend does,
+  `make test` at the repository root is optional, because CI runs it.
 - **The backend owns every privileged operation.** The UI is unprivileged and
   reaches the backend only through `interface/installer.xml`. The backend
   builds every command line itself; nothing the frontend sends is executed.

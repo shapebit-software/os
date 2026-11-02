@@ -19,9 +19,10 @@
 These rules cover the image: `image/`, `Makefile`, `scripts/`, and `tests/`, and
 any change in `desktop/` or `installer/` that the image installs.
 
-- **Verify in order.** Run `make static-checks test-unit` inside `make dev`, then
-  `make test` on the host. A change is done only when they pass; run
-  `make test-release` too when it changes what a person sees. Add
+- **Verify with unit tests.** Run `make test-unit` inside `make dev`. A change is
+  done only when it passes. Everything else, such as `make static-checks`,
+  `make test`, and `make test-release`, is optional, because CI runs it
+  ([docs/Testing.md](docs/Testing.md)); say which of these you did not run. Add
   `ENGINE=docker` on hosts without Podman.
 - **Prefer built-in tools.** Use what bootc, systemd, the Fedora base image, or
   QEMU already provide, such as `kargs.d`, systemd credentials, tmpfiles.d,
