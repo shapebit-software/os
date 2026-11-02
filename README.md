@@ -71,7 +71,7 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 | `installer/` | The installer: backend, UI, and `installerctl`.                       |
 | `scripts/`   | Keys, image build, medium, installation in QEMU, publishing, SSH.     |
 | `tests/`     | Checks in tmt plans and openQA modules: see [docs/Testing.md](docs/Testing.md). |
-| `docs/`      | The documentation, published at https://shapebit.software/docs/.      |
+| `docs/`      | The documentation, published to the Wiki and the website.             |
 | `.agents/`   | Skills for coding agents.                                             |
 | `build/`     | Generated outputs (ignored by Git).                                   |
 
