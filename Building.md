@@ -40,11 +40,12 @@ The sealed image is saved as `build/image.tar`.
 `make installer` builds the medium in the same two phases.
 [Containerfile.installer](https://github.com/shapebit-software/os/blob/main/image/Containerfile.installer) adds, to the unsealed
 system, the [installer](https://github.com/shapebit-software/os/blob/main/installer/), the
-`cage` kiosk compositor that shows it, and the sealed system archive as the
-payload; sealing then covers all of it with the medium's own signed UKI.
+`cage` kiosk compositor that shows it, and the sealed system, as an OCI layout, as
+the payload; sealing then covers all of it with the medium's own signed UKI.
 [scripts/medium.sh](https://github.com/shapebit-software/os/blob/main/scripts/medium.sh) writes the result to
-`build/installer.raw`: an EFI System Partition and one unencrypted Btrfs
-filesystem. The medium holds no secrets.
+`build/installer.img`: an EFI System Partition and one unencrypted, compressed
+Btrfs filesystem, 7 GiB in all, so that it fits a USB drive sold as 8 GB. The
+medium holds no secrets.
 
 ## Disk
 
@@ -191,12 +192,17 @@ development key.
    make installer ENGINE=docker
    ```
 
-2. Write it to a USB drive of at least 16 GB. This erases the drive; check
+2. Write it to a USB drive of at least 8 GB. This erases the drive; check
    its name with `lsblk` first:
 
    ```bash
-   sudo dd if=build/installer.raw of=/dev/sdX bs=4M conv=fsync status=progress
+   sudo dd if=build/installer.img of=/dev/sdX bs=4M conv=fsync status=progress
    ```
+
+   The published `installer.img.xz` is the same image, compressed; on Windows
+   and macOS, write it with a tool such as balenaEtcher or Rufus. If the system
+   then offers to format the drive, decline: it cannot read the drive's
+   filesystem, and formatting would erase the medium.
 
 3. Leave Secure Boot on, with the factory keys. If the firmware's setup offers
    it, allow Microsoft's third-party UEFI certificate, which some Windows PCs
