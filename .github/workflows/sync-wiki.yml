@@ -1,0 +1,39 @@
+# Copies docs/ on main to this repository's Wiki tab, whose links name pages
+# without .md. docs/ is the source: an edit made in the Wiki is overwritten.
+name: Sync Wiki
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - docs/**
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out the Wiki
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+      - name: Copy the documentation
+        run: |
+          rm -f wiki/*.md
+          cp docs/*.md wiki/
+          sed -i -E 's/\]\(([A-Za-z_-]+)\.md(#[^)]*)?\)/](\1\2)/g' wiki/*.md
+      - name: Publish
+        working-directory: wiki
+        run: |
+          git add -A
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Sync from ${GITHUB_SHA::7}"
+          git push
