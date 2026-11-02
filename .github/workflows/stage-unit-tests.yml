@@ -1,0 +1,19 @@
+# The second stage: tests that need no image, no VM, and no secrets. Called by
+# Verification and Candidate.
+name: "Stage: Unit tests"
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora-toolbox:44
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/fedora-dev
+      - name: Unit tests
+        run: make test-unit

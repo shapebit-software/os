@@ -1,14 +1,10 @@
-# Builds and checks the image when its recipe changes, the one thing that the
-# other checks cannot see. Publishes nothing, and signs with a throwaway key.
-name: Image check
+# Builds the image and tests its files, the one thing that the earlier stages
+# cannot see. Publishes nothing, and signs with a throwaway key. Called by
+# Verification when the image's recipe changes.
+name: "Stage: Image tests"
 
 on:
-  push:
-    paths:
-      - image/Containerfile*
-  pull_request:
-    paths:
-      - image/Containerfile*
+  workflow_call:
 
 permissions:
   contents: read
@@ -17,7 +13,7 @@ env:
   ENGINE: docker
 
 jobs:
-  image:
+  image-tests:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -26,5 +22,5 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
           docker image prune -af >/dev/null
       - uses: actions/checkout@v4
-      - name: Build and check the image
-        run: make check
+      - name: Build and test the image
+        run: make test-image

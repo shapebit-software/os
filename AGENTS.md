@@ -19,7 +19,8 @@
 These rules cover the image: `image/`, `Makefile`, `scripts/`, and `tests/`, and
 any change in `desktop/` or `installer/` that the image installs.
 
-- **Verify with `make test`.** A change is done only when it passes; run
+- **Verify in order.** Run `make static-checks test-unit` inside `make dev`, then
+  `make test` on the host. A change is done only when they pass; run
   `make test-release` too when it changes what a person sees. Add
   `ENGINE=docker` on hosts without Podman.
 - **Prefer built-in tools.** Use what bootc, systemd, the Fedora base image, or

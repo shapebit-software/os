@@ -47,8 +47,9 @@ To use Docker instead, add `ENGINE=docker` to any command.
 ## Usage
 
 ```bash
-make test-unit     # isolated unit tests, without a VM
-make test          # build, check, install with the installer, and check a clone of the installed machine
+make static-checks # lint and validate, without building or running the code; inside `make dev`
+make test-unit     # tests that need no image and no VM; inside `make dev`
+make test          # build, test the image, install with the installer, and check a clone of the installed machine
 make test-update   # the same install, then update a clone to a new build and roll back
 make test-release  # the medium itself, through its UI, with openQA; after `make installer`
 make installer-vm  # boot the installer medium in a window, to install by hand

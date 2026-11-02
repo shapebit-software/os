@@ -10,12 +10,16 @@ share := $(DESTDIR)$(PREFIX)/share
 # shell needs it for the network and Bluetooth.
 host_bus := /run/host/run/dbus/system_bus_socket
 
-.PHONY: check run install help
+.PHONY: check validate lint run install help
+
+check: validate lint ## Verify the compositor configuration and lint the shell
+
+validate: ## Verify the compositor configuration
+	Hyprland --verify-config --config compositor/hyprland.lua
 
 # The shell's folders import each other as qs.<folder>, which qmllint looks up
 # in a directory named qs.
-check: ## Verify the compositor configuration and lint the shell
-	Hyprland --verify-config --config compositor/hyprland.lua
+lint: ## Lint the shell
 	lint=$$(mktemp -d); ln -s $(CURDIR)/shell $$lint/qs; \
 	qmllint-qt6 --max-warnings 0 --uncreatable-type disable -I $$lint shell/*.qml shell/*/*.qml; \
 	status=$$?; rm -rf $$lint; exit $$status

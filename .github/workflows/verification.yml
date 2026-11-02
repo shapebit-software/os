@@ -1,0 +1,46 @@
+# Verifies every push and pull request, in order: each stage starts only if the
+# one before it passed (docs/Testing.md). A new check goes in the stage it fits.
+name: Verification
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    uses: ./.github/workflows/stage-static-checks.yml
+
+  unit-tests:
+    needs: static-checks
+    uses: ./.github/workflows/stage-unit-tests.yml
+
+  # GitHub filters paths only for a whole workflow, not for a job. A new branch
+  # compares with main; a base it cannot compare with, as after a force-push,
+  # counts as a change.
+  image-changes:
+    needs: unit-tests
+    runs-on: ubuntu-24.04
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ $BASE =~ ^0+$ ]]; then BASE=$(git merge-base origin/main HEAD); fi
+          if git diff --quiet "$BASE" HEAD -- 'image/Containerfile*'; then
+            echo "changed=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >>"$GITHUB_OUTPUT"
+          fi
+
+  image-tests:
+    needs: image-changes
+    if: needs.image-changes.outputs.changed == 'true'
+    uses: ./.github/workflows/stage-image-tests.yml

@@ -1,9 +1,10 @@
-# Builds one image a week, or when started by hand, and tests it fully. Only if
-# every test passes does it publish it, as os:candidate, for the Release workflow.
+# Runs the first stages of Verification, then builds one image a week, or when
+# started by hand, and tests it fully. Only if every test passes does it publish
+# it, as os:candidate, for the Release workflow.
 # The build has no cache, so that it picks up Fedora's updates; only the build job
 # has the release key, in the environment "Signing"; a failed test job can be
 # re-run on the same build (docs/Testing.md).
-name: Weekly
+name: Candidate
 
 on:
   schedule:
@@ -22,7 +23,15 @@ env:
   REPOSITORY: ghcr.io/shapebit-software/os
 
 jobs:
+  static-checks:
+    uses: ./.github/workflows/stage-static-checks.yml
+
+  unit-tests:
+    needs: static-checks
+    uses: ./.github/workflows/stage-unit-tests.yml
+
   build:
+    needs: unit-tests
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 300
@@ -68,8 +77,8 @@ jobs:
           echo "IMAGE_VERSION=$version" >>"$GITHUB_ENV"
           echo "version=$version" >>"$GITHUB_OUTPUT"
 
-      - name: Build and check the image
-        run: make check
+      - name: Build and test the image
+        run: make test-image
 
       - name: Build the installer medium
         run: make -o image installer

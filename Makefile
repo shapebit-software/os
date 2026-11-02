@@ -66,7 +66,7 @@ export IMAGE_REVISION IMAGE_ARCHIVE OPENQA_DISTRI OPENQA_IMAGE RESULTS VENV TEST
 export PYTHONDONTWRITEBYTECODE := 1
 
 .DEFAULT_GOAL := help
-.PHONY: dev release-key help image test-unit check publish installer disk vm installer-vm ssh test test-plan update-builds static-checks test-update test-release test-guest clean
+.PHONY: dev release-key help image static-checks lint validate test-unit test-image publish installer disk vm installer-vm ssh test test-plan update-builds test-update test-release test-guest clean
 
 help: ## List targets
 	@awk -F ':.*## ' '/^[a-z-]+:.*## / { printf "  %-12s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -84,16 +84,18 @@ image: $(KEYS) ## Build the container image with its signed UKI
 	  --build-arg WHISPER_MODEL_REVISION=$(WHISPER_MODEL_REVISION) --build-arg WHISPER_MODEL_SHA256=$(WHISPER_MODEL_SHA256) \
 	  --build-context desktop=$(DESKTOP_SRC)
 
-test-unit: $(VENV)/.done ## Run isolated unit tests and lint on this host, without a VM
-	$(VENV)/bin/pytest -c tests/pytest.ini --rootdir=tests -p no:cacheprovider tests/unit
-	$(VENV)/bin/python -m pyflakes tests/conftest.py tests/image tests/medium tests/system tests/update tests/host tests/unit tests/openqa/lib tests/openqa/run.py scripts/provenance.py
-	$(VENV)/bin/tmt --root tests lint >/dev/null
-	bash -n scripts/*.sh tests/pytest.sh tests/system/*.sh tests/update/*.sh
+static-checks: lint validate ## Lint and validate, without building or running the code; in Fedora, as `make dev`
 
-static-checks: ## Check the desktop, the installer, and image/rootfs without building the image; in Fedora, as `make dev`
-	scripts/static-checks.sh
+lint: $(VENV)/.done ## Lint the shell, the Python, the QML, and the test plans; in Fedora, as `make dev`
+	scripts/static-checks.sh lint
 
-check: image $(TEST_DEPS)/.done ## Run checks inside the container image
+validate: ## Validate the compositor configuration, the package list, and the units; in Fedora, as `make dev`
+	scripts/static-checks.sh validate
+
+test-unit: $(VENV)/.done ## Run the tests that need no image and no VM; in Fedora, as `make dev`
+	scripts/test-unit.sh
+
+test-image: image $(TEST_DEPS)/.done ## Build the image and test its files; nothing boots
 	$(ENGINE) run --rm --network none -v "$(CURDIR)/tests:/tests:ro,z" $(IMAGE) /tests/pytest.sh /tests/image
 
 publish: image ## Push the image to the local update registry
@@ -117,7 +119,7 @@ installer-vm: installer $(SSH_KEY) ## Boot the medium with a new disk in a windo
 ssh: $(SSH_KEY) ## Open a root shell in the running VM
 	scripts/ssh.sh
 
-test: test-unit check disk ## Install, then run tmt's checks on a disposable clone of the installed machine
+test: test-image disk ## Install, then run tmt's checks on a disposable clone of the installed machine
 	scripts/test-machine.sh system
 
 test-plan: $(VENV)/.done $(TEST_DEPS)/.done ## Run one tmt plan on a clone of the disk as it is, without installing: PLAN=system

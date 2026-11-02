@@ -1,7 +1,7 @@
-# Releases the candidate that the Weekly workflow tested: moves os:stable, which
+# Releases the candidate that the Candidate workflow tested: moves os:stable, which
 # installed systems update from, to it unchanged, keeping the image before as
 # os:stable-previous. With "Publish the installer", also moves os:iso to it and
-# uploads the medium that the same Weekly run tested to Cloudflare R2, as
+# uploads the medium that the same Candidate run tested to Cloudflare R2, as
 # installer.raw.zst, keeping the one before as installer-previous.raw.zst. With
 # "Undo", instead moves os:stable back to os:stable-previous. Runs only by hand,
 # in the environment "Release", which can require a person's approval
@@ -62,15 +62,15 @@ jobs:
           skopeo copy -q --preserve-digests "docker://$REPOSITORY:candidate" "docker://$REPOSITORY:stable"
 
       # The medium must be the one that was tested with this candidate: both
-      # come from one Weekly run, and its record names the image and the medium.
+      # come from one Candidate run, and its record names the image and the medium.
       - name: Take the tested medium
         if: inputs.installer && !inputs.undo
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          run=$(gh run list -R "$GITHUB_REPOSITORY" --workflow weekly.yml --status success \
+          run=$(gh run list -R "$GITHUB_REPOSITORY" --workflow candidate.yml --status success \
             --limit 1 --json databaseId --jq '.[0].databaseId')
-          if [ -z "$run" ]; then echo "::error::No successful Weekly run"; exit 1; fi
+          if [ -z "$run" ]; then echo "::error::No successful Candidate run"; exit 1; fi
           gh run download "$run" -R "$GITHUB_REPOSITORY" -n installer
           digest=$(skopeo inspect "docker://$REPOSITORY:candidate" --format '{{.Digest}}')
           if [ "$(jq -r .image_digest installer.raw.json)" != "$digest" ]; then

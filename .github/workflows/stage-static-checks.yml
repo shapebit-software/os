@@ -1,0 +1,22 @@
+# The first stage: lints and validates, without building or running the code.
+# Called by Verification and Candidate. Uses no secrets.
+name: "Stage: Static checks"
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora-toolbox:44
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/fedora-dev
+      - name: Lint
+        run: make lint
+      - name: Validate
+        if: ${{ !cancelled() }}
+        run: make validate
