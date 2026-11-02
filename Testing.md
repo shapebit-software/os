@@ -105,7 +105,11 @@ is the shell's own (`Super+I`): ShapeBit has no Switchboard.
 After failure, the run's `pool/testresults/` keeps each step's screenshot and
 JSON, and `pool/` keeps `autoinst-log.txt` and `video.webm`.
 
-**Needles** are a PNG with a JSON of the same name, naming the tag and the areas
+**Needles** compare pictures, so use one only where the picture is what is tested,
+such as the first installer page, which shows that the UI reaches the screen.
+Elsewhere, wait on state: each installer page writes `Installer page: <name>` to
+the journal when it is ready for keys, and `install.py` saves its screenshot without
+comparing it. A needle is a PNG with a JSON of the same name, naming the tag and the areas
 to compare. When the UI changes on purpose, take the new screen from
 `testresults/` and change the needle with it, in the same commit.
 
