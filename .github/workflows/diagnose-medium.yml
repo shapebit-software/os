@@ -49,6 +49,7 @@ jobs:
           dmesg | tail -n 40
           GUEST
           cat >"$RUNNER_TEMP/diagnose.sh" <<'HOST'
+          set -euo pipefail
           uname -r
           grep -E 'CONFIG_FS_VERITY|CONFIG_BTRFS_FS=' "/boot/config-$(uname -r)"
           truncate -s "$DISK_SIZE" "$DISK"
@@ -57,7 +58,8 @@ jobs:
           scripts/vm.sh --stop
           HOST
           mkdir -p diagnosis
-          make --eval='diagnose: $(SSH_KEY) ; bash "$$RUNNER_TEMP/diagnose.sh"' diagnose 2>&1 | tee diagnosis/report.txt
+          make build/ssh/id_ed25519
+          make --eval='diagnose: ; bash "$$RUNNER_TEMP/diagnose.sh"' diagnose 2>&1 | tee diagnosis/report.txt
       - name: Keep the report
         if: always()
         uses: actions/upload-artifact@v4
