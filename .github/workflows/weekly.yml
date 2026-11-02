@@ -36,6 +36,17 @@ jobs:
           docker image prune -af >/dev/null
           df -h /
 
+      # Docker's older image store saves layers uncompressed. That doubles the
+      # payload on the medium, to a size at which its verity-protected file
+      # cannot be opened; this store is what developers' Docker 29 uses.
+      - name: Keep image layers compressed
+        run: |
+          config=/etc/docker/daemon.json
+          { sudo cat "$config" 2>/dev/null || echo '{}'; } |
+            jq '.features["containerd-snapshotter"] = true' >"$RUNNER_TEMP/daemon.json"
+          sudo cp "$RUNNER_TEMP/daemon.json" "$config"
+          sudo systemctl restart docker
+
       - uses: actions/checkout@v4
 
       # Outside build/, which the installer's build context holds.

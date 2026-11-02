@@ -49,8 +49,10 @@ def test_medium_is_sealed_by_a_composefs_digest(host):
     assert re.search(r"(^| )composefs=[0-9a-f]{128}( |$)", host.file("/proc/cmdline").content_string)
 
 
-def test_payload_is_on_the_medium(host):
-    assert host.file("/usr/share/installer/image.tar").size > 0
+def test_payload_is_readable(sh):
+    # Its size alone says nothing: a payload too large for fs-verity keeps its
+    # size, yet opening it fails with an I/O error, as the install then would.
+    sh("cat /usr/share/installer/image.tar >/dev/null")
 
 
 @pytest.mark.parametrize("unit", ["installer-backend", "installer"])
