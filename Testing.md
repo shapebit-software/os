@@ -16,8 +16,8 @@ ShapeBit is tested at three levels. Levels 1 and 2 exist; level 3 is reserved.
 | Workflow | Starts | Does |
 | --- | --- | --- |
 | Verification | Every push and pull request | Three stages in order, each only if the one before passed: Static checks (`make lint`, `make validate`), Unit tests (`make test-unit`), and, on a change to `image/Containerfile*`, Image tests (`make test-image`, with a throwaway key; publishes nothing) |
-| Candidate | Monday night, or by hand, on `main` | Runs Static checks and Unit tests, then builds without a cache, signed with the release key; runs levels 1 and 2 in parallel jobs; if all pass, publishes `os:candidate` and a report |
-| Release | Only by hand, on `main` | Moves `os:stable` to `os:candidate`, or back to `os:stable-previous` |
+| Candidate | Monday night, or by hand, on `main` | Runs Static checks and Unit tests, then builds without a cache, signed with the release key; runs levels 1 and 2 in parallel jobs; if all pass, publishes `os:candidate` and a draft release with its report |
+| Release | Only by hand, on `main` | Moves `os:stable` to `os:candidate`, tags it with its version, and publishes its release; or moves back to `os:stable-previous` and marks the last release withdrawn |
 
 A test job that fails on a flake can be re-run on the same build with GitHub's
 "Re-run failed jobs": the jobs test the files that the build job saved, so the
@@ -44,7 +44,7 @@ cannot describe a different build.
 The release medium is a raw disk image (`installer.img.xz`): ShapeBit builds no
 ISO. Every VM attaches it with a snapshot, so it stays byte for byte what was
 built and recorded in `build/installer.img.json`. `make test-release` refuses a
-medium that differs, and the Release workflow refuses one whose checksum differs.
+medium that differs.
 
 ## Level 1: tmt
 

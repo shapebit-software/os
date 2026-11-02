@@ -113,8 +113,8 @@ belong to the machine, which the medium and the installed disk share;
 ## Updates
 
 Each build records `IMAGE_VERSION` in `/usr/lib/os-release` and in the
-image's `org.opencontainers.image.version` label: in CI, the build date and
-commit, such as `20261030_e0920a`; `dev` otherwise. Installed systems update
+image's `org.opencontainers.image.version` label: in CI, the time the build
+started, in UTC, such as `202610301530`; `dev` otherwise. Installed systems update
 from `UPDATE_REF`, which the installer records:
 `ghcr.io/shapebit-software/os:stable`.
 
@@ -199,7 +199,7 @@ development key.
    sudo dd if=build/installer.img of=/dev/sdX bs=4M conv=fsync status=progress
    ```
 
-   The published `installer.img.xz` is the same image, compressed; on Windows
+   The `installer.img.xz` that CI builds is the same image, compressed; on Windows
    and macOS, write it with a tool such as balenaEtcher or Rufus. If the system
    then offers to format the drive, decline: it cannot read the drive's
    filesystem, and formatting would erase the medium.

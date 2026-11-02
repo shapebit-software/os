@@ -161,8 +161,8 @@ mixed, even when each one is individually valid.
 ### Developer Preview
 
 The OS is a rolling release: an image has no release line, only its build:
-`IMAGE_VERSION` in `os-release` is the build date and the
-monorepo commit, such as `20261030_e0920a`. Images are published to
+`IMAGE_VERSION` in `os-release` is the time the build started, in UTC, such as
+`202610301530`. Images are published to
 `ghcr.io/shapebit-software/os` with these tags:
 
 | Tag               | Set by                                         | What it holds                                  |
@@ -170,16 +170,21 @@ monorepo commit, such as `20261030_e0920a`. Images are published to
 | `candidate`       | The Candidate workflow, once every test passed | The latest build that passed every test        |
 | `stable`          | The Release workflow, started by a person      | What installed systems update from             |
 | `stable-previous` | The Release workflow                           | The release before, for undoing a release      |
+| The version, such as `202610301530` | The Release workflow      | That release, for good                         |
 
 The Candidate workflow builds an image each week, or when started by hand, with no
 build cache, so that it picks up Fedora's updates. It tests the image and its
 medium fully ([Testing](Testing)), and publishes it as `candidate` only if every
-test passes, with a report of the commits and packages changed since `stable`.
-A person can try the candidate on a real machine with `bootc switch`, then start
-the Release workflow, which moves `stable` to the candidate unchanged and, when
-asked, publishes the medium that the same Candidate run tested:
-`installer.img.xz`, with the medium before it kept as
-`installer-previous.img.xz`. `IMAGE_REVISION` in `os-release` and the image's
+test passes, with a draft [GitHub release](https://github.com/shapebit-software/os/releases)
+that reports the commits and packages changed since `stable`. A newer candidate
+replaces the draft. A person can read the draft, try the candidate on a real machine
+with `bootc switch`, then start the Release workflow, which moves `stable` to the
+candidate unchanged and publishes the release, tagged with the version at the tested
+commit. Undoing a release moves `stable` back and marks the release withdrawn; the
+same build cannot be released again. Each Candidate run keeps the medium it tested
+as a run artifact for 30 days; a release lists the medium's checksum, not the medium,
+which is over GitHub's 2 GiB limit for a release's files.
+`IMAGE_REVISION` in `os-release` and the image's
 `org.opencontainers.image.revision` label name the full commit.
 
 #### Signing Keys
@@ -242,7 +247,8 @@ ShapeBit's own:
 | What | Where | State |
 |------|-------|-------|
 | OS images | GHCR, `ghcr.io/shapebit-software/os`, with the tags in [Developer Preview](#developer-preview) | Built: the Candidate and Release workflows of the [monorepo](https://github.com/shapebit-software/os) |
-| Installer medium | Cloudflare R2, at a fixed name for the website to link to, at most two media: `installer.img.xz` and `installer-previous.img.xz` | The Release workflow uploads it; the bucket and its domain are not set up yet |
+| Installer medium | A download service at a fixed name for the website to link to, at most two media: `installer.img.xz` and `installer-previous.img.xz` | Planned; the service is not chosen, and no workflow uploads the medium |
+| Release notes | [GitHub releases](https://github.com/shapebit-software/os/releases): the changes, the checksums, and the package list of each release | Built: the Candidate and Release workflows |
 | ShapeBit's own apps | A Flatpak repository of ShapeBit's own (the OS repository of [Applications](Architecture-Applications#installing-apps)), built with [AetherPak](https://github.com/aetherpak/actions): apps as OCI images on GHCR, their index on GitHub Pages | Decided; not built, as there are no such apps yet |
 | ShapeBit's own RPMs | None: the image installs ShapeBit's components directly, and the image's version is theirs | Decided. If something outside the image ever needs them, a signed repository built by GitHub Actions on GitHub Pages |
 
