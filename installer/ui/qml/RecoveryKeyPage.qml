@@ -10,9 +10,8 @@ Step {
     property string recoveryKey
 
     number: 8
-    label: qsTr("Recovery key")
     heading: qsTr("Save your recovery key")
-    subtitle: qsTr("This computer unlocks its disk by itself. If that ever fails, for example after a hardware repair, only this key unlocks it.")
+    subtitle: qsTr("If this computer ever can’t unlock its disk, only this key can.")
     contentWidth: 536
     backVisible: false
     nextText: qsTr("Finish")
@@ -45,7 +44,7 @@ Step {
     Text {
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
-        text: qsTr("Write it down or photograph it, and keep it away from this computer. It is not shown again. Anyone who has the key can read the disk, and ShapeBit cannot restore a lost key.")
+        text: qsTr("Write it down or photograph it, and keep it away from this computer. It is not shown again, and a lost key can’t be restored.")
         color: Theme.muted
         font.pixelSize: 12
         lineHeight: 1.3
@@ -60,7 +59,7 @@ Step {
         }
         Text {
             Layout.fillWidth: true
-            text: qsTr("I saved my recovery key outside this computer")
+            text: qsTr("I saved my recovery key")
             color: Theme.text
             font.pixelSize: 13
             font.weight: Font.DemiBold

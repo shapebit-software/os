@@ -15,9 +15,7 @@ Step {
     }
 
     number: 3
-    label: qsTr("Network")
     heading: qsTr("Connect to a network")
-    subtitle: qsTr("A connection is optional. You can also connect after setup.")
     nextText: connected ? qsTr("Continue") : qsTr("Skip for now")
     Component.onCompleted: Backend.refreshNetworks()
 
@@ -73,7 +71,7 @@ Step {
                                 elide: Text.ElideRight
                             }
                             Mono {
-                                text: entry.modelData.connected ? qsTr("Connected") : entry.modelData.security || qsTr("Open")
+                                text: entry.modelData.connected ? qsTr("Connected") : entry.modelData.security === "" ? qsTr("Open") : ""
                                 color: entry.modelData.connected ? Theme.link : Theme.faint
                                 font.pixelSize: 9
                             }

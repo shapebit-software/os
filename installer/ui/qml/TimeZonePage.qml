@@ -33,9 +33,7 @@ Step {
     }
 
     number: 4
-    label: qsTr("Time zone")
     heading: qsTr("Time zone")
-    subtitle: qsTr("Search for a city near you.")
 
     Timer {
         interval: 5000
@@ -59,7 +57,7 @@ Step {
                 font.pixelSize: 18
                 font.weight: Font.DemiBold
             }
-            Mono { text: page.zone.id + " · " + page.zone.offset }
+            Mono { text: page.zone.offset }
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
@@ -116,13 +114,6 @@ Step {
                         text: modelData.region
                         color: Theme.faint
                         font.pixelSize: 12
-                    }
-                    Mono { text: modelData.offset }
-                    Mono {
-                        Layout.preferredWidth: 60
-                        horizontalAlignment: Text.AlignRight
-                        text: page.time(modelData.id)
-                        color: Theme.text
                     }
                 }
             }

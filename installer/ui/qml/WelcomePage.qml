@@ -12,9 +12,6 @@ Step {
     readonly property var locales: Backend.capabilities.locales || []
 
     number: 1
-    label: qsTr("Welcome")
-    heading: qsTr("Welcome to ShapeBit")
-    subtitle: qsTr("A calm, tiled desktop that keeps your windows in order. Setup takes about ten minutes.")
     logoVisible: true
     backVisible: false
     nextText: qsTr("Get started")

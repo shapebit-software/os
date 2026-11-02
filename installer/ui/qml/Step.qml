@@ -12,7 +12,6 @@ FocusScope {
 
     // Where the page is in the setup, shown in the window's header.
     property int number: 1
-    property string label
 
     property string heading
     property string subtitle
@@ -47,29 +46,35 @@ FocusScope {
         spacing: 0
 
         Logo {
+            id: logo
             visible: step.logoVisible
-            size: 46
+            mascot: true
+            size: 120
             Layout.alignment: Qt.AlignHCenter
-            Layout.bottomMargin: 26
+            // The image's implicit size is that of its sharper source.
+            Layout.preferredWidth: logo.width
+            Layout.preferredHeight: logo.size
         }
         Text {
             objectName: "heading"
             Layout.fillWidth: true
+            visible: text !== ""
             horizontalAlignment: Text.AlignHCenter
             text: step.heading
             color: Theme.text
-            font.pixelSize: step.logoVisible ? 40 : 28
+            font.pixelSize: 28
             font.weight: Font.DemiBold
             font.letterSpacing: -0.5
         }
         Text {
             Layout.fillWidth: true
             Layout.topMargin: 6
+            visible: text !== ""
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
             text: step.subtitle
             color: Theme.muted
-            font.pixelSize: step.logoVisible ? 15 : 13
+            font.pixelSize: 13
             lineHeight: 1.3
         }
         ColumnLayout {

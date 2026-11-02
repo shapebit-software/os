@@ -23,9 +23,7 @@ Step {
     }
 
     number: 6
-    label: qsTr("Disk")
     heading: qsTr("Choose a disk")
-    subtitle: qsTr("ShapeBit uses the whole disk. Choose where to install it.")
     contentWidth: 536
     nextText: qsTr("Erase disk and install ShapeBit")
     nextKind: "danger"
@@ -149,36 +147,26 @@ Step {
                 Layout.topMargin: 1
                 enabled: page.selected !== null
             }
-            Column {
+            Text {
                 Layout.fillWidth: true
-                spacing: 4
-                Text {
-                    width: parent.width
-                    text: qsTr("I understand that all data on this disk will be deleted")
-                    color: Theme.text
-                    font.pixelSize: 13
-                    font.weight: Font.DemiBold
-                    wrapMode: Text.WordWrap
-                    TapHandler {
-                        enabled: understood.enabled
-                        onTapped: understood.toggle()
-                    }
-                }
-                Text {
-                    width: parent.width
-                    text: page.selected === null ? qsTr("Choose a disk first.")
-                        : qsTr("Everything on %1 (%2) will be permanently removed. This can’t be undone.")
-                            .arg(page.name(page.selected)).arg(page.size(page.selected))
-                    color: Theme.muted
-                    font.pixelSize: 12
-                    wrapMode: Text.WordWrap
+                // Names the disk, so that the confirmation is for the right one.
+                text: page.selected === null ? qsTr("All data on the disk will be deleted. This can’t be undone.")
+                    : qsTr("I understand that all data on %1 (%2) will be deleted. This can’t be undone.")
+                        .arg(page.name(page.selected)).arg(page.size(page.selected))
+                color: Theme.text
+                font.pixelSize: 13
+                font.weight: Font.DemiBold
+                wrapMode: Text.WordWrap
+                TapHandler {
+                    enabled: understood.enabled
+                    onTapped: understood.toggle()
                 }
             }
         }
     }
     LinkButton {
         Layout.alignment: Qt.AlignRight
-        text: qsTr("Look for disks again")
+        text: qsTr("Look again")
         onClicked: {
             page.selected = null
             Backend.refresh()

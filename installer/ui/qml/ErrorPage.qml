@@ -5,7 +5,6 @@ import Installer
 
 Step {
     number: Backend.available ? 7 : 1
-    label: qsTr("Problem")
     heading: Backend.available ? qsTr("The installation failed") : qsTr("The installer is not ready")
     subtitle: Backend.available
         ? qsTr("If the disk was already erased, it has no usable system. Starting over erases it again.") : ""

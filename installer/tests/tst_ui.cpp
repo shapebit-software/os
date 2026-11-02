@@ -13,6 +13,8 @@
 #include <QQuickWindow>
 #include <QTest>
 
+#include <algorithm>
+
 class UiTest : public QObject
 {
     Q_OBJECT
@@ -45,7 +47,14 @@ private slots:
         QVERIFY(m_stack);
         auto *backend = engine.singletonInstance<Backend *>("Installer", "Backend");
 
-        QCOMPARE(heading(), "Welcome to ShapeBit");
+        // The logo is the first page's heading.
+        QVERIFY(heading().isEmpty());
+        // The header's logo and the page's, loaded from the module's resources.
+        const auto logos = m_window->findChildren<QObject *>("logo");
+        QCOMPARE(logos.size(), 2);
+        for (const QObject *logo : logos)
+            QTRY_COMPARE(logo->property("status").toInt(), 1); // Image.Ready
+        QCOMPARE(visibleLogos(), 1); // The page's: the header leaves it out.
         QCOMPARE(field("language")->property("currentText").toString(), "American English (US)");
         // The keyboard works before anything is clicked: Enter goes on.
         QVERIFY(QTest::qWaitForWindowActive(m_window));
@@ -53,6 +62,7 @@ private slots:
         QTest::keyClick(m_window, Qt::Key_Return);
 
         QCOMPARE(heading(), "Keyboard layout");
+        QTRY_COMPARE(visibleLogos(), 1); // The header's.
         QCOMPARE(field("layoutName")->property("text").toString(), "English (US)");
         field("search")->setProperty("text", "french azerty");
         QCOMPARE(field("layouts")->property("count").toInt(), 2); // With and without AFNOR.
@@ -146,6 +156,11 @@ private slots:
 private:
     QObject *page() const { return m_stack->property("currentItem").value<QObject *>(); }
     QString heading() const { return page()->property("heading").toString(); }
+    qsizetype visibleLogos() const
+    {
+        const auto logos = m_window->findChildren<QObject *>("logo");
+        return std::count_if(logos.begin(), logos.end(), [](const QObject *logo) { return logo->property("visible").toBool(); });
+    }
     bool nextEnabled() const { return page()->property("nextEnabled").toBool(); }
     QObject *field(const char *name) const { return find(qobject_cast<QQuickItem *>(page()), QLatin1String(name)); }
     // Searches the items as shown: list entries are not QObject children of their list.
@@ -172,7 +187,7 @@ private:
         if (directory.isEmpty())
             return;
         QTRY_VERIFY(!m_stack->property("busy").toBool()); // The page transition has ended.
-        m_window->grabWindow().save(QStringLiteral("%1/%2-%3.png").arg(directory).arg(++m_snapshots).arg(heading().section(QLatin1Char(' '), 0, 0)));
+        m_window->grabWindow().save(QStringLiteral("%1/%2-%3.png").arg(directory).arg(++m_snapshots).arg(heading().isEmpty() ? QStringLiteral("Welcome") : heading().section(QLatin1Char(' '), 0, 0)));
     }
 
     QProcess m_backend;

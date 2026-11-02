@@ -25,9 +25,7 @@ Step {
     }
 
     number: 2
-    label: qsTr("Keyboard")
     heading: qsTr("Keyboard layout")
-    subtitle: qsTr("Choose the layout that matches the keys on your keyboard.")
     contentWidth: 640
 
     Panel {

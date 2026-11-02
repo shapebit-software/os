@@ -29,7 +29,10 @@ qt_add_qml_module(ui
         qml/ProgressPage.qml
         qml/RecoveryKeyPage.qml
         qml/DonePage.qml
-        qml/ErrorPage.qml)
+        qml/ErrorPage.qml
+    RESOURCES
+        images/horizontal.png
+        images/wordmark.png)
 target_include_directories(ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 # libxkbcommon translates key codes for the chosen keyboard layout (see keyboard.h).
 target_link_libraries(ui PUBLIC client Qt6::Quick Qt6::QuickControls2 PkgConfig::xkbcommon)

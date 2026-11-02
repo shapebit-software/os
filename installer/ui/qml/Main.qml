@@ -84,17 +84,11 @@ ApplicationWindow {
         anchors { left: parent.left; right: parent.right; top: parent.top; margins: 30 }
         height: 22
 
-        Row {
+        Logo {
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 10
-            Logo { size: 20 }
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: "ShapeBit"
-                color: Theme.text
-                font.pixelSize: 13
-                font.weight: Font.Bold
-            }
+            // A page that shows the logo itself does not need it twice.
+            visible: !(window.page && window.page.logoVisible)
+            size: 28
         }
         // One dash for each step; the current one is longer.
         Row {
@@ -110,20 +104,6 @@ ApplicationWindow {
                     color: index < number ? Theme.accent : Theme.border
                     Behavior on width { NumberAnimation { duration: 200 } }
                 }
-            }
-        }
-        Row {
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 8
-            Mono {
-                text: window.page ? String(window.page.number).padStart(2, "0") + " / " + String(window.steps).padStart(2, "0") : ""
-                font.pixelSize: 9
-            }
-            Mono {
-                text: window.page ? window.page.label : ""
-                color: Theme.muted
-                font.pixelSize: 9
             }
         }
     }

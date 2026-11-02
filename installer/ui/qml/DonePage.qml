@@ -4,9 +4,8 @@ import Installer
 
 Step {
     number: 8
-    label: qsTr("Finish")
     heading: qsTr("ShapeBit is installed")
-    subtitle: qsTr("Remove the USB drive, then restart to start using your new system.")
+    subtitle: qsTr("Remove the USB drive, then restart.")
     backVisible: false
     nextText: qsTr("Restart now")
     onNext: Backend.reboot()

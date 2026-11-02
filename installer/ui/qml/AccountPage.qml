@@ -26,9 +26,7 @@ Step {
     }
 
     number: 5
-    label: qsTr("Account")
     heading: qsTr("Create your account")
-    subtitle: qsTr("You’ll use this account to sign in to ShapeBit.")
     contentWidth: 386
     nextEnabled: firstName.text.trim() !== "" && userNameField.acceptableInput
         && passwordField.text.length >= minimumLength && passwordField.text === confirmField.text
