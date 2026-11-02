@@ -1,6 +1,6 @@
 # Runs the first stages of Verification, then builds one image a week, or when
 # started by hand, and tests it fully. Only if every test passes does it publish
-# it, as os:candidate, for the Release workflow.
+# it, as os:candidate, with a draft release of its notes, for the Release workflow.
 # The build has no cache, so that it picks up Fedora's updates; only the build job
 # has the release key, in the environment "Signing"; a failed test job can be
 # re-run on the same build (docs/Testing.md).
@@ -62,11 +62,11 @@ jobs:
           echo "KEYS_DIR=$RUNNER_TEMP/keys" >>"$GITHUB_ENV"
           echo "SIGNING_KEY=release" >>"$GITHUB_ENV"
 
-      # A rolling release: the build date and the commit.
+      # A rolling release: when the build started, in UTC.
       - name: Set the image version
         id: version
         run: |
-          version=$(date -u +%Y%m%d)_${GITHUB_SHA::6}
+          version=$(date -u +%Y%m%d%H%M)
           echo "IMAGE_VERSION=$version" >>"$GITHUB_ENV"
           echo "version=$version" >>"$GITHUB_OUTPUT"
 
@@ -176,8 +176,10 @@ jobs:
     needs: [build, scripted, openqa]
     runs-on: ubuntu-24.04
     permissions:
-      contents: read
+      contents: write
       packages: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -208,7 +210,7 @@ jobs:
         run: |
           inspect() { skopeo inspect "docker://$REPOSITORY:$1" --format "{{index .Labels \"$2\"}}"; }
           list() { docker run --rm "$1" rpm -qa --qf '%{NAME} %{VERSION}-%{RELEASE}\n' | sort; }
-          list "$REPOSITORY:candidate" >new-packages
+          list "$REPOSITORY:candidate" >packages.txt
           : >old-packages
           range=HEAD
           if stable=$(inspect stable org.opencontainers.image.revision 2>/dev/null); then
@@ -216,19 +218,16 @@ jobs:
             # A stable image from before the revision label has no commit to compare.
             if [ -n "$stable" ] && [ "$stable" != "<no value>" ]; then range=$stable..HEAD; fi
           fi
-          {
-            echo "# Candidate"
-            echo
-            echo "- Image digest: \`$(jq -r .image_digest installer/installer.img.json)\`"
-            echo "- Medium SHA-256: \`$(jq -r .medium_sha256 installer/installer.img.json)\`"
-            echo "- Commit: \`$GITHUB_SHA\`"
-            echo
-            echo "## Commits since stable"
-            echo '```'
-            git log --oneline "$range"
-            echo '```'
-            echo "## Packages changed since stable: < before, > now"
-            echo '```'
-            diff old-packages new-packages || true
-            echo '```'
-          } >>"$GITHUB_STEP_SUMMARY"
+          git log --oneline "$range" >commits
+          python3 scripts/release-notes.py installer/installer.img.json "$GITHUB_SHA" commits old-packages packages.txt >notes.md
+          { echo "# Candidate $VERSION"; echo; cat notes.md; } >>"$GITHUB_STEP_SUMMARY"
+
+      # Only the latest candidate can be released, so only it keeps a draft.
+      - name: Replace the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --json tagName,isDraft --jq '.[] | select(.isDraft) | .tagName' |
+            while read -r draft; do gh release delete "$draft" --yes; done
+          gh release create "$VERSION" --draft --target "$GITHUB_SHA" --title "$VERSION" --notes-file notes.md \
+            packages.txt installer/installer.img.json

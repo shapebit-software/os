@@ -15,11 +15,11 @@ def test_os_release_identifies_shapebit(host):
     assert os_release(host)["ID"] == "shapebit"
 
 
-def test_image_version_is_build_date_and_commit(host):
-    # A rolling release: the build date and commit (20261030_e0920a), or dev;
-    # update tests build dev.next and dev.next2.
+def test_image_version_is_build_time(host):
+    # A rolling release: when the build started, in UTC (202610301530), or dev;
+    # update tests build dev.next and dev.next2, or the same after a build time.
     version = os_release(host)["IMAGE_VERSION"].strip('"')
-    assert re.fullmatch(r"dev(\.next2?)?|[0-9]{8}_[0-9a-f]{6}", version)
+    assert re.fullmatch(r"(dev|[0-9]{12})(\.next2?)?", version)
 
 
 def test_os_release_names_the_commit(host):

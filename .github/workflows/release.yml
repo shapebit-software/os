@@ -1,8 +1,10 @@
 # Releases the candidate that the Candidate workflow tested: moves os:stable, which
 # installed systems update from, to it unchanged, keeping the image before as
-# os:stable-previous. With "Undo", instead moves os:stable back to
-# os:stable-previous. Runs only by hand, in the environment "Release", which can
-# require a person's approval (Settings > Environments).
+# os:stable-previous, tags it with its version for good, and publishes its draft
+# release. With "Undo", instead moves os:stable back to os:stable-previous, and marks
+# the last release withdrawn. Runs only by hand, in the environment "Release", which
+# can require a person's approval (Settings > Environments). If a step fails, running
+# the workflow again finishes the job.
 name: Release
 
 on:
@@ -14,7 +16,7 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 concurrency:
@@ -23,6 +25,8 @@ concurrency:
 
 env:
   REPOSITORY: ghcr.io/shapebit-software/os
+  GH_REPO: ${{ github.repository }}
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
   release:
@@ -33,9 +37,54 @@ jobs:
       - name: Log in to GHCR
         run: skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin <<<"${{ secrets.GITHUB_TOKEN }}"
 
-      - name: Move os:stable back to os:stable-previous
+      # Withdrawn first: until the previous release is the latest, a repeat of this
+      # step still finds the withdrawn one.
+      - name: Undo the last release
         if: inputs.undo
-        run: skopeo copy -q --preserve-digests "docker://$REPOSITORY:stable-previous" "docker://$REPOSITORY:stable"
+        run: |
+          previous=$(skopeo inspect "docker://$REPOSITORY:stable-previous" --format '{{index .Labels "org.opencontainers.image.version"}}')
+          skopeo copy -q --preserve-digests "docker://$REPOSITORY:stable-previous" "docker://$REPOSITORY:stable"
+          # A stable image from before releases began has none to mark withdrawn.
+          latest=$(gh release view --json tagName --jq .tagName) || exit 0
+          if [ "$latest" = "$previous" ]; then exit 0; fi
+          if [ "$(gh release view "$latest" --json name --jq .name)" != "$latest (withdrawn)" ]; then
+            body=$(gh release view "$latest" --json body --jq .body)
+            gh release edit "$latest" --title "$latest (withdrawn)" --notes "**Withdrawn:** installed systems went back to $previous.
+
+          $body"
+          fi
+          # An image from before releases began has no release to mark.
+          if gh release view "$previous" >/dev/null 2>&1; then
+            gh release edit "$previous" --latest
+          else
+            echo "::warning::$previous has no release, so $latest stays marked as the latest"
+          fi
+
+      # The version and commit that were tested, as main may have moved since. A
+      # candidate already released and then undone must not go back out.
+      - name: Find the candidate's release
+        if: ${{ !inputs.undo }}
+        run: |
+          inspect() { skopeo inspect "docker://$REPOSITORY:candidate" --format "$1"; }
+          version=$(inspect '{{index .Labels "org.opencontainers.image.version"}}')
+          revision=$(inspect '{{index .Labels "org.opencontainers.image.revision"}}')
+          candidate=$(inspect '{{.Digest}}')
+          stable=$(skopeo inspect "docker://$REPOSITORY:stable" --format '{{.Digest}}' 2>/dev/null || true)
+          if ! draft=$(gh release view "$version" --json isDraft --jq .isDraft); then
+            echo "::error::$version has no draft release; run Candidate"
+            exit 1
+          fi
+          if [ "$draft" = false ] && [ "$stable" != "$candidate" ]; then
+            echo "::error::$version was already released and undone; run Candidate"
+            exit 1
+          fi
+          {
+            echo "VERSION=$version"
+            echo "REVISION=$revision"
+            echo "DRAFT=$draft"
+            echo "CANDIDATE_DIGEST=$candidate"
+            echo "STABLE_DIGEST=$stable"
+          } >>"$GITHUB_ENV"
 
       # A candidate left waiting misses security fixes.
       - name: Warn if the candidate is old
@@ -45,10 +94,20 @@ jobs:
           age=$(( ($(date +%s) - $(date -d "$created" +%s)) / 86400 ))
           if [ "$age" -gt 14 ]; then echo "::warning::The candidate is $age days old"; fi
 
+      - name: Tag the candidate with its version
+        if: ${{ !inputs.undo }}
+        run: skopeo copy -q --preserve-digests "docker://$REPOSITORY:candidate" "docker://$REPOSITORY:$VERSION"
+
+      # If os:stable already moved, a repeat must not overwrite os:stable-previous.
       - name: Move os:stable to the candidate
         if: ${{ !inputs.undo }}
         run: |
-          if skopeo inspect "docker://$REPOSITORY:stable" >/dev/null 2>&1; then
+          if [ "$STABLE_DIGEST" = "$CANDIDATE_DIGEST" ]; then exit 0; fi
+          if [ -n "$STABLE_DIGEST" ]; then
             skopeo copy -q --preserve-digests "docker://$REPOSITORY:stable" "docker://$REPOSITORY:stable-previous"
           fi
           skopeo copy -q --preserve-digests "docker://$REPOSITORY:candidate" "docker://$REPOSITORY:stable"
+
+      - name: Publish the release
+        if: ${{ !inputs.undo && env.DRAFT == 'true' }}
+        run: gh release edit "$VERSION" --draft=false --latest --target "$REVISION"

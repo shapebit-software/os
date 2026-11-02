@@ -13,7 +13,7 @@ import Quickshell.Io
 Singleton {
     id: update
 
-    // The running build, such as "20261030_e0920a", or "dev".
+    // The running build, such as "202610301530", or "dev".
     readonly property string version: {
         const line = osRelease.text().split("\n").find(l => l.startsWith("IMAGE_VERSION="));
         return line ? line.slice("IMAGE_VERSION=".length).replace(/^"|"$/g, "") : "";
