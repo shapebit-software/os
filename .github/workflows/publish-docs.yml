@@ -1,0 +1,22 @@
+# Rebuilds the website when the documentation on main changes: the website
+# repository publishes docs/ from its own Pages workflow. WEBSITE_DISPATCH_TOKEN
+# is a fine-grained token with Contents write access to that repository.
+name: Publish documentation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - docs/**
+
+permissions: {}
+
+jobs:
+  rebuild-website:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Ask the website to rebuild
+        env:
+          GH_TOKEN: ${{ secrets.WEBSITE_DISPATCH_TOKEN }}
+        run: gh api repos/shapebit-software/website/dispatches -f event_type=docs-updated

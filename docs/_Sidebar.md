@@ -1,0 +1,16 @@
+## ShapeBit Docs
+
+- [Introduction](Home.md)
+- [Vision](Vision.md)
+- [Architecture](Architecture.md)
+  - [Base System](Architecture-Base.md)
+  - [Installation](Architecture-Installation.md)
+  - [Lifecycle](Architecture-Lifecycle.md)
+  - [Security](Architecture-Security.md)
+  - [Recovery](Architecture-Recovery.md)
+  - [Applications](Architecture-Applications.md)
+  - [Desktop](Architecture-Desktop.md)
+- [Building](Building.md)
+- [Development](Development.md)
+- [Testing](Testing.md)
+- [License](License.md)
