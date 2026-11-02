@@ -174,7 +174,7 @@ The OS is a rolling release: an image has no release line, only its build:
 
 The Candidate workflow builds an image each week, or when started by hand, with no
 build cache, so that it picks up Fedora's updates. It tests the image and its
-medium fully ([Testing](Testing)), and publishes it as `candidate` only if every
+medium fully ([Testing](Testing.md)), and publishes it as `candidate` only if every
 test passes, with a draft [GitHub release](https://github.com/shapebit-software/os/releases)
 that reports the commits and packages changed since `stable`. A newer candidate
 replaces the draft. A person can read the draft, try the candidate on a real machine
@@ -249,7 +249,7 @@ ShapeBit's own:
 | OS images | GHCR, `ghcr.io/shapebit-software/os`, with the tags in [Developer Preview](#developer-preview) | Built: the Candidate and Release workflows of the [monorepo](https://github.com/shapebit-software/os) |
 | Installer medium | A download service at a fixed name for the website to link to, at most two media: `installer.img.xz` and `installer-previous.img.xz` | Planned; the service is not chosen, and no workflow uploads the medium |
 | Release notes | [GitHub releases](https://github.com/shapebit-software/os/releases): the changes, the checksums, and the package list of each release | Built: the Candidate and Release workflows |
-| ShapeBit's own apps | A Flatpak repository of ShapeBit's own (the OS repository of [Applications](Architecture-Applications#installing-apps)), built with [AetherPak](https://github.com/aetherpak/actions): apps as OCI images on GHCR, their index on GitHub Pages | Decided; not built, as there are no such apps yet |
+| ShapeBit's own apps | A Flatpak repository of ShapeBit's own (the OS repository of [Applications](Architecture-Applications.md#installing-apps)), built with [AetherPak](https://github.com/aetherpak/actions): apps as OCI images on GHCR, their index on GitHub Pages | Decided; not built, as there are no such apps yet |
 | ShapeBit's own RPMs | None: the image installs ShapeBit's components directly, and the image's version is theirs | Decided. If something outside the image ever needs them, a signed repository built by GitHub Actions on GitHub Pages |
 
 Third-party software comes from Fedora's repositories (into the image) and

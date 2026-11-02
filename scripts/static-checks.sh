@@ -30,7 +30,7 @@ lint() {
         esac
         ;;
     esac
-  done < <(find . \( -name .git -o -name __pycache__ -o -path ./docs -o -path ./build -o -path ./installer/build \
+  done < <(find . \( -name .git -o -name __pycache__ -o -path ./build -o -path ./installer/build \
     -o -path ./tests/.deps -o -path ./tests/openqa/tests \) -prune -o -type f -print)
   for file in "${shell[@]}"; do
     bash -n "$file" || status=1

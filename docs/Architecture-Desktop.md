@@ -289,7 +289,7 @@ the [future design](#future-design) of features that are not built yet.
   computer has one; natural scrolling on a mouse; and each one's speed),
   **Network**, **Sound**, **Apps** (a store: all apps or only the installed, with
   a search and categories, each with its details and what it can reach;
-  [Applications](Architecture-Applications#installing-apps)), and **Updates**
+  [Applications](Architecture-Applications.md#installing-apps)), and **Updates**
   (the running system's version, the
   state of system updates with **Check now**, and the daily app updates).
 - Settings for the whole computer — the system language, the time zone, and
@@ -301,7 +301,7 @@ the [future design](#future-design) of features that are not built yet.
 ### Updates
 
 - The system checks for a new system image in the background and downloads
-  it ([Lifecycle](Architecture-Lifecycle#checking-for-updates)). Once one is
+  it ([Lifecycle](Architecture-Lifecycle.md#checking-for-updates)). Once one is
   ready, a notification says so, once per version, and **Restart** in the
   account panel reads **Restart to update**. The next restart or shutdown
   installs it; nothing restarts by itself.
@@ -329,11 +329,11 @@ the primary display. It asks only what the installer didn't, in five steps:
 1. **Network**: only when the computer was offline when Welcome opened,
    with the network panel's Wi-Fi list and inline password.
 2. **Browser**: the default browser
-   ([Internet Browsers](Architecture-Applications#internet-browsers)), only
+   ([Internet Browsers](Architecture-Applications.md#internet-browsers)), only
    when online. Nothing is picked at first; **Install** installs it into the
    person's Flatpak installation and makes it the default.
 3. **Recommended apps**
-   ([Recommended Apps](Architecture-Applications#recommended-apps)), only
+   ([Recommended Apps](Architecture-Applications.md#recommended-apps)), only
    when online: all on, each with a switch to leave it out; **Install**
    installs those kept.
 4. **Optional downloads** ([Extras](#extras)): only when online, with something

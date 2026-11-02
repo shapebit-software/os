@@ -9,7 +9,7 @@ to a login screen, which opens the [desktop](desktop/).
 ## Setup
 
 ```bash
-git clone --recurse-submodules https://github.com/shapebit-software/os.git
+git clone https://github.com/shapebit-software/os.git
 ```
 
 ## Development
@@ -71,7 +71,7 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 | `installer/` | The installer: backend, UI, and `installerctl`.                       |
 | `scripts/`   | Keys, image build, medium, installation in QEMU, publishing, SSH.     |
 | `tests/`     | Checks in tmt plans and openQA modules: see [docs/Testing.md](docs/Testing.md). |
-| `docs/`      | The documentation wiki, a separate repository (submodule).            |
+| `docs/`      | The documentation, published at https://shapebit.software/docs/.      |
 | `.agents/`   | Skills for coding agents.                                             |
 | `build/`     | Generated outputs (ignored by Git).                                   |
 
@@ -81,7 +81,7 @@ Settings are variables at the top of the [Makefile](Makefile), such as
   update, installing on real hardware, development access, and what is not
   implemented yet.
 - [Testing](docs/Testing.md)
-- [Architecture](https://github.com/shapebit-software/docs/wiki/Architecture)
+- [Architecture](docs/Architecture.md)
 
 ## Project links
 

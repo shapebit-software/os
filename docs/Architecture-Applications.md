@@ -25,7 +25,7 @@ section ([below](#installing-apps)). Diagnostics is not built yet.
 
 ## Recommended Apps
 
-On first login, Welcome ([Desktop](Architecture-Desktop#welcome)) installs
+On first login, Welcome ([Desktop](Architecture-Desktop.md#welcome)) installs
 these apps from Flathub into the person's own Flatpak installation. All are
 on; each can be turned off so it isn't installed:
 
@@ -46,7 +46,7 @@ for media, and browsers are installed separately.
 The image ships Flatpak, with Flathub as its system-wide remote, which
 Flatpak adds by itself on first use.
 
-**Settings > Apps** ([Desktop](Architecture-Desktop#settings)) is a store that
+**Settings > Apps** ([Desktop](Architecture-Desktop.md#settings)) is a store that
 opens on all apps, verified ones first, with a search and categories, and can
 show only the installed. It installs and removes them in the person's own
 Flatpak installation. It is drawn by the shell; separate helper
@@ -60,7 +60,7 @@ Apps is to show exactly two sources; today it shows Flathub:
 - **Flathub**, for third-party applications.
 - The **OS repository**, for apps and integration packages that
   OS itself builds and maintains. It is to be built with AetherPak
-  ([Distribution](Architecture-Lifecycle#distribution)); it doesn't exist
+  ([Distribution](Architecture-Lifecycle.md#distribution)); it doesn't exist
   yet.
 
 The OS repository may contain own binaries, but it never
@@ -76,7 +76,7 @@ then removes the runtimes nothing uses anymore. Built-in apps can't be removed.
 ### Internet Browsers
 
 On first login, Welcome
-([Desktop](Architecture-Desktop#welcome)) lets an online user pick a default
+([Desktop](Architecture-Desktop.md#welcome)) lets an online user pick a default
 browser from:
 
 1. Google Chrome
