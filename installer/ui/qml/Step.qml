@@ -28,7 +28,11 @@ FocusScope {
     signal next()
     signal back()
 
-    StackView.onActivated: forceActiveFocus()
+    // The line tells the OS tests that the page is ready for keys.
+    StackView.onActivated: {
+        forceActiveFocus()
+        console.info("Installer page: " + objectName)
+    }
 
     // Enter goes on, from wherever the focus is in the page, except where
     // going on erases a disk: that takes a deliberate click or Space.

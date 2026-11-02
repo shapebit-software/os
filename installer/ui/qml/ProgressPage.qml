@@ -18,6 +18,7 @@ Step {
     readonly property int current: phases.findIndex(phase => phase.name === Backend.phase)
     readonly property bool destructive: current >= 2
 
+    objectName: "progress"
     number: 7
     heading: qsTr("Installing ShapeBit")
     subtitle: qsTr("This usually takes a few minutes. Keep the computer plugged in and turned on.")

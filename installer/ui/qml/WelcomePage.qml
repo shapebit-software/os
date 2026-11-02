@@ -11,6 +11,7 @@ Step {
     readonly property string locale: languages.currentIndex < 0 ? "" : locales[languages.currentIndex]
     readonly property var locales: Backend.capabilities.locales || []
 
+    objectName: "welcome"
     number: 1
     logoVisible: true
     backVisible: false

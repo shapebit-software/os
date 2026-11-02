@@ -25,6 +25,7 @@ Step {
         return name.toLowerCase().normalize("NFD").replace(/[^a-z0-9]/g, "").replace(/^[0-9]+/, "").slice(0, 31)
     }
 
+    objectName: "account"
     number: 5
     heading: qsTr("Create your account")
     contentWidth: 386

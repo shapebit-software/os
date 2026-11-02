@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Installer
 
 Step {
+    objectName: "problem"
     number: Backend.available ? 7 : 1
     heading: Backend.available ? qsTr("The installation failed") : qsTr("The installer is not ready")
     subtitle: Backend.available

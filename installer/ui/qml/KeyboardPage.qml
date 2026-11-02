@@ -24,6 +24,7 @@ Step {
         }
     }
 
+    objectName: "keyboard"
     number: 2
     heading: qsTr("Keyboard layout")
     contentWidth: 640

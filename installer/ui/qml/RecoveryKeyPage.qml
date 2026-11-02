@@ -9,6 +9,7 @@ Step {
 
     property string recoveryKey
 
+    objectName: "recovery-key"
     number: 8
     heading: qsTr("Save your recovery key")
     subtitle: qsTr("If this computer ever can’t unlock its disk, only this key can.")

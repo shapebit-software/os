@@ -37,6 +37,22 @@ def wait_for_ssh(timeout=300):
     raise AssertionError(f"no SSH after {timeout}s")
 
 
+def wait_for_page(name, timeout=30):
+    """The installer writes which page has just taken the keyboard. Its problem
+    page ends the wait: nothing that follows will come."""
+    command = "journalctl -b -o cat | grep -o 'Installer page: .*' | tail -n 1"
+    deadline = time.monotonic() + timeout
+    page = None
+    while time.monotonic() < deadline:
+        page = run(command).strip().removeprefix("Installer page: ")
+        if page == name:
+            return
+        if page == "problem":
+            break
+        time.sleep(1)
+    raise AssertionError(f"waiting for the installer's page {name}, on: {page}")
+
+
 def remove_medium(query_isotovideo):
     """What the installer asks of a person, "remove the USB drive", as far as a
     fixed virtio disk can: the firmware no longer boots it. Takes the engine's

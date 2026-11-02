@@ -37,6 +37,22 @@ private slots:
         m_backend.waitForFinished();
     }
 
+    // The OS tests wait for this line before they press keys on a page.
+    void pageSaysWhenReady()
+    {
+        QTest::ignoreMessage(QtInfoMsg, "Installer page: welcome");
+        QQmlApplicationEngine engine;
+        engine.loadFromModule("Installer", "Main");
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+        auto *stack = window->findChild<QObject *>("stack");
+        auto *current = stack->property("currentItem").value<QObject *>();
+
+        QTest::ignoreMessage(QtInfoMsg, "Installer page: keyboard");
+        QMetaObject::invokeMethod(current, "next");
+        QTRY_VERIFY(!stack->property("busy").toBool());
+    }
+
     void installsFromFirstPageToLast()
     {
         QQmlApplicationEngine engine;

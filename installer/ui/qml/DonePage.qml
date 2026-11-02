@@ -3,6 +3,7 @@ import QtQuick
 import Installer
 
 Step {
+    objectName: "done"
     number: 8
     heading: qsTr("ShapeBit is installed")
     subtitle: qsTr("Remove the USB drive, then restart.")

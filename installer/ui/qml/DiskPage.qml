@@ -22,6 +22,7 @@ Step {
         return disk.model || qsTr("Disk")
     }
 
+    objectName: "disk"
     number: 6
     heading: qsTr("Choose a disk")
     contentWidth: 536

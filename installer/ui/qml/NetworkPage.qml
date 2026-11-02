@@ -14,6 +14,7 @@ Step {
             selected = ""
     }
 
+    objectName: "network"
     number: 3
     heading: qsTr("Connect to a network")
     nextText: connected ? qsTr("Continue") : qsTr("Skip for now")

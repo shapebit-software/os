@@ -32,6 +32,7 @@ Step {
         }
     }
 
+    objectName: "timezone"
     number: 4
     heading: qsTr("Time zone")
 
