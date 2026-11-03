@@ -70,6 +70,13 @@ def test_installer_has_the_screen_no_login_screen(host):
     assert host.service("sddm").is_masked
 
 
+def test_installer_took_the_screen_from_the_splash(host):
+    # The splash quit, leaving its picture, without plymouth-quit.service,
+    # which clears the screen first.
+    assert wait_until(lambda: host.run("plymouth --ping").rc != 0)
+    assert host.run("systemctl show -p ActiveState --value plymouth-quit").stdout.strip() == "inactive"
+
+
 def test_ui_runs_as_an_unprivileged_user(host):
     # cage starts the UI once installer.service is up, so it may take a moment.
     def users():

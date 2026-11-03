@@ -74,9 +74,13 @@ hl.config({
     misc = {
         -- The session names the desktop ShapeBit (session/desktop.desktop).
         disable_xdg_env_checks  = true,
-        -- The shell owns the background.
-        force_default_wallpaper = 0,
-        disable_hyprland_logo   = true,
+        -- The shell owns the background. Until its wallpaper fades in (the
+        -- layers animation), the screen has the night color that the boot
+        -- splash and the login screen end on, so signing in has no black frame.
+        force_default_wallpaper  = 0,
+        disable_hyprland_logo    = true,
+        disable_splash_rendering = true,
+        background_color         = "rgb(1f1a3c)",
     },
 })
 

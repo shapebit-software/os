@@ -1,0 +1,59 @@
+# The boot splash: the logo and a spinner on the night color, which every gap
+# up to the desktop shares (see /usr/lib/bootc/kargs.d/30-splash.toml). It is
+# Fedora's spinner theme with ShapeBit's logo; the build copies the spinner's
+# images here (see image/Containerfile). watermark.png is the logo of
+# installer/ui/images/horizontal.png, 320 pixels wide.
+[Plymouth Theme]
+Name=Boot
+Description=The ShapeBit logo and a spinner.
+ModuleName=two-step
+
+[two-step]
+Font=Cantarell 12
+TitleFont=Cantarell Light 30
+ImageDir=/usr/share/plymouth/themes/boot
+WatermarkHorizontalAlignment=.5
+WatermarkVerticalAlignment=.45
+HorizontalAlignment=.5
+VerticalAlignment=.62
+DialogHorizontalAlignment=.5
+DialogVerticalAlignment=.62
+TitleHorizontalAlignment=.5
+TitleVerticalAlignment=.3
+Transition=none
+TransitionDuration=0.0
+BackgroundStartColor=0x1f1a3c
+BackgroundEndColor=0x1f1a3c
+ProgressBarBackgroundColor=0x4a4466
+ProgressBarForegroundColor=0xffffff
+MessageBelowAnimation=true
+
+[boot-up]
+UseEndAnimation=false
+
+[shutdown]
+UseEndAnimation=false
+
+[reboot]
+UseEndAnimation=false
+
+[updates]
+SuppressMessages=true
+ProgressBarShowPercentComplete=true
+UseProgressBar=true
+Title=Installing Updates...
+SubTitle=Do not turn off your computer
+
+[system-upgrade]
+SuppressMessages=true
+ProgressBarShowPercentComplete=true
+UseProgressBar=true
+Title=Upgrading System...
+SubTitle=Do not turn off your computer
+
+[firmware-upgrade]
+SuppressMessages=true
+ProgressBarShowPercentComplete=true
+UseProgressBar=true
+Title=Upgrading Firmware...
+SubTitle=Do not turn off your computer

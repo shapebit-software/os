@@ -27,6 +27,17 @@ RUN dnf -y install systemd-boot-unsigned glibc-all-langpacks \
     rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf \
       /run/sddm /var/cache/libX11
 
+# The boot splash (Plymouth): ShapeBit's theme, rootfs/usr/share/plymouth/
+# themes/boot, takes the spinner and the password prompt's images from
+# Fedora's spinner theme, and is the default in the distribution defaults.
+# The initramfs, rebuilt below, carries it.
+RUN dnf -y install plymouth-theme-spinner && dnf clean all && \
+    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf && \
+    find /usr/share/plymouth/themes/spinner -name '*.png' ! -name watermark.png \
+      -exec cp -t /usr/share/plymouth/themes/boot {} + && \
+    sed -i 's/^Theme=.*/Theme=boot/' /usr/share/plymouth/plymouthd.defaults && \
+    test "$(plymouth-set-default-theme)" = boot
+
 # The desktop's packages, which the desktop lists with the reason for each
 # (build context `desktop`, its file packages): Hyprland and Quickshell, the
 # session, and what the shell runs. Fedora has no Hyprland, so it comes from a

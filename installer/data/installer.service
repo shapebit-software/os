@@ -1,11 +1,16 @@
 # The installer UI, alone on the first virtual terminal: cage is a Wayland
 # compositor that shows one application full screen. It runs as the
 # unprivileged user "installer" in a logind session, which gives cage the
-# display and input devices.
+# display and input devices. It takes the screen from the boot splash as the
+# login screen does (sddm.service.d/10-splash.conf in the image): Plymouth lets
+# go of the display and leaves its last picture until cage draws, so
+# plymouth-quit.service, which would clear it, does not run.
 [Unit]
 Description=Installer
-After=systemd-user-sessions.service installer-backend.service plymouth-quit-wait.service
+After=systemd-user-sessions.service installer-backend.service plymouth-start.service plymouth-quit.service
 Wants=installer-backend.service
+Conflicts=plymouth-quit.service
+OnFailure=plymouth-quit.service
 Conflicts=getty@tty1.service
 After=getty@tty1.service
 
@@ -28,7 +33,9 @@ Environment=XDG_SESSION_TYPE=wayland
 Environment=QT_QPA_PLATFORM=wayland
 # cage shows the window full screen; a title bar would only add dead controls.
 Environment=QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+ExecStartPre=-+/usr/bin/plymouth deactivate
 ExecStart=/usr/bin/cage -- /usr/bin/installer
+ExecStartPost=-+/usr/bin/plymouth quit --retain-splash
 Restart=always
 RestartSec=2
 

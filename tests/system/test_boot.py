@@ -121,3 +121,15 @@ def test_subvolumes_are_mounted_in_their_places(sh):
 
 def test_recovery_subvolume_exists(sh):
     assert re.search(r" path @recovery$", sh("btrfs subvolume list /sysroot"), re.M)
+
+
+def test_boot_showed_the_splash(host):
+    assert "splash" in host.file("/proc/cmdline").content_string.split()
+
+
+def test_login_screen_took_the_screen_from_the_splash(host):
+    # The splash quit, leaving its picture, without plymouth-quit.service,
+    # which clears the screen first; plymouth-quit-wait saw it quit.
+    assert host.run("plymouth --ping").rc != 0
+    assert host.run("systemctl show -p Result --value plymouth-quit-wait").stdout.strip() == "success"
+    assert host.run("systemctl show -p ActiveState --value plymouth-quit").stdout.strip() == "inactive"

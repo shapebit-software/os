@@ -12,6 +12,9 @@ QtObject {
     readonly property color faint: Qt.rgba(1, 1, 1, 0.55)
     readonly property color accent: "#007890"
     readonly property color danger: "#ff9a8a"
+    // The boot splash's background, which every step up to the desktop
+    // shares (/usr/lib/bootc/kargs.d/30-splash.toml).
+    readonly property color night: "#1f1a3c"
     // Surfaces let the backdrop show through.
     readonly property color field: Qt.rgba(0.07, 0.06, 0.11, 0.5)
     readonly property color panel: Qt.rgba(0.09, 0.08, 0.15, 0.94)

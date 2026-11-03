@@ -1,4 +1,4 @@
 # Kernel console on the first serial port and the screen. The last one is
-# /dev/console, where boot status and prompts (first owner, recovery key)
-# appear, so the screen comes last.
+# /dev/console, where boot status and prompts appear, so the screen comes
+# last; the boot splash covers it (30-splash.toml).
 kargs = ["console=ttyS0,115200n8", "console=tty0"]

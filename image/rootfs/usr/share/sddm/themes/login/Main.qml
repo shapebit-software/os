@@ -50,6 +50,7 @@ Item {
             password.clear()
             password.forceActiveFocus()
         }
+        function onLoginSucceeded() { veil.opacity = 1 }
     }
     Timer {
         interval: 1000
@@ -283,5 +284,18 @@ Item {
         color: root.message !== "" ? Theme.danger : Theme.muted
         font.family: Theme.font
         font.pixelSize: 13 * Theme.unit
+    }
+
+    // The night color of the boot splash and of the moments before the
+    // desktop (Theme.night): the screen fades in from it, and back to it once
+    // the person is signed in, so neither change is a jump.
+    Rectangle {
+        id: veil
+        anchors.fill: parent
+        z: 2
+        color: Theme.night
+        Component.onCompleted: opacity = 0
+
+        Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
     }
 }
