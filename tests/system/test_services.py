@@ -16,6 +16,12 @@ def test_login_screen_shows_its_greeter(succeeds):
     assert wait_until(lambda: succeeds("pgrep -u sddm -f sddm-greeter"))
 
 
+def test_login_screen_runs_in_hyprland_not_weston(succeeds):
+    # Weston showed the greeter without a cursor.
+    assert wait_until(lambda: succeeds("pgrep -u sddm -x Hyprland"))
+    assert not succeeds("pgrep -u sddm -x weston")
+
+
 def test_battery_service_answers(sh):
     sh("busctl call org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.DBus.Peer Ping")
 

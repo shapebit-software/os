@@ -177,7 +177,10 @@ Hyprland paints it until the shell's wallpaper fades in.
 ## Login screen
 
 [SDDM](https://github.com/sddm/sddm) shows the login screen on the first
-virtual terminal; its greeter runs in Weston. The theme, in
+virtual terminal; its greeter runs in Hyprland, the desktop's compositor, with
+its own configuration
+([image/rootfs/usr/lib/sddm/compositor.lua](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/lib/sddm/compositor.lua)).
+Weston, SDDM's usual compositor, shows it without a cursor. The theme, in
 [image/rootfs/usr/share/sddm/themes/login](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/share/sddm/themes/login), draws
 the screen: the date and time, the accessibility and power menus, and the
 person who signs in with their password. It lists systemd-homed users, uses

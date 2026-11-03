@@ -32,3 +32,18 @@ def test_login_screen_offers_only_the_desktop_session():
 def test_lock_screen_has_the_login_screens_backdrop(host):
     login = host.file("/usr/share/sddm/themes/login/Backdrop.qml").content_string
     assert host.file("/usr/share/desktop/shell/lock/LoginBackdrop.qml").content_string == login
+
+
+def test_login_screen_runs_in_hyprland(host):
+    # Weston, SDDM's usual compositor, shows the greeter without a cursor.
+    assert "CompositorCommand=start-hyprland -- --config /usr/lib/sddm/compositor.lua" in login_conf(host)
+
+
+def test_login_screens_compositor_configuration_is_valid(sh):
+    # Hyprland refuses to run as root and needs a runtime directory even to
+    # verify its configuration.
+    sh(
+        "setpriv --reuid=nobody --regid=nobody --clear-groups sh -c "
+        "'XDG_RUNTIME_DIR=$(mktemp -d) exec Hyprland --verify-config "
+        "--config /usr/lib/sddm/compositor.lua'"
+    )

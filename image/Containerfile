@@ -17,8 +17,11 @@ COPY rootfs/ /
 # The base image ships only GRUB; bootc installs systemd-boot from this package.
 # The base image has only the C locale; the langpacks add the locales that the
 # installer offers.
-# SDDM is the login screen; its greeter runs in Weston (sddm-wayland-generic)
-# and draws with Mesa. Fedora's presets enable sddm.service.
+# SDDM is the login screen; it draws with Mesa, and Fedora's presets enable
+# sddm.service. Its greeter runs in Hyprland, installed with the desktop below
+# (rootfs/usr/lib/sddm/compositor.lua). SDDM needs a package that provides a
+# greeter display server; sddm-wayland-generic is the smallest, and brings
+# Weston, which the greeter no longer uses.
 # dnf state in /var and /run is removed, since bootc ignores it on install;
 # so are SDDM's runtime directory, which tmpfiles.d creates on each boot, and
 # libX11's empty cache.
