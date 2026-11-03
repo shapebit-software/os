@@ -23,5 +23,21 @@
         "bytes": 2313101
       }
     ]
+  },
+  {
+    "id": "gemma-4-e2b",
+    "name": "Assistant",
+    "detail": "Answers questions and changes settings when you ask, on this computer: nothing you type leaves it. Polish, English, and many more languages.",
+    "unpacked": 3106738272,
+    "memory": 7000000000,
+    "notice": "Gemma 4 E2B by Google, under the Apache License 2.0, converted to GGUF by Unsloth: https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF",
+    "downloads": [
+      {
+        "url": "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/0314792d7f1f7e229411f620751375812bb9faf2/gemma-4-E2B-it-Q4_K_M.gguf",
+        "sha256": "740185b21d22ceb83a11c3aa62ad5842ef32c70f6096d756bbee85a1e4ec34b8",
+        "bytes": 3106738272,
+        "as": "model.gguf"
+      }
+    ]
   }
 ]

@@ -171,10 +171,39 @@ RUN dnf -y install python3-pip
 RUN --mount=type=bind,from=desktop,source=dictation/requirements.txt,target=/run/requirements.txt \
     pip install --require-hashes --only-binary :all: --no-deps --target /out/usr/lib64/dictation -r /run/requirements.txt
 
+# The assistant's language model server (desktop/assistant/llama-server@.service):
+# llama.cpp's llama-server, which Fedora packages too old for Gemma 4. Its
+# libraries stay beside it in /usr/libexec/llama, apart from whisper.cpp's
+# ggml of another version; one build of the CPU code per kind of processor,
+# chosen as it runs. No web page and no downloads: the model is an extra.
+FROM tools AS llama
+ARG LLAMA_VERSION
+ARG LLAMA_SHA256
+RUN dnf -y install cmake gcc-c++ make binutils
+RUN <<'EOF'
+set -euo pipefail
+cd /tmp
+curl -fsSL -o source.tar.gz "https://github.com/ggml-org/llama.cpp/archive/refs/tags/v$LLAMA_VERSION.tar.gz"
+echo "$LLAMA_SHA256 source.tar.gz" | sha256sum -c
+tar xzf source.tar.gz
+cd "llama.cpp-$LLAMA_VERSION"
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
+  -DCMAKE_INSTALL_RPATH='$ORIGIN' -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
+  -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_BACKEND_DIR=/usr/libexec/llama \
+  -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=ON -DLLAMA_BUILD_UI=OFF \
+  -DLLAMA_USE_PREBUILT_UI=OFF -DLLAMA_OPENSSL=OFF
+cmake --build build -j"$(nproc)" --target llama-server
+strip build/bin/llama-server build/bin/*.so*
+install -d /out/usr/libexec/llama
+cp -a build/bin/llama-server build/bin/*.so* /out/usr/libexec/llama/
+install -Dm644 LICENSE /out/usr/share/licenses/llama.cpp/LICENSE
+EOF
+
 FROM system
 COPY --from=desktop-files /out/ /
 COPY --from=whisper /out/ /
 COPY --from=sherpa /out/ /
+COPY --from=llama /out/ /
 # The desktop's settings defaults (window-buttons.gschema.override) apply
 # once the schemas are compiled again.
 RUN glib-compile-schemas /usr/share/glib-2.0/schemas

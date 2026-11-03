@@ -139,8 +139,8 @@ the [future design](#future-design) of features that are not built yet.
   A right click offers an application's details and, for a Flatpak, removing it,
   both in Settings > Apps.
 - The **quick actions** open from buttons on a bar or from a hot corner
-  (Settings > Shell). The assistant button is a placeholder that says it is
-  coming.
+  (Settings > Shell). The assistant button opens the
+  [assistant](#assistant)'s command line.
 - **Dictation** starts from its quick action or Super+D (a tap starts and stops;
   held, it listens until let go). It writes into the app the person is in; the
   assistant is a separate thing with its own button. The button's icon shows the
@@ -235,6 +235,7 @@ the [future design](#future-design) of features that are not built yet.
 | Super+N | Notifications |
 | Super+I | Settings |
 | Super+L | Lock |
+| Super+A | Assistant |
 | Ctrl+Alt+Delete | System menu |
 | Super+Space, Super+Shift+Space | Next or previous keyboard layout |
 | Super+/ | Keyboard shortcuts |
@@ -277,7 +278,8 @@ the [future design](#future-design) of features that are not built yet.
 - Settings covers the screen it opens on, with sections in groups and a
   search across them: **Account** (picture, name, password, idle times,
   Welcome again),
-  **Assistant** (a placeholder), **Language** (the system language, the
+  **Assistant** (its downloads, the model, what it may change without asking,
+  the activity log), **Language** (the system language, the
   region format, keyboards), **Time** (time zone, automatic time, time
   format), **Desktop** (accent color, wallpaper), **Shell** (the bars and
   their items, the bar background, the quick actions, the battery
@@ -341,6 +343,57 @@ them. They stay private: nothing is sent, only downloaded. A download goes on wh
 it stopped, and an extra appears only when whole and correct. In `/var`, they are not
 in the sealed image, so the OS needs none of them and updates without them.
 
+### Assistant
+
+The assistant answers questions and acts on the computer when asked. As in the
+demo, it has three levels:
+
+- The **command line** opens near the top of the screen from its button, the hot
+  corner, or Super+A. Enter asks, and the answer comes in place,
+  with Copy; Shift+Enter, a follow-up, or **Open in sidebar** goes on in the
+  sidebar. The mark at its left is the model, which a click switches when there
+  is more than one. The clipboard button adds the copied text to the question.
+- The **sidebar**, at the right between the bars, holds one conversation and
+  stays open beside the windows until closed. Its header shows the title (a
+  double click renames it) and the workspace the conversation began on, and
+  starts a new one. While the assistant works, Send becomes Stop; a message
+  sent meanwhile waits its turn.
+- **Conversations** lists them all over the screen, the latest first, with a
+  search across titles and messages and a filter by workspace. Deleting one is
+  immediate, with Undo for a while.
+
+The assistant acts only through typed actions, never a shell command it writes.
+Each action shows as a card. An action has a risk:
+
+- **Read** (the computer's status, the installed apps, finding files by name)
+  runs at once.
+- **Change** (volume, brightness, mute, keyboard layout, Do Not Disturb, Wi-Fi,
+  Bluetooth, opening apps, moving windows, capturing, locking) is proposed on
+  its card: **Apply** does it once; **Always allow** lets the assistant do
+  that group of changes without asking from then on; **Don't** refuses. A change
+  done in the session can be undone from its card. Settings > Assistant shows
+  the groups, to allow or take back.
+- **Confirm** (shutting down, restarting, installing or removing an app) asks
+  on its card every time.
+
+What was refused is not passed back to the model for words, since a small model
+may claim it was done; the card says it wasn't. While the button shows the
+assistant working, its sparkle breathes; a dot says a card waits. Locking the
+screen hides the assistant, and nothing new starts until unlock.
+
+The assistant runs in a user service of its own (`assistant.socket`), so hiding
+or restarting the shell stops nothing. It keeps conversations in
+`~/.local/share/assistant`, and an activity log of what it did and was allowed
+in `~/.local/state/assistant`, kept for the days Settings > Assistant chooses.
+
+Models speak OpenAI's chat API with tools, so a model on the computer and an
+online one are the same to the assistant: one catalog entry each. The OS's
+model is Gemma 4 E2B, an [extra](#extras) of 3.1 GB, on by default in Welcome
+where the computer has memory enough. Until it is downloaded, the assistant
+offers the download. `llama-server` runs it when first asked and stops after
+ten idle minutes, which frees its memory. A person may add models, online ones
+too, in `~/.config/assistant/models.json`, their API keys in the keyring.
+
 ### Welcome
 
 Each person's first login opens Welcome, full screen over the desktop on
@@ -376,8 +429,8 @@ dismissing it ends it. It appears once.
 ## Future design
 
 Nothing in this part is built yet, except dictation's plain speech to text
-(see above). The assistant and its Settings section are placeholders in the
-desktop as built.
+and the [assistant](#assistant)'s chat, actions, and models (see above). The
+assistant's chat follows the demo, which replaced the chat designed here.
 
 ### Radial Context Menus
 
@@ -608,8 +661,8 @@ agent interaction across ShapeBit Desktop.
 - Permissions are assigned per agent and per capability, even while only
   one agent exists, from one central permissions surface that supports
   review and revocation.
-- Write and control capabilities are off by default; ShapeBit asks for a
-  capability on first use, and an approved grant persists until revoked.
+- Write and control capabilities are off by default; each action asks on its
+  card until the person allows its group, which lasts until revoked.
 - Agents call typed actions through controlled APIs and can't execute
   arbitrary shell commands.
 - Reversible, non-destructive actions may run immediately. Destructive,
@@ -641,95 +694,6 @@ agent interaction across ShapeBit Desktop.
   memory selection, and future agent isolation remain undecided.
   Cross-system authorization constraints are owned by the ShapeBit OS
   architecture docs.
-
-### Assistant Chat
-
-Assistant chat is the text interface to the shared
-[assistant framework](#assistant-framework).
-
-#### Surface
-
-- A global, on-demand overlay, not owned by a Workspace — an independent,
-  frameless panel anchored bottom-left. It's not a pane inside the Shelf and
-  doesn't use per-conversation chat-head icons.
-- Opens from the system bar or a configurable shortcut; hidden when
-  inactive. A bar click opens it on that button's display; the shortcut
-  uses the focused window's display. Only one global chat panel is open at
-  a time.
-- Clicking outside focused chat reduces it to a passive three-bubble state;
-  clicking outside again hides it. Escape or the close control hides it
-  immediately. Hiding chat never ends the conversation or stops ongoing
-  work; reopening restores the same conversation and position.
-- Resizable from its top and right edges, size remembered per user; most of
-  its area stays visually transparent.
-- Doesn't hide the system bar on its own — chat sits just above a bottom
-  bar, or at the bottom-left edge with a top bar.
-- Chat and Shelf can stay open together. With the default bottom Shelf on
-  the same display, chat moves above the Shelf preview immediately and
-  further up when the full Shelf opens, returning as those close. Moving
-  the Shelf to another display doesn't move an already-open chat panel;
-  coexistence with a power-user Shelf edge is still unrefined.
-
-#### Bubble presentation
-
-- Recent messages float as bubbles above a compact input; older messages
-  stay available by scrolling within the overlay.
-- Hovering or keyboard-focusing the overlay reveals a small header (current
-  title, conversation list, new-conversation action, close control) and the
-  input. Without hover or focus, only the three most recent bubbles remain
-  visible.
-- Clicking a passive bubble focuses chat, restores the input and header,
-  and expands the full conversation around that message.
-- The keyboard shortcut and the assistant system-bar icon share toggle
-  semantics: hidden chat opens with the input focused; passive chat
-  receives focus; already-focused chat hides.
-- Focused and passive chat stay open across Workspace switches on the same
-  display. A foreground fullscreen window temporarily hides chat on its
-  display and restores its previous state afterwards, though the explicit
-  chat shortcut can still open chat above fullscreen.
-- If chat is completely hidden, a new response never makes it appear
-  automatically — the assistant system-bar control shows completion or
-  attention instead. If chat is already open in its passive state, the new
-  response may appear there.
-- Responses stream progressively into one bubble; the Send control becomes
-  **Stop** while a response or action is active. Escape hides chat without
-  stopping the agent.
-- The input stays usable during active work; sending another message adds
-  it to the shared assistant queue rather than interrupting the current
-  operation — queued items identify their source channel.
-- Switching conversations never moves or cancels work; every queued request
-  and result stays attached to its originating conversation while another
-  conversation may be visible.
-
-#### Conversations
-
-- Multiple conversations and their messages persist locally until deleted.
-  Each has its own history, while assistant memory stays global across
-  conversations.
-- New conversations get locally generated, user-renamable titles.
-- The conversation list sorts by latest activity and supports local search
-  across titles and messages.
-- Deletion is immediate and confirmation-free, with a brief **Undo**.
-
-#### Actions and confirmations
-
-- Assistant tool and action requests appear as structured cards between
-  message bubbles, showing pending, running, completed, or failed state
-  rather than ordinary prose.
-- A capability-permission request and an action confirmation are separate
-  cards — granting a capability never also approves a destructive,
-  privileged, or externally communicating action waiting behind it.
-- A confirmation needed while chat is passive stays visible among the three
-  passive items, with the assistant system-bar control marking attention;
-  chat doesn't take focus automatically. If chat is hidden, only the bar
-  attention state shows until the user opens it.
-- A completed action card collapses to a compact result summary with
-  expandable details; the full event also stays in the central assistant
-  activity log defined by the shared framework.
-
-Chat uses the same global assistant, memory, capabilities, privileges, and
-confirmation rules as voice Assistant mode, all defined by the shared
-[assistant framework](#assistant-framework).
 
 ### Voice Interaction
 
@@ -766,7 +730,7 @@ go, so nothing can land in the wrong place because a mode was forgotten.
 Translation is a request to the assistant.
 
 Talking to the assistant uses the shared
-[assistant framework](#assistant-framework) also used by chat. Ordinary
+[assistant framework](#assistant-framework) also used by the [chat](#assistant). Ordinary
 responses are spoken through local text-to-speech by default; a per-user
 setting may also show them temporarily as floating assistant bubbles, but
 that presentation is disabled initially. Response text is discarded after

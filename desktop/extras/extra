@@ -9,7 +9,9 @@
 #
 # Usage: extra list | extra install ID | extra remove ID
 #
-# list prints {"writable": bool, "extras": [{"id", "name", "detail", "bytes", "installed"}]}.
+# list prints {"writable": bool, "extras": [{"id", "name", "detail", "bytes", "installed",
+# "fits"}]}, fits false when the computer has less memory than the extra's "memory".
+# A download that is no archive keeps its name from the URL, or the name in "as".
 # install and remove print JSON lines: {"step": text, "percent": 0..100}, then
 # {"done": ID} or {"error": text}.
 import fcntl
@@ -53,9 +55,23 @@ def download_bytes(extra):
     return sum(item["bytes"] for item in extra["downloads"])
 
 
+def memory():
+    """The computer's memory in bytes, or None if unknown."""
+    try:
+        with open(os.environ.get("EXTRAS_MEMINFO", "/proc/meminfo"), encoding="utf-8") as file:
+            for line in file:
+                if line.startswith("MemTotal:"):
+                    return int(line.split()[1]) * 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
+
+
 def listing():
+    have = memory()
     say(writable=os.access(PLACE, os.W_OK), extras=[
-        {"id": extra["id"], "name": extra["name"], "detail": extra["detail"], "bytes": download_bytes(extra), "installed": installed(extra)}
+        {"id": extra["id"], "name": extra["name"], "detail": extra["detail"], "bytes": download_bytes(extra), "installed": installed(extra),
+         "fits": have is None or have >= extra.get("memory", 0)}
         for extra in catalog()
     ])  # fmt: skip
 
@@ -125,7 +141,9 @@ def install(extra):
         if "files" in item:
             unpack(path, item["files"], ready)
         else:
-            shutil.copyfile(path, ready / pathlib.PurePosixPath(item["url"]).name)
+            # Moved, not copied: a model is gigabytes. A failure after this
+            # downloads it again.
+            os.rename(path, ready / item.get("as", pathlib.PurePosixPath(item["url"]).name))
     (ready / "NOTICE").write_text(extra["notice"] + "\n", encoding="utf-8")
     # Readable by everyone; the directory is the group's, so these stay safe from others.
     for path in [ready, *ready.iterdir()]:

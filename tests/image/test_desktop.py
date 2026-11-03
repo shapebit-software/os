@@ -75,6 +75,31 @@ def test_extras_can_be_downloaded_by_administrators(host, sh):
     assert "parakeet" in [extra["id"] for extra in catalog["extras"]]
 
 
+def test_assistant_is_installed_and_starts_with_its_socket(host, sh):
+    for name in ("assistant", "actions.py", "models.py"):
+        sh(f"python3 -c 'import ast; ast.parse(open(\"/usr/libexec/desktop/assistant/{name}\").read())'")
+    assert host.file("/usr/libexec/desktop/assistant/assistant").mode & 0o111
+    units = "/usr/lib/systemd/user"
+    for unit in ("assistant.socket", "assistant.service", "language-model@.socket", "language-model@.service", "llama-server@.service"):
+        assert host.file(f"{units}/{unit}").size > 0
+    assert host.file(f"{units}/sockets.target.wants/assistant.socket").linked_to == f"{units}/assistant.socket"
+
+
+def test_assistant_model_is_an_extra_not_in_the_image(host, sh):
+    models = json.loads(host.file("/usr/share/desktop/assistant/models.json").content_string)
+    local = [m["extra"] for m in models if m["where"] == "local"]
+    catalog = json.loads(sh("EXTRAS_DIR=/tmp /usr/libexec/desktop/extra list"))
+    assert "gemma-4-e2b" in local and set(local) <= {extra["id"] for extra in catalog["extras"]}
+    assert not host.file("/var/lib/extras/gemma-4-e2b").exists
+
+
+def test_llama_server_runs_with_its_own_libraries(sh, host):
+    assert "version: " in sh("/usr/libexec/llama/llama-server --version 2>&1")
+    assert "not found" not in sh("ldd /usr/libexec/llama/llama-server")
+    assert host.file("/usr/libexec/llama/libggml-cpu-haswell.so").size > 0
+    assert host.file("/usr/share/licenses/llama.cpp/LICENSE").size > 0
+
+
 def test_whisper_understands_speech_with_the_shipped_model(sh):
     # The helper's default model, offline, on the installed libraries.
     text = sh("whisper-cli -m /usr/share/whisper/ggml-small-q5_1.bin -f /tests/image/speech.wav -l en -nt -np")

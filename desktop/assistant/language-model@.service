@@ -1,0 +1,9 @@
+# Passes requests to llama-server for the model %i, and ends after ten minutes
+# without one; llama-server then stops too, which frees its memory.
+[Unit]
+Description=Language model %i
+Requires=llama-server@%i.service
+After=llama-server@%i.service
+
+[Service]
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd --exit-idle-time=10min %t/llama-server-%i.sock

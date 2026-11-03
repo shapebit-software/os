@@ -1,0 +1,642 @@
+#!/usr/bin/python3
+# The assistant: one agent for the whole session, which the shell shows
+# (shell/services/Assistant.qml): its conversations, one queue of requests in
+# the order sent, and the actions it takes (actions.py), through a language
+# model (models.py). It runs as a user service of its own (assistant.socket),
+# so hiding or restarting the shell stops nothing.
+#
+# Usage: assistant serve    the service, on the socket systemd passes, or else
+#                           on $XDG_RUNTIME_DIR/assistant.sock
+#
+# The socket speaks JSON lines. The shell sends {"op": ...}:
+#   hello {pid}             the shell's process, for actions it does; answers "state"
+#   open {id}               answers "conversation"
+#   send {id or null, text, workspace}   queues a request; null starts a conversation
+#   stop                    ends the request under way; the queue goes on
+#   answer {card, choice}   choice "apply", "always", or "decline", on a proposed action
+#   undo {card}             undoes a change done in this session
+#   rename {id, title} | delete {id} | restore {id} | search {query}
+#   model {id} | grant {group} | revoke {group} | retention {days} | clear-history
+#   locked {locked} | models (the catalog again, as after a download)
+# and hears {"event": ...}: state, conversation, message, conversations,
+# status, settings, deleted, results, error.
+#
+# Conversations are in $XDG_DATA_HOME/assistant/conversations; the settings,
+# the person's allowed groups among them, in $XDG_CONFIG_HOME/assistant/
+# settings.json; the activity log, of actions and permissions, in
+# $XDG_STATE_HOME/assistant/activity.jsonl.
+import json
+import os
+import pathlib
+import socket
+import sys
+import threading
+import time
+import uuid
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import actions  # noqa: E402
+import models  # noqa: E402
+
+SYSTEM = (
+    "You are the assistant built into ShapeBit OS, running on the person's computer. Act only through the "
+    "provided tools. Call a tool only when the person asks for that action. If no tool fits, or the request "
+    "is unclear, do not call a tool: say so briefly or ask. After a tool, say in one short sentence what "
+    "happened, as its result says: if it was not done, say that it was not done. Answer in the person's "
+    "language, briefly."
+)
+# How many messages of a conversation the model sees, and how many rounds of
+# tools one request may take.
+CONTEXT = 24
+ROUNDS = 6
+# How long a deleted conversation can be restored.
+RESTORE = 60
+
+
+def home(variable, fallback):
+    return pathlib.Path(os.environ.get(variable) or pathlib.Path.home() / fallback) / "assistant"
+
+
+DATA = home("XDG_DATA_HOME", ".local/share")
+CONFIG = home("XDG_CONFIG_HOME", ".config")
+STATE = home("XDG_STATE_HOME", ".local/state")
+
+
+def now():
+    return time.time()
+
+
+def write_json(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    partial = path.with_suffix(".partial")
+    partial.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+    os.replace(partial, path)
+
+
+def read_json(path, fallback):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return fallback
+
+
+def title_of(text):
+    words = text.split()
+    title = " ".join(words[:7])
+    return (title[:48].rstrip() + "…") if len(title) > 48 or len(words) > 7 else title
+
+
+class Stopped(Exception):
+    pass
+
+
+class Assistant:
+    def __init__(self):
+        self.lock = threading.RLock()
+        self.changed = threading.Condition(self.lock)
+        self.clients = []
+        self.context = actions.Context()
+        self.conversations = {}
+        self.queue = []  # (conversation id, user message id)
+        self.current = None  # (conversation id, models.Chat or None)
+        self.stopping = False
+        self.locked = False
+        self.status = "idle"
+        self.undo = {}  # card id: how to undo
+        # The last message of the request under way: its replies and cards go
+        # after it, before what was sent since.
+        self.tail = None
+        self.settings = {"model": "", "grants": [], "retention": 30, **read_json(CONFIG / "settings.json", {})}
+        (DATA / "conversations").mkdir(parents=True, exist_ok=True)
+        for path in (DATA / "conversations").glob("*.json"):
+            conversation = read_json(path, None)
+            if conversation and conversation.get("id") == path.stem:
+                self.conversations[path.stem] = conversation
+                self.settle(conversation)
+        self.purge()
+        self.prune_activity()
+
+    # Keeping.
+
+    def settle(self, conversation):
+        """What a stop of the service ended: nothing is left under way."""
+        for message in conversation["messages"]:
+            if message.get("state") in ("queued", "thinking", "starting", "answering"):
+                message["state"] = "stopped"
+            if message.get("state") in ("proposed", "running"):
+                message["state"] = "cancelled"
+            message.pop("undoable", None)
+
+    def save(self, conversation):
+        write_json(DATA / "conversations" / f"{conversation['id']}.json", conversation)
+
+    def save_settings(self):
+        write_json(CONFIG / "settings.json", self.settings)
+
+    def log(self, kind, **fields):
+        STATE.mkdir(parents=True, exist_ok=True)
+        with open(STATE / "activity.jsonl", "a", encoding="utf-8") as file:
+            file.write(json.dumps({"time": now(), "kind": kind, **fields}, ensure_ascii=False) + "\n")
+
+    def prune_activity(self):
+        days = self.settings.get("retention", 30)
+        path = STATE / "activity.jsonl"
+        if not days or not path.exists():
+            return
+        cutoff = now() - days * 86400
+        lines = [line for line in path.read_text(encoding="utf-8").splitlines()
+                 if read_line(line).get("time", 0) >= cutoff]  # fmt: skip
+        path.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8")
+
+    def purge(self):
+        """Deleted conversations past the time to restore them."""
+        for path in (DATA / "deleted").glob("*.json") if (DATA / "deleted").is_dir() else []:
+            if path.stat().st_mtime < now() - RESTORE:
+                path.unlink(missing_ok=True)
+
+    # Telling the shell.
+
+    def emit(self, event, **fields):
+        line = (json.dumps({"event": event, **fields}, ensure_ascii=False) + "\n").encode()
+        for client in list(self.clients):
+            try:
+                client.sendall(line)
+            except OSError:
+                self.drop(client)
+
+    def drop(self, client):
+        if client in self.clients:
+            self.clients.remove(client)
+            try:
+                client.close()
+            except OSError:
+                pass
+
+    def summary(self, conversation):
+        said = [m for m in conversation["messages"] if m["role"] in ("user", "assistant") and m.get("text")]
+        return {"id": conversation["id"], "title": conversation["title"], "workspace": conversation.get("workspace", ""),
+                "updated": conversation["updated"], "snippet": said[-1]["text"][:120] if said else ""}  # fmt: skip
+
+    def summaries(self):
+        return sorted((self.summary(c) for c in self.conversations.values()), key=lambda s: -s["updated"])
+
+    def model_entry(self):
+        entries = models.catalog()
+        chosen = next((e for e in entries if e["id"] == self.settings.get("model")), None)
+        return chosen or next((e for e in entries if models.ready(e)), None) or (entries[0] if entries else None)
+
+    def status_fields(self):
+        entry = self.model_entry()
+        attention = any(m.get("state") == "proposed" for c in self.conversations.values() for m in c["messages"])
+        return {"status": self.status, "busy": self.current is not None, "queued": len(self.queue),
+                "attention": attention, "model": entry and models.describe(entry),
+                "conversation": self.current[0] if self.current else None}  # fmt: skip
+
+    def tell_status(self):
+        self.emit("status", **self.status_fields())
+
+    def settings_fields(self):
+        return {"models": [models.describe(e) for e in models.catalog()], "grants": self.settings["grants"],
+                "groups": actions.GROUPS, "retention": self.settings["retention"]}  # fmt: skip
+
+    def tell_message(self, conversation, message):
+        self.emit("message", conversation=conversation["id"], message=message)
+
+    # What the shell asks.
+
+    def handle(self, client, request):
+        op = request.get("op")
+        with self.lock:
+            if op == "hello":
+                self.context.shell_pid = request.get("pid") or self.context.shell_pid
+                return {"event": "state", "conversations": self.summaries(), **self.status_fields(), **self.settings_fields()}
+            if op == "open":
+                conversation = self.conversations.get(request.get("id"))
+                return {"event": "conversation", **conversation} if conversation else {"event": "error", "text": "No such conversation."}
+            if op == "send":
+                return self.send(request)
+            if op == "stop":
+                self.stop()
+            elif op == "answer":
+                self.answer(request.get("card"), request.get("choice"))
+            elif op == "undo":
+                self.run_undo(request.get("card"))
+            elif op == "rename":
+                conversation = self.conversations.get(request.get("id"))
+                title = str(request.get("title", "")).strip()
+                if conversation and title:
+                    conversation["title"] = title[:80]
+                    self.save(conversation)
+                    self.emit("conversations", conversations=self.summaries())
+            elif op == "delete":
+                self.delete(request.get("id"))
+            elif op == "restore":
+                self.restore(request.get("id"))
+            elif op == "search":
+                return {"event": "results", "query": request.get("query", ""), "ids": self.search(str(request.get("query", "")))}
+            elif op == "model":
+                if any(e["id"] == request.get("id") for e in models.catalog()):
+                    self.settings["model"] = request["id"]
+                    self.save_settings()
+                    self.tell_status()
+            elif op == "grant":
+                if request.get("group") in actions.GROUPS and request["group"] not in self.settings["grants"]:
+                    self.settings["grants"].append(request["group"])
+                    self.save_settings()
+                    self.log("grant", group=request["group"])
+                    self.emit("settings", **self.settings_fields())
+            elif op == "revoke":
+                if request.get("group") in self.settings["grants"]:
+                    self.settings["grants"].remove(request["group"])
+                    self.save_settings()
+                    self.log("revoke", group=request["group"])
+                    self.emit("settings", **self.settings_fields())
+            elif op == "retention":
+                days = request.get("days")
+                if isinstance(days, int) and days >= 0:
+                    self.settings["retention"] = days
+                    self.save_settings()
+                    self.prune_activity()
+                    self.emit("settings", **self.settings_fields())
+            elif op == "clear-history":
+                (STATE / "activity.jsonl").unlink(missing_ok=True)
+            elif op == "locked":
+                self.locked = bool(request.get("locked"))
+                self.changed.notify_all()
+            elif op == "models":
+                self.emit("settings", **self.settings_fields())
+                self.tell_status()
+            else:
+                return {"event": "error", "text": f"Unknown op {op}."}
+        return None
+
+    def send(self, request):
+        text = str(request.get("text", "")).strip()
+        if not text:
+            return None
+        conversation = self.conversations.get(request.get("id"))
+        if conversation is None:
+            conversation = {"id": uuid.uuid4().hex[:12], "title": title_of(text), "workspace": str(request.get("workspace", "")),
+                            "created": now(), "updated": now(), "messages": []}  # fmt: skip
+            self.conversations[conversation["id"]] = conversation
+        message = {"id": uuid.uuid4().hex[:12], "role": "user", "text": text, "time": now(), "state": "queued"}
+        conversation["messages"].append(message)
+        conversation["updated"] = now()
+        self.save(conversation)
+        self.queue.append((conversation["id"], message["id"]))
+        self.changed.notify_all()
+        self.emit("conversations", conversations=self.summaries())
+        self.tell_message(conversation, message)
+        self.tell_status()
+        return {"event": "sent", "conversation": conversation["id"], "message": message["id"]}
+
+    def stop(self):
+        if self.current is None:
+            return
+        self.stopping = True
+        chat = self.current[1]
+        if chat is not None:
+            chat.stop()
+        self.changed.notify_all()
+
+    def find_card(self, card):
+        for conversation in self.conversations.values():
+            for message in conversation["messages"]:
+                if message["id"] == card and message["role"] == "action":
+                    return conversation, message
+        return None, None
+
+    def answer(self, card, choice):
+        conversation, message = self.find_card(card)
+        if not message or message.get("state") != "proposed" or choice not in ("apply", "always", "decline"):
+            return
+        if choice == "always" and message.get("group") in actions.GROUPS:
+            if message["group"] not in self.settings["grants"]:
+                self.settings["grants"].append(message["group"])
+                self.save_settings()
+                self.log("grant", group=message["group"])
+                self.emit("settings", **self.settings_fields())
+        message["choice"] = choice
+        self.changed.notify_all()
+
+    def run_undo(self, card):
+        conversation, message = self.find_card(card)
+        undo = self.undo.pop(card, None)
+        if not message or not undo or message.get("state") != "done":
+            return
+        try:
+            undo()
+            message["state"] = "undone"
+            self.log("undo", action=message["name"], title=message["title"])
+        except actions.Failed as error:
+            message["error"] = f"Couldn't undo: {error}"
+        message.pop("undoable", None)
+        self.save(conversation)
+        self.tell_message(conversation, message)
+
+    def delete(self, conversation_id):
+        conversation = self.conversations.pop(conversation_id, None)
+        if conversation is None:
+            return
+        self.queue = [q for q in self.queue if q[0] != conversation_id]
+        if self.current and self.current[0] == conversation_id:
+            self.stop()
+        self.purge()
+        (DATA / "deleted").mkdir(parents=True, exist_ok=True)
+        path = DATA / "conversations" / f"{conversation_id}.json"
+        if path.exists():
+            os.replace(path, DATA / "deleted" / path.name)
+            os.utime(DATA / "deleted" / path.name)
+        self.emit("deleted", id=conversation_id, title=conversation["title"])
+        self.emit("conversations", conversations=self.summaries())
+        self.tell_status()
+
+    def restore(self, conversation_id):
+        path = DATA / "deleted" / f"{conversation_id}.json"
+        conversation = read_json(path, None)
+        if not conversation or conversation.get("id") != conversation_id:
+            return
+        self.settle(conversation)
+        self.conversations[conversation_id] = conversation
+        self.save(conversation)
+        path.unlink(missing_ok=True)
+        self.emit("conversations", conversations=self.summaries())
+
+    def search(self, query):
+        wanted = query.casefold().strip()
+        if not wanted:
+            return [s["id"] for s in self.summaries()]
+        return [s["id"] for s in self.summaries()
+                if wanted in s["title"].casefold() or any(wanted in str(m.get("text", "")).casefold()
+                                                          for m in self.conversations[s["id"]]["messages"])]  # fmt: skip
+
+    # The work, one request at a time.
+
+    def worker(self):
+        while True:
+            with self.lock:
+                while not self.queue or self.locked:
+                    self.changed.wait()
+                conversation_id, message_id = self.queue.pop(0)
+                conversation = self.conversations.get(conversation_id)
+                if conversation is None:
+                    continue
+                self.current = (conversation_id, None)
+                self.stopping = False
+                for message in conversation["messages"]:
+                    if message["id"] == message_id:
+                        message["state"] = "sent"
+                        self.tell_message(conversation, message)
+                self.status = "thinking"
+                self.tell_status()
+                self.prune_activity()
+            try:
+                self.work(conversation, message_id)
+            finally:
+                with self.lock:
+                    self.current = None
+                    self.status = "idle"
+                    conversation["updated"] = now()
+                    if conversation["id"] in self.conversations:
+                        self.save(conversation)
+                    self.emit("conversations", conversations=self.summaries())
+                    self.tell_status()
+
+    def model_messages(self, conversation, upto):
+        """The conversation as the model reads it, up to the request's message."""
+        messages = []
+        listed = conversation["messages"]
+        end = next(i for i, m in enumerate(listed) if m["id"] == upto) + 1
+        cards = {m["call"]: m for m in listed if m["role"] == "action"}
+        for message in listed[max(0, end - CONTEXT):end]:
+            if message["role"] == "user":
+                messages.append({"role": "user", "content": message["text"]})
+            elif message["role"] == "assistant":
+                calls = [cards[c] for c in message.get("calls", []) if c in cards]
+                if not message.get("text") and not calls:
+                    continue
+                said = {"role": "assistant", "content": message.get("text", "")}
+                if calls:
+                    said["tool_calls"] = [{"id": c["call"], "type": "function",
+                                           "function": {"name": c["name"], "arguments": json.dumps(c["arguments"])}} for c in calls]  # fmt: skip
+                messages.append(said)
+                messages += [{"role": "tool", "tool_call_id": c["call"], "content": c.get("output", "Not done.")} for c in calls]
+        # A conversation's first messages may be cut off: it begins with the person.
+        while messages and messages[0]["role"] != "user":
+            messages.pop(0)
+        return [{"role": "system", "content": SYSTEM}, *messages]
+
+    def add(self, conversation, message):
+        listed = conversation["messages"]
+        index = next((i for i, m in enumerate(listed) if m["id"] == self.tail), len(listed) - 1) + 1
+        listed.insert(index, message)
+        self.tail = message["id"]
+        self.tell_message(conversation, message)
+
+    def finish(self, conversation, reply, **fields):
+        """A reply that ended: kept before the shell hears of it."""
+        reply.update(fields)
+        if conversation["id"] in self.conversations:
+            self.save(conversation)
+        self.tell_message(conversation, reply)
+
+    def work(self, conversation, upto):
+        entry = self.model_entry()
+        self.tail = upto
+        for _ in range(ROUNDS):
+            messages = self.model_messages(conversation, self.tail)
+            reply = {"id": uuid.uuid4().hex[:12], "role": "assistant", "text": "", "time": now(), "state": "thinking"}
+            with self.lock:
+                self.add(conversation, reply)
+                if entry is None or not models.ready(entry):
+                    self.finish(conversation, reply, state="failed", error="No model is installed. Download one in Settings > Assistant.")
+                    return
+                chat = models.Chat(entry)
+                self.current = (conversation["id"], chat)
+                if self.stopping:
+                    chat.stop()
+
+            def text(piece):
+                with self.lock:
+                    reply["text"] += piece
+                    reply["state"] = "answering"
+                    self.tell_message(conversation, reply)
+
+            def status(state):
+                with self.lock:
+                    self.status = state
+                    if state == "starting":
+                        reply["state"] = "starting"
+                        self.tell_message(conversation, reply)
+                    self.tell_status()
+
+            try:
+                said, calls = chat.run(messages, actions.tools(), text, status)
+            except models.Cancelled:
+                with self.lock:
+                    self.finish(conversation, reply, state="stopped")
+                return
+            except models.Unavailable as error:
+                with self.lock:
+                    self.finish(conversation, reply, state="failed", error=str(error))
+                return
+            with self.lock:
+                self.finish(conversation, reply, state="done", calls=[c["id"] for c in calls])
+            if not calls:
+                return
+            ended = []
+            for call in calls:
+                try:
+                    ended.append(self.act(conversation, call))
+                except Stopped:
+                    with self.lock:
+                        for later in calls[calls.index(call):]:
+                            self.card(conversation, later, state="cancelled", output="NOT DONE: the person stopped it.")
+                    return
+            # What the person refused needs no words from the model, which, small,
+            # might say it was done: the cards say it wasn't.
+            if all(state == "declined" for state in ended):
+                return
+        with self.lock:
+            self.add(conversation, {"id": uuid.uuid4().hex[:12], "role": "assistant", "time": now(),
+                                    "state": "failed", "text": "", "error": "This took too many steps, so it stopped."})  # fmt: skip
+
+    def card(self, conversation, call, **fields):
+        """The card of a tool call, made or changed."""
+        card = next((m for m in conversation["messages"] if m["role"] == "action" and m["call"] == call["id"]), None)
+        if card is None:
+            card = {"id": uuid.uuid4().hex[:12], "role": "action", "call": call["id"], "name": call["name"],
+                    "arguments": {}, "title": call["name"], "detail": "", "risk": "read", "group": None, "time": now(), **fields}  # fmt: skip
+            self.add(conversation, card)
+        else:
+            card.update(fields)
+            if card.get("state") in ("done", "failed", "declined", "cancelled"):
+                self.save(conversation)
+            self.tell_message(conversation, card)
+        return card
+
+    def act(self, conversation, call):
+        """One tool call: checked, prepared, allowed, done; the model learns how it
+        went. Returns how it ended: "done", "failed", or "declined"."""
+        known = actions.ACTIONS.get(call["name"])
+        with self.lock:
+            if self.stopping:
+                raise Stopped()
+            card = self.card(conversation, call, state="running")
+        try:
+            if known is None:
+                raise actions.Failed(f"There is no tool {call['name']}.")
+            try:
+                arguments = json.loads(call["arguments"] or "{}")
+            except ValueError:
+                raise actions.Failed("The arguments aren't JSON.") from None
+            arguments = known.check(arguments)
+            with self.lock:
+                self.card(conversation, call, arguments=arguments, risk=known.risk, group=known.group)
+            plan = known.prepare(self.context, **arguments)
+            with self.lock:
+                self.card(conversation, call, title=plan.title, detail=plan.detail)
+                allowed = known.risk == "read" or known.risk == "change" and known.group in self.settings["grants"]
+                if not allowed:
+                    self.card(conversation, call, state="proposed")
+                    self.status = "waiting"
+                    self.tell_status()
+                    while card.get("choice") is None and not self.stopping:
+                        self.changed.wait()
+                    choice = card.pop("choice", None)
+                    self.status = "thinking"
+                    if self.stopping:
+                        raise Stopped()
+                    if choice == "decline":
+                        self.card(conversation, call, state="declined",
+                                  output=f"NOT DONE: the person declined “{plan.title}”, so nothing changed. Don't try again unless asked.")  # fmt: skip
+                        self.log("declined", action=known.name, title=plan.title)
+                        self.tell_status()
+                        return "declined"
+                    self.card(conversation, call, state="running")
+                    self.tell_status()
+            output, undo = plan.do()
+        except actions.Failed as error:
+            with self.lock:
+                self.card(conversation, call, state="failed", error=str(error), output=f"NOT DONE, it failed: {error}")
+                if known is not None and known.risk != "read":
+                    self.log("failed", action=call["name"], error=str(error))
+            return "failed"
+        with self.lock:
+            if undo:
+                self.undo[card["id"]] = undo
+            self.card(conversation, call, state="done", output=output, result=output, undoable=bool(undo))
+            if known.risk != "read":
+                self.log("done", action=known.name, title=card["title"], arguments=card["arguments"])
+        return "done"
+
+
+def read_line(line):
+    try:
+        return json.loads(line)
+    except ValueError:
+        return {}
+
+
+def listener():
+    """The socket systemd passes, or one of our own."""
+    if os.environ.get("LISTEN_PID") == str(os.getpid()) and os.environ.get("LISTEN_FDS") == "1":
+        return socket.socket(fileno=3)
+    path = pathlib.Path(os.environ.get("ASSISTANT_SOCKET") or pathlib.Path(os.environ["XDG_RUNTIME_DIR"]) / "assistant.sock")
+    path.unlink(missing_ok=True)
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(str(path))
+    os.chmod(path, 0o600)
+    server.listen()
+    return server
+
+
+def serve_client(assistant, client):
+    with assistant.lock:
+        assistant.clients.append(client)
+    buffer = b""
+    try:
+        while True:
+            data = client.recv(65536)
+            if not data:
+                break
+            buffer += data
+            while b"\n" in buffer:
+                line, buffer = buffer.split(b"\n", 1)
+                request = read_line(line.decode("utf-8", "replace"))
+                if not isinstance(request, dict):
+                    continue
+                answer = assistant.handle(client, request)
+                if answer is not None:
+                    with assistant.lock:
+                        try:
+                            client.sendall((json.dumps(answer, ensure_ascii=False) + "\n").encode())
+                        except OSError:
+                            break
+    except OSError:
+        pass
+    finally:
+        with assistant.lock:
+            assistant.drop(client)
+
+
+def serve():
+    assistant = Assistant()
+    threading.Thread(target=assistant.worker, daemon=True).start()
+    server = listener()
+    while True:
+        client, _ = server.accept()
+        client.settimeout(None)
+        threading.Thread(target=serve_client, args=(assistant, client), daemon=True).start()
+
+
+def main():
+    if sys.argv[1:] != ["serve"]:
+        print("usage: assistant serve", file=sys.stderr)
+        return 2
+    serve()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

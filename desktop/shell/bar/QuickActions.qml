@@ -9,8 +9,9 @@
 // button is filled with the accent and its icon says the state: sound bars while
 // listening, a pencil while writing it down, lines while the text waits, red when
 // something is wrong; a click stops, a right click discards, and with nothing
-// under way, brings back the last dictation. The assistant is still to come: its button says so
-// (AssistantPanel.qml).
+// under way, brings back the last dictation. The assistant's button opens its command line
+// (AssistantPanel.qml); it is lit while the line or the sidebar is open on its screen, its
+// sparkle breathes while the assistant works, and a dot says an action waits for the person.
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
@@ -135,13 +136,36 @@ GridLayout {
 
         tile: actions.tile
         size: actions.bar.size
-        open: Shell.isOpen("assistant", actions.bar.modelData?.name ?? "")
+        open: Shell.isOpen("assistant", actions.bar.modelData?.name ?? "") || Assistant.sidebarOn === (actions.bar.modelData?.name ?? "-")
         onClicked: actions.bar.open("assistant", assistant)
 
-        Icon {
-            height: actions.tile ? 20 : 18
-            color: "#fbfcfd"
-            strokes: actions.sparkle
+        Item {
+            width: sparkle.width
+            height: sparkle.height
+
+            Icon {
+                id: sparkle
+                height: actions.tile ? 20 : 18
+                color: "#fbfcfd"
+                strokes: actions.sparkle
+
+                SequentialAnimation on opacity {
+                    running: Assistant.busy && !Assistant.attention
+                    loops: Animation.Infinite
+                    onRunningChanged: if (!running) sparkle.opacity = 1
+                    NumberAnimation { to: 0.35; duration: 700; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 1; duration: 700; easing.type: Easing.InOutSine }
+                }
+            }
+            Rectangle {
+                visible: Assistant.attention
+                anchors { right: parent.right; top: parent.top; rightMargin: -2; topMargin: -2 }
+                width: 7
+                height: 7
+                radius: 3.5
+                color: Theme.accent
+                border.color: "#fbfcfd"
+            }
         }
     }
 }

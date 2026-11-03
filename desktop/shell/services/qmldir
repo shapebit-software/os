@@ -1,6 +1,7 @@
 module qs.services
 singleton Account Account.qml
 singleton Apps Apps.qml
+singleton Assistant Assistant.qml
 singleton Audio Audio.qml
 singleton Authorization Authorization.qml
 singleton Battery Battery.qml

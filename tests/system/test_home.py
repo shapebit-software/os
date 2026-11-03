@@ -189,7 +189,7 @@ def test_session_keeps_copied_text(session):
 
 
 @pytest.mark.parametrize(
-    "unit", ["pipewire.service", "wireplumber.service", "pipewire-pulse.socket", "app-update.timer"]
+    "unit", ["pipewire.service", "wireplumber.service", "pipewire-pulse.socket", "app-update.timer", "assistant.socket"]
 )
 def test_session_unit_is_active(session, unit):
     assert wait_until(lambda: session.unit_active(unit))
@@ -203,6 +203,20 @@ def test_session_goes_on_with_unfinished_downloads(session):
         return values.get("ExecMainStartTimestampMonotonic", "0") != "0" and values.get("Result") == "success"
 
     assert wait_until(ran)
+
+
+def test_session_starts_the_assistant_for_the_shell(session):
+    # The shell connects from the start, which starts the service; it answers
+    # with its model, which isn't downloaded yet.
+    assert wait_until(lambda: session.unit_active("assistant.service"))
+    hello = session.host.run(
+        f"setpriv --reuid={USER} --regid={USER} --init-groups python3 -c '"
+        "import json, socket; s = socket.socket(socket.AF_UNIX); "
+        f"s.connect(\"/run/user/{session.uid}/assistant.sock\"); s.sendall(b\"{{\\\"op\\\": \\\"hello\\\"}}\\n\"); "
+        "print(s.makefile().readline())'"
+    )
+    state = json.loads(hello.stdout)
+    assert state["event"] == "state" and state["model"]["id"] == "gemma-4-e2b" and state["model"]["ready"] is False
 
 
 def test_session_runs_the_connection_agent(session):

@@ -91,8 +91,8 @@ class Extras:
             ],
         }]))  # fmt: skip
 
-    def run(self, *args):
-        env = {**os.environ, "EXTRAS_DIR": str(self.place), "EXTRAS_CATALOG": str(self.catalog)}
+    def run(self, *args, **env):
+        env = {**os.environ, "EXTRAS_DIR": str(self.place), "EXTRAS_CATALOG": str(self.catalog), **env}
         done = subprocess.run([EXTRA, *args], capture_output=True, text=True, env=env, timeout=30)
         return done.returncode, [json.loads(line) for line in done.stdout.splitlines()]
 
@@ -273,3 +273,23 @@ def test_live_dictation_finds_what_its_extra_installs():
         assert name in names
         assert name in engine
     assert '"/var/lib/extras/parakeet"' in (ROOT / "desktop" / "dictation" / "dictate").read_text()
+
+
+def test_a_download_can_be_named(extras):
+    catalog = json.loads(extras.catalog.read_text())
+    catalog[0]["downloads"][1]["as"] = "model.gguf"
+    extras.catalog.write_text(json.dumps(catalog))
+    assert extras.run("install", "model")[0] == 0
+    assert (extras.place / "model" / "model.gguf").read_bytes() == extras.plain
+    assert not (extras.place / "model" / "detector.onnx").exists()
+
+
+def test_list_tells_whether_the_computer_has_memory_enough(extras, tmp_path):
+    catalog = json.loads(extras.catalog.read_text())
+    catalog[0]["memory"] = 7_000_000_000
+    extras.catalog.write_text(json.dumps(catalog))
+    meminfo = tmp_path / "meminfo"
+    meminfo.write_text("MemTotal:        7810000 kB\n")
+    assert extras.run("list", EXTRAS_MEMINFO=str(meminfo))[1][0]["extras"][0]["fits"] is True
+    meminfo.write_text("MemTotal:        3900000 kB\n")
+    assert extras.run("list", EXTRAS_MEMINFO=str(meminfo))[1][0]["extras"][0]["fits"] is False

@@ -1,0 +1,11 @@
+# Where the shell reaches the assistant (assistant/assistant), which starts
+# with the first request.
+[Unit]
+Description=Assistant
+
+[Socket]
+ListenStream=%t/assistant.sock
+SocketMode=0600
+
+[Install]
+WantedBy=sockets.target

@@ -1,0 +1,9 @@
+# The assistant (assistant/assistant), started by assistant.socket; it stays
+# for the session, so hiding or restarting the shell stops nothing.
+[Unit]
+Description=Assistant
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/libexec/desktop/assistant/assistant serve
+Restart=on-failure

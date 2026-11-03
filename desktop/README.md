@@ -102,6 +102,12 @@ the queue (`downloads/downloads`), which runs its jobs with the host's
 account's own Flatpak installation for real, and the browser becomes the
 default. Its state is `~/.local/state/desktop/downloads.json`.
 
+The shell starts the assistant (`assistant/assistant serve`) itself, on a
+socket of its own. To give it a model, run `llama-server` and list it in
+`~/.config/assistant/models.json`, for example
+`{"id": "dev", "name": "Dev", "where": "online", "url": "http://127.0.0.1:8080/v1"}`.
+Its actions run the real commands, so they change the host.
+
 Settings > Apps (`apps/app-catalog`, `apps/app-remove`) lists and changes
 the same installation, through Flatpak on the host; without one, it says so.
 
@@ -123,13 +129,14 @@ listed in its folder's `qmldir`, and a file imports the other folders it uses.
 | `session/`    | The session entry that the login screen starts, the connection agent, and the window button defaults.                    |
 | `portal/`     | The session's portals: the shell's backend, the share picker, and their configuration.                                   |
 | `apps/`       | The helpers of Welcome and Settings > Apps, and the timer that updates the apps.                                         |
+| `assistant/`  | The assistant's service, its actions, the model catalog, and the units that run it and `llama-server` on demand.        |
 | `downloads/`  | The one queue of downloads and installs, which Settings > Downloads shows, and the unit that resumes it at sign-in.     |
 | `dev/`        | Development only: the session bus of `make run`, and the Portal Tester.                                                    |
 
 ## Not yet implemented
 
-- The assistant: its button, the Settings section, and the hot corner say it is
-  coming. `make run` needs Whisper installed in the development container to
+- The assistant has no voice yet, and reads no files, windows, or clipboard
+  beyond what it is given. `make run` needs Whisper installed in the development container to
   dictate, and sherpa-onnx with Parakeet for the live draft
   (`DICTATION_PYTHON`, `DICTATION_PARAKEET`). The OS image has Whisper and
   sherpa-onnx; Parakeet is an extra, downloaded from Welcome or Settings > Assistant

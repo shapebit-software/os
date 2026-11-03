@@ -11,6 +11,8 @@ WHISPER_VERSION        ?= 1.9.5
 WHISPER_SHA256         ?= ff1a9053feb509ff9d7729703355541ae9690073a6b1c40eb692c962e0dc1720
 WHISPER_MODEL_REVISION ?= 5359861c739e955e79d9a303bcbc70fb988958b1
 WHISPER_MODEL_SHA256   ?= ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb
+LLAMA_VERSION          ?= 0.8.0
+LLAMA_SHA256           ?= 51b1e025d7b12e83fa55736e65bc254acd9d23e49f546be7531368fef82210ee
 IMAGE_VERSION  ?= dev
 # The commit that the image is made from.
 IMAGE_REVISION ?= $(shell git rev-parse HEAD)
@@ -82,6 +84,7 @@ image: $(KEYS) ## Build the container image with its signed UKI
 	  --build-arg IMAGE_REVISION=$(IMAGE_REVISION) \
 	  --build-arg WHISPER_VERSION=$(WHISPER_VERSION) --build-arg WHISPER_SHA256=$(WHISPER_SHA256) \
 	  --build-arg WHISPER_MODEL_REVISION=$(WHISPER_MODEL_REVISION) --build-arg WHISPER_MODEL_SHA256=$(WHISPER_MODEL_SHA256) \
+	  --build-arg LLAMA_VERSION=$(LLAMA_VERSION) --build-arg LLAMA_SHA256=$(LLAMA_SHA256) \
 	  --build-context desktop=$(DESKTOP_SRC)
 
 static-checks: lint validate ## Lint and validate, without building or running the code; in Fedora, as `make dev`

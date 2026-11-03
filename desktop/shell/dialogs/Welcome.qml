@@ -106,7 +106,8 @@ PanelWindow {
 
     function offer() {
         offered = Extras.writable ? Extras.missing : [];
-        keptExtras = offered.map(e => e.id);
+        // On, unless the computer has too little memory for one.
+        keptExtras = offered.filter(e => e.fits !== false).map(e => e.id);
     }
 
     // Everything chosen that is not in or on its way.
@@ -396,7 +397,7 @@ PanelWindow {
                 }
             }
 
-            // The extras, each with a switch, all on at first.
+            // The extras, each with a switch, on at first if the computer has memory enough.
             Column {
                 visible: window.step === "extras"
                 width: parent.width

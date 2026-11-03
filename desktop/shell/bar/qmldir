@@ -2,7 +2,12 @@ module qs.bar
 AccountPanel AccountPanel.qml
 AppsButton AppsButton.qml
 AppsPanel AppsPanel.qml
+AssistantCard AssistantCard.qml
+AssistantConversations AssistantConversations.qml
+AssistantGet AssistantGet.qml
+AssistantMessages AssistantMessages.qml
 AssistantPanel AssistantPanel.qml
+AssistantSidebar AssistantSidebar.qml
 BarButton BarButton.qml
 BarPanel BarPanel.qml
 BatteryPanel BatteryPanel.qml

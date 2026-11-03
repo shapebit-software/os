@@ -77,7 +77,19 @@ PanelWindow {
         ] },
         { id: "assistant", name: "Assistant", icon: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z", rows: [
             ...Extras.list.map(e => ({ label: e.name, detail: e.detail, kind: "extra", extra: e })),
-            { label: "Assistant", detail: "Assistant settings will be available in a future update.", kind: "info" },
+            ...(Assistant.models.length > 1 ? [{ label: "Model", detail: "What answers; one on this computer keeps what you ask on it",
+              kind: "select", options: Assistant.models.map(m => [`${m.name}${m.where === "local" ? "" : " · online"}${m.ready ? "" : " · not downloaded"}`, m.id]),
+              selected: Assistant.model?.id ?? "", select: id => Assistant.chooseModel(id) }] : []),
+            // What the assistant may change without asking; the rest asks every time.
+            ...Object.keys(Assistant.groups).map(g => ({ label: Assistant.groups[g], kind: "toggle",
+              detail: Assistant.grants.includes(g) ? "Without asking" : "Asks first, on its card",
+              on: Assistant.grants.includes(g), toggle: () => Assistant.grants.includes(g) ? Assistant.revoke(g) : Assistant.grant(g) })),
+            { label: "Activity log", detail: "What the assistant did and what it was allowed, kept on this computer", kind: "choice",
+              options: ["7 days", "30 days", "90 days", "Always"],
+              selected: Assistant.retention === 0 ? "Always" : `${Assistant.retention} days`,
+              select: o => Assistant.setRetention(o === "Always" ? 0 : parseInt(o)) },
+            { label: "Clear the activity log", detail: "Conversations stay; delete them from the assistant's list", value: "Clear",
+              open: () => Assistant.clearHistory() },
         ] },
         { id: "language", name: "Language", icon: "M2 8a6 6 0 1 0 12 0a6 6 0 1 0-12 0zM2 8h12M8 2c-2.2 2.4-2.2 9.6 0 12M8 2c2.2 2.4 2.2 9.6 0 12", rows: [
             { label: "System language", detail: "For the whole computer, from the next sign-in; needs an administrator",

@@ -1,0 +1,8 @@
+# A local language model, the extra %i (assistant/models.py): the assistant
+# starts this socket, and the first request starts the model behind it.
+[Unit]
+Description=Language model %i
+
+[Socket]
+ListenStream=%t/language-model-%i.sock
+SocketMode=0600
