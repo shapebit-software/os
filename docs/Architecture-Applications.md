@@ -1,33 +1,24 @@
 # Applications
 
-The OS combines a small set of built-in apps with a wide selection of
-third-party software and support for portable AppImage apps.
+ShapeBit combines a small set of built-in apps with apps from Flathub.
 
 ## Built-in Apps
 
-These apps ship as part of the OS image itself. Every user gets the same
-versions, and they update and roll back together with the OS:
+Built-in apps are part of the system image: everyone gets the same versions,
+and they update and roll back with the system. Each owns its tasks:
 
-- **Settings**
-- **Files** (Nautilus, Fedora's RPM: GNOME publishes no Flatpak of it)
-- **Diagnostics**
+- **Settings**, part of the shell: device, display, network, and account
+  configuration, and installing apps.
+- **Files** (Nautilus): files, archives, and thumbnails. It is Fedora's
+  package, as GNOME publishes no Flatpak of it.
+- **Diagnostics**: processes and resources. Not built yet.
 
-Each one has a defined scope, so it is clear which app owns a given task:
-
-- **Files** handles archives and thumbnails.
-- **Diagnostics** owns process and resource monitoring.
-- **Settings** owns disk, storage, firmware, device, and printing
-  configuration.
-- The shell (not an app) owns screenshots and screen recording.
-
-Settings is part of the shell, and installing and removing apps is its **Apps**
-section ([below](#installing-apps)). Diagnostics is not built yet.
+Screenshots and screen recording belong to the shell, not to an app.
 
 ## Recommended Apps
 
-On first login, Welcome ([Desktop](Architecture-Desktop.md#welcome)) installs
-these apps from Flathub into the person's own Flatpak installation. All are
-on; each can be turned off so it isn't installed:
+On first login, Welcome ([Desktop](Architecture-Desktop.md#welcome)) offers
+these apps from Flathub, all on, each with a switch to leave it out:
 
 - **Terminal** (Ptyxis)
 - **Text Editor** (GNOME Text Editor)
@@ -37,82 +28,52 @@ on; each can be turned off so it isn't installed:
 - **Audio Player** (Decibels)
 - **Calculator** (GNOME Calculator)
 
-They open their file types by default; where two of them open the same
-type, the image sets which one does. Office suites, scanning apps, editors
-for media, and browsers are installed separately.
+They open their file types by default. Office suites, scanners, media
+editors, and browsers are installed separately.
 
 ## Installing Apps
 
-The image ships Flatpak, with Flathub as its system-wide remote, which
-Flatpak adds by itself on first use.
+**Settings > Apps** is the app store: all apps, verified ones first, with a
+search, categories, and a view of the installed ones. Apps install into the
+person's own account, through the desktop's one
+[queue of downloads](Architecture-Desktop.md#downloads). Searches run on the
+computer, on the catalogue Flatpak downloads, so what someone looks for isn't
+sent anywhere.
 
-**Settings > Apps** ([Desktop](Architecture-Desktop.md#settings)) is a store that
-opens on all apps, verified ones first, with a search and categories, and can
-show only the installed. It installs and removes them in the person's own
-Flatpak installation, through the desktop's one queue of downloads, which
-Settings > Downloads shows with each install's progress
-([Desktop](Architecture-Desktop.md#downloads)). It is drawn by the shell;
-separate helper programs do the work, so a failure there can't take the shell
-down. Searches
-run on Flathub's catalogue as Flatpak downloads it, on the computer, so what
-someone looks for isn't sent anywhere; an app's screenshots come from Flathub
-when its details open.
+Removing an app asks first, keeps its data unless told to delete it, and then
+removes what no other app uses. Built-in apps can't be removed. Every app a
+person installed updates daily in the background.
 
-Apps is to show exactly two sources; today it shows Flathub:
+Apps is to show two sources; today it shows Flathub:
 
-- **Flathub**, for third-party applications.
-- The **OS repository**, for apps and integration packages that
-  OS itself builds and maintains. It is to be built with AetherPak
-  ([Distribution](Architecture-Lifecycle.md#distribution)); it doesn't exist
-  yet.
+- **Flathub**, for third-party apps.
+- The **OS repository**, for apps and integration that ShapeBit builds
+  ([Distribution](Architecture-Lifecycle.md#distribution)). Not built yet.
 
-The OS repository may contain own binaries, but it never
-stores, mirrors, or redistributes a third party's binaries — those always
-come from Flathub or the vendor directly.
-
-Adding other Flatpak remotes is possible, but it is an advanced, per-user
-option that most users won't need.
-
-Removing an app asks first and keeps its data unless told to delete it, and
-then removes the runtimes nothing uses anymore. Built-in apps can't be removed.
+The OS repository never stores or redistributes a third party's binaries;
+those come from Flathub or the vendor. Other Flatpak remotes are possible, as
+an advanced, per-person option.
 
 ### Internet Browsers
 
-On first login, Welcome
-([Desktop](Architecture-Desktop.md#welcome)) lets an online user pick a default
-browser from:
+When online, Welcome lets a person pick a default browser; none is picked at
+first, and none has to be:
 
-1. Google Chrome
-2. Chromium
-3. Firefox
-4. GNOME Web
+| Browser | Comes from |
+|---|---|
+| Google Chrome | Flathub's package, which downloads Google's own build and checks it |
+| Chromium | Fedora's Flatpak, built by Fedora |
+| Firefox | Flathub |
+| GNOME Web | Flathub |
 
-Nothing is preselected, and none has to be; offline, the step is left out.
-The chosen browser installs into that user's Flatpak installation and becomes
-their default.
-
-How each browser is packaged:
-
-- **Chrome** — Flathub's package, which downloads Google's official
-  package from Google when it installs and checks it against the checksum
-  that the package pins. Flathub, not Google, maintains it.
-- **Chromium** — Fedora's official Flatpak, from Fedora's registry
-  (registry.fedoraproject.org), built by Fedora from its own packages.
-- **Firefox** and **GNOME Web** — installed from their regular Flathub
-  packages.
-
-Chromium adds Fedora's registry to that user's Flatpak remotes, only for the
-browser; Settings > Apps lists it once installed but doesn't offer it. A daily check
-updates every app a user installed, the browser included.
+The chosen browser installs into that person's account and becomes their
+default.
 
 ## Portable Apps (AppImage)
 
-AppImage is a separate, per-user way to run portable apps outside the
-Flatpak catalog.
+> **Planned.** Not built yet.
 
-Opening an AppImage offers three choices: **Run once**, **Add to Apps**, or
-**Cancel**.
-
-OS watches `Downloads`, `Desktop`, and any directories a user adds
-explicitly. It detects new AppImage files by their actual content, not their
-file extension, and shows one prompt per new file.
+AppImages are a separate, per-person way to run portable apps. Opening one
+offers **Run once**, **Add to Apps**, or **Cancel**. ShapeBit watches
+Downloads, Desktop, and folders a person adds, recognizes AppImages by their
+content rather than their name, and asks once per new file.

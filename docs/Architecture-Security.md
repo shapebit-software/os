@@ -11,6 +11,9 @@ device's **TPM2** chip — no password needed. Every device also has an
 independent **recovery key**, kept separately, that can unlock the
 volume if the TPM path ever fails.
 
+Each person's home is encrypted again, inside that volume, and unlocks only
+with its owner's password at login.
+
 ## TPM Unlock Policy
 
 The TPM only releases the disk key when the machine's boot state looks

@@ -42,6 +42,11 @@ compositor. The displays' settings, their arrangement, mirroring, the primary
 display, and each one's mode and scale, are also kept as monitor rules in
 `~/.config/desktop/displays.lua`, which the compositor runs as it starts.
 
+Dictation (`dictation/`, Super+D) writes speech into the application in use,
+and the assistant (`assistant/`, Super+A) answers and acts through typed
+actions; both run on the computer, with their larger models as extras
+(`extras/`).
+
 Each bar can sit on any edge, and its items can move between the bars' zones
 or off the bars, hidden, all but the system menu (Settings > Shell). With the pointer, windows move only on the maps: drag a window's cell onto
 another cell or map; double-click it for full screen (Super+F), which covers
@@ -131,6 +136,9 @@ listed in its folder's `qmldir`, and a file imports the other folders it uses.
 | `apps/`       | The helpers of Welcome and Settings > Apps, and the timer that updates the apps.                                         |
 | `assistant/`  | The assistant's service, its actions, the model catalog, and the units that run it and `llama-server` on demand.        |
 | `downloads/`  | The one queue of downloads and installs, which Settings > Downloads shows, and the unit that resumes it at sign-in.     |
+| `dictation/`  | Dictation: the input method that writes the text, and the live speech recognition engine.                               |
+| `extras/`     | The extras (large optional downloads, such as models) with their hashes, and the helper that installs them.           |
+| `packages`    | The packages the desktop runs on, each with its reason; the image installs them.                                         |
 | `dev/`        | Development only: the session bus of `make run`, and the Portal Tester.                                                    |
 
 ## Not yet implemented
@@ -141,7 +149,6 @@ listed in its folder's `qmldir`, and a file imports the other folders it uses.
   (`DICTATION_PYTHON`, `DICTATION_PARAKEET`). The OS image has Whisper and
   sherpa-onnx; Parakeet is an extra, downloaded from Welcome or Settings > Assistant
   (`extras/`).
-- Settings has only what works: no password change, no system language, or
-  first day of the week.
+- Settings has only what works: no first day of the week.
 - Tabs cannot be dragged.
 - Tile sizes last while the workspace keeps its layout, not across sessions.

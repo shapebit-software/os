@@ -1,80 +1,80 @@
 # Installation
 
-This page describes how the installer prepares a device: capability
-discovery, network setup, credential handling, disk selection, and the
-installation itself.
+How the installer prepares a computer. To install ShapeBit, see
+[Installing ShapeBit](Install.md).
 
-## Capabilities
+## Two Parts
 
-Before showing any choices, the frontend asks the backend what's possible — which disks are eligible, whether UEFI, Secure Boot, and TPM2 are available, connectivity, Wi-Fi, and the supported locales, time zones, and keyboard layouts.
+The installer is an unprivileged **frontend**, the pages a person sees, and a
+privileged **backend** that does the work. The frontend only asks; the backend
+checks every request, builds every command itself, and runs nothing the
+frontend sends.
 
-## Wi-Fi
+Before showing any choices, the frontend asks the backend what's possible:
+which disks are eligible, whether UEFI, Secure Boot, and a TPM 2.0 are there,
+whether there's a network, and which languages, time zones, and keyboard
+layouts are supported.
 
-If there's no working internet connection, the frontend offers a Wi-Fi step. The user can connect or skip it — lack of internet never blocks installation.
+## Steps
 
-## Sending Passwords and Keys Safely
+Language, keyboard layout, network, time zone, account, and disk, then the
+installation and the recovery key. The network is optional: no internet
+connection ever blocks installation.
 
-Passwords, Wi-Fi credentials, recovery keys, and anything derived from them never travel over the ordinary control connection, and never end up in the plan, a capability snapshot, an event, an error, logs, or diagnostics.
+## Secrets
 
-Instead, each one crosses over a separate, one-shot channel dedicated to exactly that transfer, opened by the backend and torn down as soon as it's used or it expires.
+Passwords, Wi-Fi credentials, and recovery keys never travel with the
+ordinary requests, and never appear in the plan, events, errors, or logs.
+Each crosses a separate one-time channel that the backend opens for exactly
+that transfer and closes once it's used.
 
 ## Choosing and Confirming the Disk
 
-Installing erases one whole disk, and Linux device names like
-`/dev/nvme0n1` aren't permanent — they can change as storage is attached, removed, or rediscovered.
+Installing erases one whole disk. Device names such as `/dev/nvme0n1` can
+change as storage comes and goes, so the choice and its confirmation are
+bound to the disk's stable identity (its serial number or WWN), never to its
+name. The backend checks that identity again before it accepts the plan,
+when the person confirms, and right before it erases the disk; any change
+clears the choice.
 
-So the plan, and the destructive confirmation that follows it, stay bound to the actual physical device the user reviewed — a stable identity built from things like its serial and WWN —
-never to a device name. 
+Eligible disks are internal disks, and external ones (USB, Thunderbolt,
+eSATA) that are clearly labelled as external. Never eligible: the disk the
+installer runs from, read-only devices, and ambiguous multipath devices.
 
-The backend re-resolves and re-checks that identity before accepting a plan, before confirming, and immediately before the destructive step; any relevant change clears the selection and
-confirmation and requires a fresh one.
-
-### Which disks are allowed
-
-An eligible target is either an internal disk, or an external USB,
-Thunderbolt, or eSATA disk that's clearly labelled as external and meets the same capacity and validation rules.
-
-Never eligible: the disk the running installer itself booted from, read-only devices, ambiguous multipath devices.
-
-### The final confirmation screen
-
-Right before the destructive step begins, the frontend shows one screen with a short summary.
-
-The user ticks **I understand that all data on this disk will be deleted** before **Erase disk and install ShapeBit** becomes available. 
+The last screen before erasing shows the disk, and **Erase disk and install
+ShapeBit** works only once the person ticks that all its data will be
+deleted.
 
 ## Installing
 
-An installation moves through six phases, in order:
+An installation moves through six phases:
 
 ```text
 validating → preparing → creating-storage → installing-system → configuring → verifying
 ```
 
-- **validating** rechecks the plan, scan, disk, inputs, and policy — nothing changes yet.
-- **preparing** gathers any remaining non-secret inputs — the target is still untouched.
-- **creating-storage** erases the disk and lays down the GPT, the system LUKS2 volume, Btrfs, and encrypted-home storage
-- **installing-system** writes the ShapeBit image and boot artifacts.
-- **configuring** sets up the first owner, their home, an optional Wi-Fi profile, TPM2, trust, and recovery.
-- **verifying** checks the whole installation and syncs it before declaring success.
+- **validating** and **preparing** check the plan and gather inputs. Nothing
+  changes yet, and **Cancel** works.
+- **creating-storage** erases the disk and creates the
+  [disk layout](Architecture-Base.md#disk-layout). The confirmation is what
+  allows this step.
+- **installing-system** writes the system and its signed boot files.
+- **configuring** creates the first owner and their encrypted home, and
+  enrolls the TPM and the recovery key.
+- **verifying** checks the result before reporting success: the layout, the
+  exact system image, the boot files, the owner and their home, and that each
+  key unlocks the disk, without revealing or weakening any key.
 
-### The destructive boundary
+The installer then shows the recovery key, which the person confirms they
+saved.
 
-`validating` and `preparing` are non-destructive and offer an ordinary **Cancel**. The final disk confirmation above is what authorizes the one transition into `creating-storage` — entering that phase is the point of no easy return.
+## Not Built Yet
 
-### Verifying and finishing
-
-Before declaring success, `verifying` confirms at least:
-
-- the GPT, LUKS2, and Btrfs identities and layout are correct;
-- the installed image matches its exact digest;
-- the required signed UKIs, systemd-boot entries, and recovery assets are present;
-- the system and first-home keyslots work;
-- TPM2 unlock and both enrolled recovery credentials work;
-- the first owner exists and their encrypted home is active;
-- their Wi-Fi profile was saved, if that was requested; and
-- everything is synced and target filesystems are safely unmounted.
-
-Internet access isn't required to finish, and testing the recovery
-credentials must never reveal their values or invalidate the working keyslots.
-
-Once every check passes, the user still has to see and acknowledge the Recovery Kit before the backend writes a durable installation-complete marker, reports the terminal `completed` result.
+- Wi-Fi in the installer on a real computer.
+- The hostname.
+- The full Recovery Kit: a recovery key for the owner's home, a QR code,
+  printing, and an encrypted export. Today only the disk's recovery key is
+  shown, as text.
+- Labelling external disks, and refusing ambiguous multipath devices.
+- Resuming after the backend restarts, and a durable record that the
+  installation completed.

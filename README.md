@@ -22,7 +22,7 @@ DBX_CONTAINER_MANAGER=docker distrobox assemble create --file distrobox.ini
 DBX_CONTAINER_MANAGER=docker distrobox enter shapebit-dev
 ```
 
-Inside the container, change into `desktop/` or `installer/` and follow that
+Later, `make dev` enters it. Inside the container, change into `desktop/` or `installer/` and follow that
 project's development instructions. Both use the same installed tools and
 libraries. Use the same container manager for creation and entry; replace
 `docker` with `podman` if that is your host's engine.
@@ -70,13 +70,15 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 | `desktop/`   | The desktop: compositor configuration, shell, and session.            |
 | `installer/` | The installer: backend, UI, and `installerctl`.                       |
 | `scripts/`   | Keys, image build, medium, installation in QEMU, publishing, SSH.     |
-| `tests/`     | Checks in tmt plans and openQA modules: see [docs/Testing.md](docs/Testing.md). |
+| `tests/`     | Unit, image, system, update, and openQA checks: see [docs/Testing.md](docs/Testing.md). |
 | `docs/`      | The documentation, published to the Wiki and the website.             |
 | `.agents/`   | Skills for coding agents.                                             |
 | `build/`     | Generated outputs (ignored by Git).                                   |
 
 ## Documentation
 
+- [Installing ShapeBit](docs/Install.md): write the installer to a USB drive
+  and install.
 - [Building](docs/Building.md): how the image, medium, and disk are made, boot and
   update, installing on real hardware, development access, and what is not
   implemented yet.

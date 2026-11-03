@@ -1,82 +1,70 @@
 # Base System
 
-This page describes the base system: the hardware OS targets, how disks
-are laid out, and how home storage is managed.
+The hardware ShapeBit runs on, how its disk is laid out, and how homes share
+its space.
 
-## Hardware and Platform
+## Hardware
 
-- **Automated testing target:** x86-64 QEMU, with OVMF firmware and a software
-  TPM.
-- **Developer host:** Linux x86-64 with KVM. Fedora is the canonical host and
-  the required CI environment.
+- A 64-bit PC (x86-64) with UEFI, Secure Boot, and a TPM 2.0.
+- Automated tests run on QEMU with UEFI firmware and a software TPM.
 
 ## Disk Layout
 
-Each OS disk has two parts: an EFI System Partition and an encrypted
-LUKS2 volume.
+The disk has two partitions: an EFI System Partition, not encrypted, and a
+LUKS2 volume that holds everything else.
 
 ```text
 GPT
-├── EFI                                   (boot files, not encrypted)
-│   ├── Microsoft-signed OS shim
-│   ├── normal signed boot artifacts
-│   └── minimal signed recovery UKI
-└── LUKS2                                 (everything else, encrypted)
+├── EFI System Partition    boot files, signed; no secrets
+│   ├── Fedora's shim (signed by Microsoft)
+│   ├── systemd-boot, signed by ShapeBit
+│   └── the UKIs of the installed releases, signed by ShapeBit
+└── LUKS2                   everything else, encrypted
+    └── Btrfs
+        ├── @base       the system, read-only, and each release's /etc
+        ├── @machine    this computer's state (/var)
+        ├── @people     the homes (/home)
+        └── @recovery   reserved for recovery
 ```
 
-Inside the LUKS2 volume, a single Btrfs filesystem is split into four
-subvolumes:
+> **Goal, not built:** ShapeBit's own shim in place of Fedora's
+> ([Boot Trust](Architecture-Lifecycle.md#boot-trust)), and a minimal signed
+> recovery UKI.
 
-```text
-LUKS2
-└── Btrfs
-    ├── @base       system code, read-only     (/usr, /boot, ...)
-    ├── @machine    this device's own state    (/var)
-    ├── @people     user home data             (/home)
-    └── @recovery   minimal recovery data
-```
+Machine configuration in `/etc` stays with the system: each release keeps its
+own `/etc` and carries local changes forward on update.
 
-Machine configuration in `/etc` stays in `@base`: each system version keeps its
-own `/etc` and carries local changes forward on update, so a reset restores it
-through the update system rather than by wiping `@machine`.
+Homes live in `@people` rather than `@machine` on purpose: a reset can wipe
+the computer's state and still leave the homes untouched.
 
-Homes live in `@people` rather than `@machine` on purpose: resetting a device
-wipes `@machine`, but a reset can still leave home data untouched.
+Each home is encrypted again, with its owner's password
+([Security](Architecture-Security.md)).
 
 ## Home Storage
 
-Homes don't get fixed-size partitions. Instead, every home draws from one
-shared pool of space:
+> **Planned.** Today each home takes the space systemd-homed gives it by
+> default, which can leave too little room for updates.
 
-- Each home is **guaranteed a minimum** amount of space.
-- Beyond that minimum, homes can **burst** into shared space as needed — no
-  manual sizing required.
-- An owner can cap a home with a **hard limit**; without one, a home can grow
-  to use whatever the pool has free.
-- A new home can only be created if its guaranteed minimum can be met without
-  taking space away from an existing home or from the machine itself.
+Homes don't get fixed-size partitions. They share one pool:
 
-### Protecting space for the machine
+- Each home is **guaranteed a minimum**.
+- Beyond it, a home can **burst** into shared space, with no manual sizing.
+- An owner can cap a home with a **hard limit**.
+- A new home is created only if its minimum fits without taking space from
+  another home or from the computer.
 
-The system always keeps a **reserve** of space that homes cannot burst into,
-so the machine itself never runs out of room. That reserve is recalculated on
-the fly from two parts:
+The computer keeps a **reserve** that homes can't burst into, so it never runs
+out of room for logs, recovery, and staging an update:
 
 ```text
 reserve = max(30 GiB, steady + surge)
 ```
 
-- **steady** — space the machine always needs: 12 GiB fixed, for emergency
-  recovery and logs, plus 2% of the disk's total capacity for filesystem
-  metadata (kept between 4 and 16 GiB).
-- **surge** — extra space needed only while an update is being staged: the
-  release's declared staging size (at least 12 GiB), plus any migration space
-  the release asks for (none, by default).
+- **steady**: what the computer always needs: 12 GiB, plus 2% of the disk
+  (between 4 and 16 GiB) for filesystem metadata.
+- **surge**: what an update needs while it's staged: the release's declared
+  size (at least 12 GiB), plus any migration space it asks for.
 
-### Running low on space
-
-| State       | Meaning                                                              |
-| ----------- | --------------------------------------------------------------------- |
-| `low`       | Free space has dropped below 16 GiB or 10% of the pool, whichever is larger. |
-| `critical`  | Free space has dropped below 8 GiB.                                   |
-| `exhausted` | No more burst space is available at all.                              |
+When free space runs low, the computer warns at **low** (below 16 GiB or 10%
+of the pool, whichever is larger) and **critical** (below 8 GiB), and reports
+**exhausted** when no burst space is left.

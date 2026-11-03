@@ -16,7 +16,7 @@ ShapeBit is tested at three levels. Levels 1 and 2 exist; level 3 is reserved.
 | Workflow | Starts | Does |
 | --- | --- | --- |
 | Verification | Every push and pull request | Three stages in order, each only if the one before passed: Static checks (`make lint`, `make validate`), Unit tests (`make test-unit`), and, on a change to `image/Containerfile*`, Image tests (`make test-image`, with a throwaway key; publishes nothing) |
-| Candidate | Monday night, or by hand, on `main` | Runs Static checks and Unit tests, then builds without a cache, signed with the release key; runs levels 1 and 2 in parallel jobs; if all pass, publishes `os:candidate` and a draft release with its report |
+| Candidate | Weekly, early on Monday (UTC), or by hand, on `main` | Runs Static checks and Unit tests, then builds without a cache, signed with the release key; runs levels 1 and 2 in parallel jobs; if all pass, publishes `os:candidate` and a draft release with its report |
 | Release | Only by hand, on `main` | Moves `os:stable` to `os:candidate`, tags it with its version, and publishes its release; or moves back to `os:stable-previous` and marks the last release withdrawn |
 
 A test job that fails on a flake can be re-run on the same build with GitHub's
@@ -99,7 +99,8 @@ it (`lib/sut.py`, over SSH): a check that only looks would pass on a right
 picture of a wrong system.
 
 The modules cover the MOK enrollment, installation through the UI, first boot,
-login, Settings, window layouts, locking and unlocking, and restarting. Settings
+login, Settings, window layouts, dictation, locking and unlocking, and
+restarting. Settings
 is the shell's own (`Super+I`): ShapeBit has no Switchboard.
 
 After failure, the run's `pool/testresults/` keeps each step's screenshot and

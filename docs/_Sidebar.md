@@ -1,6 +1,8 @@
 ## ShapeBit Docs
 
 - [Introduction](Home.md)
+- [Installing ShapeBit](Install.md)
+- [Keyboard Shortcuts](Keyboard-Shortcuts.md)
 - [Vision](Vision.md)
 - [Architecture](Architecture.md)
   - [Base System](Architecture-Base.md)

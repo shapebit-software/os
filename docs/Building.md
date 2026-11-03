@@ -12,9 +12,10 @@ signs with `SIGNING_KEY`: by default the development key that
 `dev.crt`, named ShapeBit Development). It signs systemd-boot, the UKI, and the
 TPM2 PCR values. `make release-key KEYS_DIR=<directory>` generates the release
 key once (`release.key`, `release.crt`, named ShapeBit), which a build uses with
-`SIGNING_KEY=release`; builds never generate it. CI
-restores the same key from its `DEV_SIGNING_KEY` secret, so that installed systems
-update across builds.
+`SIGNING_KEY=release`; builds never generate it. The Candidate workflow
+restores it from its `RELEASE_KEY` secret, so that installed systems update
+across builds; the checks of pushes and pull requests sign with a throwaway
+development key ([Signing](Architecture-Lifecycle.md#signing)).
 
 1. [Containerfile](https://github.com/shapebit-software/os/blob/main/image/Containerfile) builds the system: signed systemd-boot, the
    certificate to enroll, systemd-homed login support, the
@@ -28,6 +29,11 @@ update across builds.
    Fedora has no Hyprland, so the build installs it from the third-party
    [sdegler/hyprland](https://copr.fedorainfracloud.org/coprs/sdegler/hyprland/)
    COPR for now; the repository is not left in the image.
+   The image also carries Flatpak with Flathub's remote, Distrobox, the
+   speech recognition of dictation (whisper.cpp with Whisper's small model,
+   and sherpa-onnx), and llama.cpp's `llama-server` for the assistant, each
+   built or downloaded at a pinned version and checked against its hash. The
+   larger models are extras, downloaded on the computer.
 2. [Containerfile.seal](https://github.com/shapebit-software/os/blob/main/image/Containerfile.seal) adds a signed UKI. Its
    command line pins the system's composefs digest, and it carries signed
    PCR 11 values for TPM2 unlock. The digest is computed from the built
@@ -203,44 +209,24 @@ sddm-greeter-qt6 --test-mode --theme image/rootfs/usr/share/sddm/themes/login
 
 ## Real hardware
 
-The installer medium can install on an x86-64 UEFI machine with a TPM 2.0.
-Legacy (CSM) boot must be off. This is a developer trial: every key is a
-development key.
+[Installing ShapeBit](Install.md) is the guide for anyone. A medium built
+locally is signed with the development key, so a machine that installs it
+enrolls that key instead, and later updates from `stable` would need the
+release key enrolled too.
 
-1. Build the medium:
+1. Build the medium, and write it to a USB drive of at least 8 GB, which
+   erases it; check its name with `lsblk` first:
 
    ```bash
    make installer ENGINE=docker
-   ```
-
-2. Write it to a USB drive of at least 8 GB. This erases the drive; check
-   its name with `lsblk` first:
-
-   ```bash
    sudo dd if=build/installer.img of=/dev/sdX bs=4M conv=fsync status=progress
    ```
 
-   The `installer.img.xz` that CI builds is the same image, compressed; on Windows
-   and macOS, write it with a tool such as balenaEtcher or Rufus. If the system
-   then offers to format the drive, decline: it cannot read the drive's
-   filesystem, and formatting would erase the medium.
-
-3. Leave Secure Boot on, with the factory keys. If the firmware's setup offers
-   it, allow Microsoft's third-party UEFI certificate, which some Windows PCs
-   turn off by default.
-4. Boot the medium. Shim stops once with **Verification failed**, as our key is
-   not trusted yet: choose **OK**, press a key, then **Enroll key from disk**,
-   the partition, **enroll-this-key.cer**, **Continue**, **Yes**, and
-   **Reboot**. No password is needed.
-5. Follow the installer: language, keyboard layout, time
-   zone, account, and the disk, with the confirmation that erases it. The
-   network step offers nothing yet; skip it. Write down the recovery key that it shows: it is the only way
-   in if the TPM refuses.
-6. Remove the medium and restart. The disk unlocks with the TPM.
-7. Switch to a console (Ctrl+Alt+F3), log in, connect to the network
-   (`nmcli device wifi connect NAME --ask` for Wi-Fi), allow root to log in
-   with `build/ssh/id_ed25519.pub`, and run the system checks from the
-   development machine, with the settings given to the installer:
+2. Install as the guide says.
+3. To run the system checks on it, switch to a console (Ctrl+Alt+F3), log in,
+   connect to the network (`nmcli device wifi connect NAME --ask` for
+   Wi-Fi), allow root to log in with `build/ssh/id_ed25519.pub`, and run them
+   from the development machine, with the settings given to the installer:
 
    ```bash
    make test-guest GUEST=ADDRESS IMAGE_DIGEST=sha256:... OWNER_NAME=... LOCALE=... KEYBOARD_LAYOUT=... TIME_ZONE=...
