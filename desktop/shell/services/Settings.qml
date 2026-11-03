@@ -28,12 +28,20 @@ Singleton {
     // the primary display.
     property string welcomeOn
     property alias welcomed: adapter.welcomed
+    // Whether Welcome last closed without having been online, so without its
+    // browser and apps; the first time online after, a notification offers
+    // them (SetupReminder.qml).
+    property alias setupPending: adapter.setupPending
     // The system update last announced (OsUpdate.qml), so each is announced once.
     property alias updateAnnounced: adapter.updateAnnounced
 
+    function welcome() {
+        welcomeOn = primary || (Quickshell.screens[0]?.name ?? "");
+    }
+
     function welcomeFirstTime() {
         if (!welcomed)
-            welcomeOn = primary || (Quickshell.screens[0]?.name ?? "");
+            welcome();
     }
 
     // Whether a screenshot opens for markup before it is saved (CaptureOverlay.qml).
@@ -75,7 +83,7 @@ Singleton {
     // The items on neither bar, by id, which only Settings > Shell shows.
     property alias hiddenItems: adapter.hiddenItems
     readonly property var defaultZones: ({
-        system: { start: ["clock"], center: [], end: ["notifications", "microphone", "sound", "brightness", "network", "language", "battery", "account"] },
+        system: { start: ["clock"], center: [], end: ["downloads", "notifications", "microphone", "sound", "brightness", "network", "language", "battery", "account"] },
         dock: { start: ["apps", "workspaces"], center: [], end: ["quick"] },
     })
     // How the quick actions open: "Buttons" in the corner, or "Hot corner".
@@ -246,6 +254,7 @@ Singleton {
             property list<string> dictationAllLanguages: []
             property bool shareRemember: false
             property bool welcomed: false
+            property bool setupPending: false
             property string updateAnnounced: ""
         }
     }

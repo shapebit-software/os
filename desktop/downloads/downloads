@@ -1,0 +1,241 @@
+#!/usr/bin/python3
+# The one queue of what the desktop downloads and installs: apps and browsers
+# (apps/app-install, apps/app-remove) and extras (extras/extra), for Welcome,
+# Settings > Apps, Settings > Assistant, and Settings > Downloads
+# (shell/services/Downloads.qml), and the daily app updates (apps/app-update.timer).
+# One job runs at a time, in a systemd user
+# service of its own, so it goes on if the shell stops; what a logout or
+# restart stopped starts again with the next session (downloads.service).
+#
+# Usage: downloads add KIND ACTION TARGET NAME [--delete-data]
+#        downloads cancel KEY... | downloads clear | downloads run
+#
+# KIND is app, browser, extra, or update; ACTION is install or remove (a
+# browser only installs, and the update, of TARGET apps, too); a job's KEY is KIND:TARGET, and a target has one job at a time:
+# adding one again replaces it once it has ended. The state is JSON in
+# $XDG_STATE_HOME/desktop/downloads.json, which the shell watches:
+# {"jobs": [{"key", "kind", "action", "target", "name", "state", "note",
+# "percent", "error", "added", "deleteData", "cancel"}]}, the state "queued",
+# "running", "done", "failed", or "cancelled".
+import fcntl
+import json
+import os
+import select
+import signal
+import subprocess
+import sys
+import time
+from contextlib import contextmanager
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+# The source tree's helpers in development (make run), otherwise the installed.
+if "DESKTOP_SHELL" in os.environ:
+    HELPERS = {"app-install": HERE.parent / "apps" / "app-install", "app-remove": HERE.parent / "apps" / "app-remove",
+               "extra": HERE.parent / "extras" / "extra"}  # fmt: skip
+else:
+    HELPERS = {name: Path("/usr/libexec/desktop") / name for name in ("app-install", "app-remove", "extra")}
+HELPERS = {name: Path(os.environ.get(f"DOWNLOADS_{name.upper().replace('-', '_')}", path)) for name, path in HELPERS.items()}
+STATE_DIR = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state") / "desktop"
+STATE = STATE_DIR / "downloads.json"
+ENDED = ("done", "failed", "cancelled")
+# How often a running job looks whether it was cancelled.
+POLL = 0.5
+
+
+@contextmanager
+def locked(name):
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    with open(STATE_DIR / name, "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield lock
+
+
+def read():
+    try:
+        return json.loads(STATE.read_text(encoding="utf-8")).get("jobs", [])
+    except (OSError, ValueError):
+        return []
+
+
+def write(jobs):
+    """In place, as the shell reads it; a read of half of it is retried there."""
+    STATE.write_text(json.dumps({"jobs": jobs}) + "\n", encoding="utf-8")
+
+
+def update(key, **changes):
+    """Changes a job; answers it as it now is, or None if it is gone."""
+    with locked("downloads.lock"):
+        jobs = read()
+        job = next((j for j in jobs if j["key"] == key), None)
+        if job:
+            job.update(changes)
+            write(jobs)
+        return job
+
+
+def command(job):
+    target = job["target"]
+    if job["kind"] == "update":
+        return [HELPERS["app-install"], "update"]
+    if job["kind"] == "extra":
+        return [HELPERS["extra"], job["action"], target]
+    if job["action"] == "remove":
+        return [HELPERS["app-remove"], target, *(["--delete-data"] if job.get("deleteData") else [])]
+    return [HELPERS["app-install"], "browser" if job["kind"] == "browser" else "apps", target]
+
+
+def start_worker():
+    """A worker in a user service of its own, out of the shell; one already
+    working takes the job instead (run)."""
+    if os.environ.get("DOWNLOADS_NO_WORKER"):
+        return
+    worker = [sys.executable, str(Path(__file__).resolve()), "run"]
+    keep = [f"--setenv={name}={os.environ[name]}" for name in ("DESKTOP_SHELL", "XDG_STATE_HOME") if name in os.environ]
+    try:
+        started = subprocess.run(["systemd-run", "--user", "--collect", "--quiet", "--description=Downloads", *keep, *worker],
+                                 stdin=subprocess.DEVNULL, capture_output=True).returncode == 0  # fmt: skip
+    except OSError:
+        started = False
+    # Without a user manager, as in a development container: on its own, at
+    # least out of the shell's process.
+    if not started:
+        subprocess.Popen(worker, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)  # fmt: skip
+
+
+def add(kind, action, target, name, delete_data):
+    key = f"{kind}:{target}"
+    with locked("downloads.lock"):
+        jobs = read()
+        if any(j["key"] == key and j["state"] not in ENDED for j in jobs):
+            return 0
+        jobs = [j for j in jobs if j["key"] != key]
+        jobs.append({"key": key, "kind": kind, "action": action, "target": target, "name": name, "state": "queued",
+                     "note": "Waiting", "percent": 0, "error": "", "added": int(time.time() * 1000),
+                     "deleteData": delete_data, "cancel": False})  # fmt: skip
+        write(jobs)
+    start_worker()
+    return 0
+
+
+def cancel(keys):
+    """A queued job ends at once; a running one, when its worker sees it."""
+    with locked("downloads.lock"):
+        jobs = read()
+        for job in jobs:
+            if job["key"] in keys and job["state"] == "queued":
+                job.update(state="cancelled", note="")
+            elif job["key"] in keys and job["state"] == "running":
+                job["cancel"] = True
+        write(jobs)
+    return 0
+
+
+def clear():
+    with locked("downloads.lock"):
+        write([j for j in read() if j["state"] not in ENDED])
+    return 0
+
+
+def take(worker):
+    """The next job, now running; or None, and then this worker has stopped
+    being one, before another can be added, so that one added later starts
+    another (start_worker)."""
+    with locked("downloads.lock"):
+        jobs = read()
+        job = next((j for j in jobs if j["state"] == "queued"), None)
+        if job is None:
+            fcntl.flock(worker, fcntl.LOCK_UN)
+            return None
+        job.update(state="running", note="Starting", percent=0, error="", cancel=False)
+        write(jobs)
+        return job
+
+
+def work(job):
+    """Runs a job's helper, telling the state how it goes, until it ends or
+    is cancelled."""
+    key = job["key"]
+    helper = subprocess.Popen(command(job), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    try:
+        watch(key, helper)
+    finally:
+        # Stopped itself (run), it stops the helper too.
+        if helper.poll() is None:
+            helper.terminate()
+            helper.wait()
+
+
+def watch(key, helper):
+    ended = {}
+    buffer = b""
+    while True:
+        ready, _, _ = select.select([helper.stdout], [], [], POLL)
+        if ready:
+            chunk = os.read(helper.stdout.fileno(), 65536)
+            if not chunk:
+                break
+            buffer += chunk
+            *lines, buffer = buffer.split(b"\n")
+            for line in lines:
+                try:
+                    message = json.loads(line)
+                except ValueError:
+                    continue
+                if "step" in message:
+                    update(key, note=message["step"], percent=message.get("percent", 0))
+                elif "done" in message:
+                    ended = {"state": "done", "note": "", "percent": 100}
+                elif "error" in message:
+                    ended = {"state": "failed", "error": message["error"], "note": ""}
+        now = next((j for j in read() if j["key"] == key), None)
+        if now is None or now.get("cancel"):
+            helper.terminate()
+            helper.wait()
+            update(key, state="cancelled", note="", cancel=False)
+            return
+    helper.wait()
+    update(key, **(ended or {"state": "failed", "error": "It stopped before it finished.", "note": ""}))
+
+
+def run():
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    with open(STATE_DIR / "worker.lock", "a") as worker:
+        try:
+            fcntl.flock(worker, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return 0
+        # Being the only worker, what shows as running was stopped: by a
+        # logout, a restart, or a crash. It goes on now.
+        with locked("downloads.lock"):
+            jobs = read()
+            for job in jobs:
+                if job["state"] == "running":
+                    job.update(state="cancelled" if job.get("cancel") else "queued", note="Waiting", cancel=False)
+            write(jobs)
+        # Stopped, as when the session ends, the job and its helper end
+        # together; it starts again next time.
+        signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
+        while job := take(worker):
+            work(job)
+        return 0
+
+
+def main():
+    args = sys.argv[1:]
+    if len(args) in (5, 6) and args[0] == "add" and args[1] in ("app", "browser", "extra", "update") \
+            and args[2] in ("install", "remove") and args[5:] in ([], ["--delete-data"]):
+        return add(args[1], args[2], args[3], args[4], args[5:] == ["--delete-data"])
+    if len(args) > 1 and args[0] == "cancel":
+        return cancel(args[1:])
+    if args == ["clear"]:
+        return clear()
+    if args == ["run"]:
+        return run()
+    print("usage: downloads add KIND ACTION TARGET NAME [--delete-data] | cancel KEY... | clear | run", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

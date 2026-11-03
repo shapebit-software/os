@@ -289,7 +289,8 @@ the [future design](#future-design) of features that are not built yet.
   computer has one; natural scrolling on a mouse; and each one's speed),
   **Network**, **Sound**, **Apps** (a store: all apps or only the installed, with
   a search and categories, each with its details and what it can reach;
-  [Applications](Architecture-Applications.md#installing-apps)), and **Updates**
+  [Applications](Architecture-Applications.md#installing-apps)), **Downloads**
+  ([below](#downloads)), and **Updates**
   (the running system's version, the
   state of system updates with **Check now**, and the daily app updates).
 - Settings for the whole computer — the system language, the time zone, and
@@ -310,6 +311,25 @@ the [future design](#future-design) of features that are not built yet.
 - Apps installed from Flatpak, the browser included, update daily in the
   background; a running app gets its update the next time it opens.
 
+### Downloads
+
+Everything the desktop downloads and installs goes through one queue: the
+browser and apps from Welcome, installing and removing apps in Settings >
+Apps, extras, the dictation models among them, from Welcome and Settings >
+Assistant, and the daily app updates, so an update never runs alongside an
+install. One job runs at a time, in a systemd user service of its own
+rather than in the shell, so it goes on if the shell restarts. What a logout
+or restart stopped starts again at the next sign-in. A target has one job at
+a time, so asking twice does nothing.
+
+**Settings > Downloads** lists it all: what is under way first, with how far
+it is, then what ended, newest first. Each job can be cancelled while it waits
+or works, and tried again once it failed or was cancelled; **Clear finished**
+forgets what ended. While anything waits or works, a button on the system bar
+opens it. A cancelled extra keeps what it downloaded, and its next try goes on
+from there. An app install that fails or is cancelled removes what Flatpak
+fetched for it that no app uses, such as its runtime.
+
 ### Extras
 
 Extras are what is too large for the OS image and not everyone needs, such as
@@ -324,30 +344,34 @@ in the sealed image, so the OS needs none of them and updates without them.
 ### Welcome
 
 Each person's first login opens Welcome, full screen over the desktop on
-the primary display. It asks only what the installer didn't, in five steps:
+the primary display. It asks only what the installer didn't, in six steps:
 
 1. **Network**: only when the computer was offline when Welcome opened,
    with the network panel's Wi-Fi list and inline password.
 2. **Browser**: the default browser
    ([Internet Browsers](Architecture-Applications.md#internet-browsers)), only
-   when online. Nothing is picked at first; **Install** installs it into the
-   person's Flatpak installation and makes it the default.
+   when online. Nothing is picked at first, and none may be.
 3. **Recommended apps**
    ([Recommended Apps](Architecture-Applications.md#recommended-apps)), only
-   when online: all on, each with a switch to leave it out; **Install**
-   installs those kept.
+   when online: all on, each with a switch to leave it out.
 4. **Optional downloads** ([Extras](#extras)): only when online, with something
-   to download, for administrators: all on, each with a switch to leave it out;
-   **Download** starts those kept.
-5. **Getting around**: Super for Apps, workspaces, moving between windows,
+   to download, for administrators: all on, each with a switch to leave it out.
+5. **Installing**: only when something was chosen. Steps 2 to 4 only record
+   the choices; this step adds them all to the [queue](#downloads), the
+   browser to be the person's default, and shows how each goes. **Back**
+   cancels what has not finished. **Next** waits until everything is in, and
+   offers **Try again** for what failed.
+6. **Getting around**: Super for Apps, workspaces, moving between windows,
    and Super+/ for every shortcut.
 
-The browser, the apps, and the extras go on if Welcome closes; the last step says
-what is still installing or what failed.
+**Skip all** ends Welcome on any step, and what is installing goes on;
+nothing blocks the desktop. Once finished or skipped, Welcome doesn't open
+again on its own; Settings > Account opens it again.
 
-Every step can be skipped, and nothing blocks the desktop. Once finished or
-skipped, Welcome doesn't open again on its own; Settings > Account opens it
-again.
+If Welcome closes without the computer having been online, so without the
+browser and apps steps, the first time it is online afterwards a notification
+says **Finish setting up**. Opening it opens Welcome at the browser step;
+dismissing it ends it. It appears once.
 
 ## Future design
 

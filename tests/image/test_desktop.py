@@ -30,6 +30,7 @@ def test_desktop_command_is_installed(host, command):
         "/usr/libexec/desktop/app-install",
         "/usr/libexec/desktop/app-catalog",
         "/usr/libexec/desktop/app-remove",
+        "/usr/libexec/desktop/downloads",
     ],
 )
 def test_desktop_helper_is_python(host, path):
@@ -155,6 +156,10 @@ def test_image_viewer_opens_tiff(host):
 
 def test_apps_update_daily(host):
     assert host.file("/usr/lib/systemd/user/timers.target.wants/app-update.timer").is_symlink
+
+
+def test_unfinished_downloads_go_on_at_sign_in(host):
+    assert host.file("/usr/lib/systemd/user/graphical-session.target.wants/downloads.service").is_symlink
 
 
 def test_system_update_check_is_installed(host):

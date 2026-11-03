@@ -205,6 +205,11 @@ PanelWindow {
             { label: "Apps", detail: "Find, install, and remove apps", value: "Open",
               open: () => window.show("apps") },
         ] },
+        // Its page is its own (DownloadsPage.qml); the row is for the search.
+        { id: "downloads", name: "Downloads", own: true, icon: "M8 2v8.4M4.6 7l3.4 3.4L11.4 7M2.6 13.4h10.8", rows: [
+            { label: "Downloads", detail: "What is downloading and installing: apps, browsers, and optional downloads",
+              value: "Open", open: () => window.show("downloads") },
+        ] },
         { id: "updates", name: "Updates", icon: "M13 8a5 5 0 1 1-1.5-3.6M11.8 1.8v2.8H9", rows: [
             { label: "System", detail: Account.system, value: OsUpdate.describe(OsUpdate.version) },
             { label: "System updates", detail: OsUpdate.stateText,
@@ -224,7 +229,7 @@ PanelWindow {
         ["account", "assistant", "language", "time"],
         ["desktop", "shell", "windows"],
         ["display", "pointing", "network", "sound"],
-        ["apps", "updates"],
+        ["apps", "downloads", "updates"],
     ]
     // The pages: their title, and the section they belong to.
     readonly property var pages: ({
@@ -599,6 +604,11 @@ PanelWindow {
 
                 AppPage {
                     visible: window.page === "app"
+                    width: parent.width
+                }
+
+                DownloadsPage {
+                    visible: window.page === "" && !window.query && window.section.id === "downloads"
                     width: parent.width
                 }
 

@@ -1,7 +1,8 @@
 // The store of Settings > Apps: the apps installed, those on offer, and what
-// is being installed or removed, which goes on, one at a time, if Settings
-// closes. The work is out of the shell's process: apps/app-catalog reads,
-// apps/app-install installs, and apps/app-remove removes.
+// is being installed or removed, through the one queue (Downloads.qml), which
+// goes on if Settings closes. The work is out of the shell's process:
+// apps/app-catalog reads, and the queue's apps/app-install and apps/app-remove
+// install and remove.
 pragma Singleton
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -31,11 +32,26 @@ Singleton {
     // The app whose details show, with whether they have come.
     property var shown: ({})
     property bool shownLoading
-    // What is under way, by app id: { action: "install" or "remove", note,
-    // error }; and what waits, as { id, action, deleteData }.
-    property var work: ({})
-    property var queue: []
-    property string working
+    // What is under way or failed, by app id, from the queue: { action:
+    // "install" or "remove", note, error }.
+    readonly property var work: {
+        const byId = {};
+        for (const job of Downloads.jobs) {
+            if (job.kind !== "app")
+                continue;
+            if (job.state === "queued")
+                byId[job.target] = { action: job.action, note: "Waiting" };
+            else if (job.state === "running")
+                byId[job.target] = { action: job.action, note: job.percent > 0 ? `${job.note} ${job.percent}%` : job.note };
+            else if (job.state === "failed")
+                byId[job.target] = { action: job.action, note: "", error: job.error };
+        }
+        for (const key of Downloads.pending) {
+            if (key.startsWith("app:"))
+                byId[key.slice("app:".length)] = { action: "install", note: "Waiting" };
+        }
+        return byId;
+    }
 
     // The helpers: the source tree's in development (make run), otherwise the
     // installed ones.
@@ -102,50 +118,27 @@ Singleton {
         details.running = true;
     }
 
-    function setWork(id: string, entry: var) {
-        const next = Object.assign({}, work);
-        if (entry)
-            next[id] = entry;
-        else
-            delete next[id];
-        work = next;
-    }
-
-    function enqueue(id: string, action: string, deleteData: bool) {
-        if (work[id] && !work[id].error)
-            return;
-        setWork(id, { action, note: "Waiting" });
-        queue = [...queue, { id, action, deleteData }];
-        runNext();
+    // An app's name, for the queue, from what lists it.
+    function nameOf(id: string): string {
+        return [shown, ...found, ...installed].find(a => a?.id === id)?.name ?? id;
     }
 
     function install(id: string) {
-        enqueue(id, "install", false);
+        Downloads.add("app", "install", id, nameOf(id), false);
     }
 
     function remove(id: string, deleteData: bool) {
-        enqueue(id, "remove", deleteData);
+        Downloads.add("app", "remove", id, nameOf(id), deleteData);
     }
 
-    function runNext() {
-        if (worker.running || queue.length === 0)
-            return;
-        const next = queue[0];
-        queue = queue.slice(1);
-        working = next.id;
-        setWork(next.id, { action: next.action, note: next.action === "install" ? "Installing" : "Removing" });
-        worker.command = next.action === "install"
-            ? [helper("app-install"), "apps", next.id]
-            : [helper("app-remove"), next.id, ...(next.deleteData ? ["--delete-data"] : [])];
-        worker.running = true;
-    }
+    // The list shows what is true once the queue's work on an app ends.
+    Connections {
+        target: Downloads
 
-    function heard(line: string) {
-        const message = JSON.parse(line);
-        if (message.done !== undefined)
-            setWork(working, null);
-        else if (message.error !== undefined)
-            setWork(working, Object.assign({}, work[working], { error: message.error }));
+        function onEnded(job: var) {
+            if (["app", "browser", "update"].includes(job.kind))
+                lister.running = true;
+        }
     }
 
     Timer {
@@ -226,23 +219,6 @@ Singleton {
                 }
                 apps.shownLoading = false;
             }
-        }
-    }
-    Process {
-        id: worker
-        stdout: SplitParser {
-            onRead: line => apps.heard(line)
-        }
-        // It ends having said how it went, unless it stopped; the list then
-        // shows what is true, and the next starts.
-        onRunningChanged: {
-            if (running)
-                return;
-            if (apps.work[apps.working] && !apps.work[apps.working].error)
-                apps.setWork(apps.working, Object.assign({}, apps.work[apps.working], { error: "It stopped before it finished" }));
-            apps.working = "";
-            lister.running = true;
-            apps.runNext();
         }
     }
 }

@@ -35,6 +35,8 @@ ShellRoot {
     // The connection agent registers with NetworkManager and BlueZ from the
     // start, before they ask.
     readonly property string connectionAgent: Connectivity.agentPath
+    // Welcome's reminder waits for the network from the start.
+    readonly property bool setupReminder: SetupReminder.waiting
     // Keyboard shortcuts reach the shell from the start.
     readonly property string shortcuts: Shortcuts.listOn
 

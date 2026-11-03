@@ -1,0 +1,13 @@
+# Goes on, at sign-in, with what a logout or restart stopped in the downloads
+# queue (downloads/downloads); with nothing left, it ends at once.
+[Unit]
+Description=Unfinished downloads
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=exec
+ExecStart=/usr/libexec/desktop/downloads run
+
+[Install]
+WantedBy=graphical-session.target

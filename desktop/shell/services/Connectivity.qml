@@ -42,6 +42,16 @@ Singleton {
     property var joins: ({})
     property var pairs: ({})
 
+    // Asks NetworkManager whether it reaches the internet: it answers with
+    // its connectivity, "uint32 4" when full.
+    readonly property list<string> onlineQuery: ["gdbus", "call", "--system", "--dest", "org.freedesktop.NetworkManager",
+        "--object-path", "/org/freedesktop/NetworkManager", "--method", "org.freedesktop.DBus.Properties.Get",
+        "org.freedesktop.NetworkManager", "Connectivity"]
+
+    function online(answer: string): bool {
+        return /uint32 4\b/.test(answer);
+    }
+
     // The agent: the source tree's in development (make run), otherwise the
     // installed one.
     readonly property string agentPath: Quickshell.env("DESKTOP_SHELL")

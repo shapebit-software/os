@@ -49,8 +49,11 @@ Flatpak adds by itself on first use.
 **Settings > Apps** ([Desktop](Architecture-Desktop.md#settings)) is a store that
 opens on all apps, verified ones first, with a search and categories, and can
 show only the installed. It installs and removes them in the person's own
-Flatpak installation. It is drawn by the shell; separate helper
-programs do the work, so a failure there can't take the shell down. Searches
+Flatpak installation, through the desktop's one queue of downloads, which
+Settings > Downloads shows with each install's progress
+([Desktop](Architecture-Desktop.md#downloads)). It is drawn by the shell;
+separate helper programs do the work, so a failure there can't take the shell
+down. Searches
 run on Flathub's catalogue as Flatpak downloads it, on the computer, so what
 someone looks for isn't sent anywhere; an app's screenshots come from Flathub
 when its details open.
@@ -84,7 +87,7 @@ browser from:
 3. Firefox
 4. GNOME Web
 
-Nothing is preselected, and the step can be skipped, including while offline.
+Nothing is preselected, and none has to be; offline, the step is left out.
 The chosen browser installs into that user's Flatpak installation and becomes
 their default.
 

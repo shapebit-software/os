@@ -96,8 +96,11 @@ password again asks the host's desktop.
 
 Welcome opens until it is finished or skipped (`welcomed` in
 `~/.config/desktop/settings.json`), and Settings > Account opens it again.
-Its **Install** (`apps/app-install`) installs the browser and the apps into the
-host account's own Flatpak installation for real and makes it the default.
+Its **Installing** step, Settings > Apps, and Settings > Downloads go through
+the queue (`downloads/downloads`), which runs its jobs with the host's
+`systemd-run --user`: the browser and the apps install into the host
+account's own Flatpak installation for real, and the browser becomes the
+default. Its state is `~/.local/state/desktop/downloads.json`.
 
 Settings > Apps (`apps/app-catalog`, `apps/app-remove`) lists and changes
 the same installation, through Flatpak on the host; without one, it says so.
@@ -120,6 +123,7 @@ listed in its folder's `qmldir`, and a file imports the other folders it uses.
 | `session/`    | The session entry that the login screen starts, the connection agent, and the window button defaults.                    |
 | `portal/`     | The session's portals: the shell's backend, the share picker, and their configuration.                                   |
 | `apps/`       | The helpers of Welcome and Settings > Apps, and the timer that updates the apps.                                         |
+| `downloads/`  | The one queue of downloads and installs, which Settings > Downloads shows, and the unit that resumes it at sign-in.     |
 | `dev/`        | Development only: the session bus of `make run`, and the Portal Tester.                                                    |
 
 ## Not yet implemented

@@ -11,6 +11,7 @@ singleton Compositor Compositor.qml
 singleton Connectivity Connectivity.qml
 singleton Dictation Dictation.qml
 singleton Displays Displays.qml
+singleton Downloads Downloads.qml
 singleton Dragging Dragging.qml
 singleton Extras Extras.qml
 singleton FileChooser FileChooser.qml
@@ -24,6 +25,7 @@ singleton Pointer Pointer.qml
 singleton Portal Portal.qml
 singleton Question Question.qml
 singleton Settings Settings.qml
+singleton SetupReminder SetupReminder.qml
 singleton SharePicker SharePicker.qml
 singleton Shell Shell.qml
 singleton Shortcuts Shortcuts.qml

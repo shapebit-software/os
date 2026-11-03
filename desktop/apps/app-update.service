@@ -1,5 +1,7 @@
 # Updates the person's apps, Chrome included, from the remotes they came from,
-# and removes the runtimes that no app uses any more.
+# and removes the runtimes that no app uses any more: a job in the downloads
+# queue (downloads/downloads), so that it never runs alongside an install,
+# and Settings > Downloads shows it.
 [Unit]
 Description=Update apps
 Wants=network-online.target
@@ -7,5 +9,4 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=flatpak update --user --noninteractive
-ExecStart=flatpak uninstall --user --unused --noninteractive
+ExecStart=/usr/libexec/desktop/downloads add update install apps "App updates"

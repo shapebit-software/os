@@ -1,4 +1,5 @@
 // One item of a bar (ShellBar.qml), by its id in Settings.zones: the clock,
+// the downloads, only while there are any, which opens Settings > Downloads,
 // a status button that opens its panel (the notifications, the microphone,
 // the sound, the
 // brightness, the network, the battery, the input language, the system menu), Apps, the workspaces, or
@@ -41,8 +42,10 @@ Loader {
     }
 
     // The quick actions open from the hot corner instead, if set so; the
-    // brightness shows only with a backlight, and the battery with one.
+    // brightness shows only with a backlight, the battery with one, and the
+    // downloads while there are any.
     active: !(modelData === "quick" && Settings.quickActions === "Hot corner")
+        && !(modelData === "downloads" && !Downloads.busy)
         && !(modelData === "brightness" && !Brightness.available)
         && !(modelData === "battery" && !Battery.available)
     visible: active
@@ -60,6 +63,7 @@ Loader {
 
     sourceComponent: ({
         clock: clock,
+        downloads: downloadsButton,
         notifications: notificationsButton,
         microphone: microphoneButton,
         sound: soundButton,
@@ -116,6 +120,22 @@ Loader {
                     lineHeight: 0.95
                     font { family: Theme.font; pixelSize: 12; weight: Font.DemiBold }
                 }
+            }
+        }
+    }
+
+    Component {
+        id: downloadsButton
+
+        BarButton {
+            tile: item.tile
+            size: item.size
+            onClicked: Settings.open(item.bar.modelData?.name ?? "", "downloads")
+
+            // An arrow down into a tray, in the accent while it works.
+            Icon {
+                color: Theme.accent
+                strokes: "M8 2v8.4M4.6 7l3.4 3.4L11.4 7M2.6 13.4h10.8"
             }
         }
     }

@@ -39,12 +39,14 @@ install: ## Install into DESTDIR
 	install -Dm644 portal/portals.conf $(share)/xdg-desktop-portal/shapebit-portals.conf
 	install -Dm644 -t $(share)/glib-2.0/schemas session/window-buttons.gschema.override
 	install -Dm644 portal/shell.portal $(share)/xdg-desktop-portal/portals/shell.portal
-	install -Dm755 -t $(DESTDIR)$(PREFIX)/libexec/desktop portal/portal portal/share-picker session/connection-agent apps/app-install apps/app-catalog apps/app-remove dictation/dictate dictation/dictate-engine extras/extra
+	install -Dm755 -t $(DESTDIR)$(PREFIX)/libexec/desktop portal/portal portal/share-picker session/connection-agent apps/app-install apps/app-catalog apps/app-remove dictation/dictate dictation/dictate-engine extras/extra downloads/downloads
 	install -Dm644 -t $(share)/desktop/browsers apps/fedora.filter
 	install -Dm644 -t $(share)/desktop extras/extras.json
-	install -Dm644 -t $(DESTDIR)$(PREFIX)/lib/systemd/user apps/app-update.service apps/app-update.timer
+	install -Dm644 -t $(DESTDIR)$(PREFIX)/lib/systemd/user apps/app-update.service apps/app-update.timer downloads/downloads.service
 	install -d $(DESTDIR)$(PREFIX)/lib/systemd/user/timers.target.wants
 	ln -sf ../app-update.timer $(DESTDIR)$(PREFIX)/lib/systemd/user/timers.target.wants/app-update.timer
+	install -d $(DESTDIR)$(PREFIX)/lib/systemd/user/graphical-session.target.wants
+	ln -sf ../downloads.service $(DESTDIR)$(PREFIX)/lib/systemd/user/graphical-session.target.wants/downloads.service
 	install -Dm644 portal/portal.dbus.service $(share)/dbus-1/services/org.freedesktop.impl.portal.desktop.shell.service
 	install -Dm644 portal/xdph.conf $(share)/desktop/portal/hypr/xdph.conf
 	install -Dm644 portal/xdph.service.conf $(DESTDIR)$(PREFIX)/lib/systemd/user/xdg-desktop-portal-hyprland.service.d/10-picker.conf

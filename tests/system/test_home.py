@@ -195,6 +195,16 @@ def test_session_unit_is_active(session, unit):
     assert wait_until(lambda: session.unit_active(unit))
 
 
+def test_session_goes_on_with_unfinished_downloads(session):
+    # It ran at sign-in and, with nothing queued, ended at once and well.
+    def ran():
+        show = session.host.run(f"systemctl --user -M {USER}@ show downloads.service -p ExecMainStartTimestampMonotonic -p Result")
+        values = dict(line.split("=", 1) for line in show.stdout.split())
+        return values.get("ExecMainStartTimestampMonotonic", "0") != "0" and values.get("Result") == "success"
+
+    assert wait_until(ran)
+
+
 def test_session_runs_the_connection_agent(session):
     # It joins networks and pairs devices for the shell.
     assert session.host.run(f"pgrep -u {USER} -f /usr/libexec/desktop/connection-agent").rc == 0

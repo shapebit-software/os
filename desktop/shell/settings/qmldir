@@ -1,6 +1,7 @@
 module qs.settings
 AppPage AppPage.qml
 AppsPage AppsPage.qml
+DownloadsPage DownloadsPage.qml
 ConnectionsPage ConnectionsPage.qml
 DisplayArrangement DisplayArrangement.qml
 ImagePicker ImagePicker.qml
