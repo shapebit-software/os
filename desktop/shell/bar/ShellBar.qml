@@ -24,9 +24,14 @@ PanelWindow {
     readonly property int size: dock ? Theme.stripHeight : 30
     // How far the bar reaches into the screen, where panels open.
     readonly property real depth: dock ? Theme.stripHeight + Theme.gap : Theme.barHeight
-    // The dock's window reaches a gap past the bar toward the screen's
-    // middle, for the maps' layout buttons.
-    readonly property real reach: dock ? Theme.gap : 0
+    // How far the maps' layout buttons stand past the items toward the
+    // screen's middle (WorkspaceMap.qml).
+    readonly property int buttonReach: 10
+    // The window reaches past the bar toward the screen's middle far enough
+    // to hold those buttons, whatever the gap, so the windows there do not
+    // hide them; the dock's reaches at least the gap, where the pointer
+    // moves from a map to its button.
+    readonly property real reach: Math.max(dock ? Theme.gap : 0, buttonReach - (depth - zones.inset - size))
 
     // Opens a panel beside one of the bar's items.
     function open(panel: string, item: Item) {
@@ -63,11 +68,14 @@ PanelWindow {
     Component.onCompleted: Shell.bars = [...Shell.bars, window]
     Component.onDestruction: Shell.bars = Shell.bars.filter(b => b !== window)
 
-    // The system bar's fill: glass, which the compositor blurs, a solid
-    // color, or none.
+    // The system bar's fill, as deep as the bar: glass, which the compositor
+    // blurs, a solid color, or none.
     Rectangle {
         id: fill
-        anchors.fill: parent
+        x: window.edge === "Right" ? window.width - width : 0
+        y: window.edge === "Bottom" ? window.height - height : 0
+        width: window.vertical ? window.depth : window.width
+        height: window.vertical ? window.height : window.depth
         visible: !window.dock
         color: Theme.barFill
     }
@@ -124,12 +132,13 @@ PanelWindow {
         }
     }
 
-    // The space toward the screen's middle along the dock.
+    // The gap toward the screen's middle along the dock; past it, the
+    // windows take the pointer.
     Item {
         id: reachArea
         x: window.edge === "Left" ? zones.x + zones.width : window.edge === "Right" ? zones.x - width : 0
         y: window.edge === "Top" ? zones.y + zones.height : window.edge === "Bottom" ? zones.y - height : 0
-        width: window.vertical ? window.reach : window.width
-        height: window.vertical ? window.height : window.reach
+        width: window.vertical ? Theme.gap : window.width
+        height: window.vertical ? window.height : Theme.gap
     }
 }

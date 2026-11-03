@@ -309,10 +309,12 @@ Item {
         id: layoutButton
 
         readonly property string edge: map.bar.edge
+        // The bar's window holds this much past the map (ShellBar.qml).
+        readonly property int reach: map.bar.buttonReach
 
         visible: map.windows.length >= 2 && (hover.hovered || buttonHover.hovered) || map.menuOpen
-        x: edge === "Left" ? map.width - width + 10 : edge === "Right" ? -10 : (map.width - width) / 2
-        y: edge === "Bottom" ? -10 : edge === "Top" ? map.height - height + 10 : (map.height - height) / 2
+        x: edge === "Left" ? map.width - width + reach : edge === "Right" ? -reach : (map.width - width) / 2
+        y: edge === "Bottom" ? -reach : edge === "Top" ? map.height - height + reach : (map.height - height) / 2
         width: 32
         height: 18
         radius: 9
