@@ -108,6 +108,11 @@ def test_compositor_shows_no_donation_or_news_windows(host):
     assert "ecosystem = { no_update_news = true, no_donation_nag = true }" in compositor
 
 
+def test_compositor_does_not_move_the_pointer_to_focused_windows(host):
+    compositor = host.file("/usr/share/desktop/compositor/hyprland.lua").content_string
+    assert "cursor = { no_warps = true }" in compositor
+
+
 def test_python_scripts_find_gobject(sh):
     sh("""python3 -c 'import gi; gi.require_version("Gio", "2.0"); from gi.repository import Gio, GLib'""")
 

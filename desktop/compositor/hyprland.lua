@@ -71,6 +71,11 @@ hl.config({
     -- over them, as on macOS.
     input = { follow_mouse = 2 },
 
+    -- The pointer stays where the person left it. Hyprland otherwise moves
+    -- it to the middle of a window focused by a key or by the shell, such as
+    -- a tab of Tabs or a strip of Accordion.
+    cursor = { no_warps = true },
+
     -- Hyprland's own windows, which ask for donations and announce new
     -- versions, are not part of the desktop. The image updates Hyprland.
     ecosystem = { no_update_news = true, no_donation_nag = true },
