@@ -37,10 +37,11 @@ def test_initramfs_carries_the_splash(sh):
     assert f"{THEME[1:]}/watermark.png" in files
 
 
-def test_login_screen_takes_the_screen_from_the_splash(sh):
+def test_login_screen_takes_the_screen_from_the_splash(host):
     # plymouth-quit.service would clear the screen before the greeter draws.
-    assert "plymouth-quit.service" in sh("systemctl show -p Conflicts --value sddm.service").split()
-    assert "quit --retain-splash" in sh("systemctl show -p ExecStartPost --value sddm.service")
+    unit = host.file("/usr/lib/systemd/system/sddm.service.d/10-splash.conf").content_string.splitlines()
+    assert "Conflicts=plymouth-quit.service" in unit
+    assert "ExecStartPost=-/usr/bin/plymouth quit --retain-splash" in unit
 
 
 def test_desktop_starts_on_the_splash_color(host):
