@@ -19,6 +19,22 @@ def geometry():
     return sorted((c["at"][0], c["at"][1], c["size"][0], c["size"][1]) for c in clients if c["mapped"])
 
 
+def clicks_stay(layout):
+    """Clicks on the window Tabs or Accordion shows reach it, not a window it
+    hides: before, every second click showed another window."""
+    workspace = sut.hyprctl_json("activeworkspace")["id"]
+    sut.as_owner(f"""hyprctl --instance 0 dispatch 'function() layouts.set({workspace}, "{layout}") end'""")
+    sut.wait_for(lambda: sut.hyprctl_json("activewindow").get("address"), 30)
+    wait_still_screen(1)
+    shown = sut.hyprctl_json("activewindow")
+    middle = (shown["at"][0] + shown["size"][0] // 2, shown["at"][1] + shown["size"][1] // 2)
+    for _ in range(3):
+        mouse_set(*middle)
+        mouse_click()
+        wait_still_screen(1)
+        assert sut.hyprctl_json("activewindow")["address"] == shown["address"], layout
+
+
 def run(self):
     for _ in range(2):
         sut.as_owner("""hyprctl --instance 0 dispatch 'hl.dsp.exec_cmd("nautilus --new-window")'""")
@@ -35,6 +51,8 @@ def run(self):
     after = geometry()
     # Rows: one above the other, at the same place across.
     assert after[0][0] == after[1][0] and after[0][1] != after[1][1], after
+    for layout in ("tabs", "accordion"):
+        clicks_stay(layout)
     send_key("super-q")
     send_key("super-q")
     sut.wait_for(lambda: geometry() == [], 30)

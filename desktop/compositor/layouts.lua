@@ -10,8 +10,8 @@
 -- fill the cells in the order they opened, the first in the active cell, so a
 -- window keeps its place when focus moves. Columns without windows go away,
 -- and windows beyond the cells join the last column. Tabs and Accordion show
--- the focused window and hide the others behind it; the shell draws a tab
--- bar above it, or a folded strip beside it for each of the others
+-- the focused window and keep the others off the screens; the shell draws a
+-- tab bar above it, or a folded strip beside it for each of the others
 -- (WindowTabs.qml).
 
 local layouts = {}
@@ -149,12 +149,67 @@ local function boxFor(area, rect)
     return { x = rect.x - left, y = rect.y - top, w = rect.w + left + right, h = rect.h + top + bottom }
 end
 
--- Places the shown window in a box, and the others behind it.
+-- Tabs and Accordion keep the windows they do not show off every screen, at
+-- the shown window's size. Behind it they would take its clicks: Hyprland
+-- gives a click to the first tiled window under the pointer in its stacking
+-- order, and moves the clicked window to the end of that order.
+-- Leaving and coming back must not animate, so hidden windows have Hyprland's
+-- no_anim, and the shown one its animations. set_prop places windows again,
+-- so it waits until the placing is done (apply): a window stays behind the
+-- shown one until it has no_anim, and loses it after it is back.
+local still, pending, applying = {}, {}, nil
+
+local function apply()
+    -- Placing again asks anew, into a new list.
+    local asked = pending
+    pending, applying = {}, nil
+    for address, on in pairs(asked) do
+        still[address] = on or nil
+        hl.dispatch(hl.dsp.window.set_prop({ prop = "no_anim", value = on and "1" or "unset", window = "address:" .. address }))
+    end
+end
+
+-- Asks for a window to have no_anim, or to lose it, once the placing is done.
+local function want(window, on)
+    if not window then return end
+    if (still[window.address] or false) == on then
+        pending[window.address] = nil
+        return
+    end
+    pending[window.address] = on
+    applying = applying or hl.timer(apply, { timeout = 1, type = "oneshot" })
+end
+
+hl.on("window.close", function(window)
+    still[window.address], pending[window.address] = nil, nil
+end)
+
+-- A box to the right of every screen whose window has the size of one in a
+-- box on the area: place() takes half the gap off both of its sides, which
+-- are on no area's edge. Monitor sizes are in pixels; the larger side covers
+-- a rotated or scaled one.
+local function offScreen(area, box)
+    local half = hl.get_config("general.gaps_in").top
+    local right = box.x + box.w
+    for _, monitor in ipairs(hl.get_monitors()) do
+        right = math.max(right, monitor.x + math.max(monitor.width, monitor.height))
+    end
+    local width = box.w + 2 * half - (box.x > area.x and half or 0) - (box.x + box.w < area.x + area.w and half or 0)
+    return { x = right + box.w, y = box.y, w = width, h = box.h }
+end
+
+-- Places the shown window in a box, and the others off the screens.
 local function showOnly(ctx, shown, box)
+    local away = offScreen(ctx.area, box)
     for _, target in ipairs(ctx.targets) do
-        if target ~= shown then target:place(box) end
+        if target ~= shown then
+            local window = target.window
+            target:place(window and still[window.address] and away or box)
+            want(window, true)
+        end
     end
     shown:place(box)
+    want(shown.window, false)
 end
 
 -- The target with the focused window, or the workspace's last focused one.
@@ -227,6 +282,7 @@ for _, name in ipairs(layouts.names) do
                 local template = templates[name]
                 if name == "grid" and #ctx.targets <= 2 then template = gridOfTwo end
                 placed = placeTemplate(ctx, template, workspace, name)
+                for _, target in ipairs(ctx.targets) do want(target.window, false) end
             end
             if workspace then
                 local windows = {}
@@ -335,14 +391,11 @@ function layouts.report()
 end
 
 -- Tabs and Accordion follow focus, which does not place windows again by
--- itself. The shown window goes first among the windows, where the compositor
--- looks for the one under the pointer, so clicks reach it and not one hidden
--- behind it.
+-- itself.
 hl.on("window.active", function()
     local workspace = hl.get_active_workspace()
-    if workspace and (layouts.of(workspace.id) == "tabs" or layouts.of(workspace.id) == "accordion") then
+    if workspace and special[layouts.of(workspace.id)] then
         hl.dispatch(hl.dsp.layout("refresh"))
-        hl.dispatch(hl.dsp.window.alter_zorder({ mode = "bottom" }))
     end
 end)
 
