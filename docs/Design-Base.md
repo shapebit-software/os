@@ -28,7 +28,7 @@ GPT
 ```
 
 > **Goal, not built:** ShapeBit's own shim in place of Fedora's
-> ([Boot Trust](Architecture-Lifecycle.md#boot-trust)), and a minimal signed
+> ([Boot Trust](Design-Lifecycle.md#boot-trust)), and a minimal signed
 > recovery UKI.
 
 Machine configuration in `/etc` stays with the system: each release keeps its
@@ -38,7 +38,7 @@ Homes live in `@people` rather than `@machine` on purpose: a reset can wipe
 the computer's state and still leave the homes untouched.
 
 Each home is encrypted again, with its owner's password
-([Security](Architecture-Security.md)).
+([Security](Design-Security.md)).
 
 ## Home Storage
 

@@ -23,4 +23,4 @@ a single hardware fault could lock the owner out of their own data for
 good. The recovery key guarantees there's always a way back in, independent
 of the TPM.
 
-For the TPM unlock policy, see [Security](Architecture-Security.md).
+For the TPM unlock policy, see [Security](Design-Security.md).

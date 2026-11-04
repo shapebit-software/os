@@ -32,4 +32,4 @@ with the TPM after every release.
 
 PCR 0, 2, and 14 are **not** checked by the default policy.
 
-If the TPM path fails, the recovery key is required; see [Recovery](Architecture-Recovery.md).
+If the TPM path fails, the recovery key is required; see [Recovery](Design-Recovery.md).

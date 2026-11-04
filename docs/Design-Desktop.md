@@ -110,7 +110,7 @@ turn off after their own idle time.
 Settings is part of the shell and has only what works: **Account**,
 **Assistant**, **Language**, **Time**, **Desktop**, **Shell**, **Windows**,
 **Display**, **Mouse**, **Network**, **Sound**, **Apps**
-([Applications](Architecture-Applications.md#installing-apps)),
+([Applications](Design-Applications.md#installing-apps)),
 **Downloads**, and **Updates**, with a search across them. Settings for the
 whole computer, such as the system language and the time zone, ask for an
 administrator's password.
@@ -121,7 +121,7 @@ sizes across sessions.
 ### Updates
 
 The system updates itself in the background
-([Lifecycle](Architecture-Lifecycle.md#system-updates)). Once an update is
+([Lifecycle](Design-Lifecycle.md#system-updates)). Once an update is
 ready, a notification says so, once, and **Restart** in the system menu reads
 **Restart to update**. Apps update daily; a running app gets its update the
 next time it opens.
@@ -183,9 +183,9 @@ didn't:
 
 1. **Network**, only if the computer was offline when Welcome opened.
 2. **Browser**, only when online
-   ([Internet Browsers](Architecture-Applications.md#internet-browsers)).
+   ([Internet Browsers](Design-Applications.md#internet-browsers)).
 3. **Recommended apps**, only when online
-   ([Recommended Apps](Architecture-Applications.md#recommended-apps)).
+   ([Recommended Apps](Design-Applications.md#recommended-apps)).
 4. **Optional downloads** ([Extras](#extras)), only when online, for
    administrators.
 5. **Installing**, which queues what was chosen and shows how it goes.

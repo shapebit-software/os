@@ -119,4 +119,4 @@ screen opens. After you sign in, **Welcome** connects you to the network and
 offers a browser and apps.
 
 If the PC ever asks for a passphrase at startup, type the recovery key
-([Recovery](Architecture-Recovery.md)).
+([Recovery](Design-Recovery.md)).

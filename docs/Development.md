@@ -1,4 +1,4 @@
-# Developer Guide
+# Development
 
 How the [os repository](https://github.com/shapebit-software/os) builds the image and the
 installer medium, installs them, and what the result does. To run the commands, see its
@@ -16,7 +16,7 @@ key once (`release.key`, `release.crt`, named ShapeBit), which a build uses with
 `SIGNING_KEY=release`; builds never generate it. The Candidate workflow
 restores it from its `RELEASE_KEY` secret, so that installed systems update
 across builds; the checks of pushes and pull requests sign with a throwaway
-development key ([Signing](Architecture-Lifecycle.md#signing)).
+development key ([Signing](Design-Lifecycle.md#signing)).
 
 1. [Containerfile](https://github.com/shapebit-software/os/blob/main/image/Containerfile) builds the system: signed systemd-boot, the
    certificate to enroll, systemd-homed login support, the

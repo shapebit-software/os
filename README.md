@@ -77,10 +77,10 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 
 ## Documentation
 
-- [Architecture](docs/Architecture.md)
-- [User Guide](docs/User-Guide.md): [installing](docs/Install.md) and
+- [Design](docs/Design.md)
+- [Guide](docs/Guide.md): [installing](docs/Install.md) and
   [shortcuts](docs/Shortcuts.md).
-- [Developer Guide](docs/Developer-Guide.md): how the image, medium, and disk
+- [Development](docs/Development.md): how the image, medium, and disk
   are made, boot and update, installing on real hardware, development access,
   and what is not implemented yet; [Testing](docs/Testing.md).
 

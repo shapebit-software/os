@@ -17,7 +17,7 @@ Screenshots and screen recording belong to the shell, not to an app.
 
 ## Recommended Apps
 
-On first login, Welcome ([Desktop](Architecture-Desktop.md#welcome)) offers
+On first login, Welcome ([Desktop](Design-Desktop.md#welcome)) offers
 these apps from Flathub, all on, each with a switch to leave it out:
 
 - **Terminal** (Ptyxis)
@@ -36,7 +36,7 @@ editors, and browsers are installed separately.
 **Settings > Apps** is the app store: all apps, verified ones first, with a
 search, categories, and a view of the installed ones. Apps install into the
 person's own account, through the desktop's one
-[queue of downloads](Architecture-Desktop.md#downloads). Searches run on the
+[queue of downloads](Design-Desktop.md#downloads). Searches run on the
 computer, on the catalogue Flatpak downloads, so what someone looks for isn't
 sent anywhere.
 
@@ -48,7 +48,7 @@ Apps is to show two sources; today it shows Flathub:
 
 - **Flathub**, for third-party apps.
 - The **OS repository**, for apps and integration that ShapeBit builds
-  ([Distribution](Architecture-Lifecycle.md#distribution)). Not built yet.
+  ([Distribution](Design-Lifecycle.md#distribution)). Not built yet.
 
 The OS repository never stores or redistributes a third party's binaries;
 those come from Flathub or the vendor. Other Flatpak remotes are possible, as

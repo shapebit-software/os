@@ -56,7 +56,7 @@ validating → preparing → creating-storage → installing-system → configur
 - **validating** and **preparing** check the plan and gather inputs. Nothing
   changes yet, and **Cancel** works.
 - **creating-storage** erases the disk and creates the
-  [disk layout](Architecture-Base.md#disk-layout). The confirmation is what
+  [disk layout](Design-Base.md#disk-layout). The confirmation is what
   allows this step.
 - **installing-system** writes the system and its signed boot files.
 - **configuring** creates the first owner and their encrypted home, and
