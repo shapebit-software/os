@@ -77,13 +77,12 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 
 ## Documentation
 
-- [Installing ShapeBit](docs/Install.md): write the installer to a USB drive
-  and install.
-- [Building](docs/Building.md): how the image, medium, and disk are made, boot and
-  update, installing on real hardware, development access, and what is not
-  implemented yet.
-- [Testing](docs/Testing.md)
 - [Architecture](docs/Architecture.md)
+- [User Guide](docs/User-Guide.md): [installing](docs/Install.md) and
+  [shortcuts](docs/Shortcuts.md).
+- [Developer Guide](docs/Developer-Guide.md): how the image, medium, and disk
+  are made, boot and update, installing on real hardware, development access,
+  and what is not implemented yet; [Testing](docs/Testing.md).
 
 ## Project links
 

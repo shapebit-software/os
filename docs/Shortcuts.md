@@ -1,4 +1,4 @@
-# Keyboard Shortcuts
+# Shortcuts
 
 **Super** is the Windows key (⌘ on Apple keyboards). **Super+/** shows all
 shortcuts on a picture of the keyboard.

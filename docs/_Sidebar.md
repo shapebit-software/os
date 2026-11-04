@@ -1,8 +1,6 @@
 ## ShapeBit Docs
 
 - [Introduction](Home.md)
-- [Installing ShapeBit](Install.md)
-- [Keyboard Shortcuts](Keyboard-Shortcuts.md)
 - [Vision](Vision.md)
 - [Architecture](Architecture.md)
   - [Base System](Architecture-Base.md)
@@ -12,7 +10,9 @@
   - [Recovery](Architecture-Recovery.md)
   - [Applications](Architecture-Applications.md)
   - [Desktop](Architecture-Desktop.md)
-- [Building](Building.md)
-- [Development](Development.md)
-- [Testing](Testing.md)
+- [User Guide](User-Guide.md)
+  - [Installing](Install.md)
+  - [Shortcuts](Shortcuts.md)
+- [Developer Guide](Developer-Guide.md)
+  - [Testing](Testing.md)
 - [License](License.md)

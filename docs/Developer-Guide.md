@@ -1,8 +1,9 @@
-# Building
+# Developer Guide
 
 How the [os repository](https://github.com/shapebit-software/os) builds the image and the
 installer medium, installs them, and what the result does. To run the commands, see its
-[README](https://github.com/shapebit-software/os#usage).
+[README](https://github.com/shapebit-software/os#usage). How it is tested is in
+[Testing](Testing.md).
 
 ## Build
 
@@ -247,6 +248,22 @@ VM as the systemd credential `ssh.authorized_keys.root`. `make disk` gives the
 installer the first owner, `OWNER_NAME` (default `dev`) with the password in
 `build/owner-password`, and the settings `LOCALE`, `KEYBOARD_LAYOUT`, and
 `TIME_ZONE`. There is no root password.
+
+## Developing on ShapeBit
+
+The immutable host ships with rootless Podman and Distrobox, so you can develop and install tools without touching the base system.
+
+### Containers, not sandboxes
+
+Distrobox exists for convenience and compatibility. It is **not** a security sandbox.
+
+### Default container image
+
+New containers start from the Fedora image matching the Fedora major version of your OS base.
+
+### What's next
+
+A dedicated ShapeBit OS development image is planned for a future release.
 
 ## Not yet implemented
 

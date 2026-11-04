@@ -66,7 +66,7 @@ notifications all the same.
 ### Keyboard
 
 Every action has a shortcut, and **Super+/** shows them all on a picture of
-the keyboard. The list is in [Keyboard Shortcuts](Keyboard-Shortcuts.md).
+the keyboard. The list is in [Shortcuts](Shortcuts.md).
 Shortcuts work by the position of the key, whatever the layout; on the lock
 screen only the sound, media, and brightness keys work.
 
