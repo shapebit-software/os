@@ -9,15 +9,13 @@ says so.
 
 - [Base System](Design-Base.md) — supported hardware, disk layout, and home
   storage.
-- [Installation](Design-Installation.md) — the installer's parts, disk
-  selection, secrets, and installation verification.
 - [System Lifecycle](Design-Lifecycle.md) — signing, boot trust, release
   channels, distribution, updates, rollback, and release withdrawal.
 - [Security](Design-Security.md) — disk encryption and the TPM unlock
   policy.
 - [Recovery](Design-Recovery.md) — the recovery key and when it is needed.
-- [Applications](Design-Applications.md) — built-in apps, third-party app
-  installation, browsers, and AppImage.
 - [Desktop Environment](Design-Desktop.md) — the session, bars,
   workspaces and windows, dictation, the assistant, Settings, and Welcome as
   built; the future design of menus, the Shelf, and voice and gaze input.
+- [Applications](Design-Applications.md) — built-in apps, third-party app
+  installation, browsers, and AppImage.
