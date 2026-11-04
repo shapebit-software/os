@@ -81,7 +81,14 @@ RUN dnf -y install nautilus glycin-thumbnailer gst-thumbnailers && dnf clean all
     rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf
 
 # os-update.timer checks for system updates (rootfs/usr/lib/systemd/system).
-RUN systemctl set-default graphical.target && systemctl preset os-update.timer
+# The base image's own timers are masked: rpm-ostree-countme reports to
+# Fedora that this computer exists, and bootc-fetch-apply-updates installs
+# updates and restarts by itself, which os-update does instead. Both now skip
+# themselves, since they need /run/ostree-booted, which a composefs system
+# lacks; masking keeps them off if that changes. bootc enables its timer in
+# /usr, which a preset cannot undo.
+RUN systemctl set-default graphical.target && systemctl preset os-update.timer && \
+    systemctl mask rpm-ostree-countme.timer bootc-fetch-apply-updates.timer
 
 # rsync is how tmt reaches a guest: without it, tmt would build a derived image
 # and test that instead of this one. Nothing built in replaces it.

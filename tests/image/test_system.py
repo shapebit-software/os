@@ -35,6 +35,17 @@ def test_dnf_installs_no_weak_deps(sh):
     assert re.search(r"^install_weak_deps\s*=\s*0$", sh("dnf --dump-main-config"), re.M)
 
 
+def test_dnf_does_not_count_the_computer(sh):
+    values = re.findall(r"^countme\s*=\s*(\S+)$", sh("dnf --dump-repo-config='*'"), re.M)
+    assert values and set(values) == {"0"}
+
+
+@pytest.mark.parametrize("unit", ["rpm-ostree-countme.timer", "bootc-fetch-apply-updates.timer"])
+def test_base_image_timer_is_masked(host, unit):
+    # Counting the computer for Fedora, and updates that restart by themselves.
+    assert host.service(unit).is_masked
+
+
 def test_default_target_is_graphical(sh):
     assert sh("systemctl get-default").strip() == "graphical.target"
 

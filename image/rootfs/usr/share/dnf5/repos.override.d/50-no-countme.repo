@@ -1,0 +1,4 @@
+# dnf does not report to Fedora's mirrors that this computer exists
+# (countme), for any repository. Fedora's repositories turn it on.
+[*]
+countme=0
