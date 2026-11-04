@@ -10,8 +10,8 @@ QtObject {
     readonly property color text: "#e9eaf0"
     readonly property color muted: "#a3a6b1"
     readonly property color faint: "#666a77"
-    readonly property color accent: "#2b7f96"
-    readonly property color link: "#56b8cd"
+    readonly property color accent: "#8f4e82"
+    readonly property color link: "#cf95c1"
     readonly property color danger: "#b23040"
     readonly property color track: "#262933"
 

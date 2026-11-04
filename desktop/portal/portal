@@ -801,8 +801,8 @@ def accent_color():
         chosen = {}
     # The accents' hues, as in shell/services/Settings.qml.
     hues = {"Cyan": 215, "Indigo": 265, "Green": 150, "Amber": 45, "Plum": 335}
-    accent = chosen.get("accent", "Cyan")
-    return oklch(0.52, 0.11, chosen.get("accentHue", 25) if accent == "Custom" else hues.get(accent, 215))
+    accent = chosen.get("accent", "Plum")
+    return oklch(0.52, 0.11, chosen.get("accentHue", 25) if accent == "Custom" else hues.get(accent, 335))
 
 
 class Settings:

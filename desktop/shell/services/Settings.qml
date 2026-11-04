@@ -134,7 +134,7 @@ Singleton {
 
     // The accents' hues, as in the demo (Theme.accent).
     readonly property var accents: ({ "Cyan": 215, "Indigo": 265, "Green": 150, "Amber": 45, "Plum": 335 })
-    readonly property int accentHueShown: accent === "Custom" ? accentHue : accents[accent] ?? 215
+    readonly property int accentHueShown: accent === "Custom" ? accentHue : accents[accent] ?? 335
     readonly property var gapSizes: ({ "Tight": 4, "Normal": 10, "Wide": 18 })
     readonly property int gapSize: gaps === "Custom" ? gapPixels : gapSizes[gaps] ?? 10
 
@@ -214,7 +214,7 @@ Singleton {
         JsonAdapter { // qmllint disable unresolved-type
             id: adapter
 
-            property string accent: "Cyan"
+            property string accent: "Plum"
             property int accentHue: 25
             property string wallpaper: "Dusk"
             property string wallpaperImage: ""
