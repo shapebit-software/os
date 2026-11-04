@@ -17,6 +17,13 @@ def test_boot_shows_the_splash_not_messages():
     assert {"quiet", "splash"} <= set(kargs())
 
 
+def test_serial_console_does_not_turn_the_splash_into_text():
+    # Plymouth shows boot messages instead of its theme when the kernel
+    # console includes a serial port, unless told to ignore it.
+    if any(karg.startswith("console=ttyS") for karg in kargs()):
+        assert "plymouth.ignore-serial-consoles" in kargs()
+
+
 def test_console_background_is_the_splash_color():
     assert {"vt.default_red=0x1f", "vt.default_grn=0x1a", "vt.default_blu=0x3c"} <= set(kargs())
 

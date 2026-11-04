@@ -1,5 +1,5 @@
-"""The first boot of the installed system: the TPM unlocks it with no prompt, and
-the login screen appears."""
+"""The first boot of the installed system: the splash shows the logo, not boot
+messages; the TPM unlocks it with no prompt; and the login screen appears."""
 
 import json
 import sys
@@ -11,6 +11,9 @@ import sut
 
 
 def run(self):
+    # Plymouth shows only messages, without the logo, if a serial console makes
+    # it fall back to text (/usr/lib/bootc/kargs.d/30-splash.toml).
+    assert_screen("boot-splash", 300)
     assert_screen("login-screen", 600)
     sut.wait_for_ssh()
     status = json.loads(sut.run("bootc status --format=json"))

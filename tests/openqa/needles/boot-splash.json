@@ -1,0 +1,15 @@
+{
+  "area": [
+    {
+      "xpos": 480,
+      "ypos": 312,
+      "width": 320,
+      "height": 105,
+      "type": "match"
+    }
+  ],
+  "properties": [],
+  "tags": [
+    "boot-splash"
+  ]
+}

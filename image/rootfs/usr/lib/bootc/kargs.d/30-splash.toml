@@ -1,6 +1,8 @@
 # A boot splash instead of boot messages: Plymouth shows the logo on the
 # screen, and asks there for the recovery key when the TPM cannot unlock.
-# Errors still reach the console. The first entry of the text console's
-# palette, its background, is the splash's night color (#1f1a3c), so the
-# moments between splash, login screen, and desktop show it, not black.
-kargs = ["quiet", "splash", "vt.default_red=0x1f", "vt.default_grn=0x1a", "vt.default_blu=0x3c"]
+# Errors still reach the console. Plymouth falls back to text when the kernel
+# console includes a serial port (10-console.toml) unless told to ignore it.
+# The first entry of the text console's palette, its background, is the
+# splash's night color (#1f1a3c), so the moments between splash, login
+# screen, and desktop show it, not black.
+kargs = ["quiet", "splash", "plymouth.ignore-serial-consoles", "vt.default_red=0x1f", "vt.default_grn=0x1a", "vt.default_blu=0x3c"]

@@ -170,8 +170,10 @@ a spinner from the initramfs on, instead of boot messages
 ([kargs.d/30-splash.toml](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/lib/bootc/kargs.d/30-splash.toml));
 it also asks for the recovery key when the TPM cannot unlock. The theme,
 [image/rootfs/usr/share/plymouth/themes/boot](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/share/plymouth/themes/boot),
-is Fedora's spinner theme with the logo. Errors still reach the console;
-`Esc` shows the messages during boot.
+is Fedora's spinner theme with the logo. Plymouth shows only messages when
+the kernel console includes a serial port, as it does for development, so
+`plymouth.ignore-serial-consoles` tells it to draw on the screen anyway.
+Errors still reach the console; `Esc` shows the messages during boot.
 
 Every step up to the desktop shares the splash's night color, `#1f1a3c`, so
 none shows a black frame: the login screen and the installer take the screen

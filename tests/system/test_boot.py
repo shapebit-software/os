@@ -124,7 +124,9 @@ def test_recovery_subvolume_exists(sh):
 
 
 def test_boot_showed_the_splash(host):
-    assert "splash" in host.file("/proc/cmdline").content_string.split()
+    # Without plymouth.ignore-serial-consoles, the serial console turns the
+    # splash into boot messages.
+    assert {"splash", "plymouth.ignore-serial-consoles"} <= set(host.file("/proc/cmdline").content_string.split())
 
 
 def test_login_screen_took_the_screen_from_the_splash(host):
