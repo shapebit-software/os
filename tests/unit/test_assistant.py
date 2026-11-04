@@ -203,6 +203,8 @@ def test_an_answer_streams_into_a_conversation_that_persists(setup):
     assert reply["state"] == "done" and reply["text"] == "Paris is the capital."
     request = setup.model.requests[0]
     assert request["stream"] is True and request["messages"][0]["role"] == "system"
+    # A question no tool answers gets an answer, not "I can only use tools".
+    assert "from your own knowledge" in request["messages"][0]["content"]
     assert request["messages"][1:] == [{"role": "user", "content": "What is the capital of France?"}]
     assert {t["function"]["name"] for t in request["tools"]} >= {"set_brightness", "get_status", "power_off"}
     setup.stop()
