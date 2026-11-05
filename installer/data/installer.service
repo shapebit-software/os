@@ -4,15 +4,17 @@
 # display and input devices. It takes the screen from the boot splash as the
 # login screen does (sddm.service.d/10-splash.conf in the image): Plymouth lets
 # go of the display and leaves its last picture until cage draws, so
-# plymouth-quit.service, which would clear it, does not run.
+# plymouth-quit.service, which would clear it, does not run. Like Fedora's
+# sddm.service, it stops the console on tty1, agetty or (since Fedora 45)
+# kmscon, which would otherwise keep the display device.
 [Unit]
 Description=Installer
 After=systemd-user-sessions.service installer-backend.service plymouth-start.service plymouth-quit.service
 Wants=installer-backend.service
 Conflicts=plymouth-quit.service
 OnFailure=plymouth-quit.service
-Conflicts=getty@tty1.service
-After=getty@tty1.service
+Conflicts=getty@tty1.service kmsconvt@tty1.service
+After=getty@tty1.service kmsconvt@tty1.service
 
 [Service]
 User=installer
