@@ -1,3 +1,4 @@
 /build/
 /tests/.deps/
 __pycache__/
+.vscode/
