@@ -38,6 +38,31 @@ No. The installer is a disk image (`.img`), not an ISO, and you can't convert
 it to one: renaming the file doesn't work. You don't need an ISO, because
 Rufus and balenaEtcher write the disk image directly.
 
+### Installing in a virtual machine
+
+Virtual machines don't need a USB drive: attach the installer as a disk.
+
+1. Download `installer.img`.
+2. Convert it with [`qemu-img`](https://www.qemu.org/download/) to the
+   format of your virtual machine:
+
+   | Virtual machine | Command |
+   |---|---|
+   | VirtualBox | `qemu-img convert -O vdi installer.img installer.vdi` |
+   | VMware | `qemu-img convert -O vmdk installer.img installer.vmdk` |
+   | Hyper-V | `qemu-img convert -O vhdx installer.img installer.vhdx` |
+
+   QEMU and virt-manager use `installer.img` as it is.
+3. Create the virtual machine with UEFI, Secure Boot, and a TPM 2.0:
+   - **VirtualBox**: *Enable EFI*, *Enable Secure Boot*, and TPM *v2.0*.
+   - **VMware**: UEFI firmware with *Secure Boot*, and a *Trusted Platform
+     Module*.
+   - **Hyper-V**: *Generation 2*, Secure Boot with the *Microsoft UEFI
+     Certificate Authority* template, and *Trusted Platform Module*.
+4. Attach the converted installer and an empty disk of at least 16 GiB, and
+   start from the installer. Continue with [step 4](#4-boot-the-usb-drive-and-accept-shapebits-key).
+   When the installation is done, detach the installer.
+
 ## 3. Prepare the PC
 
 In the PC's firmware settings (often **F2**, **Del**, or **F10** at power-on):
