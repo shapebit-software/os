@@ -13,6 +13,7 @@
 - Monorepo: https://github.com/shapebit-software/os
 - GitHub organization: https://github.com/shapebit-software
 - Website: https://shapebit.software
+- GitHub issues: set the issue type (Bug, Feature, or Task) always.
 
 ## Image
 
