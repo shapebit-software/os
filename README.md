@@ -1,7 +1,7 @@
 # ShapeBit OS
 
 ShapeBit OS is an image-based Linux desktop operating system built on Fedora:
-a [bootc](https://bootc-dev.github.io/bootc/) container built on Fedora bootc 44,
+a [bootc](https://bootc-dev.github.io/bootc/) container built on Fedora bootc 45,
 and the installer medium that installs it to a disk that follows the
 [Base System](https://shapebit.software/docs/) architecture. The system starts
 to a login screen, which opens the [desktop](desktop/).

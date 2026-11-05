@@ -4,7 +4,7 @@
 # Installing to a disk needs a root-capable engine: rootful Podman or Docker.
 ENGINE         ?= sudo podman
 IMAGE          ?= localhost/shapebit-os:dev
-FEDORA_VERSION ?= 44
+FEDORA_VERSION ?= 45
 # Dictation's speech recognition, pinned: whisper.cpp's release and the model
 # repository's commit, each with its file's SHA-256.
 WHISPER_VERSION        ?= 1.9.5

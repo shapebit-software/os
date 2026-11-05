@@ -39,9 +39,11 @@ rtkit
 # (Containerfile), and Parakeet is downloaded (extras/extra).
 pipewire-utils
 wtype
-# Secrets, unlocked by the login password.
-gnome-keyring
-gnome-keyring-pam
+# Secrets (the Secret Service and its portal), unlocked by the login password:
+# SDDM's PAM configuration calls pam_oo7 when it is installed.
+oo7-daemon
+oo7-portal
+pam_oo7
 # The shell's portal, connection agent, app installer, and share picker (portal/, session/, apps/).
 python3-gobject
 # The shell's monospace font.

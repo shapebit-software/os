@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # The shell's portal backend, which xdg-desktop-portal asks for everything an
 # application needs from the desktop but screen sharing and global shortcuts
-# (Hyprland's) and secrets (gnome-keyring's): opening and saving files,
+# (Hyprland's) and secrets (oo7's): opening and saving files,
 # screenshots, opening a file or link with another application, permissions,
 # the person's details, running in the background, launchers, the wallpaper,
 # notifications, keeping the computer awake, and the settings applications

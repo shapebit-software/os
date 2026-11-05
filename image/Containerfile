@@ -4,7 +4,7 @@
 # from it. Signing needs the key as build secrets signing.key and signing.crt, and
 # KEYS_ID, which changes with it.
 # Only signed binaries and public keys reach the image.
-ARG FEDORA_VERSION=44
+ARG FEDORA_VERSION=45
 FROM quay.io/fedora/fedora-bootc:${FEDORA_VERSION} AS system
 
 LABEL org.opencontainers.image.title="ShapeBit OS" \

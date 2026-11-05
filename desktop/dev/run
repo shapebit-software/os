@@ -47,7 +47,7 @@ mkdir -p "$dir/services" "$dir/portals" "$dir/hypr" "$dir/data/applications"
 # The portals and their configuration: the frontend reads both from here,
 # for the desktop name ShapeBit, and finds the Portal Tester's desktop entry.
 cp "$tree/portal/shell.portal" "$dir/portals/"
-for portal in hyprland gnome-keyring; do
+for portal in hyprland oo7-portal; do
   [ ! -e "/usr/share/xdg-desktop-portal/portals/$portal.portal" ] ||
     cp "/usr/share/xdg-desktop-portal/portals/$portal.portal" "$dir/portals/"
 done

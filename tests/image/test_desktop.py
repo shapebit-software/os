@@ -14,7 +14,7 @@ PORTAL_DIR = "/usr/share/xdg-desktop-portal/portals"
     [
         "start-hyprland", "hyprland-dialog", "qs", "grim", "slurp", "wf-recorder", "xdg-user-dir", "wl-copy", "wl-paste",
         "pipewire", "wireplumber", "pipewire-pulse", "upower", "hypridle", "brightnessctl", "clipman",
-        "gnome-keyring-daemon", "flatpak", "distrobox", "pw-record", "pw-play", "wtype", "whisper-cli", "setpriv",
+        "secret-tool", "flatpak", "distrobox", "pw-record", "pw-play", "wtype", "whisper-cli", "setpriv",
     ],
 )  # fmt: skip
 def test_desktop_command_is_installed(host, command):
@@ -44,7 +44,8 @@ def test_desktop_helper_is_python(host, path):
     [
         "/usr/share/desktop/shell/shell.qml",
         f"{PORTAL_DIR}/hyprland.portal",
-        f"{PORTAL_DIR}/gnome-keyring.portal",
+        f"{PORTAL_DIR}/oo7-portal.portal",
+        "/usr/libexec/oo7-daemon",
         "/usr/share/applications/org.gnome.Nautilus.desktop",
         "/usr/share/polkit-1/rules.d/50-os-update.rules",
         "/usr/share/thumbnailers/glycin-image-rs.thumbnailer",
@@ -142,10 +143,15 @@ def test_python_scripts_find_gobject(sh):
     sh("""python3 -c 'import gi; gi.require_version("Gio", "2.0"); from gi.repository import Gio, GLib'""")
 
 
-def test_portals_are_hyprlands_and_gnome_keyrings(host):
+def test_portals_are_hyprlands_and_oo7s(host):
     lines = host.file(PORTALS).content_string.splitlines()
     assert "default=hyprland" in lines
-    assert "org.freedesktop.impl.portal.Secret=gnome-keyring" in lines
+    assert "org.freedesktop.impl.portal.Secret=oo7-portal" in lines
+
+
+def test_only_oo7_offers_the_secret_service(host):
+    # Two providers would race for org.freedesktop.secrets.
+    assert not host.package("gnome-keyring").is_installed
 
 
 @pytest.mark.parametrize(
