@@ -68,7 +68,8 @@ def test_pam_uses_homed(host):
 
 def test_login_unlocks_the_secret_service(host):
     assert host.file("/usr/lib64/security/pam_oo7.so").exists
-    assert host.file("/etc/pam.d/sddm").contains(r"^-session\s+optional\s+pam_oo7.so auto_start")
+    sddm = host.file("/etc/pam.d/sddm").content_string
+    assert re.search(r"^-session\s+optional\s+pam_oo7\.so\s+auto_start", sddm, re.M)
 
 
 def test_no_third_party_repository_left_configured(succeeds):
