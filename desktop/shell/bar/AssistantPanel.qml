@@ -115,7 +115,7 @@ Popout {
                 Text {
                     id: hint
                     anchors { right: clip.left; rightMargin: 6; verticalCenter: parent.verticalCenter }
-                    text: input.text.trim() ? "↵ ask · ⇧↵ sidebar" : ""
+                    text: input.text.trim() ? "↵ ask · ⇧↵ sidebar" : Assistant.model?.where === "online" ? "AI · online" : "AI · on this computer"
                     color: Theme.inkFaint
                     font { family: Theme.mono; pixelSize: 10 }
                 }

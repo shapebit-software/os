@@ -83,7 +83,8 @@ class Extras:
 
     def write_catalog(self, archive_hash=None, unpacked=1000):
         self.catalog.write_text(json.dumps([{
-            "id": "model", "name": "A model", "detail": "For tests", "unpacked": unpacked, "notice": "By someone, under a license",
+            "id": "model", "name": "A model", "detail": "For tests", "unpacked": unpacked,
+            "credits": [{"work": "A model", "by": "someone", "license": "a license", "changes": "made smaller", "url": "https://example.com/model"}],
             "downloads": [
                 {"url": self.server.url("/model.tar.bz2"), "bytes": len(self.archive), "files": ["model/weights.onnx", "model/tokens.txt"],
                  "sha256": archive_hash or hashlib.sha256(self.archive).hexdigest()},
@@ -116,7 +117,8 @@ def test_install_makes_the_named_files_appear_and_nothing_else(extras):
     files = sorted(path.name for path in (extras.place / "model").iterdir())
     assert files == ["NOTICE", "detector.onnx", "tokens.txt", "weights.onnx"]
     assert (extras.place / "model" / "tokens.txt").read_bytes() == b"tokens"
-    assert "under a license" in (extras.place / "model" / "NOTICE").read_text()
+    notice = (extras.place / "model" / "NOTICE").read_text()
+    assert notice == "A model by someone, under a license, made smaller: https://example.com/model\n"
 
 
 def test_install_leaves_no_working_files(extras):
@@ -142,6 +144,7 @@ def test_list_tells_size_and_state(extras):
     assert before["writable"] is True
     assert before["extras"][0]["installed"] is False
     assert before["extras"][0]["bytes"] == len(extras.archive) + len(extras.plain)
+    assert before["extras"][0]["credits"][0]["license"] == "a license"
     extras.run("install", "model")
     assert extras.listed()["extras"][0]["installed"] is True
 
@@ -256,7 +259,10 @@ def test_shipped_catalog_is_complete():
     entries = json.loads((ROOT / "desktop" / "extras" / "extras.json").read_text())
     assert entries
     for extra in entries:
-        assert {"id", "name", "detail", "unpacked", "notice", "downloads"} <= set(extra)
+        assert {"id", "name", "detail", "unpacked", "credits", "downloads"} <= set(extra)
+        for credit in extra["credits"]:
+            assert {"work", "by", "license", "url"} <= set(credit)
+            assert credit["url"].startswith("https://")
         for item in extra["downloads"]:
             assert item["url"].startswith("https://")
             assert len(item["sha256"]) == 64

@@ -1,10 +1,14 @@
 [
   {
     "id": "parakeet",
-    "name": "Live dictation",
-    "detail": "Your words appear as you speak, and stay on this computer. Polish, English, and 23 more languages. Without it, dictation is slower, with no live text.",
+    "name": "Dictation",
+    "detail": "Dictation needs it. Your words appear as you speak, and stay on this computer. Polish, English, and 23 more languages.",
     "unpacked": 672791873,
-    "notice": "Parakeet TDT 0.6B v3 by NVIDIA, under CC BY 4.0, converted to ONNX by sherpa-onnx: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3\nSilero VAD by the silero-vad authors, under the MIT license: https://github.com/snakers4/silero-vad",
+    "credits": [
+      {"work": "Parakeet TDT 0.6B v3", "by": "NVIDIA", "license": "CC BY 4.0", "changes": "converted to ONNX by sherpa-onnx",
+       "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3"},
+      {"work": "Silero VAD", "by": "the silero-vad authors", "license": "MIT", "url": "https://github.com/snakers4/silero-vad"}
+    ],
     "downloads": [
       {
         "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
@@ -30,7 +34,10 @@
     "detail": "Answers questions and changes settings when you ask, on this computer: nothing you type leaves it. Polish, English, and many more languages.",
     "unpacked": 3106738272,
     "memory": 7000000000,
-    "notice": "Gemma 4 E2B by Google, under the Apache License 2.0, converted to GGUF by Unsloth: https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF",
+    "credits": [
+      {"work": "Gemma 4 E2B", "by": "Google", "license": "Apache 2.0", "changes": "converted to GGUF by Unsloth",
+       "url": "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF"}
+    ],
     "downloads": [
       {
         "url": "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/0314792d7f1f7e229411f620751375812bb9faf2/gemma-4-E2B-it-Q4_K_M.gguf",

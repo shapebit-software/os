@@ -35,8 +35,8 @@ rtkit
 # Dictation (dictation/dictate): pw-record hears the microphone. The text goes
 # in as the input method, which needs no package; wtype types it only when the
 # person asks, for applications that do not say if they have a text field.
-# Whisper and sherpa-onnx are not Fedora's: the image builds or fetches them
-# (Containerfile), and Parakeet is downloaded (extras/extra).
+# sherpa-onnx is not Fedora's: the image fetches it (Containerfile), and
+# Parakeet, which it runs, is downloaded (extras/extra).
 pipewire-utils
 wtype
 # Secrets (the Secret Service and its portal), unlocked by the login password:

@@ -97,10 +97,6 @@ PanelWindow {
               selected: systemLocale, select: l => window.localectl(["set-locale", "LANG=" + l]) },
             { label: "Region format", detail: "Dates in the bar and on the lock screen", kind: "choice",
               options: ["US", "UK", "EU"], selected: Settings.regionShown, select: o => Settings.region = o },
-            { label: "Dictation language", detail: "For the keyboard layout in use. Any: 25 languages, live. All: 100, slower, no live text", kind: "choice",
-              options: ["The layout's", "Any", "All"],
-              selected: Dictation.language === "all" ? "All" : Dictation.language === "auto" ? "Any" : "The layout's",
-              select: o => Dictation.chooseLanguage(o === "All" ? "all" : o === "Any" ? "any" : "layout") },
             { label: "Keyboards", value: "Manage", open: () => page = "keyboards",
               detail: `${(Settings.keyboards.length ? Settings.keyboards : Keyboard.layouts).map(k => Keyboard.nameOf(k)).join(", ")} · switch with Super+Space` },
         ] },
@@ -229,6 +225,16 @@ PanelWindow {
               open: () => OsUpdate.checking || OsUpdate.checkNow() },
             { label: "Apps", detail: "Updated automatically every day", kind: "info" },
         ] },
+        // What the system and its downloads are made of, and under which licenses.
+        { id: "licenses", name: "Licenses", icon: "M4 1.8h5.6l2.8 2.8v9.6H4zM9.4 1.8v3h3M6 8h4.4M6 10.6h4.4", rows: [
+            { label: "ShapeBit OS", detail: "PolyForm Shield License 1.0.0. The ShapeBit name and logo are not licensed for reuse",
+              value: "Read", open: () => window.openLink("https://polyformproject.org/licenses/shield/1.0.0") },
+            { label: "Fedora Linux and the other programs", detail: "Each under its own license, such as the GPL, the LGPL, MIT, or Apache 2.0",
+              value: "Open", open: () => window.openLink("file:///usr/share/licenses") },
+            ...Extras.list.flatMap(e => (e.credits ?? []).map(c => ({ label: c.work,
+              detail: `${c.license} · by ${c.by}${c.changes ? `, ${c.changes}` : ""} · ${e.name}, ${e.installed ? "downloaded" : "not downloaded"}`,
+              value: "Source", open: () => window.openLink(c.url) }))),
+        ] },
         { id: "sound", name: "Sound", icon: "M10.8 5.9a3 3 0 0 1 0 4.2M12.7 4.2a5.6 5.6 0 0 1 0 7.6M3 6.2h2.2L8.6 3.4v9.2L5.2 9.8H3z", rows: [
             { label: "Output", detail: Audio.output?.description ?? "No device",
               value: `${Math.round((Audio.output?.audio?.volume ?? 0) * 100)}%` },
@@ -241,7 +247,7 @@ PanelWindow {
         ["account", "assistant", "language", "time"],
         ["desktop", "shell", "windows"],
         ["display", "pointing", "network", "sound"],
-        ["apps", "downloads", "updates"],
+        ["apps", "downloads", "updates", "licenses"],
     ]
     // The pages: their title, and the section they belong to.
     readonly property var pages: ({
@@ -262,6 +268,13 @@ PanelWindow {
 
     function close() {
         Settings.openOn = "";
+    }
+
+    // A web page or a folder, in its application; Settings closes, as it covers
+    // the screen.
+    function openLink(url: string) {
+        close();
+        Qt.openUrlExternally(url);
     }
 
     function show(id: string) {

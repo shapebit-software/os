@@ -60,6 +60,11 @@ Singleton {
     readonly property var extra: Extras.list.find(e => e.id === model?.extra) ?? null
     readonly property var download: extra ? Extras.progress[extra.id] ?? null : null
     readonly property bool ready: model?.ready ?? false
+    // That an AI answers, wherever the assistant is used: people must know (the EU's
+    // AI Act, article 50).
+    readonly property string disclosure: model?.where === "online"
+        ? "Answers come from an online AI model, and can be wrong."
+        : "Answers come from an AI model on this computer, and can be wrong."
 
     function request(fields: var) {
         if (!socket?.connected)

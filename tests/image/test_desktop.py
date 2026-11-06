@@ -14,7 +14,7 @@ PORTAL_DIR = "/usr/share/xdg-desktop-portal/portals"
     [
         "start-hyprland", "hyprland-dialog", "qs", "grim", "slurp", "wf-recorder", "xdg-user-dir", "wl-copy", "wl-paste",
         "pipewire", "wireplumber", "pipewire-pulse", "upower", "hypridle", "brightnessctl", "clipman",
-        "secret-tool", "flatpak", "distrobox", "pw-record", "pw-play", "wtype", "whisper-cli", "setpriv",
+        "secret-tool", "flatpak", "distrobox", "pw-record", "pw-play", "wtype", "setpriv",
     ],
 )  # fmt: skip
 def test_desktop_command_is_installed(host, command):
@@ -61,12 +61,13 @@ def test_dictation_helper_is_installed(host, sh):
     sh("python3 -c 'import ast; ast.parse(open(\"/usr/libexec/desktop/dictate\").read())'")
 
 
-def test_live_dictation_has_its_runtime_but_not_its_models(sh, host):
-    # An engine with no models fails, and dictate leaves it to Whisper; it gets as far
-    # as loading them only with sherpa-onnx and NumPy in place.
+def test_dictation_has_its_runtime_but_no_speech_model(sh, host):
+    # The engine gets as far as loading Parakeet only with sherpa-onnx and NumPy in
+    # place. Speech models are extras, downloaded when the person chooses.
     sh("PYTHONPATH=/usr/lib64/dictation python3 -c 'import numpy, sherpa_onnx'")
     assert host.file("/usr/libexec/desktop/dictate-engine").mode & 0o111
-    assert not host.file("/usr/share/parakeet").exists
+    for path in ("/usr/share/parakeet", "/usr/share/whisper", "/usr/bin/whisper-cli"):
+        assert not host.file(path).exists
 
 
 def test_extras_can_be_downloaded_by_administrators(host, sh):
@@ -99,24 +100,6 @@ def test_llama_server_runs_with_its_own_libraries(sh, host):
     assert "not found" not in sh("ldd /usr/libexec/llama/llama-server")
     assert host.file("/usr/libexec/llama/libggml-cpu-haswell.so").size > 0
     assert host.file("/usr/share/licenses/llama.cpp/LICENSE").size > 0
-
-
-def test_whisper_understands_speech_with_the_shipped_model(sh):
-    # The helper's default model, offline, on the installed libraries.
-    text = sh("whisper-cli -m /usr/share/whisper/ggml-small-q5_1.bin -f /tests/image/speech.wav -l en -nt -np")
-    assert "ask not what your country can do for you" in text
-
-
-def test_whisper_needs_no_build_directory(sh):
-    assert "not found" not in sh("ldd /usr/bin/whisper-cli")
-
-
-def test_whisper_can_use_a_fast_cpu(host):
-    assert host.file("/usr/lib64/whisper/libggml-cpu-haswell.so").size > 0
-
-
-def test_whisper_licenses_are_installed(host):
-    assert host.file("/usr/share/licenses/whisper.cpp/LICENSE").size > 0
 
 
 def test_compositor_configuration_is_valid(sh):

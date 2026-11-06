@@ -144,11 +144,10 @@ listed in its folder's `qmldir`, and a file imports the other folders it uses.
 ## Not yet implemented
 
 - The assistant has no voice yet, and reads no files, windows, or clipboard
-  beyond what it is given. `make run` needs Whisper installed in the development container to
-  dictate, and sherpa-onnx with Parakeet for the live draft
-  (`DICTATION_PYTHON`, `DICTATION_PARAKEET`). The OS image has Whisper and
-  sherpa-onnx; Parakeet is an extra, downloaded from Welcome or Settings > Assistant
-  (`extras/`).
+  beyond what it is given. `make run` needs sherpa-onnx and Parakeet in the
+  development container to dictate (`DICTATION_PYTHON`, `DICTATION_PARAKEET`). The
+  OS image has sherpa-onnx; Parakeet is an extra, downloaded from Welcome or
+  Settings > Assistant (`extras/`).
 - Settings has only what works: no first day of the week.
 - Tabs cannot be dragged.
 - Tile sizes last while the workspace keeps its layout, not across sessions.

@@ -42,7 +42,7 @@ PanelWindow {
 
     // Each browser: { id, name, from }, as the docs list them.
     readonly property var browsers: [
-        { id: "chrome", name: "Google Chrome", from: "From Google, on Flathub" },
+        { id: "chrome", name: "Google Chrome", from: "From Google, on Flathub · Google's terms apply" },
         { id: "chromium", name: "Chromium", from: "From Fedora" },
         { id: "firefox", name: "Firefox", from: "From Mozilla, on Flathub" },
         { id: "epiphany", name: "GNOME Web", from: "From GNOME, on Flathub" },

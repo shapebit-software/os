@@ -15,6 +15,12 @@ def test_os_release_identifies_shapebit(host):
     assert os_release(host)["ID"] == "shapebit"
 
 
+def test_logos_are_not_fedoras(host):
+    # Fedora's logos are its trademarks; generic-logos stands in (image/Containerfile).
+    assert not host.package("fedora-logos").is_installed
+    assert host.package("generic-logos").is_installed
+
+
 def test_image_version_is_build_time(host):
     # A rolling release: when the build started, in UTC (202610301530), or dev;
     # update tests build dev.next and dev.next2, or the same after a build time.

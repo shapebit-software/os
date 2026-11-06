@@ -179,7 +179,7 @@ PanelWindow {
                         visible: Assistant.ready && Assistant.messages.length === 0
                         width: parent.width
                         text: "Ask a question, or ask for a change: the brightness, the volume, Wi-Fi, an app to open. "
-                            + "The assistant shows what it would do before it does it."
+                            + "The assistant shows what it would do before it does it. " + Assistant.disclosure
                         color: Theme.inkFaint
                         wrapMode: Text.Wrap
                         lineHeight: 1.4

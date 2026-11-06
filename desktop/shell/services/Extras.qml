@@ -71,6 +71,15 @@ Singleton {
 
     Component.onCompleted: refresh()
 
+    // For tests that put an extra in place by hand.
+    IpcHandler {
+        target: "extras"
+
+        function refresh(): void {
+            extras.refresh();
+        }
+    }
+
     // What is installed changes as the queue's work ends.
     Connections {
         target: Downloads

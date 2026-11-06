@@ -86,9 +86,9 @@ screen only the sound, media, and brightness keys work.
 
 Dictation starts from its quick action or Super+D and writes into the app the
 person is in; it is separate from the assistant. Speech recognition runs on
-the computer: live, while the person speaks, in 25 languages once its
-[extra](#extras) is downloaded; otherwise in 100 languages once the person
-stops. The language follows the keyboard layout (Settings > Language).
+the computer, live while the person speaks, in any of 25 languages. Its model
+is an [extra](#extras): the image ships no speech model, so dictation works
+once the extra is downloaded, and until then its button leads to the download.
 
 - Text goes straight into the text field only if the same field still has
   the focus when the text is ready, and goes in as text, not keys, so it
@@ -111,7 +111,7 @@ Settings is part of the shell and has only what works: **Account**,
 **Assistant**, **Language**, **Time**, **Desktop**, **Shell**, **Windows**,
 **Display**, **Mouse**, **Network**, **Sound**, **Apps**
 ([Applications](Design-Applications.md#installing-apps)),
-**Downloads**, and **Updates**, with a search across them. Settings for the
+**Downloads**, **Updates**, and **Licenses**, with a search across them. Settings for the
 whole computer, such as the system language and the time zone, ask for an
 administrator's password.
 
@@ -134,6 +134,14 @@ extras, and the daily app updates. One job runs at a time, outside the shell,
 so it goes on if the shell restarts, and what a logout stopped starts again at
 the next sign-in. **Settings > Downloads** shows the queue, where each job can
 be cancelled or tried again; a download goes on where it stopped.
+
+### Licenses
+
+**Settings > Licenses** names the license of ShapeBit OS, opens the license
+texts of Fedora and the other programs in `/usr/share/licenses`, and lists
+each work that an extra holds: who made it, its license, any changes, and a
+link to its source, also before it is downloaded. Each downloaded extra also
+keeps the same in its `NOTICE` file.
 
 ### Extras
 
@@ -175,6 +183,10 @@ A model on the computer and an online one work the same way. The built-in
 model, Gemma 4 E2B, is an [extra](#extras): on by default in Welcome where
 the computer has memory enough, and it runs only while in use. A person can
 add their own models, online ones too, with their keys in the keyring.
+
+The assistant always says that an AI answers, as the EU's AI Act asks
+(article 50): "AI · on this computer" (or "online") beside the empty command
+line, and that answers can be wrong at the start of a conversation.
 
 ### Welcome
 

@@ -3,9 +3,10 @@
 // Its button shows the state (bar/QuickActions.qml). When it is not sure of the
 // place, the text waits in a card to be told where (bar/DictationOverlay.qml).
 // dictation/dictate decides all that; this starts it
-// and shows what it says. It understands the keyboard layout's language, or any,
-// by the person's choice for that layout. Everything runs on the computer, and
-// locking the screen discards everything, the last dictation too.
+// and shows what it says. It understands Parakeet's 25 languages, any of them,
+// once Parakeet is downloaded (Extras.qml); until then, the button leads there.
+// Everything runs on the computer, and locking the screen discards everything,
+// the last dictation too.
 pragma Singleton
 import QtQuick
 import Quickshell
@@ -29,8 +30,6 @@ Singleton {
     property bool quiet
     property bool idle
     property int seconds
-    // Writing it down, in percent.
-    property int progress
     // While the person speaks: the words so far, and those that may still change.
     // Only the overlay shows them; they go nowhere until the stop.
     property string draft
@@ -44,12 +43,14 @@ Singleton {
         const entry = app ? DesktopEntries.heuristicLookup(app) : null;
         return entry?.name ?? app ?? "";
     }
-    // A short message of its own: "No microphone", "Microphone is muted", or
-    // "Didn't catch anything"; shown for a moment.
+    // A short message of its own: "Needs a download", "No microphone",
+    // "Microphone is muted", or "Didn't catch anything"; shown for a moment.
     property string notice
     // What is going on, for the button's tooltip and icon, and for the pill
     // where there is no button.
     readonly property string status: {
+        if (notice === "Needs a download")
+            return "Dictation needs a download · click to get it";
         if (notice === "No microphone")
             return "No microphone · click for Sound settings";
         if (notice === "Microphone is muted")
@@ -59,20 +60,24 @@ Singleton {
         if (state === "failed")
             return retryable ? "It could not be written down" : "Dictation failed";
         if (writing)
-            return progress > 0 ? `Writing it down ${progress}%` : "Writing it down";
+            return "Writing it down";
         if (waiting)
             return "Click to keep talking";
         if (listening) {
             const said = quiet ? "Can't hear you" : idle ? "Still listening" : "Dictating";
             const time = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-            return `${said} ${time} · ${language === "all" ? "all languages" : language === "auto" ? "any language" : language.toUpperCase()} · click to stop`;
+            return `${said} ${time} · click to stop`;
         }
+        if (!available)
+            return "Dictation needs a download";
         return last ? "Dictate into this app · right click for the last one" : "Dictate into this app";
     }
     // Something the person should see without pointing at the button.
     readonly property bool telling: notice !== "" || quiet && listening || idle && listening
         || state === "failed" && !retryable
     readonly property string icon: {
+        if (notice === "Needs a download")
+            return "M8 2v8.4M4.6 7l3.4 3.4L11.4 7M2.6 13.4h10.8";
         if (notice === "No microphone" || notice === "Microphone is muted" || quiet && listening)
             return "M5.6 4.2a2.4 2.4 0 0 1 4.8 0v3.2a2.4 2.4 0 0 1-4.8 0zM3.4 7.6a4.6 4.6 0 0 0 9.2 0M8 12.2v2M2.5 2.5l11 11";
         if (state === "failed")
@@ -89,13 +94,8 @@ Singleton {
     // Text that was delivered, or copied, that can be brought back.
     property string last
 
-    readonly property string language: {
-        const layout = Keyboard.layouts[Keyboard.active];
-        if (Settings.dictationAllLanguages.includes(layout))
-            return "all";
-        return Settings.dictationAnyLanguage.includes(layout) ? "auto"
-            : (Keyboard.languages[layout] ?? "all").toLowerCase();
-    }
+    // Parakeet, which writes it down, is downloaded (extras/extras.json).
+    readonly property bool available: Extras.list.some(e => e.id === "parakeet" && e.installed)
 
     // The helper: the source tree's in development (make run), otherwise the
     // installed one.
@@ -115,7 +115,7 @@ Singleton {
         seconds = 0;
         cardFocused = false;
         const sounds = `DICTATION_SOUNDS=${Settings.dictationSounds ? "1" : ""}`;
-        process.command = ["env", sounds, helper(), language, ...(held ? ["--held"] : [])];
+        process.command = ["env", sounds, helper(), ...(held ? ["--held"] : [])];
         process.running = true;
     }
 
@@ -131,6 +131,14 @@ Singleton {
             send({ do: "add" });
         } else if (retryable) {
             send({ do: "discard" });
+        } else if (!available) {
+            state = "idle";
+            if (notice === "Needs a download") {
+                notice = "";
+                Settings.open(Shortcuts.focused, "assistant");
+            } else {
+                notice = "Needs a download";
+            }
         } else if (!Audio.input) {
             state = "idle";
             if (notice === "No microphone") {
@@ -199,16 +207,6 @@ Singleton {
         afterFocus.restart();
     }
 
-    // "layout", "any", the 25 languages that dictate live, or "all", also the others.
-    function chooseLanguage(choice: string) {
-        const layout = Keyboard.layouts[Keyboard.active];
-        const without = list => list.filter(l => l !== layout);
-        Settings.dictationAnyLanguage = [...without(Settings.dictationAnyLanguage), ...(choice === "any" ? [layout] : [])];
-        Settings.dictationAllLanguages = [...without(Settings.dictationAllLanguages), ...(choice === "all" ? [layout] : [])];
-        if (process.running)
-            send({ do: "language", language: language });
-    }
-
     function heard(line: string) {
         const message = JSON.parse(line);
         switch (message.state) {
@@ -223,7 +221,6 @@ Singleton {
             draftTail = message.tail;
             break;
         case "writing":
-            progress = message.progress;
             state = "writing";
             break;
         case "waiting":
@@ -283,6 +280,10 @@ Singleton {
 
         function notice(): string {
             return dictation.notice;
+        }
+
+        function available(): bool {
+            return dictation.available;
         }
 
         function deliver(what: string): void {

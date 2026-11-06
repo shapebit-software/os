@@ -22,10 +22,14 @@ COPY rootfs/ /
 # (rootfs/usr/lib/sddm/compositor.lua). SDDM needs a package that provides a
 # greeter display server; sddm-wayland-generic is the smallest, and brings
 # Weston, which the greeter no longer uses.
+# SDDM and Plymouth need the system's logos; generic-logos provides them, since
+# Fedora's logos are its trademarks, which a system made from Fedora may not carry
+# (https://fedoraproject.org/wiki/Legal:Trademark_guidelines). Installed with
+# them, it keeps dnf from choosing fedora-logos.
 # dnf state in /var and /run is removed, since bootc ignores it on install;
 # so are SDDM's runtime directory, which tmpfiles.d creates on each boot, and
 # libX11's empty cache.
-RUN dnf -y install systemd-boot-unsigned glibc-all-langpacks \
+RUN dnf -y install systemd-boot-unsigned glibc-all-langpacks generic-logos \
       sddm sddm-wayland-generic mesa-dri-drivers && dnf clean all && \
     rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf \
       /run/sddm /var/cache/libX11
@@ -136,43 +140,11 @@ FROM tools AS desktop-files
 RUN dnf -y install make
 RUN --mount=type=bind,from=desktop,target=/src make -C /src install DESTDIR=/out
 
-# Speech recognition for dictation (desktop/dictation/dictate), on the computer:
-# whisper.cpp and Whisper's small model, quantized (181 MiB), which handles every
-# language. Fedora's whisper-cpp has no command, and installs 718 MiB. One build
-# of the CPU code per kind of processor, chosen as it runs, keeps it fast on
-# each. The sources and the model are checked against their hashes.
-FROM tools AS whisper
-ARG WHISPER_VERSION
-ARG WHISPER_SHA256
-ARG WHISPER_MODEL_REVISION
-ARG WHISPER_MODEL_SHA256
-RUN dnf -y install cmake gcc-c++ make binutils
-RUN <<'EOF'
-set -euo pipefail
-cd /tmp
-curl -fsSL -o source.tar.gz "https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v$WHISPER_VERSION.tar.gz"
-echo "$WHISPER_SHA256 source.tar.gz" | sha256sum -c
-tar xzf source.tar.gz
-cd "whisper.cpp-$WHISPER_VERSION"
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_SKIP_RPATH=ON -DBUILD_SHARED_LIBS=ON \
-  -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_BACKEND_DIR=/usr/lib64/whisper \
-  -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF
-cmake --build build -j"$(nproc)" --target whisper-cli
-strip build/bin/whisper-cli build/bin/*.so
-install -D build/bin/whisper-cli /out/usr/bin/whisper-cli
-install -d /out/usr/lib64/whisper /out/usr/share/whisper
-cp -a build/bin/libwhisper.so.* build/bin/libggml.so.* build/bin/libggml-base.so.* /out/usr/lib64/
-cp build/bin/libggml-cpu-*.so /out/usr/lib64/whisper/
-install -Dm644 LICENSE /out/usr/share/licenses/whisper.cpp/LICENSE
-curl -fsSL -o /out/usr/share/whisper/ggml-small-q5_1.bin \
-  "https://huggingface.co/ggerganov/whisper.cpp/resolve/$WHISPER_MODEL_REVISION/ggml-small-q5_1.bin"
-echo "$WHISPER_MODEL_SHA256 /out/usr/share/whisper/ggml-small-q5_1.bin" | sha256sum -c
-EOF
-
-# What the live speech recognition of dictation runs on (desktop/dictation/
+# What the speech recognition of dictation runs on (desktop/dictation/
 # dictate-engine): sherpa-onnx, which Fedora does not package. The wheels are checked
 # against their hashes (desktop/dictation/requirements.txt), and pip stays here. Its
-# models are too large for the image, and are downloaded (desktop/extras).
+# models are too large for the image, and are downloaded (desktop/extras); so
+# dictation works only once they are.
 FROM tools AS sherpa
 RUN dnf -y install python3-pip
 RUN --mount=type=bind,from=desktop,source=dictation/requirements.txt,target=/run/requirements.txt \
@@ -180,9 +152,8 @@ RUN --mount=type=bind,from=desktop,source=dictation/requirements.txt,target=/run
 
 # The assistant's language model server (desktop/assistant/llama-server@.service):
 # llama.cpp's llama-server, which Fedora packages too old for Gemma 4. Its
-# libraries stay beside it in /usr/libexec/llama, apart from whisper.cpp's
-# ggml of another version; one build of the CPU code per kind of processor,
-# chosen as it runs. No web page and no downloads: the model is an extra.
+# libraries stay beside it in /usr/libexec/llama; one build of the CPU code per
+# kind of processor, chosen as it runs. No web page and no downloads: the model is an extra.
 FROM tools AS llama
 ARG LLAMA_VERSION
 ARG LLAMA_SHA256
@@ -208,7 +179,6 @@ EOF
 
 FROM system
 COPY --from=desktop-files /out/ /
-COPY --from=whisper /out/ /
 COPY --from=sherpa /out/ /
 COPY --from=llama /out/ /
 # The desktop's settings defaults (window-buttons.gschema.override) apply

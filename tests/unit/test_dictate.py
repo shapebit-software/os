@@ -1,4 +1,4 @@
-"""desktop/dictation/dictate, with a made-up compositor, window, recorder, Whisper,
+"""desktop/dictation/dictate, with a made-up compositor, window, recorder, engine,
 keyboard, and clipboard. Every path says where the text goes, and that nothing
 goes anywhere else."""
 
@@ -12,7 +12,6 @@ import struct
 import subprocess
 import threading
 import time
-import wave
 
 import pytest
 
@@ -29,20 +28,32 @@ while True:
     time.sleep(0.05)
 """
 RECORDER_FAILS = "#!/bin/bash\nexit 1\n"
-WHISPER = """#!/bin/bash
-echo "$*" >>"$FAKES/whisper-args"
-echo "whisper_print_progress_callback: progress =  40%" >&2
-cat "$FAKES/said"
-"""
-WHISPER_WAITS = """#!/bin/bash
-touch "$FAKES/whispering"
-until [ -e "$FAKES/go" ]; do sleep 0.02; done
-exec cat "$FAKES/said"
-"""
-WHISPER_FAILS_ONCE = """#!/bin/bash
-if [ ! -e "$FAKES/failed" ]; then touch "$FAKES/failed"; exit 1; fi
-ls "$XDG_RUNTIME_DIR"/dictation-*/ >"$FAKES/kept"
-cat "$FAKES/said"
+# As the real one (dictation/dictate-engine): reads the audio to its end, then says
+# each line of "said" as a phrase. Files in FAKES make it say a draft first
+# ("engine-draft"), wait for "go" ("engine-waits"), or hang or fail for that many
+# runs ("engine-hangs", "engine-fails").
+ENGINE = """#!/usr/bin/python3
+import json, os, pathlib, sys, time
+fakes = pathlib.Path(os.environ["FAKES"])
+def mark(name, default=""):
+    path = fakes / name
+    return path.read_text() if path.exists() else default
+with open(fakes / "engine-runs", "a") as runs:
+    runs.write(" ".join(sys.argv[1:]) + "\\n")
+run = len(mark("engine-runs").splitlines())
+sys.stdout.write(mark("engine-draft"))
+sys.stdout.flush()
+(fakes / "engine-audio").write_bytes(sys.stdin.buffer.read())
+(fakes / "engine-writing").touch()
+if run <= int(mark("engine-hangs", "0")):
+    time.sleep(60)
+while (fakes / "engine-waits").exists() and not (fakes / "go").exists():
+    time.sleep(0.02)
+if run <= int(mark("engine-fails", "0")):
+    sys.exit(1)
+for line in mark("said").splitlines():
+    if line.strip():
+        print(json.dumps({"final": line}), flush=True)
 """
 KEYBOARD = """#!/bin/bash
 echo "$*" >"$FAKES/wtype-args"
@@ -126,8 +137,8 @@ class Compositor:
 
 
 class Dictation:
-    def __init__(self, tmp_path, recorder=RECORDER, whisper=WHISPER, said="", language="pl", window=BROWSER,
-                 compositor=True, available=True, sound=LOUD, held=False, env=None):  # fmt: skip
+    def __init__(self, tmp_path, recorder=RECORDER, said="", window=BROWSER, compositor=True, available=True,
+                 sound=LOUD, held=False, env=None, draft=None, waits=False, hangs=0, fails=0, parakeet=True):  # fmt: skip
         self.fakes = tmp_path / "fakes"
         self.runtime = tmp_path / "runtime"
         self.fakes.mkdir()
@@ -135,7 +146,13 @@ class Dictation:
         (self.fakes / "said").write_text(said)
         (self.fakes / "sound").write_bytes(sound)
         self.window(window)
-        fakes = [("pw-record", recorder), ("whisper-cli", whisper), ("wtype", KEYBOARD), ("wl-copy", CLIPBOARD),
+        if draft:
+            (self.fakes / "engine-draft").write_text(json.dumps(draft) + "\n")
+        if waits:
+            (self.fakes / "engine-waits").touch()
+        (self.fakes / "engine-hangs").write_text(str(hangs))
+        (self.fakes / "engine-fails").write_text(str(fails))
+        fakes = [("pw-record", recorder), ("dictate-engine", ENGINE), ("wtype", KEYBOARD), ("wl-copy", CLIPBOARD),
                  ("hyprctl", WINDOW), ("pw-play", PLAYER)]  # fmt: skip
         for name, script in fakes:
             path = self.fakes / name
@@ -143,7 +160,7 @@ class Dictation:
             path.chmod(0o755)
         self.compositor = Compositor(self.runtime / "test", available) if compositor else None
         self.process = subprocess.Popen(
-            [DICTATE, language, *(["--held"] if held else [])],
+            [DICTATE, *(["--held"] if held else [])],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             text=True,
@@ -153,7 +170,9 @@ class Dictation:
                 "FAKES": str(self.fakes),
                 "XDG_RUNTIME_DIR": str(self.runtime),
                 "WAYLAND_DISPLAY": "test" if compositor else "none",
-                "DICTATION_PARAKEET": "/nonexistent",
+                "DICTATION_ENGINE": str(self.fakes / "dictate-engine"),
+                "DICTATION_PARAKEET": str(self.fakes) if parakeet else "/nonexistent",
+                "DICTATION_ENGINE_WAIT": "1",
                 **(env or {}),
             },
         )
@@ -301,10 +320,10 @@ def test_moving_to_a_field_before_the_stop_is_where_it_goes(dictate):
 
 
 def test_another_window_while_writing_waits(dictate):
-    dictation = dictate(whisper=WHISPER_WAITS, said="Private\n")
+    dictation = dictate(waits=True, said="Private\n")
     dictation.compositor.focus_field()
     dictation.say()
-    dictation.wait_for_file("whispering")
+    dictation.wait_for_file("engine-writing")
     dictation.window(OTHER)
     dictation.compositor.focus_field()
     time.sleep(0.2)
@@ -315,10 +334,10 @@ def test_another_window_while_writing_waits(dictate):
 
 
 def test_another_field_in_the_same_window_while_writing_waits(dictate):
-    dictation = dictate(whisper=WHISPER_WAITS, said="Private\n")
+    dictation = dictate(waits=True, said="Private\n")
     dictation.compositor.focus_field()
     dictation.say()
-    dictation.wait_for_file("whispering")
+    dictation.wait_for_file("engine-writing")
     dictation.compositor.focus_field()
     time.sleep(0.2)
     (dictation.fakes / "go").touch()
@@ -327,9 +346,9 @@ def test_another_field_in_the_same_window_while_writing_waits(dictate):
 
 
 def test_a_field_that_appears_only_after_the_stop_waits(dictate):
-    dictation = dictate(whisper=WHISPER_WAITS, said="Hello\n")
+    dictation = dictate(waits=True, said="Hello\n")
     dictation.say()
-    dictation.wait_for_file("whispering")
+    dictation.wait_for_file("engine-writing")
     dictation.compositor.focus_field()
     time.sleep(0.2)
     (dictation.fakes / "go").touch()
@@ -479,7 +498,7 @@ def test_silence_in_keep_talking_keeps_the_text(dictate):
     dictation = dictate(said="One.\n")
     dictation.say()
     dictation.wait_for("waiting")
-    (dictation.fakes / "said").write_text(" [BLANK_AUDIO]\n")
+    (dictation.fakes / "said").write_text("")
     (dictation.fakes / "recording").unlink()
     dictation.do("add")
     dictation.say()
@@ -500,52 +519,40 @@ def test_held_text_comes_back_to_be_delivered(dictate):
 # Understanding ----------------------------------------------------------------
 
 
-def whisper_language(dictation):
-    args = dictation.file("whisper-args").split()
-    return args[args.index("-l") + 1]
-
-
-def test_whisper_hears_the_language_and_the_recording(dictate):
-    dictation = dictate(said="Hello\n")
+def test_the_engine_hears_the_recording_with_the_models(dictate):
+    dictation = dictate(said="Tak.\n")
+    dictation.compositor.focus_field()
     dictation.say()
-    dictation.wait_for("waiting")
-    args = dictation.file("whisper-args").split()
-    assert whisper_language(dictation) == "pl"
-    assert args[args.index("-f") + 1].endswith(".wav")
+    dictation.wait_for("done")
+    assert dictation.file("engine-runs") == f"{dictation.fakes}\n"
+    assert (dictation.fakes / "engine-audio").read_bytes().startswith(LOUD)
 
 
-def test_a_language_whisper_does_not_know_is_detected(dictate):
-    # Whisper would succeed with no text for "ara", as a keyboard layout may say.
-    dictation = dictate(said="Hello\n", language="ara")
-    dictation.say()
-    dictation.wait_for("waiting")
-    assert whisper_language(dictation) == "auto"
+def test_the_draft_goes_to_the_shell_and_nowhere_else(dictate):
+    dictation = dictate(said="Dzień dobry.\n", draft={"draft": "Dzień", "tail": "dobry"})
+    dictation.compositor.focus_field()
+    message = dictation.wait_for("draft")
+    assert (message["text"], message["tail"]) == ("Dzień", "dobry")
+    assert dictation.inserted == []
+    assert dictation.typed is None
 
 
-def test_the_language_can_change_while_listening(dictate):
-    dictation = dictate(said="Hello\n")
-    dictation.recording()
-    dictation.do("language", language="auto")
-    dictation.do("stop")
-    dictation.wait_for("waiting")
-    assert whisper_language(dictation) == "auto"
+def test_without_parakeet_it_fails_before_it_listens(dictate):
+    dictation = dictate(parakeet=False)
+    dictation.wait_for("failed")
+    assert dictation.ended() == 1
+    assert dictation.file("recording") is None, "no microphone for this"
+    assert dictation.left_behind == []
 
 
-def test_the_recording_is_a_real_sound_file(dictate, tmp_path):
-    keep = tmp_path / "copy.wav"
-    whisper = f'#!/bin/bash\nwhile [ $# -gt 0 ]; do [ "$1" = -f ] && cp "$2" {keep}; shift; done\necho Hello\n'
-    dictation = dictate(whisper=whisper)
-    dictation.say()
-    dictation.wait_for("waiting")
-    with wave.open(str(keep)) as sound:
-        assert (sound.getframerate(), sound.getnchannels(), sound.getsampwidth()) == (16000, 1, 2)
-        assert sound.getnframes() > 0
-
-
-def test_progress_is_reported(dictate):
-    dictation = dictate(said="Hello\n")
-    dictation.say()
-    dictation.wait_for("writing", progress=40)
+def test_without_parakeet_held_text_can_still_be_delivered(dictate):
+    dictation = dictate(held=True, parakeet=False)
+    dictation.do("hold", text="From before")
+    dictation.wait_for("waiting", text="From before")
+    dictation.do("add")
+    dictation.wait_for("waiting", text="From before")
+    dictation.do("copy")
+    assert dictation.wait_for("done")["text"] == "From before"
 
 
 # Hearing ------------------------------------------------------------------------
@@ -574,7 +581,7 @@ def test_a_long_silence_after_speech_asks_then_stops_and_keeps_the_text(dictate)
 
 
 def test_giving_up_on_silence_stops_listening(dictate):
-    dictation = dictate(sound=b"\0" * 1600, said=" [BLANK_AUDIO]\n", env={"DICTATION_GIVE_UP": "0.3"})
+    dictation = dictate(sound=b"\0" * 1600, env={"DICTATION_GIVE_UP": "0.3"})
     dictation.recording()
     dictation.wait_for("writing")
     dictation.wait_for("nothing")
@@ -582,7 +589,7 @@ def test_giving_up_on_silence_stops_listening(dictate):
 
 
 def test_silence_delivers_nothing_and_says_so(dictate):
-    dictation = dictate(said=" [BLANK_AUDIO]\n")
+    dictation = dictate()
     dictation.compositor.focus_field()
     dictation.say()
     dictation.wait_for("nothing")
@@ -610,16 +617,16 @@ def test_every_way_of_discarding_leaves_nothing(dictate, discard):
     dictation.recording()
     discard(dictation)
     assert dictation.ended() == 130
-    assert dictation.file("whisper-args") is None
+    assert dictation.file("engine-writing") is None
     assert dictation.inserted == []
     assert dictation.left_behind == []
 
 
 def test_discarding_while_writing_it_down_delivers_nothing(dictate):
-    dictation = dictate(whisper=WHISPER_WAITS, said="Secret\n")
+    dictation = dictate(waits=True, said="Secret\n")
     dictation.compositor.focus_field()
     dictation.say()
-    dictation.wait_for_file("whispering")
+    dictation.wait_for_file("engine-writing")
     dictation.do("discard")
     assert dictation.ended() == 130
     assert dictation.inserted == []
@@ -654,20 +661,38 @@ def test_recorder_failure_keeps_text_that_is_waiting(dictate):
     dictation.wait_for("waiting", text="One.")
 
 
-def test_whisper_failure_keeps_the_audio_to_try_again(dictate):
-    dictation = dictate(whisper=WHISPER_FAILS_ONCE, said="Hello\n")
+def test_a_failed_engine_goes_over_the_recording_again(dictate):
+    dictation = dictate(fails=1, said="Dzień dobry.\n")
+    dictation.compositor.focus_field()
+    dictation.say()
+    assert dictation.wait_for("done")["text"] == "Dzień dobry."
+    assert len(dictation.file("engine-runs").splitlines()) == 2
+    assert (dictation.fakes / "engine-audio").read_bytes().startswith(LOUD)
+    assert dictation.left_behind == []
+
+
+def test_a_hung_engine_goes_over_the_recording_again_with_no_draft(dictate):
+    dictation = dictate(hangs=1, said="Dzień dobry.\n", draft={"draft": "Dzień", "tail": ""})
+    dictation.compositor.focus_field()
+    dictation.say()
+    assert dictation.wait_for("done")["text"] == "Dzień dobry."
+    assert [m["state"] for m in dictation.heard].count("draft") == 1
+
+
+def test_an_engine_that_fails_again_keeps_the_audio_to_try_again(dictate):
+    dictation = dictate(fails=2, said="Hello\n")
     dictation.compositor.focus_field()
     dictation.say()
     dictation.wait_for("failed")
     assert dictation.process.poll() is None
     dictation.do("retry")
     assert dictation.wait_for("done")["text"] == "Hello"
-    assert ".wav" in dictation.file("kept")
+    assert (dictation.fakes / "engine-audio").read_bytes().startswith(LOUD)
     assert dictation.left_behind == []
 
 
-def test_whisper_failure_can_be_discarded(dictate):
-    dictation = dictate(whisper=WHISPER_FAILS_ONCE, said="Hello\n")
+def test_a_failure_can_be_discarded(dictate):
+    dictation = dictate(fails=2, said="Hello\n")
     dictation.say()
     dictation.wait_for("failed")
     dictation.do("discard")
@@ -692,140 +717,22 @@ def test_wanted_sounds_mark_the_start_and_the_stop(dictate):
     assert len(dictation.file("played").splitlines()) == 2
 
 
-# Live, with the engine -----------------------------------------------------
-
-ENGINE = """#!/bin/bash
-# As the real one: says the draft at once, reads to the end, then says the phrases.
-echo "$*" >"$FAKES/engine-args"
-[ ! -e "$FAKES/engine-draft" ] || cat "$FAKES/engine-draft"
-cat >"$FAKES/engine-audio"
-[ ! -e "$FAKES/engine-hangs" ] || exec sleep 60
-while [ -e "$FAKES/engine-waits" ] && [ ! -e "$FAKES/engine-go" ]; do sleep 0.02; done
-[ ! -e "$FAKES/engine-fails" ] || exit 1
-cat "$FAKES/engine-finals"
-"""
+# The engine, live ----------------------------------------------------------
 
 
-def live(dictate, tmp_path, finals=(), draft=None, marks=(), **kwargs):
-    """Dictation with a made-up engine, in place before it starts."""
-    fakes = tmp_path / "engine"
-    fakes.mkdir()
-    engine = fakes / "dictate-engine"
-    engine.write_text(ENGINE)
-    engine.chmod(0o755)
-    # The fakes' folder comes when Dictation makes it, so the engine reads from FAKES.
-    env = {"DICTATION_ENGINE": str(engine), "DICTATION_PARAKEET": str(fakes), "DICTATION_ENGINE_WAIT": "1", **kwargs.pop("env", {})}
-    prepared = tmp_path / "prepared"
-    prepared.mkdir()
-    (prepared / "engine-finals").write_text("".join(json.dumps({"final": text}) + "\n" for text in finals))
-    if draft:
-        (prepared / "engine-draft").write_text(json.dumps(draft) + "\n")
-    for mark in marks:
-        (prepared / mark).touch()
-    engine.write_text(ENGINE.replace("$FAKES/engine-", f"{prepared}/engine-"))
-    return dictate(env=env, **kwargs)
-
-
-def test_phrases_become_one_text_with_no_whisper(dictate, tmp_path):
-    dictation = live(dictate, tmp_path, finals=["Dzień dobry.", "Jak się masz?"], said="whisper")
-    dictation.compositor.focus_field()
-    dictation.say()
-    assert dictation.wait_for("done")["text"] == "Dzień dobry. Jak się masz?"
-    assert dictation.inserted == ["Dzień dobry. Jak się masz?"]
-    assert dictation.file("whisper-args") is None
-    assert dictation.left_behind == []
-
-
-def test_the_engine_hears_the_recording(dictate, tmp_path):
-    dictation = live(dictate, tmp_path, finals=["Tak."])
-    dictation.compositor.focus_field()
-    dictation.say()
-    dictation.wait_for("done")
-    assert (tmp_path / "prepared" / "engine-audio").read_bytes().startswith(LOUD)
-
-
-def test_the_draft_goes_to_the_shell_and_nowhere_else(dictate, tmp_path):
-    draft = {"draft": "Dzień", "tail": "dobry"}
-    dictation = live(dictate, tmp_path, finals=["Dzień dobry."], draft=draft)
-    dictation.compositor.focus_field()
-    message = dictation.wait_for("draft")
-    assert (message["text"], message["tail"]) == ("Dzień", "dobry")
-    assert dictation.inserted == []
-    assert dictation.typed is None
-
-
-def test_a_window_left_after_the_stop_gets_nothing(dictate, tmp_path):
-    dictation = live(dictate, tmp_path, finals=["Tajne."], marks=["engine-waits"])
+def test_a_window_left_after_the_stop_gets_nothing(dictate):
+    dictation = dictate(waits=True, said="Tajne.\n")
     dictation.compositor.focus_field()
     dictation.say()
     dictation.wait_for("writing")
     dictation.window(OTHER)
-    (tmp_path / "prepared" / "engine-go").touch()
+    (dictation.fakes / "go").touch()
     assert dictation.wait_for("waiting")["text"] == "Tajne."
     assert dictation.inserted == []
 
 
-def test_a_failed_engine_leaves_it_to_whisper(dictate, tmp_path):
-    dictation = live(dictate, tmp_path, finals=["Lost."], marks=["engine-fails"], said="Z Whispera.\n")
-    dictation.compositor.focus_field()
-    dictation.say()
-    assert dictation.wait_for("done")["text"] == "Z Whispera."
-    assert dictation.left_behind == []
-
-
-def test_a_hung_engine_leaves_it_to_whisper(dictate, tmp_path):
-    dictation = live(dictate, tmp_path, marks=["engine-hangs"], said="Z Whispera.\n")
-    dictation.compositor.focus_field()
-    dictation.say()
-    assert dictation.wait_for("done")["text"] == "Z Whispera."
-
-
-def test_no_engine_in_a_language_parakeet_lacks(dictate, tmp_path):
-    dictation = live(dictate, tmp_path, finals=["Lost."], language="ja", said="日本語\n")
-    dictation.compositor.focus_field()
-    dictation.say()
-    assert dictation.wait_for("done")["text"] == "日本語"
-    assert not (tmp_path / "prepared" / "engine-audio").exists()
-
-
-def test_any_language_is_live_as_parakeet_tells_them_apart(dictate, tmp_path):
-    dictation = live(dictate, tmp_path, finals=["Dzień dobry."], language="auto", said="whisper\n")
-    dictation.compositor.focus_field()
-    dictation.say()
-    assert dictation.wait_for("done")["text"] == "Dzień dobry."
-    assert dictation.file("whisper-args") is None
-
-
-def test_all_languages_leave_it_to_whisper_detecting_the_language(dictate, tmp_path):
-    dictation = live(dictate, tmp_path, finals=["Lost."], language="all", said="日本語\n")
-    dictation.compositor.focus_field()
-    dictation.say()
-    assert dictation.wait_for("done")["text"] == "日本語"
-    args = dictation.file("whisper-args").split()
-    assert args[args.index("-l") + 1] == "auto"
-
-
-def test_a_change_to_another_language_leaves_it_to_whisper(dictate, tmp_path):
-    dictation = live(dictate, tmp_path, finals=["Lost."], said="日本語\n")
-    dictation.compositor.focus_field()
-    dictation.recording()
-    dictation.do("language", language="ja")
-    dictation.do("stop")
-    assert dictation.wait_for("done")["text"] == "日本語"
-
-
-def test_silence_says_nothing_was_caught_with_no_whisper(dictate, tmp_path):
-    dictation = live(dictate, tmp_path, said="[muzyka]\n")
-    dictation.compositor.focus_field()
-    dictation.say()
-    dictation.wait_for("nothing")
-    assert dictation.ended() == 0
-    assert dictation.file("whisper-args") is None
-    assert dictation.inserted == []
-
-
-def test_discarding_stops_the_engine_and_leaves_nothing(dictate, tmp_path):
-    dictation = live(dictate, tmp_path, finals=["Tajne."], marks=["engine-hangs"])
+def test_discarding_stops_the_engine_and_leaves_nothing(dictate):
+    dictation = dictate(said="Tajne.\n", hangs=1)
     dictation.compositor.focus_field()
     dictation.recording()
     dictation.do("discard")
@@ -834,8 +741,8 @@ def test_discarding_stops_the_engine_and_leaves_nothing(dictate, tmp_path):
     assert dictation.left_behind == []
 
 
-def test_keeping_talking_adds_to_the_text(dictate, tmp_path):
-    dictation = live(dictate, tmp_path, finals=["Dalej."])
+def test_keeping_talking_adds_to_the_text(dictate):
+    dictation = dictate(said="Dalej.\n")
     dictation.say()
     assert dictation.wait_for("waiting")["text"] == "Dalej."
     dictation.do("add")
@@ -856,18 +763,17 @@ def test_words_agree_ignoring_case_and_punctuation():
     assert engine.agreed([], ["ask"]) == 0
 
 
-def test_silence_goes_to_no_engine_as_whisper_invents_words(dictate):
+def test_silence_gets_no_text_as_a_model_may_invent_words(dictate):
     dictation = dictate(said="you\n", sound=struct.pack("<h", 0) * 800)
     dictation.compositor.focus_field()
     dictation.say()
     dictation.wait_for("nothing")
     assert dictation.ended() == 0
-    assert dictation.file("whisper-args") is None
     assert dictation.inserted == []
     assert dictation.left_behind == []
 
 
-def test_silence_after_text_keeps_the_text(dictate, tmp_path):
+def test_silence_after_text_keeps_the_text(dictate):
     dictation = dictate(said="Dzień dobry\n")
     dictation.say()
     dictation.wait_for("waiting", text="Dzień dobry")

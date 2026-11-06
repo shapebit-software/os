@@ -5,10 +5,11 @@
 # is sure of the place; otherwise the text waits for the person to say where. All
 # the deciding is here; the shell only shows it.
 #
-# With Parakeet downloaded (extras/extra), in its languages or any of them ("auto"),
-# dictate-engine writes it down while the person speaks, for a draft that the shell
-# shows and that goes nowhere else. Otherwise, with all of Whisper's ("all"), or should
-# the engine fail, Whisper writes down the whole recording at the stop.
+# dictate-engine writes it down with Parakeet, downloaded as an extra (extras/extra),
+# while the person speaks: a draft that the shell shows and that goes nowhere else.
+# Parakeet tells its 25 languages apart by itself. Should the engine fail or fall
+# behind, it goes over the whole recording again at the stop. Without Parakeet,
+# nothing can be written down, so dictation fails before it listens.
 #
 # It is the Wayland input method for as long as it runs, for two things that
 # nothing else offers: applications tell an input method when a text field has
@@ -18,10 +19,9 @@
 #
 # Audio stays in the runtime directory, and it and the text are gone at the end.
 #
-# Usage: dictate LANGUAGE [--held] (a code that Whisper knows, such as "en"; "auto";
-# or "all"; --held starts with no recording, to be given text with "hold").
+# Usage: dictate [--held] (--held starts with no recording, to be given text with "hold").
 #
-# From the shell, {"do": ...}: "stop"; "language", with "language"; "text", with
+# From the shell, {"do": ...}: "stop"; "text", with
 # "text", for what the person edited; "insert"; "type", for keys, when the person
 # asks; "copy"; "add", to keep talking; "retry"; "hold", with "text"; "discard".
 # The end of the input discards, as do SIGINT and SIGTERM.
@@ -29,7 +29,7 @@
 # To the shell: {"state": "listening", "level": 0..1, "quiet": bool, "idle": bool};
 # {"state": "draft", "text": ..., "tail": ...}, the words so far and those that may
 # still change;
-# {"state": "writing", "progress": 0..100};
+# {"state": "writing"};
 # {"state": "waiting", "text": ..., "where": ..., "app": ...}; {"state": "failed"};
 # and at the end, {"state": "done", "text": ...} or {"state": "nothing"}.
 # "where": "field", a text field; "password", where text is refused; "none", a
@@ -39,7 +39,6 @@ import json
 import math
 import os
 import pathlib
-import re
 import selectors
 import shutil
 import signal
@@ -51,7 +50,6 @@ import tempfile
 import time
 import wave
 
-MODEL = os.environ.get("DICTATION_MODEL", "/usr/share/whisper/ggml-small-q5_1.bin")
 PARAKEET = pathlib.Path(os.environ.get("DICTATION_PARAKEET", "/var/lib/extras/parakeet"))
 ENGINE = os.environ.get("DICTATION_ENGINE", str(pathlib.Path(__file__).with_name("dictate-engine")))
 SOUNDS = bool(os.environ.get("DICTATION_SOUNDS"))
@@ -66,16 +64,6 @@ RATE = 16000
 # How long "insert" waits for the field, after the shell gives the focus back.
 FIELD_WAIT = 0.6
 
-# For a language that it does not know, Whisper succeeds with no text; keyboard
-# layouts can name such languages. This is its list.
-LANGUAGES = set(
-    "en zh de es ru ko fr ja pt tr pl ca nl ar sv it id hi fi vi he uk el ms cs ro da hu ta no th ur hr bg lt "
-    "la mi ml cy sk te fa lv bn sr az sl kn et mk br eu is hy ne mn bs kk sq sw gl mr pa si km sn yo so af oc "
-    "ka be tg sd gu am yi lo uz fo ht ps tk nn mt sa lb my bo tl mg as tt haw ln ha ba jw su yue".split()
-)
-
-# Parakeet tells these apart by itself, so any of them can be spoken.
-PARAKEET_LANGUAGES = set("auto bg cs da de el en es et fi fr hr hu it lt lv mt nl pl pt ro ru sk sl sv uk".split())
 # How much audio, in bytes, may wait for an engine that has stopped reading: 10 s.
 ENGINE_BACKLOG = RATE * 2 * 10
 # How long, in seconds, the last phrase may take after the stop.
@@ -201,31 +189,28 @@ def focused_window():
 
 
 def clean(said):
-    """One line of text, for a field or a terminal: Whisper marks silence and
-    noises in brackets, such as [BLANK_AUDIO], and no control characters pass."""
-    said = re.sub(r"\[[^]]*\]", "", said)
+    """One line of text, for a field or a terminal: no control characters pass."""
     said = "".join(c if c.isprintable() else " " for c in said)
     return " ".join(said.split())
 
 
 class Dictation:
-    def __init__(self, language, held):
-        self.language = language
+    def __init__(self, held):
         self.work = pathlib.Path(tempfile.mkdtemp(dir=os.environ["XDG_RUNTIME_DIR"], prefix="dictation-"))
         self.selector = selectors.DefaultSelector()
         self.method = InputMethod()
         self.input = b""
         self.state = None
         self.text = ""
-        self.recorder = self.whisper = self.engine = None
+        self.recorder = self.engine = None
+        # The engine goes over the whole recording, not along with the person.
+        self.rerun = False
         self.for_engine = b""
         self.from_engine = b""
         self.engine_by = None
         self.phrases = []
         self.audio = None
         self.audio_path = None
-        self.said = b""
-        self.errors = b""
         self.stopping = False
         self.was_sent = None
         self.insert_by = None
@@ -252,7 +237,7 @@ class Dictation:
         print(json.dumps(message, ensure_ascii=False), flush=True)
 
     def finish(self, code):
-        for process in (self.recorder, self.whisper, self.engine):
+        for process in (self.recorder, self.engine):
             if process and process.poll() is None:
                 process.terminate()
                 process.wait()
@@ -301,10 +286,6 @@ class Dictation:
         what = message["do"]
         if what == "discard":
             self.finish(130)
-        elif what == "language":
-            self.language = message["language"]
-            if self.engine and self.language not in PARAKEET_LANGUAGES and not self.stopping:
-                self.drop_engine()
         elif what == "stop" and self.state == "listening":
             self.stop_listening()
         elif what == "add" and self.state == "waiting":
@@ -327,11 +308,13 @@ class Dictation:
     # Listening -----------------------------------------------------------
 
     def listen(self):
-        self.audio_path = self.work / f"audio-{time.monotonic_ns()}.wav"
-        self.audio = wave.open(str(self.audio_path), "wb")
-        self.audio.setnchannels(1)
-        self.audio.setsampwidth(2)
-        self.audio.setframerate(RATE)
+        if not PARAKEET.is_dir():
+            # The shell offers dictation only with it; it may have been removed since.
+            self.cannot_listen()
+            return
+        # As the engine reads it: 16 kHz mono 16-bit samples, with no header.
+        self.audio_path = self.work / f"audio-{time.monotonic_ns()}.raw"
+        self.audio = open(self.audio_path, "wb")
         self.stopping = False
         self.last_sound = time.monotonic()
         self.heard = False
@@ -353,7 +336,7 @@ class Dictation:
         if not data:
             self.recorded()
             return
-        self.audio.writeframes(data)
+        self.audio.write(data)
         self.to_engine(data)
         samples = array.array("h")
         samples.frombytes(data[: len(data) // 2 * 2])
@@ -371,7 +354,7 @@ class Dictation:
         self.recorder = None
         self.audio.close()
         if self.stopping and not self.heard:
-            # Given nothing but silence, Whisper can still invent words.
+            # Given nothing but silence, a model can still invent words.
             if self.engine:
                 self.drop_engine()
             self.written("")
@@ -380,8 +363,12 @@ class Dictation:
                 self.end_engine_input()
             else:
                 self.write_down()
-        elif self.text:
-            # The recorder failed; what was said before is still there.
+        else:
+            self.cannot_listen()
+
+    def cannot_listen(self):
+        """What was said before is still there; with nothing, it has failed."""
+        if self.text:
             self.wait_for_person()
         else:
             self.emit(state="failed")
@@ -405,31 +392,34 @@ class Dictation:
         self.stopping = True
         self.sound(False)
         self.state = "writing"
-        self.emit(state="writing", progress=0)
+        self.emit(state="writing")
         self.recorder.terminate()
 
     # The engine ----------------------------------------------------------
 
-    def start_engine(self):
+    def start_engine(self, recording=None):
+        """Live, given the audio as it comes; or given a whole recording, at the stop.
+        With no engine live, the recording is gone over at the stop."""
         self.phrases = []
         self.for_engine = self.from_engine = b""
         self.engine_by = None
-        if self.language not in PARAKEET_LANGUAGES or not PARAKEET.is_dir():
-            return
+        self.rerun = recording is not None
         try:
             self.engine = subprocess.Popen(
                 ["setpriv", "--pdeathsig", "TERM", ENGINE, str(PARAKEET)],
-                stdin=subprocess.PIPE,
+                stdin=recording or subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
             )
         except OSError:
-            return
-        os.set_blocking(self.engine.stdin.fileno(), False)
+            return False
+        if not self.rerun:
+            os.set_blocking(self.engine.stdin.fileno(), False)
         self.selector.register(self.engine.stdout, selectors.EVENT_READ, self.engine_said)
+        return True
 
     def to_engine(self, data):
-        if not self.engine or self.engine.stdin.closed:
+        if not self.engine or self.rerun or self.engine.stdin.closed:
             return
         self.for_engine += data
         try:
@@ -459,16 +449,17 @@ class Dictation:
             pass
 
     def drop_engine(self):
-        """Whisper writes it all down at the stop instead: the recording is whole."""
+        """The engine goes over it all again at the stop: the recording is whole."""
         engine, self.engine = self.engine, None
         self.selector.unregister(engine.stdout)
         engine.terminate()
         engine.wait()
         engine.stdout.close()
-        try:
-            engine.stdin.close()
-        except OSError:
-            pass
+        if engine.stdin:
+            try:
+                engine.stdin.close()
+            except OSError:
+                pass
         self.phrases = []
 
     def engine_said(self, source):
@@ -480,10 +471,12 @@ class Dictation:
         *lines, self.from_engine = self.from_engine.split(b"\n")
         for line in lines:
             message = json.loads(line)
+            # Going over the recording again, there is no draft to show.
             if "final" in message:
                 self.phrases.append(clean(message["final"]))
-                self.emit(state="draft", text=" ".join(self.phrases), tail="")
-            elif "draft" in message:
+                if not self.rerun:
+                    self.emit(state="draft", text=" ".join(self.phrases), tail="")
+            elif "draft" in message and not self.rerun:
                 self.emit(state="draft", text=" ".join([*self.phrases, clean(message["draft"])]).strip(), tail=clean(message["tail"]))
 
     def engine_ended(self):
@@ -491,8 +484,11 @@ class Dictation:
         recording_over = self.stopping and not self.recorder
         code = engine.wait() if recording_over else engine.poll()
         if code != 0 or not recording_over:
+            rerun = self.rerun
             self.drop_engine()
-            if recording_over:
+            if recording_over and rerun:
+                self.failed()
+            elif recording_over:
                 self.write_down()
             return
         self.selector.unregister(engine.stdout)
@@ -503,50 +499,21 @@ class Dictation:
     # Writing it down -----------------------------------------------------
 
     def write_down(self):
-        self.said = b""
-        self.errors = b""
+        """The engine goes over the whole recording, after it failed or fell behind."""
         self.state = "writing"
-        self.emit(state="writing", progress=0)
-        self.whisper = subprocess.Popen(
-            ["setpriv", "--pdeathsig", "TERM", "whisper-cli", "-m", MODEL, "-f", str(self.audio_path),
-             "-l", self.language if self.language in LANGUAGES else "auto", "-nt", "-np", "-pp"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        self.selector.register(self.whisper.stdout, selectors.EVENT_READ, self.whisper_text)
-        self.selector.register(self.whisper.stderr, selectors.EVENT_READ, self.whisper_progress)
+        self.emit(state="writing")
+        try:
+            with open(self.audio_path, "rb") as recording:
+                started = self.start_engine(recording)
+        except OSError:
+            started = False
+        if not started:
+            self.failed()
 
-    def whisper_text(self, source):
-        data = os.read(source.fileno(), 65536)
-        if data:
-            self.said += data
-        else:
-            self.selector.unregister(source)
-            self.whisper_ended()
-
-    def whisper_progress(self, source):
-        data = os.read(source.fileno(), 4096)
-        if not data:
-            self.selector.unregister(source)
-            self.whisper_ended()
-            return
-        found = re.findall(rb"progress =\s*(\d+)%", data)
-        if found:
-            self.emit(state="writing", progress=int(found[-1]))
-
-    def whisper_ended(self):
-        process = self.whisper
-        if self.selector_has(process.stdout) or self.selector_has(process.stderr):
-            return
-        code = process.wait()
-        process.stdout.close()
-        process.stderr.close()
-        self.whisper = None
-        if code != 0:
-            self.state = "failed"
-            self.emit(state="failed")
-            return
-        self.written(clean(self.said.decode(errors="replace")))
+    def failed(self):
+        """The recording stays, to try again."""
+        self.state = "failed"
+        self.emit(state="failed")
 
     def written(self, said):
         self.audio_path.unlink(missing_ok=True)
@@ -559,13 +526,6 @@ class Dictation:
             self.method.commit(self.text)
             self.done()
         self.wait_for_person()
-
-    def selector_has(self, source):
-        try:
-            self.selector.get_key(source)
-            return True
-        except KeyError:
-            return False
 
     # Delivering ----------------------------------------------------------
 
@@ -653,8 +613,7 @@ class Dictation:
 
 
 def main():
-    language = sys.argv[1]
-    Dictation(language, "--held" in sys.argv[2:]).run()
+    Dictation("--held" in sys.argv[1:]).run()
 
 
 if __name__ == "__main__":
