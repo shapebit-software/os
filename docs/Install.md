@@ -12,11 +12,11 @@ choose.
 
 ## 1. Download
 
-Download the installer, `installer.img.xz`. For now it comes from the latest
-[Candidate run](https://github.com/shapebit-software/os/actions/workflows/candidate.yml):
-open the run and download **installer** under *Artifacts*, which needs a
-GitHub account. Unzip it. You don't need to decompress `installer.img.xz`:
-the tools below read it as it is.
+Download the installer,
+[`installer.img.xz`](https://download.shapebit.software/installer.img.xz).
+You don't need to decompress it: the tools below read it as it is. To check
+the download, compare its SHA-256 checksum with
+[`SHA256SUMS`](https://download.shapebit.software/SHA256SUMS).
 
 ## 2. Write it to the USB drive
 
@@ -42,7 +42,8 @@ Rufus and balenaEtcher write the disk image directly.
 
 Virtual machines don't need a USB drive: attach the installer as a disk.
 
-1. Download `installer.img`.
+1. Download `installer.img.xz` and decompress it to `installer.img`, for
+   example with [7-Zip](https://www.7-zip.org) or `xz -d installer.img.xz`.
 2. Convert it with [`qemu-img`](https://www.qemu.org/download/) to the
    format of your virtual machine:
 

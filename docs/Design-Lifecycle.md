@@ -107,7 +107,7 @@ the system they ran on has exactly that digest.
 |---|---|---|
 | System images | GHCR, with the channels above | Built |
 | Release notes | [GitHub releases](https://github.com/shapebit-software/os/releases): changes, checksums, and packages | Built |
-| Installer | A download at a fixed address, with the current and the previous installer | Planned; for now, from the weekly build's run on GitHub |
+| Installer | [download.shapebit.software](https://download.shapebit.software/installer.img.xz), with the current and the previous installer | Built; a Candidate run's medium is uploaded by hand |
 | ShapeBit's own apps | A Flatpak repository of ShapeBit's own, built with [AetherPak](https://github.com/aetherpak/actions) | Decided; not built, as there are no such apps yet |
 | ShapeBit's own packages | None: the image includes ShapeBit's components directly | Decided |
 
