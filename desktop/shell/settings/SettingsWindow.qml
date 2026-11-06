@@ -231,9 +231,9 @@ PanelWindow {
               value: "Read", open: () => window.openLink("https://polyformproject.org/licenses/shield/1.0.0") },
             { label: "Fedora Linux and the other programs", detail: "Each under its own license, such as the GPL, the LGPL, MIT, or Apache 2.0",
               value: "Open", open: () => window.openLink("file:///usr/share/licenses") },
-            ...Extras.list.flatMap(e => (e.credits ?? []).map(c => ({ label: c.work,
+            ...[].concat(...Extras.list.map(e => (e.credits ?? []).map(c => ({ label: c.work,
               detail: `${c.license} · by ${c.by}${c.changes ? `, ${c.changes}` : ""} · ${e.name}, ${e.installed ? "downloaded" : "not downloaded"}`,
-              value: "Source", open: () => window.openLink(c.url) }))),
+              value: "Source", open: () => window.openLink(c.url) })))),
         ] },
         { id: "sound", name: "Sound", icon: "M10.8 5.9a3 3 0 0 1 0 4.2M12.7 4.2a5.6 5.6 0 0 1 0 7.6M3 6.2h2.2L8.6 3.4v9.2L5.2 9.8H3z", rows: [
             { label: "Output", detail: Audio.output?.description ?? "No device",
