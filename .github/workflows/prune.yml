@@ -1,0 +1,40 @@
+# Deletes the versions of the public os package that nobody may download any
+# more: keeps the version that os:stable holds, the release before it (the target
+# of Undo), and their sources, and deletes every other version, untagged ones too
+# (docs/License.md). Moving a tag deletes nothing, and a version stays
+# downloadable by its digest until it is deleted. Refuses if a version that it
+# keeps has no sources. Release calls it after each run; it can also run by hand.
+# Deleting needs this repository's Admin role on the package (Package settings >
+# Manage Actions access); deleted versions can be restored for 30 days.
+name: Prune
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  prune:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: Release
+    env:
+      REPOSITORY: ghcr.io/shapebit-software/os
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ghcr-login
+      - name: Delete the versions of os that are no longer needed
+        run: |
+          stable=$(skopeo inspect "docker://$REPOSITORY:stable" --format '{{index .Labels "org.opencontainers.image.version"}}')
+          keep=(stable "$stable" "$stable-sources")
+          previous=$(gh release list --exclude-drafts --limit 100 --json tagName,name --jq \
+            "[.[] | select(.tagName < \"$stable\" and (.name | endswith(\"(withdrawn)\") | not)) | .tagName] | max // empty")
+          if [ -n "$previous" ] && skopeo inspect --raw "docker://$REPOSITORY:$previous" >/dev/null 2>&1; then
+            keep+=("$previous" "$previous-sources")
+          fi
+          scripts/prune-packages.py "$REPOSITORY" "${keep[@]}"

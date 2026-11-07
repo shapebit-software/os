@@ -21,6 +21,20 @@ def ssh(command):
     )  # fmt: skip
 
 
+def copy_dir(local, remote):
+    """Copy a directory to the machine, through tar over SSH."""
+    with subprocess.Popen(["tar", "-C", local, "-c", "."], stdout=subprocess.PIPE) as tar:
+        done = subprocess.run(
+            ["ssh", "-i", os.environ["SSH_KEY"], "-p", os.environ["SSH_PORT"],
+             "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
+             "-o", "LogLevel=ERROR", "root@127.0.0.1",
+             f"mkdir -p {shlex.quote(remote)} && tar -C {shlex.quote(remote)} -x"],
+            stdin=tar.stdout, capture_output=True, text=True,
+        )  # fmt: skip
+    if tar.returncode != 0 or done.returncode != 0:
+        raise AssertionError(f"copying {local} to {remote}: {done.stderr}")
+
+
 def run(command, check=True):
     done = ssh(command)
     if check and done.returncode != 0:

@@ -13,8 +13,8 @@ signs with `SIGNING_KEY`: by default the development key that
 `dev.crt`, named ShapeBit Development). It signs systemd-boot, the UKI, and the
 TPM2 PCR values. `make release-key KEYS_DIR=<directory>` generates the release
 key once (`release.key`, `release.crt`, named ShapeBit), which a build uses with
-`SIGNING_KEY=release`; builds never generate it. The Candidate workflow
-restores it from its `RELEASE_KEY` secret, so that installed systems update
+`SIGNING_KEY=release`; builds never generate it. The Candidate and Installer
+workflows restore it from the `RELEASE_KEY` secret, so that installed systems update
 across builds; the checks of pushes and pull requests sign with a throwaway
 development key ([Signing](Design-Lifecycle.md#signing)).
 
@@ -47,10 +47,14 @@ The sealed image is saved as `build/image.tar`.
 ## Installer medium
 
 `make installer` builds the medium in the same two phases.
-[Containerfile.installer](https://github.com/shapebit-software/os/blob/main/image/Containerfile.installer) adds, to the unsealed
-system, the [installer](https://github.com/shapebit-software/os/blob/main/installer/), the
-`cage` kiosk compositor that shows it, and the sealed system, as an OCI layout, as
-the payload; sealing then covers all of it with the medium's own signed UKI.
+[Containerfile.installer](https://github.com/shapebit-software/os/blob/main/image/Containerfile.installer) adds, to the sealed
+system (`IMAGE`), the [installer](https://github.com/shapebit-software/os/blob/main/installer/), the
+`cage` kiosk compositor that shows it, and the same sealed system, as an OCI layout, as
+the payload; sealing then replaces the system's UKI with the medium's own, whose
+composefs digest covers all of it. So the Installer workflow builds from the
+released `os:<version>` alone, and no unsealed image is kept anywhere. The
+medium's record, `build/installer.img.json`, names the system it installs: its
+version, which is also the installer's, and its image digest.
 [scripts/medium.sh](https://github.com/shapebit-software/os/blob/main/scripts/medium.sh) writes the result to
 `build/installer.img`: an EFI System Partition and one unencrypted, compressed
 Btrfs filesystem, 7 GiB in all, so that it fits a USB drive sold as 8 GB. The

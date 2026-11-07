@@ -2,8 +2,11 @@
 """What scripts/openqa.sh needs around isotovideo: the variables of a run, and
 its result. The variables that do not change are in vars.json.
 
-Usage: run.py vars RECORD PUBLIC_KEY OWNER MEDIUM_SIZE DISK_SIZE OUT
+Usage: run.py vars RECORD PUBLIC_KEY OWNER MEDIUM_SIZE DISK_SIZE FLOW UPDATE_DIGEST OUT
        run.py check TESTRESULTS   fail unless every test module passed
+
+FLOW is install or update (tests/openqa/main.pm); UPDATE_DIGEST is the digest of
+the build that update moves to, and empty for install.
 """
 
 import base64
@@ -14,10 +17,13 @@ import string
 import sys
 
 
-def run_vars(record, public_key, owner, medium_size, disk_size):
-    """The sizes are in gigabytes, as `7G`. The machine lives for this run, and so
-    does its owner's password; vars.json, with it, stays with the results. Only
-    letters and digits: the keys typed are the US layout's."""
+def run_vars(record, public_key, owner, medium_size, disk_size, flow="install", update_digest=""):
+    """The sizes are in gigabytes, as `7G`; update needs the digest it moves to.
+    The machine lives for this run, and so does its owner's password; vars.json,
+    with it, stays with the results. Only letters and digits: the keys typed are
+    the US layout's."""
+    if flow not in ("install", "update") or (flow == "update") != bool(update_digest):
+        raise ValueError(f"FLOW {flow!r} with UPDATE_DIGEST {update_digest!r}")
     credential = base64.b64encode(pathlib.Path(public_key).read_bytes()).decode()
     static = pathlib.Path(__file__).with_name("vars.json").read_text()
     return json.loads(static) | {
@@ -28,7 +34,8 @@ def run_vars(record, public_key, owner, medium_size, disk_size):
         "OWNER_NAME": owner,
         "OWNER_PASSWORD": "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(24)),
         "IMAGE_DIGEST": json.loads(pathlib.Path(record).read_text())["image_digest"],
-    }
+        "FLOW": flow,
+    } | ({"UPDATE_DIGEST": update_digest} if flow == "update" else {})
 
 
 def passed(testresults):

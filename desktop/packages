@@ -36,9 +36,13 @@ rtkit
 # in as the input method, which needs no package; wtype types it only when the
 # person asks, for applications that do not say if they have a text field.
 # sherpa-onnx is not Fedora's: the image fetches it (Containerfile), and
-# Parakeet, which it runs, is downloaded (extras/extra).
+# Parakeet, which it runs, is downloaded (extras/extra). It runs on Fedora's
+# NumPy and ALSA library, rather than the copies that wheels bundle, so that
+# their sources are those of the RPMs.
 pipewire-utils
 wtype
+python3-numpy
+alsa-lib
 # Secrets (the Secret Service and its portal), unlocked by the login password:
 # SDDM's PAM configuration calls pam_oo7 when it is installed.
 oo7-daemon

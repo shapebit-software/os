@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Push IMAGE to the local update registry, starting the registry if needed.
-# A VM switched to DEV_UPDATE_REF updates from it (tests/update/).
-# Usage: publish.sh [TAG]   TAG instead of DEV_UPDATE_REF's (`make test-update`).
+# Push the image archive ARCHIVE to the local update registry, starting the
+# registry if needed. skopeo keeps its digest, so the system that updates from it
+# reports the digest that the archive records. A VM switched to DEV_UPDATE_REF
+# updates from it (tests/update/).
+# Usage: publish.sh ARCHIVE [TAG]   TAG instead of DEV_UPDATE_REF's (`make test-update`).
 set -euo pipefail
-: "${ENGINE:?}" "${IMAGE:?}" "${REGISTRY_PORT:?}" "${DEV_UPDATE_REF:?}"
+: "${ENGINE:?}" "${REGISTRY_PORT:?}" "${DEV_UPDATE_REF:?}"
+archive=$1
 
 # ENGINE is unquoted on purpose: it may be a command with arguments, e.g. "sudo podman".
 name=dev-registry
@@ -14,12 +17,7 @@ fi
 
 # The host reaches the registry at localhost; the path and tag match DEV_UPDATE_REF.
 ref=localhost:$REGISTRY_PORT/${DEV_UPDATE_REF#*/}
-if [[ -n ${1:-} ]]; then
-  ref=${ref%:*}:$1
+if [[ -n ${2:-} ]]; then
+  ref=${ref%:*}:$2
 fi
-push_args=()
-if $ENGINE push --help | grep -q -- --tls-verify; then
-  push_args=(--tls-verify=false)
-fi
-$ENGINE tag "$IMAGE" "$ref"
-$ENGINE push "${push_args[@]}" "$ref"
+skopeo copy -q --preserve-digests --dest-tls-verify=false "oci-archive:$archive" "docker://$ref"

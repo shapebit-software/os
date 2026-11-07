@@ -1,0 +1,15 @@
+# Logs skopeo and Docker in to GHCR with the job's token, whose permissions
+# (packages: read or write) decide what they may do there.
+name: GHCR login
+description: Log skopeo and Docker in to ghcr.io
+runs:
+  using: composite
+  steps:
+    - name: Log in to GHCR
+      shell: bash
+      env:
+        TOKEN: ${{ github.token }}
+        ACTOR: ${{ github.actor }}
+      run: |
+        skopeo login ghcr.io -u "$ACTOR" --password-stdin <<<"$TOKEN"
+        docker login ghcr.io -u "$ACTOR" --password-stdin <<<"$TOKEN"

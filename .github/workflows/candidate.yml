@@ -1,9 +1,14 @@
-# Runs the first stages of Verification, then builds one image a week, or when
-# started by hand, and tests it fully. Only if every test passes does it publish
-# it, as os:candidate, with a draft release of its notes, for the Release workflow.
-# The build has no cache, so that it picks up Fedora's updates; only the build job
-# has the release key, in the environment "Signing"; a failed test job can be
-# re-run on the same build (docs/Testing.md).
+# Runs the first stages of Verification, then builds one OS image a week, or when
+# started by hand, and pushes it to the private os/candidate:<version>, which the
+# test jobs pull. They install stable with the installer on the download site
+# (os/installer:stable), update to the candidate, and test it: the path that
+# existing systems take. Only if every test passes does it write a draft release
+# of its notes, for the Release workflow. Its sources are collected as it is
+# built, to os/candidate:<version>-sources. The build has no cache, so that it picks
+# up Fedora's updates; only the build job has the release key, in the environment
+# "Signing"; a failed test job can be re-run on the same build (docs/Testing.md).
+# Actions artifacts, which anyone signed in to GitHub can download, hold test
+# results only, never an image.
 name: Candidate
 
 on:
@@ -21,6 +26,7 @@ concurrency:
 env:
   ENGINE: docker
   REPOSITORY: ghcr.io/shapebit-software/os
+  CANDIDATES: ghcr.io/shapebit-software/os/candidate
 
 jobs:
   static-checks:
@@ -39,8 +45,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     environment: Signing
+    permissions:
+      contents: read
+      packages: write
     outputs:
       version: ${{ steps.version.outputs.version }}
+      digest: ${{ steps.push.outputs.digest }}
     steps:
       - name: Free disk space
         run: |
@@ -73,69 +83,60 @@ jobs:
       - name: Build and test the image
         run: make test-image
 
-      - name: Build the installer medium
-        run: make -o image installer
-
-      - name: Build the update test's images
-        run: make update-builds
+      # The build that the update test moves on to from the candidate, so that the
+      # candidate's own os-update downloads one.
+      - name: Build the update test's image
+        run: make update-builds UPDATE_TAGS=next2
 
       - name: Remove the release key
         run: rm -rf "$RUNNER_TEMP/keys"
 
-      - name: Compress the medium
+      - uses: ./.github/actions/ghcr-login
+
+      # The digest that the tests compare with the booted system, unchanged.
+      - name: Push the images to os/candidate
+        id: push
         run: |
-          xz -T0 build/installer.img
-          mv build/installer.img.xz .
-          cp build/installer.img.json .
+          digest=$(python3 scripts/provenance.py digest build/image.tar)
+          skopeo copy -q --preserve-digests oci-archive:build/image.tar "docker://$CANDIDATES:$IMAGE_VERSION"
+          [ "$(skopeo inspect "docker://$CANDIDATES:$IMAGE_VERSION" --format '{{.Digest}}')" = "$digest" ]
+          skopeo copy -q --preserve-digests oci-archive:build/image-next2.tar "docker://$CANDIDATES:$IMAGE_VERSION-update"
+          echo "digest=$digest" >>"$GITHUB_OUTPUT"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: image
-          path: build/image.tar
-          compression-level: 0
-          retention-days: 7
-      - uses: actions/upload-artifact@v4
-        with:
-          name: update-builds
-          path: build/image-next*.tar
-          compression-level: 0
-          retention-days: 7
-      - uses: actions/upload-artifact@v4
-        with:
-          name: installer
-          path: |
-            installer.img.xz
-            installer.img.json
-          compression-level: 0
-          retention-days: 30
+      # COPR deletes old builds, and Fedora's repositories drop a version once an
+      # update replaces it, so the sources are collected now, while they match
+      # the build (docs/License.md). Release publishes them with the image.
+      - name: Collect and push the image's sources
+        run: |
+          stable=$(skopeo inspect "docker://$REPOSITORY:stable" --format '{{index .Labels "org.opencontainers.image.version"}}' || true)
+          make -o image sources ${stable:+SOURCES_PREVIOUS=$REPOSITORY:$stable-sources}
+          scripts/sources.py push build/sources "$CANDIDATES:$IMAGE_VERSION-sources" "ShapeBit $IMAGE_VERSION: sources"
 
-  # Install from the medium, without its UI, and check the system and an update.
+  # Install stable without the UI, update to the candidate through the update
+  # registry, run the system checks on it, then update again and roll back.
   scripted:
-    name: Test install and update
+    name: Test the update from stable
     needs: build
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 150
+    permissions:
+      contents: read
+      packages: read
     env:
-      IMAGE_VERSION: ${{ needs.build.outputs.version }}
+      VERSION: ${{ needs.build.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/vm-host
-      - uses: actions/download-artifact@v4
-        with:
-          name: installer
-      - uses: actions/download-artifact@v4
-        with:
-          name: update-builds
-          path: build
-      - name: Unpack the medium
+      - uses: ./.github/actions/ghcr-login
+      - name: Pull the installer of the download site, and the candidate
         run: |
-          mkdir -p build
-          xz -d installer.img.xz
-          mv installer.img installer.img.json build/
-      - name: Install from the medium, and test the system
-        run: make -o installer disk && make test-plan PLAN=system
-      - name: Test an update and its rollback
-        run: make -o disk -o update-builds test-update
+          make pull-installer
+          skopeo copy -q --preserve-digests "docker://$CANDIDATES:$VERSION" oci-archive:build/image.tar
+          skopeo copy -q --preserve-digests "docker://$CANDIDATES:$VERSION-update" oci-archive:build/image-next2.tar
+      - name: Install stable from the medium
+        run: make -o installer disk
+      - name: Update to the candidate, test it, update again, and roll back
+        run: make -o disk -o update-builds test-update NEXT_ARCHIVE=build/image.tar
       - name: Keep the test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -144,25 +145,28 @@ jobs:
           path: build/results
           if-no-files-found: ignore
 
-  # The medium itself, through its UI, with openQA.
+  # Install stable through the installer's UI, update to the candidate, and test
+  # the candidate's desktop, with openQA.
   openqa:
-    name: Test the installer's UI
+    name: Test the candidate's desktop
     needs: build
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 150
+    permissions:
+      contents: read
+      packages: read
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/vm-host
-      - uses: actions/download-artifact@v4
-        with:
-          name: installer
-      - name: Unpack the medium
+      - uses: ./.github/actions/ghcr-login
+      - name: Pull the installer of the download site, and the candidate
         run: |
-          mkdir -p build
-          xz -d installer.img.xz
-          mv installer.img installer.img.json build/
-      - name: Test the installer's UI with openQA
-        run: make test-release
+          make pull-installer
+          skopeo copy -q --preserve-digests "docker://$CANDIDATES:$VERSION" oci-archive:build/image.tar
+      - name: Update to the candidate and test its desktop with openQA
+        run: make test-release FLOW=update UPDATE_ARCHIVE=build/image.tar
       - name: Keep the test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -172,45 +176,26 @@ jobs:
           if-no-files-found: ignore
 
   publish:
-    name: Publish os:candidate
+    name: Write the draft release
     needs: [build, scripted, openqa]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
-      packages: write
+      packages: read
     env:
       VERSION: ${{ needs.build.outputs.version }}
+      DIGEST: ${{ needs.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
-        with:
-          name: image
-          path: build
-      - uses: actions/download-artifact@v4
-        with:
-          name: installer
-          path: installer
-
-      - name: Log in to GHCR
-        run: |
-          skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin <<<"${{ secrets.GITHUB_TOKEN }}"
-          docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<<"${{ secrets.GITHUB_TOKEN }}"
-
-      # The digest that the tests compared with the booted system, unchanged.
-      - name: Push the image as os:candidate
-        run: |
-          expected=$(jq -r .image_digest installer/installer.img.json)
-          [ "$(python3 scripts/provenance.py digest build/image.tar)" = "$expected" ]
-          skopeo copy -q --preserve-digests oci-archive:build/image.tar "docker://$REPOSITORY:candidate"
-          [ "$(skopeo inspect "docker://$REPOSITORY:candidate" --format '{{.Digest}}')" = "$expected" ]
+      - uses: ./.github/actions/ghcr-login
 
       - name: Report the changes since os:stable
         run: |
           inspect() { skopeo inspect "docker://$REPOSITORY:$1" --format "{{index .Labels \"$2\"}}"; }
           list() { docker run --rm "$1" rpm -qa --qf '%{NAME} %{VERSION}-%{RELEASE}\n' | sort; }
-          list "$REPOSITORY:candidate" >packages.txt
+          list "$CANDIDATES:$VERSION" >packages.txt
           : >old-packages
           range=HEAD
           if stable=$(inspect stable org.opencontainers.image.revision 2>/dev/null); then
@@ -219,7 +204,8 @@ jobs:
             if [ -n "$stable" ] && [ "$stable" != "<no value>" ]; then range=$stable..HEAD; fi
           fi
           git log --oneline "$range" >commits
-          python3 scripts/release-notes.py installer/installer.img.json "$GITHUB_SHA" commits old-packages packages.txt >notes.md
+          python3 scripts/release-notes.py "$DIGEST" "$REPOSITORY:$VERSION-sources" "$GITHUB_SHA" commits \
+            old-packages packages.txt >notes.md
           { echo "# Candidate $VERSION"; echo; cat notes.md; } >>"$GITHUB_STEP_SUMMARY"
 
       # Only the latest candidate can be released, so only it keeps a draft.
@@ -230,4 +216,4 @@ jobs:
           gh release list --json tagName,isDraft --jq '.[] | select(.isDraft) | .tagName' |
             while read -r draft; do gh release delete "$draft" --yes; done
           gh release create "$VERSION" --draft --target "$GITHUB_SHA" --title "$VERSION" --notes-file notes.md \
-            packages.txt installer/installer.img.json
+            packages.txt

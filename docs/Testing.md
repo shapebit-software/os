@@ -15,15 +15,44 @@ ShapeBit is tested at three levels. Levels 1 and 2 exist; level 3 is reserved.
 
 | Workflow | Starts | Does |
 | --- | --- | --- |
-| Verification | Every push and pull request | Three stages in order, each only if the one before passed: Static checks (`make lint`, `make validate`), Unit tests (`make test-unit`), and, on a change to `image/Containerfile*`, Image tests (`make test-image`, with a throwaway key; publishes nothing) |
-| Candidate | Weekly, early on Monday (UTC), or by hand, on `main` | Runs Static checks and Unit tests, then builds without a cache, signed with the release key; runs levels 1 and 2 in parallel jobs; if all pass, publishes `os:candidate` and a draft release with its report |
-| Release | Only by hand, on `main` | Moves `os:stable` to `os:candidate`, tags it with its version, and publishes its release; or moves back to `os:stable-previous` and marks the last release withdrawn |
+| Verification | Every push and pull request | Three stages in order, each only if the one before passed: Static checks (`make lint`, `make validate`), Unit tests (`make test-unit`, which also builds the installer program and runs its tests), and, on a change to `image/Containerfile*`, Image tests (`make test-image`, with a throwaway key; publishes nothing) |
+| Candidate | Weekly, early on Monday (UTC), or by hand, on `main` | Runs Static checks and Unit tests, then builds the OS image without a cache, signed with the release key, and pushes it to `os/candidate:<version>`. Tests it by updating: installs stable with `os/installer:stable`, updates to the candidate, then runs level 1 and openQA's desktop modules (`FLOW=update`). If all pass, writes a draft release with its report |
+| Release | Only by hand, on `main` | Copies the draft release's `os/candidate:<version>` to `os:<version>` and `os:stable`, and publishes its release; or, with Undo, copies the release before back to `os:stable` and marks the last release withdrawn |
+| Installer | Monthly, on the 1st (UTC), or by hand, on `main` | Builds the installer from the released `os:stable`, once per OS version, and pushes it to `os/installer:<version>`. Runs levels 1 and 2 on it in full (`FLOW=install`). After a person approves it, publishes it on the download server and moves `os/installer:stable` to it |
+
+Two tracks, then: each week a new OS image, tested on the path that existing
+systems take, from the installer that people download; each month a new
+installer, from the OS that is out. An installer bug is fixed by a Candidate
+and a Release, then an Installer run.
+
+### Packages
+
+| Package on GHCR | Visibility | Tags | Holds |
+| --- | --- | --- | --- |
+| `ghcr.io/shapebit-software/os` | Public | `stable`, `<version>`, `<version>-sources` | Released OS images and their sources; installed systems update from `stable` |
+| `ghcr.io/shapebit-software/os/candidate` | Private | `<version>`, `<version>-sources`, `<version>-update` | OS images under test, their sources, and the build that the update test moves on to from each |
+| `ghcr.io/shapebit-software/os/installer` | Private | `<version>`, `<version>-sources`, `stable` | Installer media, and their sources until they are published, as OCI artifacts; `stable` is the one on the download site |
+
+In each package, `stable` is what users get. Sources are collected as the
+image is built, while the repositories still match it, and published before or
+with it ([License](License.md#sources)). Each Release run deletes the versions
+of `os` other than `stable`'s and the release before it, with their sources
+(the Prune workflow); the Sources workflow collects them for a released version
+that has none. The installer's version is the OS
+version inside it. Both private packages give this repository's Actions write
+access (Package settings > Manage Actions access). `make pull-installer` pulls
+an installer (`INSTALLER_REF`, by default `os/installer:stable`) after
+`skopeo login ghcr.io`.
+
+Actions artifacts hold test results only: anyone signed in to GitHub can
+download them, and a release-signed image or installer must not be public
+before it is released.
 
 A test job that fails on a flake can be re-run on the same build with GitHub's
-"Re-run failed jobs": the jobs test the files that the build job saved, so the
-digest does not change. Something that breaks only inside a built image waits for
-the next Candidate run; it cannot reach `stable`. Before a risky change, run
-`make test`, or start Candidate by hand.
+"Re-run failed jobs": the jobs pull what the build job pushed, so the digest does
+not change. Something that breaks only inside a built image waits for the next
+Candidate run; it cannot reach `stable`. Before a risky change, run `make test`,
+or start Candidate by hand.
 
 ## What each run proves
 
@@ -34,15 +63,21 @@ Every scripted and openQA run leaves `build/results/<time>-<plan>/`.
 | `make test-image` | The image's files; nothing boots |
 | `/plans/medium` | The medium booted, before it installs |
 | `/plans/system`, `/plans/update` | A disk generated by `installerctl`, without the UI |
-| `make test-release` | The medium itself through its UI |
+| `make test-release` | The medium itself through its UI (`FLOW=install`), or, with `FLOW=update`, the system it installed after an update to `UPDATE_ARCHIVE` |
 
 A disk result says nothing about the installer's pages, and a `make test-release`
-result covers less of the system's details. A release needs both. The system checks
+result covers less of the system's details. A release needs both.
+
+**Updates.** `make test-update` installs, then moves a clone of the machine to
+`NEXT_ARCHIVE`'s build, runs the system checks there, then to
+`NEXT2_ARCHIVE`'s, and rolls back. Locally both are newer builds of the same
+tree (`make update-builds`); in Candidate the machine is stable, `NEXT_ARCHIVE`
+is the candidate, and `NEXT2_ARCHIVE` its `-update` build. The system checks
 and openQA also compare the running image's digest to the recorded one, so a result
 cannot describe a different build.
 
-The release medium is a raw disk image (`installer.img.xz`): ShapeBit builds no
-ISO. Every VM attaches it with a snapshot, so it stays byte for byte what was
+The release medium is a raw disk image (`shapebit-installer.img.xz` on the
+download site): ShapeBit builds no ISO. Every VM attaches it with a snapshot, so it stays byte for byte what was
 built and recorded in `build/installer.img.json`. `make test-release` refuses a
 medium that differs.
 
@@ -71,9 +106,10 @@ Testinfra (`tests/requirements.txt`, installed in `tests/.deps`). The image ship
 (`tests/system/persistence.sh`, `tests/update/update.sh`). Each boot writes its
 own `junit-<count>.xml`.
 
-**Updates.** The host publishes both new builds to the local registry first.
-The test moves the tag that the system follows through the registry's API, as
-publishing a build does, so the host need not act between boots.
+**Updates.** The host publishes both new builds to the local registry first,
+with skopeo, which keeps their digests. The test moves the tag that the system
+follows through the registry's API, as publishing a build does, so the host
+need not act between boots.
 
 **The recovery key** stays on the host: `tests/host/` passes it over standard
 input after tmt finishes, and it is in no report.
@@ -100,7 +136,11 @@ picture of a wrong system.
 
 The modules cover the MOK enrollment, installation through the UI, first boot,
 login, Settings, window layouts, dictation, locking and unlocking, and
-restarting. Settings
+restarting. `FLOW` chooses their order in `main.pm`: `install` runs them all;
+`update` adds `update` after the first boot, which copies `UPDATE_ARCHIVE`'s
+build to the machine as an OCI layout over SSH, switches to it, and restarts,
+so that the desktop's modules test that build. The machine needs no
+credentials for the private package. Settings
 is the shell's own (`Super+I`): ShapeBit has no Switchboard.
 
 After failure, the run's `pool/testresults/` keeps each step's screenshot and

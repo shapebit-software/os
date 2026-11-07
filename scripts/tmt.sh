@@ -4,7 +4,9 @@
 # Usage: tmt.sh PLAN RUN_DIR
 set -euo pipefail
 : "${VENV:?}" "${SSH_PORT:?}" "${SSH_KEY:?}"
-: "${IMAGE_DIGEST:?}" "${IMAGE_VERSION:?}" "${OWNER_NAME:?}" "${LOCALE:?}" "${KEYBOARD_LAYOUT:?}" "${TIME_ZONE:?}" "${DEV_UPDATE_REF:?}"
+: "${IMAGE_DIGEST:?}" "${OWNER_NAME:?}" "${LOCALE:?}" "${KEYBOARD_LAYOUT:?}" "${TIME_ZONE:?}" "${DEV_UPDATE_REF:?}"
+# Only the update test has these (scripts/test-machine.sh).
+NEXT_VERSION=${NEXT_VERSION:-} NEXT2_VERSION=${NEXT2_VERSION:-}
 plan=$1 run=$(realpath -m "$2")
 mkdir -p "$run"
 
@@ -15,8 +17,8 @@ trap 'mv "$workdir" "$run/tmt"' EXIT
 
 # tests/ is the tree that tmt copies to the guest, with its dependencies.
 "$VENV/bin/tmt" --root tests run --id "$workdir" --scratch --all \
-  --environment "IMAGE_DIGEST=$IMAGE_DIGEST IMAGE_VERSION=$IMAGE_VERSION OWNER_NAME=$OWNER_NAME" \
+  --environment "IMAGE_DIGEST=$IMAGE_DIGEST OWNER_NAME=$OWNER_NAME" \
   --environment "LOCALE=$LOCALE KEYBOARD_LAYOUT=$KEYBOARD_LAYOUT TIME_ZONE=$TIME_ZONE" \
-  --environment "DEV_UPDATE_REF=$DEV_UPDATE_REF" \
+  --environment "DEV_UPDATE_REF=$DEV_UPDATE_REF NEXT_VERSION=$NEXT_VERSION NEXT2_VERSION=$NEXT2_VERSION" \
   plan --name "^/plans/$plan\$" \
   provision --how connect --guest "${TEST_GUEST:-127.0.0.1}" --port "$SSH_PORT" --key "$(realpath "$SSH_KEY")"

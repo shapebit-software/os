@@ -9,7 +9,8 @@ spec = importlib.util.spec_from_file_location(
 release_notes = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release_notes)
 
-RECORD = {"image_digest": "sha256:aaa", "medium_sha256": "bbb"}
+DIGEST = "sha256:aaa"
+SOURCES = "ghcr.io/shapebit-software/os:1-sources"
 
 
 def changes(old, new):
@@ -31,13 +32,14 @@ def test_a_package_keeps_all_its_versions():
 
 
 def test_notes_name_the_build_and_its_changes():
-    notes = release_notes.notes(RECORD, "abc123", "abc123 Fix a thing\n", "a 1-1\n", "a 1-2\n")
-    assert "- Image digest: `sha256:aaa`\n- Medium SHA-256: `bbb`\n- Commit: `abc123`\n" in notes
+    notes = release_notes.notes(DIGEST, SOURCES, "abc123", "abc123 Fix a thing\n", "a 1-1\n", "a 1-2\n")
+    assert "- Image digest: `sha256:aaa`\n- Sources: `ghcr.io/shapebit-software/os:1-sources`\n" in notes
+    assert "- Commit: `abc123`\n" in notes
     assert "```\nabc123 Fix a thing\n```" in notes
     assert "- Updated `a` 1-1 → 1-2" in notes
 
 
 def test_notes_say_when_nothing_changed():
-    notes = release_notes.notes(RECORD, "abc123", "", "a 1-1\n", "a 1-1\n")
+    notes = release_notes.notes(DIGEST, SOURCES, "abc123", "", "a 1-1\n", "a 1-1\n")
     assert "```\nNone\n```" in notes
     assert notes.endswith("## Packages changed since stable\nNone\n")

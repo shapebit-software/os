@@ -1,0 +1,48 @@
+# Collects and publishes the sources of a released version of os that has none,
+# such as one released before sources were published (docs/License.md), as
+# os:<version>-sources. Downloads from Fedora's repositories, or from Koji for
+# versions that they no longer have; fails if a source cannot be found, and then
+# that version must be replaced by a new release and deleted instead. Runs only
+# by hand, in the environment "Release".
+name: Sources
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version of os, such as 202611051112
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  ENGINE: docker
+  REPOSITORY: ghcr.io/shapebit-software/os
+  VERSION: ${{ inputs.version }}
+
+jobs:
+  sources:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    environment: Release
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
+          docker image prune -af >/dev/null
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ghcr-login
+      - name: Collect and push the sources
+        run: |
+          if ! [[ $VERSION =~ ^[0-9]{12}$ ]]; then echo "::error::$VERSION is not a version"; exit 1; fi
+          if skopeo inspect --raw "docker://$REPOSITORY:$VERSION-sources" >/dev/null 2>&1; then
+            echo "::error::$REPOSITORY:$VERSION-sources exists"
+            exit 1
+          fi
+          docker pull -q "$REPOSITORY:$VERSION"
+          scripts/sources.py collect "$REPOSITORY:$VERSION" build/sources
+          scripts/sources.py push build/sources "$REPOSITORY:$VERSION-sources" "ShapeBit $VERSION: sources"

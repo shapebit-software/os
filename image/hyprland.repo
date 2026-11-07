@@ -1,0 +1,8 @@
+# The third-party COPR that Hyprland comes from for now (image/Containerfile).
+# Mounted only while the image builds, and while scripts/sources.py downloads
+# the source RPMs; never part of the image.
+[hyprland]
+name=Hyprland (COPR sdegler/hyprland)
+baseurl=https://download.copr.fedorainfracloud.org/results/sdegler/hyprland/fedora-$releasever-$basearch/
+gpgcheck=1
+gpgkey=https://download.copr.fedorainfracloud.org/results/sdegler/hyprland/pubkey.gpg

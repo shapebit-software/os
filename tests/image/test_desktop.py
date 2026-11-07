@@ -1,6 +1,7 @@
 """The container image: the desktop session, its portals, and its applications."""
 
 import ast
+import fnmatch
 import json
 
 import pytest
@@ -62,12 +63,40 @@ def test_dictation_helper_is_installed(host, sh):
 
 
 def test_dictation_has_its_runtime_but_no_speech_model(sh, host):
-    # The engine gets as far as loading Parakeet only with sherpa-onnx and NumPy in
-    # place. Speech models are extras, downloaded when the person chooses.
+    # The engine gets as far as loading Parakeet only with sherpa-onnx and NumPy
+    # (Fedora's) in place. Speech models are extras, downloaded when the person
+    # chooses.
     sh("PYTHONPATH=/usr/lib64/dictation python3 -c 'import numpy, sherpa_onnx'")
     assert host.file("/usr/libexec/desktop/dictate-engine").mode & 0o111
     for path in ("/usr/share/parakeet", "/usr/share/whisper", "/usr/bin/whisper-cli"):
         assert not host.file(path).exists
+
+
+# Every shared library of dictation's wheels, with its license. A library that
+# is not here may be under the GPL or the LGPL, whose exact sources the wheels
+# do not give; such libraries come from RPMs instead (desktop/packages).
+DICTATION_LIBRARIES = {
+    "_sherpa_onnx.cpython-*.so": "Apache-2.0",
+    "libsherpa-onnx-c-api.so": "Apache-2.0",
+    "libsherpa-onnx-cxx-api.so": "Apache-2.0",
+    "libonnxruntime.so": "MIT",
+}
+
+
+def test_dictation_bundles_no_copyleft_library(sh):
+    libraries = sh("find /usr/lib64/dictation -name '*.so*' -printf '%f\\n'").split()
+    unknown = [name for name in libraries if not any(fnmatch.fnmatch(name, known) for known in DICTATION_LIBRARIES)]
+    assert not unknown, f"libraries of unknown license in /usr/lib64/dictation: {unknown}"
+    # auditwheel's directories of bundled copies, such as sherpa_onnx.libs.
+    assert sh("find /usr/lib64/dictation -maxdepth 1 -name '*.libs'") == ""
+
+
+def test_dictation_loads_alsa_from_its_rpm(sh):
+    module = sh("ls /usr/lib64/dictation/sherpa_onnx/lib/_sherpa_onnx.cpython-*.so").strip()
+    libraries = sh("ldd %s", module)
+    assert "not found" not in libraries
+    path = next(line.split()[2] for line in libraries.splitlines() if "libasound.so.2" in line)
+    assert sh("rpm -qf --qf '%%{NAME}' %s", path) == "alsa-lib"
 
 
 def test_extras_can_be_downloaded_by_administrators(host, sh):

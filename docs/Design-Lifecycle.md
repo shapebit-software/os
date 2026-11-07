@@ -15,8 +15,8 @@ development build can never become a release.
 | Release | Every candidate, so every release | Every installed computer |
 
 Each key signs the boot loader, the UKI, and the TPM values that unlock the
-disk. The release key is a protected CI secret, used only by the job that
-builds a candidate. Whoever can approve a release can ship code to every
+disk. The release key is a protected CI secret, used only by the jobs that
+build a candidate or an installer. Whoever can approve a release can ship code to every
 computer, so the safety of the approver's account matters as much as the
 key's.
 
@@ -61,31 +61,39 @@ UTC, such as `202610301530`, and it names the commit it was built from.
 
 ### Channels
 
-Images are published to `ghcr.io/shapebit-software/os` under these tags:
+Released images are published to `ghcr.io/shapebit-software/os` under these
+tags:
 
 | Channel | What it holds | Moved by |
 |---|---|---|
-| `candidate` | The latest build that passed every test | Automatically, by the weekly build |
-| `stable` | What installed computers update from | A person, by releasing a candidate |
-| `stable-previous` | The release before, to go back to | Releasing, along with `stable` |
-| The version, such as `202610301530` | That release, for good | Releasing |
+| `stable` | What installed computers update from | A person, by releasing a candidate, or by undoing a release |
+| The version, such as `202610301530` | That release | Releasing |
+
+Candidates wait in the private package `os/candidate`, and installers in the
+private package `os/installer`, whose `stable` is the installer on the
+download site ([Testing](Testing.md#packages)).
 
 A release goes through these steps:
 
 1. **Build.** Once a week, or when started by hand, a fresh build picks up
    Fedora's updates and is signed with the release key.
-2. **Test.** The image and its installer are tested fully
-   ([Testing](Testing.md)). Only a build that passes every test becomes
-   `candidate`, with a draft of its release notes. A newer candidate replaces
-   it.
+2. **Test.** The image is tested on the path that installed computers take:
+   the installer that people download installs `stable`, which then updates
+   to the candidate ([Testing](Testing.md)). Only a build that passes every
+   test gets a draft of its release notes. A newer candidate replaces it.
 3. **Try.** A person reads the notes and can try the candidate on a real
-   computer by switching that computer to `candidate`.
-4. **Release.** A person moves `stable` to the candidate, unchanged, and the
-   release notes are published. Installed computers take it as their next
-   update.
-5. **Undo, if needed.** `stable` moves back to `stable-previous`, and the
+   computer.
+4. **Release.** A person copies the candidate, unchanged, to its version and
+   to `stable`, and the release notes are published. Installed computers take
+   it as their next update.
+5. **Undo, if needed.** `stable` moves back to the release before, and the
    release is marked withdrawn. Installed computers take the previous release
    as their next update. A withdrawn build can't be released again.
+
+Once a month, or when started by hand, a new installer is built from the
+release that `stable` holds, and has its version. It is tested in full, and
+after a person approves it, replaces the installer on the download site. There
+is one installer per release: to fix the installer, a new release comes first.
 
 Developers test updates with their own builds, through a local registry; it
 is not a channel, and its builds can't be promoted.
@@ -107,7 +115,8 @@ the system they ran on has exactly that digest.
 |---|---|---|
 | System images | GHCR, with the channels above | Built |
 | Release notes | [GitHub releases](https://github.com/shapebit-software/os/releases): changes, checksums, and packages | Built |
-| Installer | [download.shapebit.software](https://download.shapebit.software/installer.img.xz), with the current and the previous installer | Built; a Candidate run's medium is uploaded by hand |
+| Sources | Next to each image and installer, for as long as it can be downloaded ([License](License.md#sources)) | Built |
+| Installer | [download.shapebit.software](https://download.shapebit.software/shapebit-installer.img.xz), only the current installer | Built; the Installer workflow publishes it after approval |
 | ShapeBit's own apps | A Flatpak repository of ShapeBit's own, built with [AetherPak](https://github.com/aetherpak/actions) | Decided; not built, as there are no such apps yet |
 | ShapeBit's own packages | None: the image includes ShapeBit's components directly | Decided |
 

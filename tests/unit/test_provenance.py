@@ -64,3 +64,40 @@ def test_field_prints_one_value_of_a_record(tmp_path, capsys):
     record.write_text(json.dumps({"image_digest": "sha256:abc"}))
     provenance.main("field", str(record), "image_digest")
     assert capsys.readouterr().out == "sha256:abc\n"
+
+
+def labelled(tmp_path, labels):
+    """An image whose config has these labels."""
+    index = {"manifests": [{"digest": "sha256:man", "mediaType": MANIFEST}]}
+    return archive(tmp_path / "image.tar", index, [
+        ("blobs/sha256/man", {"config": {"digest": "sha256:cfg"}}),
+        ("blobs/sha256/cfg", {"config": {"Labels": labels}}),
+    ])  # fmt: skip
+
+
+def test_label_reads_the_images_config(tmp_path):
+    image = labelled(tmp_path, {"org.opencontainers.image.version": "202611051112"})
+    assert provenance.label(image, "org.opencontainers.image.version") == "202611051112"
+
+
+def test_a_medium_records_the_version_and_digest_of_its_system(tmp_path):
+    image = labelled(tmp_path, {"org.opencontainers.image.version": "202611051112"})
+    (tmp_path / "medium").write_bytes(b"medium")
+    provenance.main("medium", str(image), str(tmp_path / "medium"), str(tmp_path / "record.json"))
+    assert json.loads((tmp_path / "record.json").read_text()) == {
+        "version": "202611051112",
+        "image_digest": "sha256:man",
+        "medium_sha256": hashlib.sha256(b"medium").hexdigest(),
+    }
+
+
+def test_sources_add_their_sha256_to_the_record(tmp_path):
+    record = tmp_path / "record.json"
+    record.write_text(json.dumps({"version": "1", "medium_sha256": "abc"}))
+    (tmp_path / "sources.tar").write_bytes(b"sources")
+    provenance.main("sources", str(record), str(tmp_path / "sources.tar"))
+    assert json.loads(record.read_text()) == {
+        "version": "1",
+        "medium_sha256": "abc",
+        "sources_sha256": hashlib.sha256(b"sources").hexdigest(),
+    }

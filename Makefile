@@ -23,6 +23,9 @@ INSTALLER_SRC   ?= installer
 DESKTOP_SRC     ?= desktop
 MEDIUM          ?= $(BUILD)/installer.img
 MEDIUM_SIZE     ?= 7G
+# The installer on the download site, which `make pull-installer` pulls (a
+# private package: `skopeo login ghcr.io` first).
+INSTALLER_REF   ?= ghcr.io/shapebit-software/os/installer:stable
 SSH_PORT       ?= 2222
 SSH_KEY        ?= $(BUILD)/ssh/id_ed25519
 # Disk images are raw, except the disposable clones that the tests make.
@@ -57,14 +60,35 @@ UPDATE_REF     ?= ghcr.io/shapebit-software/os:stable
 # networking); the update test switches the VM to it.
 REGISTRY_PORT  ?= 5000
 DEV_UPDATE_REF ?= 10.0.2.2:$(REGISTRY_PORT)/shapebit-os:dev
+# The update test moves the installed machine to NEXT_ARCHIVE's build, then to
+# NEXT2_ARCHIVE's, both newer, and back; `make update-builds` builds those of
+# UPDATE_TAGS. Candidate installs stable instead, and passes the candidate as
+# NEXT_ARCHIVE, so it builds only next2.
+UPDATE_TAGS    ?= next next2
+NEXT_ARCHIVE   ?= $(BUILD)/image-next.tar
+NEXT2_ARCHIVE  ?= $(BUILD)/image-next2.tar
+# The order of the openQA modules (tests/openqa/main.pm): install, everything
+# from the medium; or update, which also updates the installed system to
+# UPDATE_ARCHIVE's build before the desktop's modules.
+FLOW           ?= install
+UPDATE_ARCHIVE ?= $(IMAGE_ARCHIVE)
+# The copyleft source RPMs of the image, and of the installer
+# (scripts/sources.py, docs/License.md). SOURCES_PREVIOUS names an earlier
+# version's sources to compare with; SOURCES_CACHE, a directory of source RPMs
+# to take instead of downloading them. Both are optional.
+SOURCES_DIR           ?= $(BUILD)/sources
+INSTALLER_SOURCES_DIR ?= $(BUILD)/installer-sources
+INSTALLER_SOURCES     ?= $(BUILD)/installer-sources.tar
+SOURCES_PREVIOUS      ?=
+SOURCES_CACHE         ?=
 
-export IMAGE_REVISION IMAGE_ARCHIVE OPENQA_DISTRI OPENQA_IMAGE RESULTS VENV TEST_SSH_PORT DISK_FORMAT ENGINE IMAGE FEDORA_VERSION IMAGE_VERSION BUILD DISK DISK_SIZE INSTALLER_IMAGE MEDIUM MEDIUM_SIZE SSH_PORT SSH_KEY OWNER_NAME OWNER_PASSWORD RECOVERY_KEY LOCALE KEYBOARD_LAYOUT TIME_ZONE KEYS_DIR SIGNING_KEY BOOT_TIMEOUT REGISTRY_PORT UPDATE_REF DEV_UPDATE_REF
+export INSTALLER_REF IMAGE_REVISION IMAGE_ARCHIVE NEXT_ARCHIVE NEXT2_ARCHIVE FLOW UPDATE_ARCHIVE OPENQA_DISTRI OPENQA_IMAGE RESULTS VENV TEST_SSH_PORT DISK_FORMAT ENGINE IMAGE FEDORA_VERSION IMAGE_VERSION BUILD DISK DISK_SIZE INSTALLER_IMAGE MEDIUM MEDIUM_SIZE SSH_PORT SSH_KEY OWNER_NAME OWNER_PASSWORD RECOVERY_KEY LOCALE KEYBOARD_LAYOUT TIME_ZONE KEYS_DIR SIGNING_KEY BOOT_TIMEOUT REGISTRY_PORT UPDATE_REF DEV_UPDATE_REF
 
 # Checks that run on this host leave no bytecode in the tree that tmt copies.
 export PYTHONDONTWRITEBYTECODE := 1
 
 .DEFAULT_GOAL := help
-.PHONY: dev release-key help image static-checks lint validate test-unit test-image publish installer disk vm installer-vm ssh test test-plan update-builds test-update test-release test-guest clean
+.PHONY: dev release-key help image static-checks lint validate test-unit test-image publish installer sources installer-sources pull-installer disk vm installer-vm ssh test test-plan update-builds test-update test-release test-guest clean
 
 help: ## List targets
 	@awk -F ':.*## ' '/^[a-z-]+:.*## / { printf "  %-12s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -96,13 +120,25 @@ test-image: image $(TEST_DEPS)/.done ## Build the image and test its files; noth
 	$(ENGINE) run --rm --network none -v "$(CURDIR)/tests:/tests:ro,z" $(IMAGE) /tests/pytest.sh /tests/image
 
 publish: image ## Push the image to the local update registry
-	scripts/publish.sh
+	scripts/publish.sh $(IMAGE_ARCHIVE)
 
 installer: image ## Build the installer medium, which carries the image
 	scripts/image.sh image/Containerfile.installer $(INSTALLER_IMAGE) $(BUILD)/installer.tar \
-	  --build-arg BASE=$(IMAGE)-unsealed --build-arg UPDATE_REF=$(UPDATE_REF) \
+	  --build-arg BASE=$(IMAGE) --build-arg UPDATE_REF=$(UPDATE_REF) \
 	  --build-context installer=$(INSTALLER_SRC) --build-context payload=$(BUILD)
 	scripts/medium.sh
+
+sources: image ## Collect the image's copyleft source RPMs into SOURCES_DIR
+	scripts/sources.py collect $(IMAGE) $(SOURCES_DIR) \
+	  $(if $(SOURCES_CACHE),--cache $(SOURCES_CACHE)) $(if $(SOURCES_PREVIOUS),--previous $(SOURCES_PREVIOUS))
+
+installer-sources: installer ## Write the installer's sources as INSTALLER_SOURCES, and record them with the medium
+	scripts/sources.py collect $(INSTALLER_IMAGE) $(INSTALLER_SOURCES_DIR) $(if $(SOURCES_CACHE),--cache $(SOURCES_CACHE))
+	scripts/sources.py tar $(INSTALLER_SOURCES_DIR) $(INSTALLER_SOURCES)
+	python3 scripts/provenance.py sources $(MEDIUM).json $(INSTALLER_SOURCES)
+
+pull-installer: ## Pull an installer medium from GHCR instead of building it: INSTALLER_REF=...
+	scripts/pull-installer.sh $(INSTALLER_REF)
 
 disk: installer $(SSH_KEY) $(OWNER_PASSWORD) $(VENV)/.done $(TEST_DEPS)/.done ## Install to a new disk: boot the medium in QEMU and run the installer
 	scripts/disk.sh
@@ -122,20 +158,18 @@ test: test-image disk ## Install, then run tmt's checks on a disposable clone of
 test-plan: $(VENV)/.done $(TEST_DEPS)/.done ## Run one tmt plan on a clone of the disk as it is, without installing: PLAN=system
 	scripts/test-machine.sh $(PLAN)
 
-update-builds: $(KEYS) ## Build the two newer images that the update test moves through
-	set -e; for tag in next next2; do \
+update-builds: $(KEYS) ## Build the newer images that the update test moves through (UPDATE_TAGS)
+	set -e; for tag in $(UPDATE_TAGS); do \
 	  $(MAKE) --no-print-directory image IMAGE="$${IMAGE%:*}:$$tag" \
 	    IMAGE_VERSION=$(IMAGE_VERSION).$$tag IMAGE_ARCHIVE=$(BUILD)/image-$$tag.tar; \
 	done
 
 test-update: disk update-builds $(VENV)/.done $(TEST_DEPS)/.done ## On a disposable clone: update to a new build, then roll back
-	set -e; for tag in next next2; do \
-	  $(ENGINE) load -q -i $(BUILD)/image-$$tag.tar >/dev/null; \
-	  IMAGE="$${IMAGE%:*}:$$tag" scripts/publish.sh $$tag; \
-	done
+	scripts/publish.sh $(NEXT_ARCHIVE) next
+	scripts/publish.sh $(NEXT2_ARCHIVE) next2
 	scripts/test-machine.sh update
 
-test-release: $(SSH_KEY) ## Full OS and UI tests of the built medium itself, with openQA, as it stands
+test-release: $(SSH_KEY) ## Full OS and UI tests of the built medium itself, with openQA (FLOW=install|update)
 	scripts/openqa.sh
 
 test-guest: $(VENV)/.done $(TEST_DEPS)/.done ## Run the system checks on another machine: GUEST=address IMAGE_DIGEST=sha256:...

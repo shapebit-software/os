@@ -231,6 +231,8 @@ PanelWindow {
               value: "Read", open: () => window.openLink("https://polyformproject.org/licenses/shield/1.0.0") },
             { label: "Fedora Linux and the other programs", detail: "Each under its own license, such as the GPL, the LGPL, MIT, or Apache 2.0",
               value: "Open", open: () => window.openLink("file:///usr/share/licenses") },
+            { label: "Sources", detail: `Each version's sources are published next to it: ghcr.io/shapebit-software/os:${OsUpdate.version}-sources`,
+              value: "Read", open: () => window.openLink("https://shapebit.software/docs/license/#sources") },
             ...[].concat(...Extras.list.map(e => (e.credits ?? []).map(c => ({ label: c.work,
               detail: `${c.license} · by ${c.by}${c.changes ? `, ${c.changes}` : ""} · ${e.name}, ${e.installed ? "downloaded" : "not downloaded"}`,
               value: "Source", open: () => window.openLink(c.url) })))),

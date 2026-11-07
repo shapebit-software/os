@@ -1,6 +1,8 @@
-"""The update stages. The host published both new builds to the local registry
-under their own tags; "moving" DEV_UPDATE_REF's tag from here is what publishing
-a build does, without the host having to act between the stages."""
+"""The update stages. The host published two builds to the local registry under
+their own tags: next, newer than the installed one (in Candidate, the candidate,
+and the installed one is stable), and next2, newer still. "Moving"
+DEV_UPDATE_REF's tag from here is what publishing a build does, without the host
+having to act between the stages."""
 
 import json
 import pathlib
@@ -70,13 +72,13 @@ def test_os_update_reports_the_staged_build(sh, setting, publish, running, check
         f'[[registry]]\nlocation = "{registry}"\ninsecure = true\n'
     )
     sh("bootc switch --quiet %s", ref)
-    assert check_for_update() == f"ready {setting('IMAGE_VERSION')}.next"
+    assert check_for_update() == f"ready {setting('NEXT_VERSION')}"
     assert running() == original, "os-update must not restart the system"
 
 
 @pytest.mark.updated
 def test_restarting_boots_the_new_build(setting, running):
-    assert running() == f"{setting('IMAGE_VERSION')}.next"
+    assert running() == setting("NEXT_VERSION")
 
 
 @pytest.mark.updated
@@ -92,14 +94,14 @@ def test_machine_state_survives_the_update():
 
 @pytest.mark.downloaded
 def test_restarting_boots_the_downloaded_build(setting, running):
-    assert running() == f"{setting('IMAGE_VERSION')}.next2"
+    assert running() == setting("NEXT2_VERSION")
 
 
 @pytest.mark.updated
 def test_os_update_downloads_and_stages_a_newer_build(setting, publish, check_for_update):
     # Runs last of its stage: pytest keeps the order of the file.
     publish("next2")
-    assert check_for_update() == f"ready {setting('IMAGE_VERSION')}.next2"
+    assert check_for_update() == f"ready {setting('NEXT2_VERSION')}"
 
 
 @pytest.mark.downloaded
@@ -110,7 +112,7 @@ def test_rollback_is_accepted(sh):
 
 @pytest.mark.rolled_back
 def test_rollback_boots_the_previous_build(setting, running):
-    assert running() == f"{setting('IMAGE_VERSION')}.next"
+    assert running() == setting("NEXT_VERSION")
 
 
 @pytest.mark.rolled_back

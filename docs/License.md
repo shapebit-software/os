@@ -7,6 +7,31 @@ ShapeBit OS is source-available. ShapeBit-authored operating system software is 
 
 Fedora, the Linux kernel, and other third-party components remain governed by their own licenses.
 
+## Sources
+
+Each version's sources are published next to it, for as long as that version
+can be downloaded: the source RPM of every package in it under a copyleft
+license, such as the GPL, the LGPL, or the MPL.
+
+- **The system**, `ghcr.io/shapebit-software/os:<version>`: its sources are
+  `ghcr.io/shapebit-software/os:<version>-sources`, an OCI artifact with one
+  file per source RPM. The image's label `software.shapebit.sources` names
+  it, and so does each release's notes. To download them:
+
+  ```sh
+  podman artifact pull ghcr.io/shapebit-software/os:<version>-sources
+  podman artifact extract ghcr.io/shapebit-software/os:<version>-sources <directory>
+  ```
+
+  The version that a computer runs is `IMAGE_VERSION` in `/etc/os-release`,
+  and Settings > Licenses names its sources.
+- **The installer**, [`shapebit-installer.img.xz`](https://download.shapebit.software/shapebit-installer.img.xz):
+  its sources are
+  [`shapebit-installer-sources.tar`](https://download.shapebit.software/shapebit-installer-sources.tar),
+  beside it.
+
+ShapeBit's own code is in its [repositories on GitHub](https://github.com/shapebit-software).
+
 ## Documentation
 
 Unless stated otherwise, the documentation in this wiki is licensed

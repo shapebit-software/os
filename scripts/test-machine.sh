@@ -14,6 +14,15 @@ source scripts/results.sh
 record=$DISK.json
 [[ -f $record ]] || { echo "error: $record not found; run 'make disk'" >&2; exit 1; }
 IMAGE_DIGEST=$(python3 scripts/provenance.py field "$record" image_digest)
+# The update test moves the machine to NEXT_ARCHIVE's build, where the system
+# checks run, then on to NEXT2_ARCHIVE's: `make test-update` published both.
+if [[ $plan == update ]]; then
+  : "${NEXT_ARCHIVE:?}" "${NEXT2_ARCHIVE:?}"
+  IMAGE_DIGEST=$(python3 scripts/provenance.py digest "$NEXT_ARCHIVE")
+  NEXT_VERSION=$(python3 scripts/provenance.py label "$NEXT_ARCHIVE" org.opencontainers.image.version)
+  NEXT2_VERSION=$(python3 scripts/provenance.py label "$NEXT2_ARCHIVE" org.opencontainers.image.version)
+  export NEXT_VERSION NEXT2_VERSION
+fi
 export IMAGE_DIGEST
 
 start_run "$plan"

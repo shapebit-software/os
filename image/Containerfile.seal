@@ -34,6 +34,9 @@ ukify build \
   --output "/out/$kernel.efi"
 EOF
 
-# /boot is outside the composefs digest, so adding the UKI keeps it valid.
+# /boot is outside the composefs digest, so adding the UKI keeps it valid. An
+# image built from a sealed one, as the installer is, carries that one's UKI,
+# which this one replaces.
 FROM unsealed
+RUN rm -rf /boot/EFI/Linux
 COPY --from=uki /out/ /boot/EFI/Linux/

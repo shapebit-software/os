@@ -37,8 +37,8 @@ A Linux x86-64 host with KVM, a container engine, QEMU, Secure Boot capable
 UEFI firmware, a software TPM, OpenSSH, and OpenSSL:
 
 ```bash
-sudo dnf install podman make qemu-kvm edk2-ovmf swtpm openssh-clients openssl   # Fedora
-sudo apt install podman make qemu-system-x86 ovmf swtpm openssh-client openssl  # Debian/Ubuntu
+sudo dnf install podman skopeo make qemu-kvm edk2-ovmf swtpm openssh-clients openssl   # Fedora
+sudo apt install podman skopeo make qemu-system-x86 ovmf swtpm openssh-client openssl  # Debian/Ubuntu
 ```
 
 The default engine is `sudo podman`, because installing to a disk needs root.

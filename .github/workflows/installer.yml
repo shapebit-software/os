@@ -1,0 +1,231 @@
+# Builds the installer once a month, or when started by hand, from the released
+# os:stable; its version is that OS version, and there is only one installer per
+# OS version. Pushes the medium to the private os/installer:<version>, which the
+# test jobs pull, and its sources to os/installer:<version>-sources (downloading
+# only what the installer adds to os:<version>-sources), and tests the medium
+# fully. Then, once a person approves it in the
+# environment "Installer", uploads it to the download server with the upload key,
+# with its sources as shapebit-installer-sources.tar, and publishes them,
+# replacing the installer there (shapebit-software/infra), and moves
+# os/installer:stable, which Candidate installs, to it. A build that fails or is
+# not approved stays only as os/installer:<version>. To fix an installer bug:
+# merge the fix, run Candidate and Release, then run this. Only the build job has
+# the release key, in the environment "Signing". Actions artifacts hold test
+# results only, never an installer.
+name: Installer
+
+on:
+  schedule:
+    - cron: "0 4 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Not os-releases: this one waits for approval, and must not hold up Candidate
+# and Release meanwhile. It pins os:stable by digest when it starts.
+concurrency:
+  group: installer
+  cancel-in-progress: false
+
+env:
+  ENGINE: docker
+  REPOSITORY: ghcr.io/shapebit-software/os
+  INSTALLERS: ghcr.io/shapebit-software/os/installer
+
+jobs:
+  static-checks:
+    name: Static checks
+    uses: ./.github/workflows/stage-static-checks.yml
+
+  unit-tests:
+    name: Unit tests
+    needs: static-checks
+    uses: ./.github/workflows/stage-unit-tests.yml
+
+  build:
+    name: Build and sign
+    needs: unit-tests
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    environment: Signing
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.system.outputs.version }}
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
+          docker image prune -af >/dev/null
+          df -h /
+
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/image-store
+      - uses: ./.github/actions/ghcr-login
+
+      # By digest, so that a release meanwhile cannot change what is built.
+      - name: Find the released system
+        id: system
+        run: |
+          digest=sha256:$(skopeo inspect --raw "docker://$REPOSITORY:stable" | sha256sum | cut -d' ' -f1)
+          image=$REPOSITORY@$digest
+          version=$(skopeo inspect "docker://$image" --format '{{index .Labels "org.opencontainers.image.version"}}')
+          if skopeo inspect --raw "docker://$INSTALLERS:$version" >/dev/null 2>&1; then
+            echo "::error::$INSTALLERS:$version exists: there is one installer per OS version; release a new one first"
+            exit 1
+          fi
+          echo "IMAGE=$image" >>"$GITHUB_ENV"
+          echo "VERSION=$version" >>"$GITHUB_ENV"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+      # The payload; the build starts from the same image. Its sources, outside
+      # build/, the payload's build context, save downloading most of the
+      # installer's.
+      - name: Pull the released system and its sources
+        run: |
+          mkdir -p build
+          skopeo copy -q --preserve-digests "docker://$IMAGE" oci-archive:build/image.tar
+          scripts/sources.py pull "$REPOSITORY:$VERSION-sources" "$RUNNER_TEMP/os-sources"
+
+      # Outside build/, which the installer's build context holds.
+      - name: Restore the release key
+        env:
+          RELEASE_KEY: ${{ secrets.RELEASE_KEY }}
+        run: |
+          if [ -z "$RELEASE_KEY" ]; then echo "::error::RELEASE_KEY is not set"; exit 1; fi
+          mkdir -p "$RUNNER_TEMP/keys"
+          base64 -d <<<"$RELEASE_KEY" | tar -xz -C "$RUNNER_TEMP/keys"
+          echo "KEYS_DIR=$RUNNER_TEMP/keys" >>"$GITHUB_ENV"
+          echo "SIGNING_KEY=release" >>"$GITHUB_ENV"
+
+      - name: Build the installer medium
+        run: make -o image installer
+
+      - name: Remove the release key
+        run: rm -rf "$RUNNER_TEMP/keys"
+
+      # What the installer adds to the system: cage, Qt, fonts. The record gets
+      # the tar's SHA-256, which the download server checks.
+      - name: Collect the installer's sources
+        run: make -o installer installer-sources SOURCES_CACHE="$RUNNER_TEMP/os-sources"
+
+      # As the download server names them. The sources wait as source RPMs, as
+      # the system's do, and become the tar again when published.
+      - name: Push the installer and its sources to os/installer
+        run: |
+          xz -T0 -c build/installer.img >build/shapebit-installer.img.xz
+          cp build/installer.img.json build/shapebit-installer.img.json
+          python3 scripts/artifact.py pack build/installer-artifact application/vnd.shapebit.installer.v1 \
+            "ShapeBit installer $VERSION" build/shapebit-installer.img.xz build/shapebit-installer.img.json
+          skopeo copy -q oci:build/installer-artifact "docker://$INSTALLERS:$VERSION"
+          scripts/sources.py push build/installer-sources "$INSTALLERS:$VERSION-sources" \
+            "ShapeBit installer $VERSION: sources"
+
+  # Install from the medium, without its UI, and check the system.
+  scripted:
+    name: Test install
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: read
+    env:
+      INSTALLER_REF: ghcr.io/shapebit-software/os/installer:${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/vm-host
+      - uses: ./.github/actions/ghcr-login
+      - run: make pull-installer
+      - name: Install from the medium, and test the system
+        run: make -o installer disk && make test-plan PLAN=system
+      - name: Keep the test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-scripted-${{ github.run_attempt }}
+          path: build/results
+          if-no-files-found: ignore
+
+  # The medium itself, through its UI, and the desktop it installs, with openQA.
+  openqa:
+    name: Test the installer's UI
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: read
+    env:
+      INSTALLER_REF: ghcr.io/shapebit-software/os/installer:${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/vm-host
+      - uses: ./.github/actions/ghcr-login
+      - run: make pull-installer
+      - name: Test the installer's UI with openQA
+        run: make test-release FLOW=install
+      - name: Keep the test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-openqa-${{ github.run_attempt }}
+          path: build/results
+          if-no-files-found: ignore
+
+  # The upload key is a secret of the environment "Installer", and so is only
+  # here, after approval. The server checks the medium and the sources against
+  # their record, and publishes them together.
+  publish:
+    name: Publish the installer
+    needs: [build, scripted, openqa]
+    runs-on: ubuntu-24.04
+    environment: Installer
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      SERVER: installer-bot@download.shapebit.software
+    steps:
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ghcr-login
+
+      # The tar is the build's again, byte for byte: the record says which.
+      - name: Pull the installer and its sources
+        run: |
+          skopeo copy -q "docker://$INSTALLERS:$VERSION" oci:build/installer-artifact
+          python3 scripts/artifact.py unpack build/installer-artifact build/upload
+          scripts/sources.py pull "$INSTALLERS:$VERSION-sources" build/installer-sources
+          scripts/sources.py tar build/installer-sources build/upload/shapebit-installer-sources.tar
+          expected=$(python3 scripts/provenance.py field build/upload/shapebit-installer.img.json sources_sha256)
+          echo "$expected  build/upload/shapebit-installer-sources.tar" | sha256sum -c --quiet -
+
+      - name: Prepare the upload key
+        env:
+          UPLOAD_KEY: ${{ secrets.UPLOAD_KEY }}
+          HOST_KEY: ${{ vars.DOWNLOAD_SERVER_HOST_KEY }}
+        run: |
+          if [ -z "$UPLOAD_KEY" ]; then echo "::error::UPLOAD_KEY is not set"; exit 1; fi
+          if [ -z "$HOST_KEY" ]; then echo "::error::DOWNLOAD_SERVER_HOST_KEY is not set"; exit 1; fi
+          install -m 600 /dev/null "$RUNNER_TEMP/upload-key"
+          printf '%s\n' "$UPLOAD_KEY" >"$RUNNER_TEMP/upload-key"
+          printf 'download.shapebit.software %s\n' "$HOST_KEY" >"$RUNNER_TEMP/known_hosts"
+          echo "SSH=ssh -i $RUNNER_TEMP/upload-key -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts -o StrictHostKeyChecking=yes -o BatchMode=yes" >>"$GITHUB_ENV"
+
+      - name: Upload and publish the installer
+        run: |
+          rsync -e "$SSH" --checksum --times --partial --chmod=F644 build/upload/* "$SERVER:"
+          $SSH "$SERVER" publish
+
+      - name: Remove the upload key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload-key"
+
+      - name: Move os/installer:stable to it
+        run: skopeo copy -q --preserve-digests "docker://$INSTALLERS:$VERSION" "docker://$INSTALLERS:stable"

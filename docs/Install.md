@@ -13,7 +13,7 @@ choose.
 ## 1. Download
 
 Download the installer,
-[`installer.img.xz`](https://download.shapebit.software/installer.img.xz).
+[`shapebit-installer.img.xz`](https://download.shapebit.software/shapebit-installer.img.xz).
 You don't need to decompress it: the tools below read it as it is. To check
 the download, compare its SHA-256 checksum with
 [`SHA256SUMS`](https://download.shapebit.software/SHA256SUMS).
@@ -23,10 +23,10 @@ the download, compare its SHA-256 checksum with
 Use one of these free tools:
 
 - **[balenaEtcher](https://etcher.balena.io)** (Windows, macOS, Linux):
-  **Flash from file**, pick `installer.img.xz`, **Select target**, pick the
+  **Flash from file**, pick `shapebit-installer.img.xz`, **Select target**, pick the
   USB drive, then **Flash!**
 - **[Rufus](https://rufus.ie)** (Windows): pick the USB drive under
-  *Device*, click **SELECT**, pick `installer.img.xz`, then **START**. Keep
+  *Device*, click **SELECT**, pick `shapebit-installer.img.xz`, then **START**. Keep
   the settings Rufus chooses.
 
 When it's done, Windows or macOS may say it can't read the drive and offer to
@@ -42,18 +42,18 @@ Rufus and balenaEtcher write the disk image directly.
 
 Virtual machines don't need a USB drive: attach the installer as a disk.
 
-1. Download `installer.img.xz` and decompress it to `installer.img`, for
-   example with [7-Zip](https://www.7-zip.org) or `xz -d installer.img.xz`.
+1. Download `shapebit-installer.img.xz` and decompress it to `shapebit-installer.img`, for
+   example with [7-Zip](https://www.7-zip.org) or `xz -d shapebit-installer.img.xz`.
 2. Convert it with [`qemu-img`](https://www.qemu.org/download/) to the
    format of your virtual machine:
 
    | Virtual machine | Command |
    |---|---|
-   | VirtualBox | `qemu-img convert -O vdi installer.img installer.vdi` |
-   | VMware | `qemu-img convert -O vmdk installer.img installer.vmdk` |
-   | Hyper-V | `qemu-img convert -O vhdx installer.img installer.vhdx` |
+   | VirtualBox | `qemu-img convert -O vdi shapebit-installer.img shapebit-installer.vdi` |
+   | VMware | `qemu-img convert -O vmdk shapebit-installer.img shapebit-installer.vmdk` |
+   | Hyper-V | `qemu-img convert -O vhdx shapebit-installer.img shapebit-installer.vhdx` |
 
-   QEMU and virt-manager use `installer.img` as it is.
+   QEMU and virt-manager use `shapebit-installer.img` as it is.
 3. Create the virtual machine with UEFI, Secure Boot, and a TPM 2.0:
    - **VirtualBox**: *Enable EFI*, *Enable Secure Boot*, and TPM *v2.0*.
    - **VMware**: UEFI firmware with *Secure Boot*, and a *Trusted Platform

@@ -48,21 +48,15 @@ RUN dnf -y install plymouth-theme-spinner && dnf clean all && \
 # The desktop's packages, which the desktop lists with the reason for each
 # (build context `desktop`, its file packages): Hyprland and Quickshell, the
 # session, and what the shell runs. Fedora has no Hyprland, so it comes from a
-# third-party COPR for now; the repository is used only for this build and is
-# not left in the image. Hyprland's own session entries are removed, so the
-# login screen offers only the desktop's.
-RUN --mount=type=bind,from=desktop,source=packages,target=/run/desktop-packages <<'EOF'
+# third-party COPR for now (hyprland.repo, which scripts/sources.py also reads);
+# the repository is mounted only for this build and is not left in the image.
+# Hyprland's own session entries are removed, so the login screen offers only
+# the desktop's.
+RUN --mount=type=bind,from=desktop,source=packages,target=/run/desktop-packages \
+    --mount=type=bind,source=hyprland.repo,target=/etc/yum.repos.d/hyprland.repo <<'EOF'
 set -euo pipefail
-cat >/etc/yum.repos.d/hyprland.repo <<'REPO'
-[hyprland]
-name=Hyprland (COPR sdegler/hyprland)
-baseurl=https://download.copr.fedorainfracloud.org/results/sdegler/hyprland/fedora-$releasever-$basearch/
-gpgcheck=1
-gpgkey=https://download.copr.fedorainfracloud.org/results/sdegler/hyprland/pubkey.gpg
-REPO
 dnf -y install $(sed 's/#.*//' /run/desktop-packages)
 dnf clean all
-rm /etc/yum.repos.d/hyprland.repo
 rm /usr/share/wayland-sessions/hyprland.desktop
 rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf
 EOF
@@ -144,11 +138,20 @@ RUN --mount=type=bind,from=desktop,target=/src make -C /src install DESTDIR=/out
 # dictate-engine): sherpa-onnx, which Fedora does not package. The wheels are checked
 # against their hashes (desktop/dictation/requirements.txt), and pip stays here. Its
 # models are too large for the image, and are downloaded (desktop/extras); so
-# dictation works only once they are.
+# dictation works only once they are. The wheel bundles a copy of the ALSA
+# library, under the LGPL, whose exact source is unknown; its module loads
+# Fedora's instead (desktop/packages), whose source is the RPM's, and the copy
+# is left out.
 FROM tools AS sherpa
-RUN dnf -y install python3-pip
-RUN --mount=type=bind,from=desktop,source=dictation/requirements.txt,target=/run/requirements.txt \
-    pip install --require-hashes --only-binary :all: --no-deps --target /out/usr/lib64/dictation -r /run/requirements.txt
+RUN dnf -y install python3-pip patchelf
+RUN --mount=type=bind,from=desktop,source=dictation/requirements.txt,target=/run/requirements.txt <<'EOF'
+set -euo pipefail
+dir=/out/usr/lib64/dictation
+pip install --require-hashes --only-binary :all: --no-deps --target "$dir" -r /run/requirements.txt
+bundled=$(basename "$dir"/sherpa_onnx.libs/libasound-*.so.2*)
+patchelf --replace-needed "$bundled" libasound.so.2 "$dir"/sherpa_onnx/lib/_sherpa_onnx.cpython-*.so
+rm -r "$dir/sherpa_onnx.libs"
+EOF
 
 # The assistant's language model server (desktop/assistant/llama-server@.service):
 # llama.cpp's llama-server, which Fedora packages too old for Gemma 4. Its
@@ -186,12 +189,14 @@ COPY --from=llama /out/ /
 RUN glib-compile-schemas /usr/share/glib-2.0/schemas
 COPY --from=bootloader /out/ /usr/lib/systemd/boot/efi/
 COPY --from=certificate /out/ /usr/share/secureboot/
-# Identifies this build, and the commit it is made from; last, so a new
-# version rebuilds only this layer.
+# Identifies this build, the commit it is made from, and where its sources
+# are published once it is released (docs/License.md); last, so a new version
+# rebuilds only this layer.
 ARG IMAGE_VERSION
 ARG IMAGE_REVISION
 LABEL org.opencontainers.image.version="$IMAGE_VERSION" \
-      org.opencontainers.image.revision="$IMAGE_REVISION"
+      org.opencontainers.image.revision="$IMAGE_REVISION" \
+      software.shapebit.sources="ghcr.io/shapebit-software/os:$IMAGE_VERSION-sources"
 RUN test -n "$IMAGE_VERSION" && test -n "$IMAGE_REVISION" && \
     printf 'IMAGE_VERSION=%s\nIMAGE_REVISION=%s\n' "$IMAGE_VERSION" "$IMAGE_REVISION" >>/usr/lib/os-release
 RUN bootc container lint
