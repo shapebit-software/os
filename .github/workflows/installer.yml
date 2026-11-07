@@ -209,13 +209,17 @@ jobs:
       - name: Prepare the upload key
         env:
           UPLOAD_KEY: ${{ secrets.UPLOAD_KEY }}
-          HOST_KEY: ${{ vars.DOWNLOAD_SERVER_HOST_KEY }}
+          HOST_KEY: ${{ secrets.DOWNLOAD_SERVER_HOST_KEY }}
         run: |
           if [ -z "$UPLOAD_KEY" ]; then echo "::error::UPLOAD_KEY is not set"; exit 1; fi
           if [ -z "$HOST_KEY" ]; then echo "::error::DOWNLOAD_SERVER_HOST_KEY is not set"; exit 1; fi
           install -m 600 /dev/null "$RUNNER_TEMP/upload-key"
           printf '%s\n' "$UPLOAD_KEY" >"$RUNNER_TEMP/upload-key"
-          printf 'download.shapebit.software %s\n' "$HOST_KEY" >"$RUNNER_TEMP/known_hosts"
+          # The key alone, or ssh-keyscan's lines, which name the host.
+          case $HOST_KEY in
+            download.shapebit.software\ *) printf '%s\n' "$HOST_KEY" ;;
+            *) printf 'download.shapebit.software %s\n' "$HOST_KEY" ;;
+          esac >"$RUNNER_TEMP/known_hosts"
           echo "SSH=ssh -i $RUNNER_TEMP/upload-key -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts -o StrictHostKeyChecking=yes -o BatchMode=yes" >>"$GITHUB_ENV"
 
       - name: Upload and publish the installer
