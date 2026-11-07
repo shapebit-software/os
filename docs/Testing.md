@@ -20,6 +20,11 @@ ShapeBit is tested at three levels. Levels 1 and 2 exist; level 3 is reserved.
 | Release | Only by hand, on `main` | Copies the draft release's `os/candidate:<version>` to `os:<version>` and `os:stable`, and publishes its release; or, with Undo, copies the release before back to `os:stable` and marks the last release withdrawn |
 | Installer | Monthly, on the 1st (UTC), or by hand, on `main` | Builds the installer from the released `os:stable`, once per OS version, and pushes it to `os/installer:<version>`. Runs levels 1 and 2 on it in full (`FLOW=install`). After a person approves it, publishes it on the download server and moves `os/installer:stable` to it |
 
+With no installer yet, there is nothing to update from: Candidate's
+**Bootstrap** option, which refuses once `os/installer:stable` exists, skips the
+update tests, and the Installer workflow then tests the release in full before
+its installer is published.
+
 Two tracks, then: each week a new OS image, tested on the path that existing
 systems take, from the installer that people download; each month a new
 installer, from the OS that is out. An installer bug is fixed by a Candidate
