@@ -12,6 +12,8 @@ ref=$1
 work=$BUILD/pulled-installer
 rm -rf "$work"
 trap 'rm -rf "$work"' EXIT
+# skopeo creates neither: a fresh checkout has no BUILD.
+mkdir -p "$work" "$(dirname "$MEDIUM")"
 skopeo copy -q "docker://$ref" "oci:$work/layout"
 python3 scripts/artifact.py unpack "$work/layout" "$work/files" shapebit-installer.img.xz shapebit-installer.img.json
 
