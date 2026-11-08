@@ -10,7 +10,7 @@
 # os/installer:stable, which Candidate installs, to it. A build that fails or is
 # not approved stays only as os/installer:<version>. To fix an installer bug:
 # merge the fix, run Candidate and Release, then run this. Only the build job has
-# the release key, in the environment "Signing". Actions artifacts hold test
+# the release keys, in the environment "Signing", and only while it builds. Actions artifacts hold test
 # results only, never an installer.
 name: Installer
 
@@ -90,21 +90,15 @@ jobs:
           skopeo copy -q --preserve-digests "docker://$IMAGE" oci-archive:build/image.tar
           scripts/sources.py pull "$REPOSITORY:$VERSION-sources" "$RUNNER_TEMP/os-sources"
 
-      # Outside build/, which the installer's build context holds.
-      - name: Restore the release key
-        env:
-          RELEASE_KEY: ${{ secrets.RELEASE_KEY }}
-        run: |
-          if [ -z "$RELEASE_KEY" ]; then echo "::error::RELEASE_KEY is not set"; exit 1; fi
-          mkdir -p "$RUNNER_TEMP/keys"
-          base64 -d <<<"$RELEASE_KEY" | tar -xz -C "$RUNNER_TEMP/keys"
-          echo "KEYS_DIR=$RUNNER_TEMP/keys" >>"$GITHUB_ENV"
-          echo "SIGNING_KEY=release" >>"$GITHUB_ENV"
+      - uses: ./.github/actions/release-keys
+        with:
+          secureboot-key: ${{ secrets.RELEASE_SECUREBOOT_KEY }}
+          pcr-key: ${{ secrets.RELEASE_PCR_KEY }}
 
       - name: Build the installer medium
         run: make -o image installer
 
-      - name: Remove the release key
+      - name: Remove the release keys
         run: rm -rf "$RUNNER_TEMP/keys"
 
       # What the installer adds to the system: cage, Qt, fonts. The record gets

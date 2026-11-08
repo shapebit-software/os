@@ -5,8 +5,8 @@
 # existing systems take. Only if every test passes does it write a draft release
 # of its notes, for the Release workflow. Its sources are collected as it is
 # built, to os/candidate:<version>-sources. The build has no cache, so that it picks
-# up Fedora's updates; only the build job has the release key, in the environment
-# "Signing"; a failed test job can be re-run on the same build (docs/Testing.md).
+# up Fedora's updates; only the build job has the release keys, in the
+# environment "Signing", and only while it builds; a failed test job can be re-run on the same build (docs/Testing.md).
 # Actions artifacts, which anyone signed in to GitHub can download, hold test
 # results only, never an image. "Bootstrap" is for when no installer exists yet,
 # and so nothing to update from: it skips the update tests, and the Installer
@@ -77,17 +77,6 @@ jobs:
             exit 1
           fi
 
-      # Outside build/, which the installer's build context holds.
-      - name: Restore the release key
-        env:
-          RELEASE_KEY: ${{ secrets.RELEASE_KEY }}
-        run: |
-          if [ -z "$RELEASE_KEY" ]; then echo "::error::RELEASE_KEY is not set"; exit 1; fi
-          mkdir -p "$RUNNER_TEMP/keys"
-          base64 -d <<<"$RELEASE_KEY" | tar -xz -C "$RUNNER_TEMP/keys"
-          echo "KEYS_DIR=$RUNNER_TEMP/keys" >>"$GITHUB_ENV"
-          echo "SIGNING_KEY=release" >>"$GITHUB_ENV"
-
       # A rolling release: when the build started, in UTC.
       - name: Set the image version
         id: version
@@ -96,16 +85,27 @@ jobs:
           echo "IMAGE_VERSION=$version" >>"$GITHUB_ENV"
           echo "version=$version" >>"$GITHUB_OUTPUT"
 
-      - name: Build and test the image
-        run: make test-image
+      # The keys are on the runner only for the builds that sign, never while
+      # tests run (docs/Design-Security.md).
+      - uses: ./.github/actions/release-keys
+        with:
+          secureboot-key: ${{ secrets.RELEASE_SECUREBOOT_KEY }}
+          pcr-key: ${{ secrets.RELEASE_PCR_KEY }}
+
+      - name: Build the image
+        run: make image
 
       # The build that the update test moves on to from the candidate, so that the
-      # candidate's own os-update downloads one.
+      # candidate's own os-update downloads one. The test machine trusts only
+      # the release key, so it signs this private, test-only image too.
       - name: Build the update test's image
         run: make update-builds UPDATE_TAGS=next2
 
-      - name: Remove the release key
+      - name: Remove the release keys
         run: rm -rf "$RUNNER_TEMP/keys"
+
+      - name: Test the image
+        run: make -o image test-image
 
       # The digest that the tests compare with the booted system, unchanged.
       - name: Push the images to os/candidate

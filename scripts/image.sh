@@ -26,13 +26,15 @@ save() {
   $ENGINE save "${args[@]}" -o "$2" "$1"
 }
 
-secrets=()
-for kind in key crt; do
-  secrets+=(--secret "id=signing.$kind,src=$KEYS_DIR/$SIGNING_KEY.$kind")
-done
+secrets=(
+  --secret "id=signing.key,src=$KEYS_DIR/$SIGNING_KEY-secureboot.key"
+  --secret "id=signing.crt,src=$KEYS_DIR/$SIGNING_KEY-secureboot.crt"
+  --secret "id=pcr.key,src=$KEYS_DIR/$SIGNING_KEY-pcr.key"
+)
 # Build caches ignore secret contents; KEYS_ID makes signing steps rerun when
-# the key changes.
-keys_id=$(sha256sum "$KEYS_DIR/$SIGNING_KEY.crt" | cut -d ' ' -f 1)
+# a key changes.
+keys_id=$({ cat "$KEYS_DIR/$SIGNING_KEY-secureboot.crt"; openssl pkey -in "$KEYS_DIR/$SIGNING_KEY-pcr.key" -pubout; } |
+  sha256sum | cut -d ' ' -f 1)
 
 $ENGINE build --build-arg KEYS_ID="$keys_id" "${secrets[@]}" "$@" -f "$containerfile" -t "$unsealed" image
 

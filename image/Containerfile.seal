@@ -1,10 +1,10 @@
 # check=skip=InvalidDefaultArgInFrom
 # Seal the image built from Containerfile: add a signed UKI, whose
-# command line pins the image's composefs digest, and which carries signed
-# expected PCR 11 values for TPM2 unlock. scripts/image.sh computes
-# COMPOSEFS_DIGEST from the built image, as `bootc install` does; a digest
-# computed inside a build differs, since builds do not see the image's exact
-# file metadata.
+# command line pins the image's composefs digest, and which carries expected
+# PCR 11 values for TPM2 unlock, signed with a key of their own (pcr.key) and
+# not the Secure Boot one. scripts/image.sh computes COMPOSEFS_DIGEST from the
+# built image, as `bootc install` does; a digest computed inside a build
+# differs, since builds do not see the image's exact file metadata.
 # UNSEALED has no default: scripts/image.sh always passes it.
 ARG UNSEALED
 FROM ${UNSEALED} AS unsealed
@@ -13,7 +13,7 @@ FROM unsealed AS uki
 ARG COMPOSEFS_DIGEST
 ARG KEYS_ID
 RUN dnf -y install systemd-ukify sbsigntools && mkdir /out
-RUN --mount=type=secret,id=signing.key --mount=type=secret,id=signing.crt <<'EOF'
+RUN --mount=type=secret,id=signing.key --mount=type=secret,id=signing.crt --mount=type=secret,id=pcr.key <<'EOF'
 set -euo pipefail
 : "${COMPOSEFS_DIGEST:?}"
 kernel=$(basename /usr/lib/modules/*)
@@ -30,7 +30,7 @@ ukify build \
   --signtool sbsign \
   --secureboot-private-key /run/secrets/signing.key \
   --secureboot-certificate /run/secrets/signing.crt \
-  --pcr-private-key /run/secrets/signing.key \
+  --pcr-private-key /run/secrets/pcr.key \
   --output "/out/$kernel.efi"
 EOF
 

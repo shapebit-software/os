@@ -1,0 +1,31 @@
+# Writes the release keys to $RUNNER_TEMP/keys, outside build/, which the
+# installer's build context holds, and points KEYS_DIR and SIGNING_KEY at them.
+# The job removes them with `rm -rf "$RUNNER_TEMP/keys"` right after its last
+# signing build, before any test (tests/unit/test_workflows.py).
+name: Release keys
+description: Restore the release keys for the signing builds
+inputs:
+  secureboot-key:
+    description: secrets.RELEASE_SECUREBOOT_KEY, base64 of a tar.gz of release-secureboot.key and .crt
+    required: true
+  pcr-key:
+    description: secrets.RELEASE_PCR_KEY, release-pcr.key in PEM (TPM2 PCR 11 policy)
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Restore the release keys
+      shell: bash
+      env:
+        SECUREBOOT_KEY: ${{ inputs.secureboot-key }}
+        PCR_KEY: ${{ inputs.pcr-key }}
+      run: |
+        for name in SECUREBOOT_KEY PCR_KEY; do
+          if [ -z "${!name}" ]; then echo "::error::RELEASE_$name is not set"; exit 1; fi
+        done
+        keys=$RUNNER_TEMP/keys
+        (umask 077 && mkdir -p "$keys" && base64 -d <<<"$SECUREBOOT_KEY" | tar -xz -C "$keys" &&
+          printf '%s\n' "$PCR_KEY" >"$keys/release-pcr.key")
+        openssl pkey -in "$keys/release-pcr.key" -noout
+        echo "KEYS_DIR=$keys" >>"$GITHUB_ENV"
+        echo "SIGNING_KEY=release" >>"$GITHUB_ENV"
