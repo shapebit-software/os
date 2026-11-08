@@ -8,15 +8,18 @@ installer medium, installs them, and what the result does. To run the commands, 
 ## Build
 
 `make image` ([scripts/image.sh](https://github.com/shapebit-software/os/blob/main/scripts/image.sh)) builds in two phases. It
-signs with `SIGNING_KEY`: by default the development key that
-[scripts/keys.sh](https://github.com/shapebit-software/os/blob/main/scripts/keys.sh) generates in `build/keys/` (`dev.key`,
-`dev.crt`, named ShapeBit Development). It signs systemd-boot, the UKI, and the
-TPM2 PCR values. `make release-key KEYS_DIR=<directory>` generates the release
-key once (`release.key`, `release.crt`, named ShapeBit), which a build uses with
-`SIGNING_KEY=release`; builds never generate it. The Candidate and Installer
-workflows restore it from the `RELEASE_KEY` secret, so that installed systems update
-across builds; the checks of pushes and pull requests sign with a throwaway
-development key ([Signing](Design-Lifecycle.md#signing)).
+signs with the keys of `SIGNING_KEY`: by default the development keys that
+[scripts/keys.sh](https://github.com/shapebit-software/os/blob/main/scripts/keys.sh) generates in `build/keys/`.
+`dev-secureboot.key` and `dev-secureboot.crt` (named ShapeBit Development) sign
+systemd-boot and the UKI; `dev-pcr.key` signs the UKI's TPM2 PCR 11 values.
+`make release-key KEYS_DIR=<directory>` generates the release keys once
+(`release-secureboot.key`, `release-secureboot.crt`, named ShapeBit, and
+`release-pcr.key`), which a build uses with `SIGNING_KEY=release`; builds never
+generate them. The Candidate and Installer
+workflows restore them from the `RELEASE_SECUREBOOT_KEY` and `RELEASE_PCR_KEY`
+secrets, so that installed systems update across builds; the checks of pushes
+and pull requests sign with throwaway development keys
+([Signing Keys](Design-Security.md#signing-keys)).
 
 1. [Containerfile](https://github.com/shapebit-software/os/blob/main/image/Containerfile) builds the system: signed systemd-boot, the
    certificate to enroll, systemd-homed login support, the
@@ -109,9 +112,9 @@ The installer gives the LUKS2 volume two key slots:
 | Recovery key | Shown once by the installer; saved to `build/recovery-key` by `make disk`. |
 
 The TPM2 slot is bound to PCR 7 (the Secure Boot policy) and to PCR 11 values
-signed by the same key. The medium and the installed system are signed
-with that key, so the slot that the installer enrolls unlocks the
-installed system, and a new UKI signed with the same key unlocks without
+signed by the PCR key. The medium and the installed system are signed
+with the same keys, so the slot that the installer enrolls unlocks the
+installed system, and a new UKI signed with the same keys unlocks without
 re-enrollment. If the TPM ever refuses, the console asks for a passphrase, and
 the recovery key works there. The random key that opens the volume during the
 installation never leaves memory and is removed before the installer finishes.
@@ -155,7 +158,7 @@ bootc switch 10.0.2.2:5000/shapebit-os:dev
 A staged build boots after a restart; `bootc rollback` returns to the
 previous one. The TPM unlocks the new build
 without re-enrollment, because its UKI carries PCR 11 values signed by the
-same key, and each deployment's `/etc` carries the machine's own changes.
+same PCR key, and each deployment's `/etc` carries the machine's own changes.
 [tests/update/](https://github.com/shapebit-software/os/blob/main/tests/update/) checks all of this.
 
 ## Homes
@@ -219,9 +222,9 @@ sddm-greeter-qt6 --test-mode --theme image/rootfs/usr/share/sddm/themes/login
 ## Real hardware
 
 [Installing ShapeBit](Install.md) is the guide for anyone. A medium built
-locally is signed with the development key, so a machine that installs it
-enrolls that key instead, and later updates from `stable` would need the
-release key enrolled too.
+locally is signed with the development keys, so a machine that installs it
+enrolls those instead, and later updates from `stable` would need the
+release keys enrolled too.
 
 1. Build the medium, and write it to a USB drive of at least 8 GB, which
    erases it; check its name with `lsblk` first:

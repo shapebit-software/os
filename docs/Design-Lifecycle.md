@@ -14,11 +14,12 @@ development build can never become a release.
 | Development | Local builds, and the checks of every push and pull request (a throwaway key each time) | Only the developer's own machines |
 | Release | Every candidate, so every release | Every installed computer |
 
-Each key signs the boot loader, the UKI, and the TPM values that unlock the
-disk. The release key is a protected CI secret, used only by the jobs that
-build a candidate or an installer. Whoever can approve a release can ship code to every
-computer, so the safety of the approver's account matters as much as the
-key's.
+Each is a pair of keys: one signs the boot loader and the UKI, the other the
+TPM values that unlock the disk ([Signing Keys](Design-Security.md#signing-keys)).
+The release keys are protected CI secrets, on the runner only while the jobs
+that build a candidate or an installer sign. Whoever can approve a release can
+ship code to every computer, so the safety of the approver's account matters as
+much as the keys'.
 
 > **Goal, not built:** a production key hierarchy, with an offline root that
 > only delegates to release, boot and PCR, and repository signing keys, all
@@ -76,7 +77,7 @@ download site ([Testing](Testing.md#packages)).
 A release goes through these steps:
 
 1. **Build.** Once a week, or when started by hand, a fresh build picks up
-   Fedora's updates and is signed with the release key.
+   Fedora's updates and is signed with the release keys.
 2. **Test.** The image is tested on the path that installed computers take:
    the installer that people download installs `stable`, which then updates
    to the candidate ([Testing](Testing.md)). Only a build that passes every
@@ -132,7 +133,7 @@ Fedora's Flatpaks (onto the computer). ShapeBit doesn't mirror it.
   or shutdown installs it. ShapeBit never restarts by itself and never ends a
   session for an update.
 - The TPM unlocks the new release without re-enrollment, because its UKI
-  carries TPM values signed by the same key. Machine settings carry over.
+  carries TPM values signed by the same PCR key. Machine settings carry over.
 - The previous release stays installed and can be started again.
 
 Until release manifests exist, an update is accepted by where it comes from;
@@ -163,23 +164,23 @@ again until a newer one replaces it.
 
 ## Path to a Public Release
 
-Done: the release key exists and signs every candidate.
+Done: the release keys exist and sign every candidate, with a separate key for
+the TPM values. Every action in the workflows is pinned to a commit, and the
+release keys are on the runner only for the builds that sign.
 
 Before anyone outside ShapeBit's test machines installs:
 
-- Back up the release key offline.
+- Back up the release keys offline.
 - Require a hardware security key or passkey for everyone in the GitHub
   organization.
 - Protect `main`, and require a reviewer to release.
-- Pin every action in the workflows to a commit, and give the release key only
-  to the steps that sign.
 - Sign release images, with computers refusing any others.
 - Let updates replace shim, so that a revoked shim doesn't stop computers from
   booting.
 
 Before a public release:
 
-- Move the release key to hardware-backed signing.
+- Move the release keys to hardware-backed signing, so that no runner holds them.
 - Replace the third-party Hyprland repository with Fedora's packages or
   ShapeBit's own builds.
 - Get ShapeBit's own shim signed by Microsoft, including with Microsoft's 2023

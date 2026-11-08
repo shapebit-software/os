@@ -1,7 +1,9 @@
 """The container image: identity, boot chain, and system services."""
 
+import base64
 import glob
 import re
+import struct
 
 import pytest
 
@@ -101,6 +103,29 @@ def test_uki_carries_a_signed_pcr_policy():
 
 def test_certificate_to_enroll_is_present(host):
     assert host.file("/usr/share/secureboot/enroll-this-key.cer").size > 0
+
+
+def pe_section(content, name):
+    """The data of the named section of a PE file such as a UKI."""
+    pe = struct.unpack_from("<I", content, 0x3C)[0]
+    count, optional = struct.unpack_from("<H12xH", content, pe + 6)
+    table = pe + 24 + optional
+    for offset in range(table, table + 40 * count, 40):
+        if content[offset:offset + 8].rstrip(b"\0") == name:
+            size, _, raw_size, pointer = struct.unpack_from("<4I", content, offset + 8)
+            return content[pointer:pointer + min(size, raw_size)]
+    raise AssertionError(f"no {name.decode()} section")
+
+
+def test_pcr_policy_key_is_not_the_secure_boot_key(host):
+    # Separate keys can be replaced separately (docs/Design-Security.md). The
+    # certificate holds its public key as DER, the UKI's .pcrpkey as PEM.
+    with open(glob.glob("/boot/EFI/Linux/*.efi")[0], "rb") as uki:
+        pem = pe_section(uki.read(), b".pcrpkey").decode()
+    assert "BEGIN PUBLIC KEY" in pem
+    pcr_key = base64.b64decode("".join(line for line in pem.splitlines() if not line.startswith("-----")))
+    certificate = host.file("/usr/share/secureboot/enroll-this-key.cer").content
+    assert len(pcr_key) > 200 and pcr_key not in certificate
 
 
 def test_shim_and_its_mok_manager_are_present():
