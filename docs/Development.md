@@ -281,11 +281,14 @@ A dedicated ShapeBit OS development image is planned for a future release.
 - Trial boots with automatic rollback (systemd's Automatic Boot Assessment)
   and the boot health check. They wait on upstream: bootc's composefs backend
   does not yet add boot counters to its entries (planned through
-  `/etc/kernel/tries`), and Fedora 44's SELinux policy does not yet let
-  `systemd-bless-boot` rename entries on the ESP.
-- NvPCR measurements. The same policy does not let `systemd-tpm2-setup` save
-  its anchor credential to the ESP, so that unit fails on the installer
-  medium. The TPM2 unlock policy (PCR 7 and PCR 11) does not use NvPCRs.
+  `/etc/kernel/tries`), and Fedora 45's SELinux policy (selinux-policy 45.23)
+  does not yet let `systemd-bless-boot`, which runs as `init_t`, rename files
+  on the ESP (`dosfs_t`). No upstream policy issue tracks this yet.
+- NvPCR measurements. Since systemd 262, NvPCRs are initialized only from the
+  initrd, through a PCR policy signed for it (`ukify --sign-initrd-pcrs`),
+  with their definitions (`/usr/lib/nvpcr/*.nvpcr`) in the UKI. The UKI has
+  neither, so `systemd-tpm2-setup` skips them. The TPM2 unlock policy (PCR 7
+  and PCR 11) does not use NvPCRs.
 - A minimal signed recovery UKI.
 - The home storage policy: guaranteed minimums, the machine reserve, and
   low-space states. systemd-homed's defaults size homes for now.

@@ -20,13 +20,9 @@ def capabilities(sh):
     return json.loads(sh("installerctl capabilities"))
 
 
-def test_finished_booting_without_other_failed_units(host, sh):
-    # Fedora 44's SELinux policy does not yet let systemd-tpm2-setup save its
-    # NvPCR anchor credential to the EFI System Partition, so that unit fails on
-    # the medium, which is the first system to start on a machine's TPM.
+def test_finished_booting_without_failed_units(host, sh):
     host.run("systemctl is-system-running --wait")
-    failed = [line.split()[0] for line in sh("systemctl --failed --no-legend --plain").splitlines()]
-    assert set(failed) <= {"systemd-tpm2-setup.service"}
+    assert sh("systemctl --failed --no-legend --plain") == ""
 
 
 def test_booted_from_a_uki():
