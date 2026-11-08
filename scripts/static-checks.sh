@@ -53,13 +53,15 @@ validate() {
   fi
   rm -rf "$runtime"
 
-  # Every package on the desktop's list still exists.
-  local package unit
-  for package in $(sed 's/#.*//' desktop/packages); do
-    if [[ -z $(dnf -q repoquery --latest-limit=1 "$package" 2>/dev/null) ]]; then
-      echo "error: desktop/packages: no package $package" >&2
-      status=1
-    fi
+  # Every package on the system's and the desktop's lists still exists.
+  local list package unit
+  for list in image/packages desktop/packages; do
+    for package in $(sed 's/#.*//' "$list"); do
+      if [[ -z $(dnf -q repoquery --latest-limit=1 "$package" 2>/dev/null) ]]; then
+        echo "error: $list: no package $package" >&2
+        status=1
+      fi
+    done
   done
 
   # Units parse. Their programs are in rootfs, not on this machine, so only

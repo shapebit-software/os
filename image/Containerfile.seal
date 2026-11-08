@@ -12,7 +12,8 @@ FROM ${UNSEALED} AS unsealed
 FROM unsealed AS uki
 ARG COMPOSEFS_DIGEST
 ARG KEYS_ID
-RUN dnf -y install systemd-ukify sbsigntools && mkdir /out
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    dnf -y install systemd-ukify sbsigntools && mkdir /out
 RUN --mount=type=secret,id=signing.key --mount=type=secret,id=signing.crt --mount=type=secret,id=pcr.key <<'EOF'
 set -euo pipefail
 : "${COMPOSEFS_DIGEST:?}"

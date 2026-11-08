@@ -37,7 +37,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           if [[ $BASE =~ ^0+$ ]]; then BASE=$(git merge-base origin/main HEAD); fi
-          if git diff --quiet "$BASE" HEAD -- 'image/Containerfile*'; then
+          if git diff --quiet "$BASE" HEAD -- 'image/Containerfile*' image/packages; then
             echo "changed=false" >>"$GITHUB_OUTPUT"
           else
             echo "changed=true" >>"$GITHUB_OUTPUT"

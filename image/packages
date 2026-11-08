@@ -1,0 +1,46 @@
+# The Fedora packages that the system adds to the base image, one per line;
+# the image installs them with the desktop's (Containerfile, desktop/packages).
+
+# The base image ships only GRUB; bootc installs systemd-boot from this package.
+systemd-boot-unsigned
+# The base image has only the C locale; the langpacks add the locales that the
+# installer offers.
+glibc-all-langpacks
+# SDDM and Plymouth need the system's logos; generic-logos provides them, since
+# Fedora's logos are its trademarks, which a system made from Fedora may not carry
+# (https://fedoraproject.org/wiki/Legal:Trademark_guidelines). Installed with
+# them, it keeps dnf from choosing fedora-logos.
+generic-logos
+# SDDM is the login screen; it draws with Mesa, and Fedora's presets enable
+# sddm.service. Its greeter runs in Hyprland, installed with the desktop
+# (rootfs/usr/lib/sddm/compositor.lua). SDDM needs a package that provides a
+# greeter display server; sddm-wayland-generic is the smallest, and brings
+# Weston, which the greeter no longer uses.
+sddm
+sddm-wayland-generic
+mesa-dri-drivers
+# The boot splash: ShapeBit's theme takes its images from Fedora's spinner
+# theme (Containerfile).
+plymouth-theme-spinner
+# Applications come from Flatpak, with Flathub's remote
+# (rootfs/usr/share/flatpak/remotes.d/flathub.flatpakrepo, as Flathub
+# publishes it), which Flatpak adds by itself the first time it runs; its
+# environment generators put the applications in the session's Apps.
+# desktop-file-utils lets Flatpak record which applications open which types.
+flatpak
+desktop-file-utils
+# Files (Nautilus), the one built-in app that is not a Flatpak, since GNOME
+# publishes none of it; it updates and rolls back with the OS. The other
+# apps are recommended in Welcome and installed from Flathub. Where two apps
+# open the same type, the desktop's default is in
+# rootfs/usr/share/applications/shapebit-mimeapps.list. Its thumbnailers draw
+# the previews of images and videos.
+nautilus
+glycin-thumbnailer
+gst-thumbnailers
+# rsync is how tmt reaches a guest: without it, tmt would build a derived image
+# and test that instead of this one. Nothing built in replaces it.
+rsync
+# Distrobox, for development tools in containers (Podman is in the base
+# image); its default image is set in the Containerfile.
+distrobox

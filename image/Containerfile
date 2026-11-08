@@ -14,69 +14,40 @@ LABEL org.opencontainers.image.title="ShapeBit OS" \
 # Files under rootfs/ are copied verbatim; their paths mirror the target system.
 COPY rootfs/ /
 
-# The base image ships only GRUB; bootc installs systemd-boot from this package.
-# The base image has only the C locale; the langpacks add the locales that the
-# installer offers.
-# SDDM is the login screen; it draws with Mesa, and Fedora's presets enable
-# sddm.service. Its greeter runs in Hyprland, installed with the desktop below
-# (rootfs/usr/lib/sddm/compositor.lua). SDDM needs a package that provides a
-# greeter display server; sddm-wayland-generic is the smallest, and brings
-# Weston, which the greeter no longer uses.
-# SDDM and Plymouth need the system's logos; generic-logos provides them, since
-# Fedora's logos are its trademarks, which a system made from Fedora may not carry
-# (https://fedoraproject.org/wiki/Legal:Trademark_guidelines). Installed with
-# them, it keeps dnf from choosing fedora-logos.
-# dnf state in /var and /run is removed, since bootc ignores it on install;
-# so are SDDM's runtime directory, which tmpfiles.d creates on each boot, and
-# libX11's empty cache.
-RUN dnf -y install systemd-boot-unsigned glibc-all-langpacks generic-logos \
-      sddm sddm-wayland-generic mesa-dri-drivers && dnf clean all && \
-    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf \
-      /run/sddm /var/cache/libX11
+# The system's packages (image/packages) and the desktop's (build context
+# `desktop`, its file packages), each listed with the reason for it, in one
+# transaction. Fedora has no Hyprland, so it comes from a third-party COPR for
+# now (hyprland.repo, which scripts/sources.py also reads); the repository is
+# mounted only for this build and is not left in the image. dnf's cache is a
+# build cache, kept between builds and never in the image. The rest of dnf's
+# state in /var and /run is removed, since bootc ignores it on install; so are
+# SDDM's runtime directory, which tmpfiles.d creates on each boot, and libX11's
+# empty cache. Hyprland's own session entries are removed, so the login screen
+# offers only the desktop's.
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    --mount=type=bind,source=packages,target=/run/system-packages \
+    --mount=type=bind,from=desktop,source=packages,target=/run/desktop-packages \
+    --mount=type=bind,source=hyprland.repo,target=/etc/yum.repos.d/hyprland.repo <<'EOF'
+set -euo pipefail
+dnf -y install $(sed 's/#.*//' /run/system-packages /run/desktop-packages)
+rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf /run/sddm /var/cache/libX11
+rm /usr/share/wayland-sessions/hyprland.desktop
+EOF
 
 # The boot splash (Plymouth): ShapeBit's theme, rootfs/usr/share/plymouth/
 # themes/boot, takes the spinner and the password prompt's images from
 # Fedora's spinner theme, and is the default in the distribution defaults.
 # The initramfs, rebuilt below, carries it.
-RUN dnf -y install plymouth-theme-spinner && dnf clean all && \
-    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf && \
-    find /usr/share/plymouth/themes/spinner -name '*.png' ! -name watermark.png \
+RUN find /usr/share/plymouth/themes/spinner -name '*.png' ! -name watermark.png \
       -exec cp -t /usr/share/plymouth/themes/boot {} + && \
     sed -i 's/^Theme=.*/Theme=boot/' /usr/share/plymouth/plymouthd.defaults && \
     test "$(plymouth-set-default-theme)" = boot
 
-# The desktop's packages, which the desktop lists with the reason for each
-# (build context `desktop`, its file packages): Hyprland and Quickshell, the
-# session, and what the shell runs. Fedora has no Hyprland, so it comes from a
-# third-party COPR for now (hyprland.repo, which scripts/sources.py also reads);
-# the repository is mounted only for this build and is not left in the image.
-# Hyprland's own session entries are removed, so the login screen offers only
-# the desktop's.
-RUN --mount=type=bind,from=desktop,source=packages,target=/run/desktop-packages \
-    --mount=type=bind,source=hyprland.repo,target=/etc/yum.repos.d/hyprland.repo <<'EOF'
-set -euo pipefail
-dnf -y install $(sed 's/#.*//' /run/desktop-packages)
-dnf clean all
-rm /usr/share/wayland-sessions/hyprland.desktop
-rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf
-EOF
-
-# Applications come from Flatpak, with Flathub's remote
-# (rootfs/usr/share/flatpak/remotes.d/flathub.flatpakrepo, as Flathub
-# publishes it), which Flatpak adds by itself the first time it runs; its
-# environment generators put the applications in the session's Apps.
-# desktop-file-utils lets Flatpak record which applications open which types.
-RUN dnf -y install flatpak desktop-file-utils && dnf clean all && \
-    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf
-
-# Files (Nautilus), the one built-in app that is not a Flatpak, since GNOME
-# publishes none of it; it updates and rolls back with the OS. The other
-# apps are recommended in Welcome and installed from Flathub. Where two apps
-# open the same type, the desktop's default is in
-# rootfs/usr/share/applications/shapebit-mimeapps.list. Its thumbnailers draw
-# the previews of images and videos.
-RUN dnf -y install nautilus glycin-thumbnailer gst-thumbnailers && dnf clean all && \
-    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf
+# New Distrobox containers start from Fedora's toolbox image of this image's
+# Fedora version, rather than its latest.
+RUN mkdir -p /usr/share/distrobox && \
+    echo "container_image_default=\"registry.fedoraproject.org/fedora-toolbox:$(rpm -E %fedora)\"" \
+      >/usr/share/distrobox/distrobox.conf
 
 # os-update.timer checks for system updates (rootfs/usr/lib/systemd/system).
 # The base image's own timers are masked: rpm-ostree-countme reports to
@@ -88,20 +59,6 @@ RUN dnf -y install nautilus glycin-thumbnailer gst-thumbnailers && dnf clean all
 RUN systemctl set-default graphical.target && systemctl preset os-update.timer && \
     systemctl mask rpm-ostree-countme.timer bootc-fetch-apply-updates.timer
 
-# rsync is how tmt reaches a guest: without it, tmt would build a derived image
-# and test that instead of this one. Nothing built in replaces it.
-RUN dnf -y install rsync && dnf clean all && \
-    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf
-
-# Distrobox, for development tools in containers (Podman is in the base
-# image). New containers start from Fedora's toolbox image of this image's
-# Fedora version, rather than its latest.
-RUN dnf -y install distrobox && dnf clean all && \
-    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/libdnf5 /var/cache/ldconfig /run/dnf && \
-    mkdir -p /usr/share/distrobox && \
-    echo "container_image_default=\"registry.fedoraproject.org/fedora-toolbox:$(rpm -E %fedora)\"" \
-      >/usr/share/distrobox/distrobox.conf
-
 # Logins for systemd-homed users need pam_systemd_home. authselect's checksum
 # in /var is dropped, as in the base image; the configuration lives in /etc.
 RUN authselect enable-feature with-systemd-homed && rm -r /var/lib/authselect
@@ -111,9 +68,12 @@ RUN authselect enable-feature with-systemd-homed && rm -r /var/lib/authselect
 RUN kernel=$(basename /usr/lib/modules/*) && \
     dracut --force "/usr/lib/modules/$kernel/initramfs.img" "$kernel"
 
-# Signing tools, used by the stages below and never part of the final image.
+# Build tools, used by the stages below and never part of the final image:
+# sbsigntools signs; make installs the desktop's files; pip and patchelf fetch
+# and fix sherpa-onnx; cmake, gcc-c++, make, and binutils build llama-server.
 FROM system AS tools
-RUN dnf -y install sbsigntools && mkdir /out
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    dnf -y install sbsigntools make python3-pip patchelf cmake gcc-c++ binutils && mkdir /out
 
 # systemd-boot, signed; bootctl installs the *.signed copy when present.
 FROM tools AS bootloader
@@ -131,7 +91,6 @@ RUN --mount=type=secret,id=signing.crt \
 
 # The desktop's files (build context `desktop`), installed by its Makefile.
 FROM tools AS desktop-files
-RUN dnf -y install make
 RUN --mount=type=bind,from=desktop,target=/src make -C /src install DESTDIR=/out
 
 # What the speech recognition of dictation runs on (desktop/dictation/
@@ -143,7 +102,6 @@ RUN --mount=type=bind,from=desktop,target=/src make -C /src install DESTDIR=/out
 # Fedora's instead (desktop/packages), whose source is the RPM's, and the copy
 # is left out.
 FROM tools AS sherpa
-RUN dnf -y install python3-pip patchelf
 RUN --mount=type=bind,from=desktop,source=dictation/requirements.txt,target=/run/requirements.txt <<'EOF'
 set -euo pipefail
 dir=/out/usr/lib64/dictation
@@ -160,7 +118,6 @@ EOF
 FROM tools AS llama
 ARG LLAMA_VERSION
 ARG LLAMA_SHA256
-RUN dnf -y install cmake gcc-c++ make binutils
 RUN <<'EOF'
 set -euo pipefail
 cd /tmp
