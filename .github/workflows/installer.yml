@@ -62,7 +62,7 @@ jobs:
           docker image prune -af >/dev/null
           df -h /
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/image-store
       - uses: ./.github/actions/ghcr-login
 
@@ -136,7 +136,7 @@ jobs:
     env:
       INSTALLER_REF: ghcr.io/shapebit-software/os/installer:${{ needs.build.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/vm-host
       - uses: ./.github/actions/ghcr-login
       - run: make pull-installer
@@ -144,7 +144,7 @@ jobs:
         run: make -o installer disk && make test-plan PLAN=system
       - name: Keep the test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: results-scripted-${{ github.run_attempt }}
           path: build/results
@@ -162,7 +162,7 @@ jobs:
     env:
       INSTALLER_REF: ghcr.io/shapebit-software/os/installer:${{ needs.build.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/vm-host
       - uses: ./.github/actions/ghcr-login
       - run: make pull-installer
@@ -170,7 +170,7 @@ jobs:
         run: make test-release FLOW=install
       - name: Keep the test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: results-openqa-${{ github.run_attempt }}
           path: build/results
@@ -193,7 +193,7 @@ jobs:
     steps:
       - name: Free disk space
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/ghcr-login
 
       # The tar is the build's again, byte for byte: the record says which.
