@@ -65,7 +65,7 @@ jobs:
           docker image prune -af >/dev/null
           df -h /
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/image-store
       - uses: ./.github/actions/ghcr-login
 
@@ -140,7 +140,7 @@ jobs:
     env:
       VERSION: ${{ needs.build.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/vm-host
       - uses: ./.github/actions/ghcr-login
       - name: Pull the installer of the download site, and the candidate
@@ -154,7 +154,7 @@ jobs:
         run: make -o disk -o update-builds test-update NEXT_ARCHIVE=build/image.tar
       - name: Keep the test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: results-scripted-${{ github.run_attempt }}
           path: build/results
@@ -174,7 +174,7 @@ jobs:
     env:
       VERSION: ${{ needs.build.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/vm-host
       - uses: ./.github/actions/ghcr-login
       - name: Pull the installer of the download site, and the candidate
@@ -185,7 +185,7 @@ jobs:
         run: make test-release FLOW=update UPDATE_ARCHIVE=build/image.tar
       - name: Keep the test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: results-openqa-${{ github.run_attempt }}
           path: build/results
@@ -206,7 +206,7 @@ jobs:
       DIGEST: ${{ needs.build.outputs.digest }}
       BOOTSTRAP: ${{ inputs.bootstrap }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
       - uses: ./.github/actions/ghcr-login

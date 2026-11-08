@@ -1,0 +1,10 @@
+# Workflows pin each third-party action to a full commit SHA, with its tag in a
+# comment: a tag can be moved to new code, and our jobs hold signing and upload
+# keys. Dependabot proposes each new version as a PR that CI checks, so nothing
+# changes without review. tests/unit/test_workflows.py rejects unpinned actions.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

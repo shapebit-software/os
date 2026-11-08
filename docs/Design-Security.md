@@ -33,3 +33,26 @@ with the TPM after every release.
 PCR 0, 2, and 14 are **not** checked by the default policy.
 
 If the TPM path fails, the recovery key is required; see [Recovery](Design-Recovery.md).
+
+## Supply Chain
+
+Packages come from Fedora, with one accepted exception: Fedora has no
+Hyprland, so Hyprland, its dialogs, hypridle, xdg-desktop-portal-hyprland, and
+Quickshell come from the third-party
+[sdegler/hyprland](https://copr.fedorainfracloud.org/coprs/sdegler/hyprland/)
+COPR ([image/hyprland.repo](https://github.com/shapebit-software/os/blob/main/image/hyprland.repo)).
+
+**Risk.** One person controls that repository, and its package scripts run as
+root while the image builds. Nothing limits it to those packages: a newer
+version of any Fedora package in it would be installed instead. Anything it
+ships ends up in the signed image. The development container and CI's checks
+enable it too.
+
+**What limits it.** Packages are checked against the COPR's signing key. The
+repository is mounted only while the image builds and is not left in the
+image, so installed systems never fetch from it. The source RPMs of every
+release are kept with its sources.
+
+**Plan.** Drop the COPR as soon as Fedora ships Hyprland: remove
+`hyprland.repo` and the COPR from `distrobox.ini`, and install from Fedora.
+Until then, this stays a known supply-chain risk.
