@@ -193,6 +193,8 @@ jobs:
       # The tar is the build's again, byte for byte: the record says which.
       - name: Pull the installer and its sources
         run: |
+          # skopeo does not create the destination's parent: a fresh checkout has no build/.
+          mkdir -p build
           skopeo copy -q "docker://$INSTALLERS:$VERSION" oci:build/installer-artifact
           python3 scripts/artifact.py unpack build/installer-artifact build/upload
           scripts/sources.py pull "$INSTALLERS:$VERSION-sources" build/installer-sources
