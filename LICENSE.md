@@ -1,5 +1,7 @@
 # PolyForm Shield License 1.0.0
 
+Required Notice: Copyright Marcin Syngajewski (https://shapebit.software)
+
 <https://polyformproject.org/licenses/shield/1.0.0>
 
 ## Acceptance
