@@ -65,9 +65,13 @@ def queue(tmp_path):
 
 
 def wait_for(predicate):
+    """Polls while the worker writes the state in place: a half-written state is "not yet"."""
     for _ in range(200):
-        if predicate():
-            return
+        try:
+            if predicate():
+                return
+        except ValueError:
+            pass
         time.sleep(0.05)
     raise AssertionError("it did not happen")
 
