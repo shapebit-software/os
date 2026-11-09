@@ -48,6 +48,7 @@ def test_desktop_helper_is_python(host, path):
         f"{PORTAL_DIR}/oo7-portal.portal",
         "/usr/libexec/oo7-daemon",
         "/usr/share/applications/org.gnome.Nautilus.desktop",
+        "/usr/share/applications/org.gnome.Ptyxis.desktop",
         "/usr/share/polkit-1/rules.d/50-os-update.rules",
         "/usr/share/thumbnailers/glycin-image-rs.thumbnailer",
         "/usr/share/thumbnailers/gst-video-thumbnailer.thumbnailer",
@@ -55,6 +56,12 @@ def test_desktop_helper_is_python(host, path):
 )
 def test_desktop_file_is_installed(host, path):
     assert host.file(path).size > 0
+
+
+def test_apps_shows_no_session_tools(host):
+    # UWSM's unit manager is for the session, not for people; the command stays.
+    assert not host.file("/usr/share/applications/uuctl.desktop").exists
+    assert host.file("/usr/bin/uuctl").exists
 
 
 def test_dictation_helper_is_installed(host, sh):

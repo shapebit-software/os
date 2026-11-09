@@ -11,6 +11,9 @@ and they update and roll back with the system. Each owns its tasks:
   configuration, and installing apps.
 - **Files** (Nautilus): files, archives, and thumbnails. It is Fedora's
   package, as GNOME publishes no Flatpak of it.
+- **Terminal** (Ptyxis): the command line, on the system and in its
+  Distrobox containers. It is Fedora's package, as a terminal belongs
+  outside a sandbox.
 - **Diagnostics**: processes and resources. Not built yet.
 
 Screenshots and screen recording belong to the shell, not to an app.
@@ -20,7 +23,6 @@ Screenshots and screen recording belong to the shell, not to an app.
 On first login, Welcome ([Desktop](Design-Desktop.md#welcome)) offers
 these apps from Flathub, all on, each with a switch to leave it out:
 
-- **Terminal** (Ptyxis)
 - **Text Editor** (GNOME Text Editor)
 - **Image Viewer** (Loupe)
 - **Document Viewer** (Papers)

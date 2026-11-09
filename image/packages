@@ -29,13 +29,16 @@ plymouth-theme-spinner
 # desktop-file-utils lets Flatpak record which applications open which types.
 flatpak
 desktop-file-utils
-# Files (Nautilus), the one built-in app that is not a Flatpak, since GNOME
-# publishes none of it; it updates and rolls back with the OS. The other
-# apps are recommended in Welcome and installed from Flathub. Where two apps
-# open the same type, the desktop's default is in
-# rootfs/usr/share/applications/shapebit-mimeapps.list. Its thumbnailers draw
-# the previews of images and videos.
+# Files (Nautilus) and Terminal (Ptyxis), the built-in apps that are not
+# Flatpaks: GNOME publishes no Flatpak of Nautilus, and a terminal belongs
+# outside a sandbox, on the system and its Distrobox containers, which Ptyxis
+# opens too. They update and roll back with the OS. The other apps are
+# recommended in Welcome and installed from Flathub. Where two apps open the
+# same type, the desktop's default is in
+# rootfs/usr/share/applications/shapebit-mimeapps.list. Nautilus's
+# thumbnailers draw the previews of images and videos.
 nautilus
+ptyxis
 glycin-thumbnailer
 gst-thumbnailers
 # rsync is how tmt reaches a guest: without it, tmt would build a derived image

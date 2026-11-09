@@ -52,7 +52,6 @@ PanelWindow {
     // The recommended apps, all from Flathub: { id, name, detail }; and those
     // kept.
     readonly property var recommended: [
-        { id: "app.devsuite.Ptyxis", name: "Terminal", detail: "Ptyxis" },
         { id: "org.gnome.TextEditor", name: "Text Editor", detail: "Plain text and code" },
         { id: "org.gnome.Loupe", name: "Image Viewer", detail: "Loupe" },
         { id: "org.gnome.Papers", name: "Document Viewer", detail: "PDF and other documents" },

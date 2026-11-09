@@ -36,6 +36,8 @@ set -euo pipefail
 dnf -y install --disablerepo=fedora-cisco-openh264 $(sed 's/#.*//' /run/system-packages /run/desktop-packages)
 rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf /run/sddm /var/cache/libX11
 rm /usr/share/wayland-sessions/hyprland.desktop
+# UWSM's unit manager, which the session needs no person to see in Apps.
+rm /usr/share/applications/uuctl.desktop
 EOF
 
 # The boot splash (Plymouth): ShapeBit's theme, rootfs/usr/share/plymouth/

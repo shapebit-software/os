@@ -35,7 +35,8 @@ USER_DIR = Path(os.environ.get("FLATPAK_USER_DIR") or Path(os.environ.get("XDG_D
 APPSTREAM = USER_DIR / "appstream/flathub" / os.uname().machine
 CACHE = Path(os.environ.get("XDG_CACHE_HOME") or HOME / ".cache") / "desktop/app-catalog.json"
 # The app in the image, which only an update of the system changes.
-BUILT_IN = [("org.gnome.Nautilus", "Files", "Browse and organize your files")]
+BUILT_IN = [("org.gnome.Nautilus", "Files", "Browse and organize your files"),
+            ("org.gnome.Ptyxis", "Terminal", "Use the command line")]
 # What an app may reach, as people read it; the rest, such as Wayland, is what
 # every app has.
 PERMISSIONS = {
