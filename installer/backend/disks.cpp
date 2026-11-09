@@ -2,6 +2,8 @@
 
 #include "command.h"
 
+#include <algorithm>
+
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -108,7 +110,8 @@ Disk resolveDisk(const QList<Disk> &disks, const QString &id)
 qint64 defaultHomeSize(qint64 total, qint64 available)
 {
     const qint64 system = total - available;
-    const qint64 home = available - system;
+    const qint64 room = available - system;
+    const qint64 home = room - std::min(extrasRoom, room / 2);
     if (home < 1024LL * 1024 * 1024)
         throw Failure{QStringLiteral("no-space-for-home"), QStringLiteral("Too little disk space is left for the home")};
     return home;

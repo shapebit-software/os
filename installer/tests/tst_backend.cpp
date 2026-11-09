@@ -53,15 +53,18 @@ private slots:
         QCOMPARE(paths, (QStringList{"/dev/nvme0n1", "/dev/sda", "/dev/sdb", "/dev/sdc", "/dev/sdd"}));
     }
 
-    void homeLeavesRoomForAWholeNewSystem()
+    void homeLeavesRoomForAWholeNewSystemAndTheExtras()
     {
         constexpr qint64 gib = 1024LL * 1024 * 1024;
-        // 20 GiB, of which the system uses 6: 8 for the home, 6 stay free.
-        QCOMPARE(defaultHomeSize(20 * gib, 14 * gib), 8 * gib);
+        // 512 GiB, of which the system uses 6: 6 stay free for an update and
+        // 16 for the extras; the home has the rest.
+        QCOMPARE(defaultHomeSize(512 * gib, 506 * gib), 484 * gib);
+        // 20 GiB: of the 8 beside the update's room, half for the extras.
+        QCOMPARE(defaultHomeSize(20 * gib, 14 * gib), 4 * gib);
         // The smallest disk allowed still gets a home.
         QVERIFY(defaultHomeSize(minimumDiskSize, minimumDiskSize - 6 * gib) >= gib);
-        QCOMPARE(defaultHomeSize(12 * gib, 6 * gib + gib / 2), gib);
-        QCOMPARE(code([&] { defaultHomeSize(12 * gib, 6 * gib + gib / 4); }), "no-space-for-home");
+        QCOMPARE(defaultHomeSize(14 * gib, 8 * gib), gib);
+        QCOMPARE(code([&] { defaultHomeSize(14 * gib, 8 * gib - gib / 4); }), "no-space-for-home");
     }
 
     void identifiesDisksByWwnOrSerial()

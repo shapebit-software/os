@@ -6,6 +6,7 @@ import http.server
 import io
 import json
 import os
+import re
 import pathlib
 import subprocess
 import tarfile
@@ -299,3 +300,16 @@ def test_list_tells_whether_the_computer_has_memory_enough(extras, tmp_path):
     assert extras.run("list", EXTRAS_MEMINFO=str(meminfo))[1][0]["extras"][0]["fits"] is True
     meminfo.write_text("MemTotal:        3900000 kB\n")
     assert extras.run("list", EXTRAS_MEMINFO=str(meminfo))[1][0]["extras"][0]["fits"] is False
+
+
+def test_every_extra_fits_in_the_room_the_installer_leaves():
+    # The installer leaves extrasRoom beside the first owner's home
+    # (installer/backend/disks.h); all the extras must install there together.
+    header = (ROOT / "installer" / "backend" / "disks.h").read_text()
+    factors = re.search(r"extrasRoom = ([\d* LL]+);", header).group(1).replace("LL", "").split("*")
+    room = 1
+    for factor in factors:
+        room *= int(factor)
+    entries = json.loads((ROOT / "desktop" / "extras" / "extras.json").read_text())
+    needed = sum(extra["unpacked"] + sum(item["bytes"] for item in extra["downloads"]) for extra in entries)
+    assert needed <= room
