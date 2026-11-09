@@ -270,6 +270,17 @@ def test_shipped_catalog_is_complete():
             assert item["bytes"] > 0
 
 
+def test_every_download_is_pinned_to_a_revision():
+    # A download's hash holds only while its URL serves the same bytes: a
+    # release asset under a tag can be replaced, as sherpa-onnx's Parakeet was
+    # on 2026-11-07, and every install then failed as damaged. A Hugging Face
+    # commit cannot change.
+    entries = json.loads((ROOT / "desktop" / "extras" / "extras.json").read_text())
+    for extra in entries:
+        for item in extra["downloads"]:
+            assert re.fullmatch(r"https://huggingface\.co/[\w.-]+/[\w.-]+/resolve/[0-9a-f]{40}/\S+", item["url"]), item["url"]
+
+
 def test_live_dictation_finds_what_its_extra_installs():
     entries = json.loads((ROOT / "desktop" / "extras" / "extras.json").read_text())
     parakeet = next(extra for extra in entries if extra["id"] == "parakeet")
