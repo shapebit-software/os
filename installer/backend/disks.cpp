@@ -107,11 +107,19 @@ Disk resolveDisk(const QList<Disk> &disks, const QString &id)
     return matches.first();
 }
 
+qint64 reserveSize(qint64 total, qint64 system)
+{
+    constexpr qint64 gib = 1024LL * 1024 * 1024;
+    const qint64 steady = steadyRoom + std::clamp(total / 50, 4 * gib, 16 * gib);
+    const qint64 surge = std::max(16 * gib, 2 * system);
+    return std::max(64 * gib, steady + surge);
+}
+
 qint64 defaultHomeSize(qint64 total, qint64 available)
 {
     const qint64 system = total - available;
     const qint64 room = available - system;
-    const qint64 home = room - std::min(extrasRoom, room / 2);
+    const qint64 home = room - std::min(reserveSize(total, system) - system, room / 2);
     if (home < 1024LL * 1024 * 1024)
         throw Failure{QStringLiteral("no-space-for-home"), QStringLiteral("Too little disk space is left for the home")};
     return home;

@@ -53,13 +53,21 @@ private slots:
         QCOMPARE(paths, (QStringList{"/dev/nvme0n1", "/dev/sda", "/dev/sdb", "/dev/sdc", "/dev/sdd"}));
     }
 
-    void homeLeavesRoomForAWholeNewSystemAndTheExtras()
+    void homeLeavesTheReserve()
     {
         constexpr qint64 gib = 1024LL * 1024 * 1024;
-        // 512 GiB, of which the system uses 6: 6 stay free for an update and
-        // 16 for the extras; the home has the rest.
-        QCOMPARE(defaultHomeSize(512 * gib, 506 * gib), 484 * gib);
-        // 20 GiB: of the 8 beside the update's room, half for the extras.
+        // max(64 GiB, steady + surge): steady is 24 GiB plus 2% of the disk,
+        // between 4 and 16; surge is two systems, at least 16 GiB.
+        QCOMPARE(reserveSize(256 * gib, 6 * gib), 64 * gib);
+        QCOMPARE(reserveSize(1024 * gib, 10 * gib), 64 * gib);
+        QCOMPARE(reserveSize(2048 * gib, 10 * gib), 64 * gib);
+        QCOMPARE(reserveSize(2048 * gib, 20 * gib), 80 * gib);
+
+        // The home has all but the reserve.
+        QCOMPARE(defaultHomeSize(256 * gib, 250 * gib), 186 * gib);
+        QCOMPARE(defaultHomeSize(2048 * gib, 2028 * gib), 1948 * gib);
+        // 20 GiB, of which the system uses 6: of the 8 beside an update's
+        // room, half stays free.
         QCOMPARE(defaultHomeSize(20 * gib, 14 * gib), 4 * gib);
         // The smallest disk allowed still gets a home.
         QVERIFY(defaultHomeSize(minimumDiskSize, minimumDiskSize - 6 * gib) >= gib);

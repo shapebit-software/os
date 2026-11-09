@@ -57,13 +57,19 @@ The computer keeps a **reserve** that homes can't burst into, so it never runs
 out of room for logs, recovery, and staging an update:
 
 ```text
-reserve = max(30 GiB, steady + surge)
+reserve = max(64 GiB, steady + surge)
 ```
 
-- **steady**: what the computer always needs: 12 GiB, plus 2% of the disk
+- **steady**: what the computer always needs: 24 GiB, plus 2% of the disk
   (between 4 and 16 GiB) for filesystem metadata.
-- **surge**: what an update needs while it's staged: the release's declared
-  size (at least 12 GiB), plus any migration space it asks for.
+- **surge**: what an update needs while it's staged: room for two systems
+  beside the booted one (at least 16 GiB), because after a first update the
+  rollback's system stays, and the next update stages a third; plus any
+  migration space it asks for.
+
+Until homes can burst, the installer sizes the first owner's home to the free
+space minus the reserve. On a disk too small for the reserve, the home leaves
+room for one update and half of the rest.
 
 When free space runs low, the computer warns at **low** (below 16 GiB or 10%
 of the pool, whichever is larger) and **critical** (below 8 GiB), and reports
