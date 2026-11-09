@@ -28,6 +28,16 @@ def test_first_owner_has_a_luks2_home(sh, setting):
     assert [binding["storage"] for binding in record["binding"].values()] == ["luks"]
 
 
+def test_first_owner_home_leaves_room_for_updates(sh, setting):
+    # The installer sizes the home and turns rebalancing off, so that systemd-
+    # homed never grows it into the space an update needs: a home that the disk
+    # cannot hold whole does not open, and its owner cannot sign in.
+    record = json.loads(sh("homectl inspect -j %s", setting("OWNER_NAME")))
+    sections = [record, *record.get("perMachine", [])]
+    assert any(section.get("rebalanceWeight") in (0, False) for section in sections)
+    assert any("diskSize" in section for section in sections)
+
+
 def test_login_screen_lists_the_first_owner(host, setting):
     # SDDM lists the users that enumerate through NSS, within its UID range.
     assert 1000 <= host.user(setting("OWNER_NAME")).uid <= 60513

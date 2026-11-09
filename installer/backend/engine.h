@@ -11,7 +11,7 @@ struct Plan {
     qint64 diskSize = 0; // As reviewed; a different size is a different disk.
     QString userName;
     QString realName;
-    quint64 homeSize = 0; // 0: systemd-homed's default.
+    quint64 homeSize = 0; // 0: defaultHomeSize().
     // Settings of the installed system; empty leaves the image's default.
     QString locale;
     QString keyboardLayout; // XKB layout, with its variant in parentheses.

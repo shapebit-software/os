@@ -12,6 +12,7 @@
 #include <QJsonObject>
 #include <QRandomGenerator>
 #include <QSettings>
+#include <QStorageInfo>
 #include <QThread>
 
 namespace {
@@ -272,10 +273,15 @@ private:
         m_homedRedirected = true;
         restartHomed();
 
-        QStringList create{QStringLiteral("homectl"), QStringLiteral("create"), m_plan.userName,
-                           QStringLiteral("--real-name=") + m_plan.realName, QStringLiteral("--member-of=wheel")};
-        if (m_plan.homeSize > 0)
-            create.append(QStringLiteral("--disk-size=%1").arg(m_plan.homeSize));
+        // The home keeps the size it gets here: systemd-homed's rebalancing
+        // would grow it into the room left for updates (see defaultHomeSize).
+        QStorageInfo storage(top);
+        storage.refresh();
+        const quint64 homeSize = m_plan.homeSize > 0 ? m_plan.homeSize
+                                                     : defaultHomeSize(storage.bytesTotal(), storage.bytesAvailable());
+        const QStringList create{QStringLiteral("homectl"), QStringLiteral("create"), m_plan.userName,
+                                 QStringLiteral("--real-name=") + m_plan.realName, QStringLiteral("--member-of=wheel"),
+                                 QStringLiteral("--disk-size=%1").arg(homeSize), QStringLiteral("--rebalance-weight=off")};
         // homectl reads the new password from its environment, not its arguments.
         QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
         environment.insert(QStringLiteral("NEWPASSWORD"), QString::fromUtf8(m_password));

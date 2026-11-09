@@ -104,3 +104,12 @@ Disk resolveDisk(const QList<Disk> &disks, const QString &id)
         throw Failure{QStringLiteral("disk-not-eligible"), matches.first().reason};
     return matches.first();
 }
+
+qint64 defaultHomeSize(qint64 total, qint64 available)
+{
+    const qint64 system = total - available;
+    const qint64 home = available - system;
+    if (home < 1024LL * 1024 * 1024)
+        throw Failure{QStringLiteral("no-space-for-home"), QStringLiteral("Too little disk space is left for the home")};
+    return home;
+}

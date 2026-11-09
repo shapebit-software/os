@@ -23,6 +23,14 @@ struct Disk {
 // The smallest disk the system fits on.
 inline constexpr qint64 minimumDiskSize = 16LL * 1024 * 1024 * 1024;
 
+// The first owner's home, unless the plan sets its size, on a file system of
+// total bytes with available bytes free once the system is installed. The
+// home takes the free space but for as much again as the system uses, so that
+// an update's whole new system fits beside the current one: systemd-homed
+// claims the home's full size each time it opens it, and fails if the disk
+// cannot hold it then. Throws Failure if less than a GiB would be left.
+qint64 defaultHomeSize(qint64 total, qint64 available);
+
 // Parses `lsblk --json --bytes --output NAME,PATH,TYPE,SIZE,MODEL,SERIAL,WWN,TRAN,RO,RM,MOUNTPOINTS`.
 QList<Disk> parseDisks(const QByteArray &lsblkJson);
 
