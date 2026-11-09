@@ -81,6 +81,14 @@ def test_pam_uses_homed(host):
     assert host.file("/etc/pam.d/system-auth").contains("pam_systemd_home")
 
 
+def test_login_screen_stops_when_the_home_cannot_open(host):
+    # Before authselect's stack, whose pam_unix would accept the password of a
+    # home that systemd-homed could not open (image/Containerfile).
+    auth = [line.split() for line in host.file("/etc/pam.d/sddm").content_string.splitlines() if line.startswith("auth")]
+    homed = auth.index(["auth", "[success=ok", "user_unknown=ignore", "default=die]", "pam_systemd_home.so"])
+    assert homed < auth.index(["auth", "substack", "password-auth"])
+
+
 def test_login_unlocks_the_secret_service(host):
     assert host.file("/usr/lib64/security/pam_oo7.so").exists
     sddm = host.file("/etc/pam.d/sddm").content_string
