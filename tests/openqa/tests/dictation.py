@@ -11,6 +11,8 @@ from testapi import *
 sys.path.insert(0, get_var("CASEDIR") + "/lib")
 import sut
 
+post_fail_hook = sut.journal_on_failure("dictation")
+
 # The small button under capture, on the dock.
 DICTATE_BUTTON = (1192, 776)
 SHELL = "qs ipc --pid $(pgrep -x qs | head -n 1) call "

@@ -7,6 +7,8 @@ from testapi import *
 sys.path.insert(0, get_var("CASEDIR") + "/lib")
 import sut
 
+post_fail_hook = sut.journal_on_failure("install")
+
 OWNER = get_var("OWNER_NAME")
 PASSWORD = get_var("OWNER_PASSWORD")
 

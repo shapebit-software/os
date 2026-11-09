@@ -8,6 +8,8 @@ from testapi import *
 sys.path.insert(0, get_var("CASEDIR") + "/lib")
 import sut
 
+post_fail_hook = sut.journal_on_failure("settings")
+
 
 def run(self):
     send_key("super-i")

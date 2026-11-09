@@ -8,6 +8,8 @@ from testapi import *
 sys.path.insert(0, get_var("CASEDIR") + "/lib")
 import sut
 
+post_fail_hook = sut.journal_on_failure("lock_unlock")
+
 # The shell's own answer; --pid selects it with no display to match.
 IS_LOCKED = "qs ipc --pid $(pgrep -x qs | head -n 1) call lock isLocked"
 

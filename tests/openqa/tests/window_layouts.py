@@ -8,6 +8,8 @@ from testapi import *
 sys.path.insert(0, get_var("CASEDIR") + "/lib")
 import sut
 
+post_fail_hook = sut.journal_on_failure("window_layouts")
+
 # The layout button shows while the pointer is on the workspace's map, and lies
 # half over the map's top edge: here is on both. A right click on the map's
 # window would close the window.

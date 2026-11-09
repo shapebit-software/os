@@ -10,6 +10,8 @@ from testapi import *
 sys.path.insert(0, get_var("CASEDIR") + "/lib")
 import sut
 
+post_fail_hook = sut.journal_on_failure("enroll_key")
+
 
 def step(text, *keys):
     wait_serial(text, 300)

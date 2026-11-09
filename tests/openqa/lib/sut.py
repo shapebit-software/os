@@ -4,6 +4,7 @@ systemd credential, as for every VM; nothing is baked into the medium."""
 
 import json
 import os
+import pathlib
 import shlex
 import subprocess
 import time
@@ -87,6 +88,27 @@ def as_owner(command, check=True):
 
 def hyprctl_json(what):
     return json.loads(as_owner(f"hyprctl --instance 0 -j {what}"))
+
+
+def journal_on_failure(module):
+    """A post_fail_hook for the test module named module: what the machine
+    logged since it booted, the owner's session included, and its core dumps,
+    the last in full, go next to the results as journal-MODULE.txt. A
+    screenshot shows that something failed; this shows why. The engine reports
+    the module's failure even if this fails too."""
+
+    def post_fail_hook(self):
+        parts = []
+        for command in (
+            "journalctl -b -o short-precise --no-pager",
+            "coredumpctl list --no-pager",
+            "coredumpctl info --no-pager",
+        ):
+            done = ssh(command)
+            parts.append(f"$ {command}\n{done.stdout}{done.stderr}")
+        pathlib.Path(f"journal-{module}.txt").write_text("\n".join(parts), encoding="utf-8")
+
+    return post_fail_hook
 
 
 def wait_for(predicate, timeout=60):
