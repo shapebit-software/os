@@ -23,6 +23,13 @@ def test_logos_are_not_fedoras(host):
     assert host.package("generic-logos").is_installed
 
 
+def test_openh264_is_not_redistributed(host):
+    # Cisco's patent license covers only the openh264 that Cisco serves itself
+    # (image/Containerfile).
+    assert not host.package("openh264").is_installed
+    assert host.package("noopenh264").is_installed
+
+
 def test_image_version_is_build_time(host):
     # A rolling release: when the build started, in UTC (202610301530), or dev;
     # update tests build dev.next and dev.next2, or the same after a build time.

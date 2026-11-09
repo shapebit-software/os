@@ -23,13 +23,17 @@ COPY rootfs/ /
 # state in /var and /run is removed, since bootc ignores it on install; so are
 # SDDM's runtime directory, which tmpfiles.d creates on each boot, and libX11's
 # empty cache. Hyprland's own session entries are removed, so the login screen
-# offers only the desktop's.
+# offers only the desktop's. Fedora's Cisco repository is left out: Cisco pays
+# the H.264 patent royalties only for the openh264 that people download from
+# Cisco, so an image that carried it would redistribute it unlicensed;
+# Fedora's noopenh264 stands in, and apps get H.264 from Flathub's extension,
+# which downloads from Cisco.
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
     --mount=type=bind,source=packages,target=/run/system-packages \
     --mount=type=bind,from=desktop,source=packages,target=/run/desktop-packages \
     --mount=type=bind,source=hyprland.repo,target=/etc/yum.repos.d/hyprland.repo <<'EOF'
 set -euo pipefail
-dnf -y install $(sed 's/#.*//' /run/system-packages /run/desktop-packages)
+dnf -y install --disablerepo=fedora-cisco-openh264 $(sed 's/#.*//' /run/system-packages /run/desktop-packages)
 rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf /run/sddm /var/cache/libX11
 rm /usr/share/wayland-sessions/hyprland.desktop
 EOF
