@@ -1,5 +1,14 @@
-# isotovideo, openQA's test engine, with what ShapeBit's test modules and machine
-# need: Inline::Python runs the Python modules, swtpm is the machine's TPM, and
-# skopeo turns the build that FLOW=update moves to into an OCI layout.
-FROM registry.opensuse.org/devel/openqa/containers/isotovideo:qemu-kvm
-RUN zypper -n in perl-Inline-Python swtpm skopeo && zypper clean
+# isotovideo, openQA's test engine, from Fedora's os-autoinst, with what
+# ShapeBit's test modules and machine need: Inline::Python runs the Python
+# modules, QEMU with virtio-vga and Secure Boot firmware is the machine, swtpm is
+# its TPM, and skopeo turns the build that FLOW=update moves to into an OCI
+# layout. Weak dependencies are off: they bring QEMU for every architecture.
+# vars.json takes edk2-ovmf's 4 MB Secure Boot build; with the 2 MB one, the
+# installer's check that the TPM unlocks the new volume fails.
+ARG FEDORA_VERSION
+FROM registry.fedoraproject.org/fedora:${FEDORA_VERSION}
+RUN dnf -y install --setopt=install_weak_deps=False \
+      os-autoinst perl-Inline-Python qemu-system-x86-core qemu-device-display-virtio-vga \
+      qemu-img edk2-ovmf swtpm skopeo \
+    && dnf clean all
+ENTRYPOINT ["/usr/bin/isotovideo"]

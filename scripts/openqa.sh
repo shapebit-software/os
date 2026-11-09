@@ -8,7 +8,7 @@
 # UPDATE_ARCHIVE's build, which the machine gets as an OCI layout.
 # Usage: openqa.sh (called by `make test-release`).
 set -euo pipefail
-: "${ENGINE:?}" "${MEDIUM:?}" "${RESULTS:?}" "${SSH_KEY:?}" "${OWNER_NAME:?}" "${OPENQA_IMAGE:?}" "${OPENQA_DISTRI:?}" "${DISK_SIZE:?}" "${MEDIUM_SIZE:?}" "${FLOW:?}"
+: "${ENGINE:?}" "${MEDIUM:?}" "${RESULTS:?}" "${SSH_KEY:?}" "${OWNER_NAME:?}" "${OPENQA_IMAGE:?}" "${OPENQA_DISTRI:?}" "${DISK_SIZE:?}" "${MEDIUM_SIZE:?}" "${FLOW:?}" "${FEDORA_VERSION:?}"
 cd "$(dirname "$0")/.."
 source scripts/results.sh
 
@@ -23,7 +23,7 @@ fi
 start_run "release-$FLOW"
 mkdir "$run/pool"
 
-$ENGINE build -q -t "$OPENQA_IMAGE" -f tests/openqa/Containerfile tests/openqa >/dev/null
+$ENGINE build -q --build-arg FEDORA_VERSION="$FEDORA_VERSION" -t "$OPENQA_IMAGE" -f tests/openqa/Containerfile tests/openqa >/dev/null
 # ENGINE is unquoted on purpose: it may be a command with arguments, e.g. "sudo podman".
 update_digest= candidate=()
 if [[ $FLOW == update ]]; then
