@@ -104,15 +104,19 @@ RUN --mount=type=bind,from=desktop,target=/src make -C /src install DESTDIR=/out
 # dictation works only once they are. The wheel bundles a copy of the ALSA
 # library, under the LGPL, whose exact source is unknown; its module loads
 # Fedora's instead (desktop/packages), whose source is the RPM's, and the copy
-# is left out.
+# is left out. The wheel carries no notices for the ONNX Runtime it bundles,
+# so they come from desktop/dictation/licenses, with sherpa-onnx's own.
 FROM tools AS sherpa
-RUN --mount=type=bind,from=desktop,source=dictation/requirements.txt,target=/run/requirements.txt <<'EOF'
+RUN --mount=type=bind,from=desktop,source=dictation/requirements.txt,target=/run/requirements.txt \
+    --mount=type=bind,from=desktop,source=dictation/licenses,target=/run/licenses <<'EOF'
 set -euo pipefail
 dir=/out/usr/lib64/dictation
 pip install --require-hashes --only-binary :all: --no-deps --target "$dir" -r /run/requirements.txt
 bundled=$(basename "$dir"/sherpa_onnx.libs/libasound-*.so.2*)
 patchelf --replace-needed "$bundled" libasound.so.2 "$dir"/sherpa_onnx/lib/_sherpa_onnx.cpython-*.so
 rm -r "$dir/sherpa_onnx.libs"
+install -Dm644 -t /out/usr/share/licenses/onnxruntime /run/licenses/onnxruntime/*
+install -Dm644 "$dir"/sherpa_onnx-*.dist-info/licenses/LICENSE /out/usr/share/licenses/sherpa-onnx/LICENSE
 EOF
 
 # The assistant's language model server (desktop/assistant/llama-server@.service):
@@ -138,7 +142,12 @@ cmake --build build -j"$(nproc)" --target llama-server
 strip build/bin/llama-server build/bin/*.so*
 install -d /out/usr/libexec/llama
 cp -a build/bin/llama-server build/bin/*.so* /out/usr/libexec/llama/
-install -Dm644 LICENSE /out/usr/share/licenses/llama.cpp/LICENSE
+# Its license, and those of the code it vendors that ask for their notice.
+install -Dm644 -t /out/usr/share/licenses/llama.cpp LICENSE licenses/LICENSE-*
+install -Dm644 vendor/cpp-httplib/LICENSE /out/usr/share/licenses/llama.cpp/LICENSE-cpp-httplib
+for hash in vendor/hash/*/LICENSE*; do
+  install -Dm644 "$hash" "/out/usr/share/licenses/llama.cpp/LICENSE-$(basename "$(dirname "$hash")")"
+done
 EOF
 
 FROM system

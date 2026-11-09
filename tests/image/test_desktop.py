@@ -91,6 +91,16 @@ def test_dictation_bundles_no_copyleft_library(sh):
     assert sh("find /usr/lib64/dictation -maxdepth 1 -name '*.libs'") == ""
 
 
+def test_dictation_libraries_carry_their_notices(sh, host):
+    # The notices are for the ONNX Runtime release that the wheel bundles.
+    licenses = "/usr/share/licenses/onnxruntime"
+    version = host.file(f"{licenses}/VERSION").content_string.strip()
+    library = sh("ls /usr/lib64/dictation/sherpa_onnx/lib/libonnxruntime.so").strip()
+    assert f"VERS_{version}" in sh("grep -ao 'VERS_[0-9.]*' %s", library).split()
+    for notice in (f"{licenses}/LICENSE", f"{licenses}/ThirdPartyNotices.txt", "/usr/share/licenses/sherpa-onnx/LICENSE"):
+        assert host.file(notice).size > 0
+
+
 def test_dictation_loads_alsa_from_its_rpm(sh):
     module = sh("ls /usr/lib64/dictation/sherpa_onnx/lib/_sherpa_onnx.cpython-*.so").strip()
     libraries = sh("ldd %s", module)
@@ -128,7 +138,8 @@ def test_llama_server_runs_with_its_own_libraries(sh, host):
     assert "version: " in sh("/usr/libexec/llama/llama-server --version 2>&1")
     assert "not found" not in sh("ldd /usr/libexec/llama/llama-server")
     assert host.file("/usr/libexec/llama/libggml-cpu-haswell.so").size > 0
-    assert host.file("/usr/share/licenses/llama.cpp/LICENSE").size > 0
+    for notice in ("LICENSE", "LICENSE-jsonhpp", "LICENSE-cpp-httplib"):
+        assert host.file(f"/usr/share/licenses/llama.cpp/{notice}").size > 0
 
 
 def test_compositor_configuration_is_valid(sh):
