@@ -16,7 +16,9 @@ Download the installer,
 [`shapebit-installer.img.xz`](https://download.shapebit.software/shapebit-installer.img.xz).
 You don't need to decompress it: the tools below read it as it is. To check
 the download, compare its SHA-256 checksum with
-[`SHA256SUMS`](https://download.shapebit.software/SHA256SUMS).
+[`SHA256SUMS`](https://download.shapebit.software/SHA256SUMS). The source
+code of the installer's packages is in
+[`shapebit-installer-sources.tar`](https://download.shapebit.software/shapebit-installer-sources.tar).
 
 ## 2. Write it to the USB drive
 
