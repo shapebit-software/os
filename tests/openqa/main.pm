@@ -10,7 +10,7 @@ use testapi;
 set_var(ENABLE_MODERN_PERL_FEATURES => 1);
 
 my @install = qw(enroll_key install boot_installed);
-my @desktop = qw(login settings window_layouts dictation lock_unlock reboot);
+my @desktop = qw(login settings window_layouts assistant dictation lock_unlock reboot);
 my %flows = (
   install => [@install, @desktop],
   update  => [@install, 'update', @desktop],

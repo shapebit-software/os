@@ -354,6 +354,14 @@ Singleton {
             assistant.toggleLine(Shortcuts.focused);
         }
 
+        // Opens or closes the sidebar on the focused screen.
+        function sidebar(): void {
+            if (assistant.sidebarOn !== "")
+                assistant.sidebarOn = "";
+            else
+                assistant.openSidebar(Shortcuts.focused);
+        }
+
         function doNotDisturb(): bool {
             return Settings.doNotDisturb;
         }

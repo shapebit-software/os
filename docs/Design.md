@@ -16,6 +16,6 @@ says so.
 - [Recovery](Design-Recovery.md) — the recovery key and when it is needed.
 - [Desktop Environment](Design-Desktop.md) — the session, bars,
   workspaces and windows, dictation, the assistant, Settings, and Welcome as
-  built; the future design of menus, the Shelf, and voice and gaze input.
+  built; the future design of menus, the Shelf, and gaze input.
 - [Applications](Design-Applications.md) — built-in apps, third-party app
   installation, browsers, and AppImage.

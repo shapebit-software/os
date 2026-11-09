@@ -1,9 +1,11 @@
 // The assistant's sidebar, as in the demo: one conversation, at the right of
 // the screen between the bars, which stays open beside the windows until
-// closed. Its header names the conversation (a double click renames it) and
-// the workspace it began on, starts a new one, and lists them all
-// (AssistantConversations.qml). A reply sent while the assistant works waits
-// its turn; Stop ends what is under way, and the queue goes on.
+// closed. It reserves its width, so the windows retile beside it; on a narrow
+// screen it lies over them instead. Its header names the conversation (a
+// double click renames it) and the workspace it began on, starts a new one,
+// and lists them all (AssistantConversations.qml). A reply sent while the
+// assistant works waits its turn; Stop ends what is under way, and the queue
+// goes on.
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
@@ -17,6 +19,8 @@ PanelWindow {
     required property ShellScreen modelData
     readonly property bool here: Assistant.sidebarOn !== "" && Assistant.sidebarOn === (modelData?.name ?? "") && !Lock.locked
     readonly property var conversation: Assistant.conversation
+    // Too narrow to leave the windows room beside the sidebar.
+    readonly property bool narrow: (modelData?.width ?? 0) < 1024
     // Under way in this conversation.
     readonly property bool working: Assistant.busy && Assistant.messages.some(m => ["thinking", "starting", "answering"].includes(m.state)
         || m.state === "proposed" || m.state === "running")
@@ -26,9 +30,9 @@ PanelWindow {
     color: "transparent"
     anchors { top: true; bottom: true; right: true }
     implicitWidth: 340 + Theme.gap
-    // Beside the windows, between the bars, which it leaves room for.
+    // Between the bars, which it leaves room for, and beside the windows.
     exclusionMode: ExclusionMode.Normal
-    exclusiveZone: 0
+    exclusiveZone: narrow ? 0 : implicitWidth
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "assistant"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
