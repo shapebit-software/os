@@ -40,7 +40,10 @@ def run(self):
     sut.wait_for(lambda: sut.run(f"pgrep -u {sut.OWNER} -x Hyprland", check=False) != "")
     sut.wait_for(lambda: sut.as_owner("systemctl --user is-active graphical-session.target", False).strip() == "active")
     assert "State: active" in sut.run(f"homectl inspect {sut.OWNER}")
-    home_leaves_the_reserve()
+    # Only the installer under test sized this home; update installs with the
+    # download site's.
+    if get_var("FLOW") == "install":
+        home_leaves_the_reserve()
     assert_and_click("welcome-skip-all")
     assert_screen("desktop", 30)
 
