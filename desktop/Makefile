@@ -6,6 +6,10 @@ DESTDIR ?=
 
 share := $(DESTDIR)$(PREFIX)/share
 
+# Colors, the system's colors: a QML module that the image installs in Qt's
+# own folder; here, the image's source of it.
+colors := $(abspath $(CURDIR)/../image/rootfs/usr/lib64/qt6/qml)
+
 # The host's system bus, which the development container shares here: the
 # shell needs it for the network and Bluetooth.
 host_bus := /run/host/run/dbus/system_bus_socket
@@ -21,14 +25,14 @@ validate: ## Verify the compositor configuration
 # in a directory named qs.
 lint: ## Lint the shell
 	lint=$$(mktemp -d); ln -s $(CURDIR)/shell $$lint/qs; \
-	qmllint-qt6 --max-warnings 0 --uncreatable-type disable -I $$lint shell/*.qml shell/*/*.qml; \
+	qmllint-qt6 --max-warnings 0 --uncreatable-type disable -I $$lint -I $(colors) shell/*.qml shell/*/*.qml; \
 	status=$$?; rm -rf $$lint; exit $$status
 
 # The host session's desktop name is not this one's; Hyprland sets its own.
 # The fonts include the OS image's (fonts.conf). The desktop has a session
 # bus of its own, with its portals and the Portal Tester (dev/run).
 run: ## Run the desktop in a window, inside the current Wayland session
-	env -u XDG_CURRENT_DESKTOP DESKTOP_SHELL=$(CURDIR)/shell FONTCONFIG_FILE=$(CURDIR)/fonts.conf \
+	env -u XDG_CURRENT_DESKTOP DESKTOP_SHELL=$(CURDIR)/shell QML_IMPORT_PATH=$(colors) FONTCONFIG_FILE=$(CURDIR)/fonts.conf \
 	$(if $(wildcard $(host_bus)),DBUS_SYSTEM_BUS_ADDRESS=unix:path=$(host_bus)) \
 	dev/run
 

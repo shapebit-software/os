@@ -36,7 +36,7 @@ Column {
             anchors.verticalCenter: parent.verticalCenter
             text: Downloads.busy ? "It goes on if you close Settings, and after you sign in again."
                 : "What the desktop downloads and installs shows here."
-            color: "#5f6469"
+            color: Theme.textMuted
             font { family: Theme.font; pixelSize: 12 }
         }
         DialogButton {
@@ -50,7 +50,7 @@ Column {
     Text {
         visible: page.shown.length === 0
         text: "Nothing is downloading or installing."
-        color: "#5f6469"
+        color: Theme.textMuted
         font { family: Theme.font; pixelSize: 13 }
     }
 
@@ -58,8 +58,8 @@ Column {
         visible: page.shown.length > 0
         width: page.width
         height: list.height + 2
-        color: "white"
-        border.color: "#d8dbde"
+        color: Theme.surface
+        border.color: Theme.line
 
         Column {
             id: list
@@ -85,7 +85,7 @@ Column {
                         visible: job.index > 0
                         width: parent.width
                         height: 1
-                        color: "#e6e8ea"
+                        color: Theme.lineSoft
                     }
                     Item {
                         width: parent.width
@@ -101,14 +101,14 @@ Column {
                                 width: parent.width
                                 elide: Text.ElideRight
                                 text: job.modelData.name
-                                color: "#1d2022"
+                                color: Theme.textStrong
                                 font { family: Theme.font; pixelSize: 13; weight: Font.Medium }
                             }
                             Text {
                                 width: parent.width
                                 elide: Text.ElideRight
                                 text: `${page.kindOf(job.modelData)} · ${Downloads.describe(job.modelData)}`
-                                color: job.modelData.state === "failed" ? "#b63132" : "#65696f"
+                                color: job.modelData.state === "failed" ? Theme.dangerInk : Theme.textMuted
                                 font { family: Theme.font; pixelSize: 11 }
                             }
                             Rectangle {
@@ -116,7 +116,7 @@ Column {
                                 width: parent.width
                                 height: 4
                                 radius: 2
-                                color: "#e6e8ea"
+                                color: Theme.lineSoft
 
                                 Rectangle {
                                     width: parent.width * job.modelData.percent / 100

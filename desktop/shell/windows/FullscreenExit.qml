@@ -45,8 +45,8 @@ PanelWindow {
         width: 30
         height: 30
         radius: 15
-        color: buttonHover.hovered ? "#d5403a" : Qt.rgba(0.14, 0.13, 0.17, 0.72)
-        border.color: Qt.rgba(1, 1, 1, 0.18)
+        color: buttonHover.hovered ? Theme.dangerFill : Theme.hud(0.72)
+        border.color: Theme.sheen(0.18)
         opacity: corner.shown ? 1 : 0
         transform: Translate { y: corner.shown ? 0 : -6 }
 
@@ -59,7 +59,7 @@ PanelWindow {
             gridHeight: 12
             strokeWidth: 1.5
             capStyle: ShapePath.SquareCap
-            color: "#f6f7f9"
+            color: Theme.textBright
             strokes: "M2 2l8 8M10 2l-8 8"
         }
 

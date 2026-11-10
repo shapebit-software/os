@@ -255,7 +255,7 @@ PanelWindow {
                         Icon {
                             anchors.centerIn: parent
                             height: 12
-                            color: "white"
+                            color: Theme.textOnAccent
                             strokeWidth: 1.8
                             strokes: send.stopping ? "" : "M8 13V3M3.5 7.5 8 3l4.5 4.5"
                             fills: send.stopping ? "M4.5 4.5h7v7h-7z" : ""

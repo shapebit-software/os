@@ -83,8 +83,8 @@ PanelWindow {
 
                 width: tabBar.tabWidth
                 height: tabBar.height
-                color: Qt.rgba(1, 1, 1, shown ? 0.3 : 0.12)
-                border.color: Qt.rgba(1, 1, 1, 0.14)
+                color: Theme.sheen(shown ? 0.3 : 0.12)
+                border.color: Theme.sheen(0.14)
 
                 TapHandler {
                     onTapped: Compositor.focusWindow(tab.modelData.address)
@@ -102,7 +102,7 @@ PanelWindow {
                     width: parent.width - x - 10
                     elide: Text.ElideRight
                     text: surface.nameOf(tab.modelData)
-                    color: tab.shown ? "#fafbfc" : Qt.rgba(0.9, 0.91, 0.93, 0.75)
+                    color: tab.shown ? Theme.textBright : Qt.alpha(Theme.text, 0.75)
                     font { family: Theme.font; pixelSize: 11; weight: Font.Bold }
                 }
             }
@@ -137,7 +137,7 @@ PanelWindow {
                     : strips.width - (surface.windows.length - index) * (strips.folded + Theme.gap) + Theme.gap
                 width: strips.folded
                 height: strips.height
-                color: Qt.rgba(1, 1, 1, 0.12)
+                color: Theme.sheen(0.12)
 
                 IconImage {
                     y: 10
@@ -154,7 +154,7 @@ PanelWindow {
                     transformOrigin: Item.TopLeft
                     elide: Text.ElideRight
                     text: surface.nameOf(strip.modelData)
-                    color: Qt.rgba(0.9, 0.91, 0.93, 0.75)
+                    color: Qt.alpha(Theme.text, 0.75)
                     font { family: Theme.font; pixelSize: 11; weight: Font.Bold }
                 }
 

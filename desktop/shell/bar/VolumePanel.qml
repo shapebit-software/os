@@ -28,18 +28,18 @@ BarPanel {
 
             width: 36
             height: 36
-            color: panel.muted ? Theme.oklch(0.52, 0.17, 25) : Theme.veil(muteHover.hovered ? 0.12 : 0.08)
+            color: panel.muted ? Theme.dangerInk : Theme.veil(muteHover.hovered ? 0.12 : 0.08)
 
             Icon {
                 anchors.centerIn: parent
-                color: panel.muted ? "#fbfbfd" : Theme.ink
+                color: panel.muted ? Theme.textOnAccent : Theme.ink
                 strokes: panel.muted && !panel.wavesWhenMuted ? "" : panel.strokes
                 fills: panel.fills
             }
             Icon {
                 anchors.centerIn: parent
                 visible: panel.muted
-                color: "#fbfbfd"
+                color: Theme.textOnAccent
                 strokeWidth: 1.6
                 strokes: panel.mutedStroke
             }

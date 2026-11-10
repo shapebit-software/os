@@ -133,7 +133,7 @@ Rectangle {
         Text {
             id: label
             anchors.centerIn: parent
-            color: button.strong ? "white" : Theme.inkSoft
+            color: button.strong ? Theme.textOnAccent : Theme.inkSoft
             font { family: Theme.font; pixelSize: 11; weight: button.strong ? Font.Medium : Font.Normal }
         }
 

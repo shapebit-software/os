@@ -149,7 +149,7 @@ Item {
         Rectangle {
             visible: map.windows.length === 0 && !map.free
             anchors.fill: parent
-            color: map.current ? Qt.rgba(0.89, 0.9, 0.92, 0.4) : Qt.rgba(0.6, 0.62, 0.65, 0.28)
+            color: map.current ? Qt.alpha(Theme.mapGlow, 0.4) : Qt.alpha(Theme.mapDim, 0.28)
         }
 
         // The cells, laid out on an area grown by half the cell gap on every
@@ -192,9 +192,9 @@ Item {
                     height: Math.max(2, area.height * cells.sy - map.cellGap)
                     opacity: Dragging.window === modelData ? 0.35 : 1
                     radius: Theme.rounded ? 2.5 : 0
-                    color: !map.current ? Qt.rgba(0.6, 0.62, 0.65, 0.55)
-                        : modelData.activated ? Qt.rgba(0.98, 0.99, 1, 0.98)
-                        : Qt.rgba(0.77, 0.79, 0.83, 0.8)
+                    color: !map.current ? Qt.alpha(Theme.mapDim, 0.55)
+                        : modelData.activated ? Qt.alpha(Theme.mapLight, 0.98)
+                        : Qt.alpha(Theme.mapMid, 0.8)
                     // The window the switcher has picked (Switcher.qml).
                     border.width: Switcher.picked === modelData ? 2 : 0
                     border.color: Theme.accent
@@ -267,7 +267,7 @@ Item {
                 width: Math.max(2, area.width * cells.sx - map.cellGap)
                 height: Math.max(2, area.height * cells.sy - map.cellGap)
                 radius: Theme.rounded ? 2.5 : 0
-                color: map.current ? Qt.rgba(0.98, 0.99, 1, 0.98) : Qt.rgba(0.6, 0.62, 0.65, 0.55)
+                color: map.current ? Qt.alpha(Theme.mapLight, 0.98) : Qt.alpha(Theme.mapDim, 0.55)
             }
 
             // The free cell.
@@ -279,9 +279,9 @@ Item {
                 y: area.y * cells.sy + map.cellGap / 2
                 width: Math.max(2, area.width * cells.sx - map.cellGap)
                 height: Math.max(2, area.height * cells.sy - map.cellGap)
-                color: map.current ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0.6, 0.62, 0.65, 0.14)
+                color: map.current ? Theme.sheen(0.12) : Qt.alpha(Theme.mapDim, 0.14)
                 border.width: freeDrop.containsDrag ? 2 : 1
-                border.color: freeDrop.containsDrag ? Theme.accent : Qt.rgba(1, 1, 1, map.current ? 0.45 : 0.26)
+                border.color: freeDrop.containsDrag ? Theme.accent : Theme.sheen(map.current ? 0.45 : 0.26)
 
                 DropArea {
                     id: freeDrop
@@ -321,8 +321,8 @@ Item {
         // The demo's popover glass, white under the pointer.
         border.color: Theme.popoverRing
         gradient: Gradient {
-            GradientStop { position: 0; color: buttonHover.hovered ? "white" : Theme.popoverTop }
-            GradientStop { position: 1; color: buttonHover.hovered ? "white" : Theme.popoverBottom }
+            GradientStop { position: 0; color: buttonHover.hovered ? Theme.surface : Theme.popoverTop }
+            GradientStop { position: 1; color: buttonHover.hovered ? Theme.surface : Theme.popoverBottom }
         }
 
         Drag.dragType: Drag.Automatic

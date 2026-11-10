@@ -37,7 +37,7 @@ PanelWindow {
     }
     Rectangle {
         anchors.fill: parent
-        color: Qt.rgba(0.1, 0.08, 0.16, 0.42)
+        color: Theme.glass(0.42)
         focus: true
         Keys.onEscapePressed: Authorization.cancel()
     }
@@ -76,8 +76,8 @@ PanelWindow {
             width: 280
             height: 38
             radius: 15
-            color: Qt.rgba(1, 1, 1, 0.14)
-            border.color: Authorization.failed ? Theme.danger : Qt.rgba(1, 1, 1, 0.22)
+            color: Theme.sheen(0.14)
+            border.color: Authorization.failed ? Theme.danger : Theme.sheen(0.22)
             opacity: Authorization.flow?.isResponseRequired ? 1 : 0.6
 
             TextInput {
@@ -125,7 +125,7 @@ PanelWindow {
             width: 120
             height: 34
             radius: 15
-            color: Qt.rgba(1, 1, 1, cancelHover.hovered ? 0.2 : 0.12)
+            color: Theme.sheen(cancelHover.hovered ? 0.2 : 0.12)
 
             Text {
                 anchors.centerIn: parent

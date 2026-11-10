@@ -130,7 +130,7 @@ PanelWindow {
         width: pillRow.width + 24
         height: 32
         radius: 16
-        color: Dictation.state === "failed" ? "#d23a3a" : Theme.accent
+        color: Dictation.state === "failed" ? Theme.dangerFill : Theme.accent
         Accessible.role: Accessible.StatusBar
         Accessible.name: said.text
 
@@ -146,7 +146,7 @@ PanelWindow {
             Text {
                 id: said
                 text: Dictation.status
-                color: "#fbfcfd"
+                color: Theme.textOnAccent
                 font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
             }
         }

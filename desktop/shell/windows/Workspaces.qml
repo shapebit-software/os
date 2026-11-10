@@ -68,9 +68,9 @@ GridLayout {
         implicitWidth: strip.mapWidth
         implicitHeight: strip.mapHeight
         radius: Theme.rounded ? 2.5 : 0
-        color: Qt.rgba(1, 1, 1, newDrop.containsDrag ? 0.2 : 0.08)
+        color: Theme.sheen(newDrop.containsDrag ? 0.2 : 0.08)
         border.width: newDrop.containsDrag ? 2 : 1
-        border.color: newDrop.containsDrag ? Theme.accent : Qt.rgba(1, 1, 1, 0.3)
+        border.color: newDrop.containsDrag ? Theme.accent : Theme.sheen(0.3)
 
         Icon {
             anchors.centerIn: parent
@@ -79,7 +79,7 @@ GridLayout {
             gridHeight: 12
             strokeWidth: 1.6
             strokes: "M6 1v10M1 6h10"
-            color: "#f6f9fb"
+            color: Theme.textBright
             opacity: newDrop.containsDrag ? 1 : 0.7
         }
 

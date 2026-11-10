@@ -40,7 +40,7 @@ Singleton {
         locked: screenLock.locked
 
         WlSessionLockSurface {
-            color: "black"
+            color: Theme.blackout
 
             LockSurface {
                 anchors.fill: parent

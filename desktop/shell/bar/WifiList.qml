@@ -140,7 +140,7 @@ Column {
                         id: joinLabel
                         anchors.centerIn: parent
                         text: "Join"
-                        color: "white"
+                        color: Theme.textOnAccent
                         font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
                     }
                     TapHandler {

@@ -1,0 +1,143 @@
+# Every color of the system, from the boot splash to the desktop, for anything
+# to read: the shell, the login screen, and the installer, through the QML
+# module Colors (/usr/lib64/qt6/qml/Colors), whose values scripts/colors.py
+# generates from this file; and the portal, which hands the accent to
+# applications. What cannot read it keeps a copy that names the color here,
+# which tests/unit/test_colors.py checks: the boot splash (Plymouth), the
+# console's colors (kargs.d), and the compositor.
+#
+# A color is hex, "#rrggbb", or OKLCH, { oklch = [lightness, chroma, hue] }:
+# lightness and chroma 0 to 1 and 0 to about 0.4, hue in degrees.
+
+# The pens that mark up a screenshot: red, yellow, blue, ink, and white. Ink is
+# also the text on the light pens.
+pens = ["#f05653", "#f5c242", "#3f9cf0", "#1d1a24", "#ffffff"]
+
+[colors]
+# The brand's violet, the default accent.
+violet = { oklch = [0.477, 0.233, 285.5] }
+# The background from the boot splash to the desktop: the splash, the console
+# between the steps, the login screen, and the compositor before the wallpaper.
+night = "#1f1a3c"
+
+# Neutral greys, from light to dark: the windows' surfaces, lines, and text.
+grey0 = "#ffffff"
+grey25 = "#fbfcfd"
+grey50 = "#f4f5f7"
+grey100 = "#eceff1"
+grey150 = "#e6e8ea"
+grey200 = "#e1e3e6"
+grey300 = "#d8dbde"
+grey350 = "#d1d5d8"
+grey400 = "#c3c7cb"
+grey450 = "#b9bec3"
+grey500 = "#999ea6"
+grey550 = "#8a8f94"
+grey600 = "#65696f"
+grey650 = "#54595e"
+grey700 = "#44484d"
+grey900 = "#1d2022"
+black = "#000000"
+
+# Darks with night's violet: glass over the backdrop, the bars, what dims the
+# screen behind a dialog, and controls over windows.
+nightGlass = "#171426"
+nightField = "#120f1c"
+nightScrim = "#0d0a17"
+nightBar = "#1c1826"
+nightBarGlass = "#0c0c18"
+nightShade = "#05050d"
+nightSlate = "#23212b"
+# The boot splash's progress bar, on night.
+nightTrack = "#4a4466"
+# The line around every window, which the compositor draws.
+windowEdge = "#0b0812"
+
+# Lavender, pale greys with a trace of violet: the popovers' glass and the
+# capture panel, as the demo writes them.
+lavender50 = { oklch = [0.985, 0.008, 285] }
+lavender100 = { oklch = [0.965, 0.012, 285] }
+lavender150 = { oklch = [0.94, 0.006, 285] }
+lavender250 = { oklch = [0.885, 0.01, 285] }
+lavender500 = { oklch = [0.68, 0.025, 285] }
+
+# Ink, dark violets: text and veils on the popovers' light glass, and their
+# shadow.
+ink = { oklch = [0.27, 0.06, 290] }
+inkSoft = { oklch = [0.38, 0.07, 290] }
+inkMuted = { oklch = [0.45, 0.07, 290] }
+inkFaint = { oklch = [0.48, 0.07, 290] }
+inkDeep = { oklch = [0.2, 0.04, 290] }
+inkVeil = { oklch = [0.25, 0.04, 285] }
+inkShadow = { oklch = [0.15, 0.05, 285] }
+
+# Reds, from light to dark: text on dark, lines on dark, recording, fills
+# behind light text, and text on light.
+red200 = "#ff9a8a"
+red400 = "#f05653"
+red500 = "#e5484d"
+red600 = "#d23a3a"
+red700 = "#b63132"
+
+# The accent, which the person chooses in Settings (the shell's settings.json
+# keeps the choice): fills, such as buttons and switches, with light text on
+# them; a pale tint of its hue for what is selected on light surfaces; and, as
+# text on dark surfaces, a lighter version, whose chroma shrinks only as far as
+# the screen's colors need.
+[accents]
+default = "Violet"
+# A custom accent's lightness and chroma; the person picks its hue.
+custom = [0.52, 0.11]
+# The tint's lightness and chroma, and the lightness of the text on dark.
+soft = [0.94, 0.03]
+ink = 0.66
+
+# The accents to choose from, as OKLCH lightness, chroma, and hue.
+[accents.presets]
+Violet = [0.477, 0.233, 285.5]
+Cyan = [0.52, 0.11, 215]
+Green = [0.52, 0.11, 150]
+Amber = [0.52, 0.11, 45]
+Plum = [0.52, 0.11, 335]
+
+# The roles that colors play, for each kind of surface (Roles.qml describes
+# each role): a color by name, or { color = name, alpha = opacity }. A set
+# leaves out the roles that nothing on its surfaces needs yet.
+
+# Light surfaces: the windows, such as Settings.
+[roles.light]
+background = "grey50"
+surface = "grey0"
+surfaceSunken = "grey150"
+fill = "grey100"
+hover = "grey150"
+hoverStrong = "grey200"
+line = "grey300"
+lineSoft = "grey150"
+lineStrong = "grey350"
+lineHover = "grey450"
+disabled = "grey400"
+textStrong = "grey900"
+textBody = "grey700"
+textSoft = "grey650"
+textMuted = "grey600"
+textFaint = "grey550"
+danger = "red700"
+dangerFill = "red600"
+textOnAccent = "grey25"
+
+# Dark surfaces: glass over the backdrop, as on the login screen, the lock
+# screen, and the installer.
+[roles.dark]
+background = "night"
+surface = { color = "nightGlass", alpha = 0.94 }
+surfaceSunken = { color = "nightField", alpha = 0.5 }
+fill = { color = "grey0", alpha = 0.16 }
+hover = { color = "grey0", alpha = 0.12 }
+line = { color = "grey0", alpha = 0.22 }
+textStrong = "grey0"
+textMuted = { color = "grey0", alpha = 0.7 }
+textFaint = { color = "grey0", alpha = 0.55 }
+danger = "red200"
+dangerFill = "red700"
+textOnAccent = "grey0"

@@ -2,6 +2,7 @@
 // tile, brighter while Apps is open; on the system bar, a plain button.
 pragma ComponentBehavior: Bound
 import QtQuick
+import qs.services
 
 BarButton {
     id: button
@@ -21,7 +22,7 @@ BarButton {
                 width: button.dot
                 height: button.dot
                 radius: button.dot / 2
-                color: "#fbfcfd"
+                color: Theme.textOnAccent
                 opacity: index === 3 ? 0.55 : 1
             }
         }

@@ -5,6 +5,7 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import Installer
+import Colors
 
 ApplicationWindow {
     id: window
@@ -60,24 +61,9 @@ ApplicationWindow {
         function onPhaseChanged() { window.show(Backend.phase) }
     }
 
-    // A faint glow at the top and the bottom of the dark background.
-    Rectangle {
-        width: parent.width
-        height: parent.height * 0.3
-        gradient: Gradient {
-            GradientStop { position: 0; color: "#1b1630" }
-            GradientStop { position: 1; color: Theme.background }
-        }
-    }
-    Rectangle {
-        anchors.bottom: parent.bottom
-        width: parent.width
-        height: parent.height * 0.22
-        gradient: Gradient {
-            GradientStop { position: 0; color: Theme.background }
-            GradientStop { position: 1; color: "#221519" }
-        }
-    }
+    // The login screen's backdrop, so the installer looks like the system it
+    // installs and follows the boot splash's night without a jump.
+    Backdrop { anchors.fill: parent }
 
     Item {
         id: header

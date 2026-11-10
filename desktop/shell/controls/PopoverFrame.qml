@@ -19,13 +19,13 @@ Item {
         anchors.fill: parent
         offset.y: 6
         blur: 16
-        color: Theme.oklch(0.15, 0.05, 285, 0.1)
+        color: Theme.shadow(0.1)
     }
     RectangularShadow {
         anchors.fill: parent
         offset.y: 1
         blur: 2
-        color: Theme.oklch(0.15, 0.05, 285, 0.06)
+        color: Theme.shadow(0.06)
     }
     Rectangle {
         anchors.fill: parent
@@ -42,7 +42,7 @@ Item {
             y: 1
             width: parent.width - 2
             height: 1
-            color: "white"
+            color: Theme.surface
         }
     }
 

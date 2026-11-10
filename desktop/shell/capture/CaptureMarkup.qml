@@ -20,7 +20,7 @@ Item {
     // Pixels for each point of the screen.
     property real pixelRatio: 1
     property string tool: "Arrow"
-    property color ink: "#f05653"
+    property color ink: Theme.pens[0]
     // The marks, in order: { kind, ink, and the points, the corner and size,
     // or the place, text, and size }; the marks before each change, and
     // after each one undone.
@@ -259,13 +259,13 @@ Item {
                 height: 28
                 radius: 14
                 color: mark.modelData.ink
-                border.color: "white"
+                border.color: Theme.textOnDark
                 border.width: 2
 
                 Text {
                     anchors.centerIn: parent
                     text: mark.modelData.n ?? ""
-                    color: Qt.color(mark.modelData.ink).hslLightness > 0.6 ? "#1d1a24" : "white"
+                    color: Qt.color(mark.modelData.ink).hslLightness > 0.6 ? Theme.penInk : Theme.textOnDark
                     font { family: Theme.font; pixelSize: 14; weight: Font.Bold }
                 }
             }
@@ -278,7 +278,7 @@ Item {
                 text: mark.modelData.text ?? ""
                 color: mark.modelData.ink
                 style: Text.Outline
-                styleColor: Qt.color(mark.modelData.ink).hslLightness > 0.6 ? "#1d1a24" : "white"
+                styleColor: Qt.color(mark.modelData.ink).hslLightness > 0.6 ? Theme.penInk : Theme.textOnDark
                 font: editor.font
             }
         }

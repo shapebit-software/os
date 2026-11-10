@@ -192,6 +192,34 @@ the login screen fades in from the color and back to it after signing in;
 the text console, briefly shown between them, has it as its background; and
 Hyprland paints it until the shell's wallpaper fades in.
 
+## Colors
+
+Every color is named once, in
+[image/rootfs/usr/share/colors/colors.toml](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/share/colors/colors.toml),
+which the image installs, so the installer medium has it too. It holds the
+brand's violet `#5b2fd6`, the default accent; night; ramps of greys, darks,
+lavenders, inks, and reds; the accents to choose from; and the roles on light
+and on dark surfaces. The person's choices, such as the accent, stay in the
+shell's settings; the file holds the defaults and what there is to choose.
+
+QML reads it through the module `Colors`
+([image/rootfs/usr/lib64/qt6/qml/Colors](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/lib64/qt6/qml/Colors)),
+in Qt's own folder of modules. Its values, `ColorValues.qml`, are generated
+from the file by `make colors` and committed; `Colors.qml` adds what needs
+computing, such as the accent from the person's choice. The shell, the login
+screen, and the installer import it, and each one's `Theme.qml` picks the
+roles it uses; nothing else names a color, apart from the wallpapers' artwork.
+The accent fills controls under light text; on dark surfaces, text in the
+accent uses a lighter version of it, `accentInk`.
+
+The portal, which hands the accent to applications, reads the file when it
+runs. What cannot read it keeps a copy that names the color there: the boot
+splash, the console's colors in `kargs.d`, and the compositor.
+`tests/unit/test_colors.py` checks that the generated values are current, the
+copies, that no QML names a color of its own, and that text in the accent
+reads on night. `make run` and `make lint` in `desktop/` and the installer's
+tests take the module and the file from the source tree.
+
 ## Login screen
 
 [SDDM](https://github.com/sddm/sddm) shows the login screen on the first

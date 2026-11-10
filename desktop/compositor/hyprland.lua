@@ -57,6 +57,7 @@ hl.config({
         gaps_in     = gap / 2,
         gaps_out    = gap,
         border_size = 1,
+        -- windowEdge at 48% (/usr/share/colors/colors.toml).
         col         = { active_border = "rgba(0b08127a)", inactive_border = "rgba(0b08127a)" },
         layout      = "lua:" .. layouts.default,
     },
@@ -85,7 +86,8 @@ hl.config({
         disable_xdg_env_checks  = true,
         -- The shell owns the background. Until its wallpaper fades in (the
         -- layers animation), the screen has the night color that the boot
-        -- splash and the login screen end on, so signing in has no black frame.
+        -- splash and the login screen end on, so signing in has no black frame
+        -- (night in /usr/share/colors/colors.toml).
         force_default_wallpaper  = 0,
         disable_hyprland_logo    = true,
         disable_splash_rendering = true,

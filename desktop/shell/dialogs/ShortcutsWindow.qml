@@ -124,7 +124,7 @@ PanelWindow {
 
     Rectangle {
         anchors.fill: parent
-        color: Qt.rgba(0.05, 0.04, 0.09, 0.45)
+        color: Theme.scrim(0.45)
 
         TapHandler {
             onTapped: Shortcuts.listOn = ""
@@ -196,7 +196,7 @@ PanelWindow {
                             id: chipText
                             anchors.centerIn: parent
                             text: chip.modelData || "No modifier"
-                            color: chip.chosen ? "white" : Theme.ink
+                            color: chip.chosen ? Theme.textOnAccent : Theme.ink
                             font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
                         }
                         HoverHandler {
@@ -271,7 +271,7 @@ PanelWindow {
                         x: 6
                         y: 4
                         text: cap.modelData.label
-                        color: cap.held ? "white" : Theme.inkFaint
+                        color: cap.held ? Theme.textOnAccent : Theme.inkFaint
                         font { family: Theme.mono; pixelSize: 10; weight: Font.DemiBold }
                     }
                     Text {

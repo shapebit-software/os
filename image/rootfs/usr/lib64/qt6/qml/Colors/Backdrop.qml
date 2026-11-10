@@ -1,5 +1,6 @@
-// The backdrop: dusk behind soft ridges. It is drawn, not a picture, so it
-// fits every screen size.
+// The backdrop of the login screen, the lock screen, and the installer: dusk
+// behind soft ridges. It is drawn, not a picture, so it fits every screen size.
+// It is artwork, so its colors are its own, apart from the roles in Colors.
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects

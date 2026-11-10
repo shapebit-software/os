@@ -30,8 +30,12 @@ def test_login_screen_offers_only_the_desktop_session():
 
 
 def test_lock_screen_has_the_login_screens_backdrop(host):
-    login = host.file("/usr/share/sddm/themes/login/Backdrop.qml").content_string
-    assert host.file("/usr/share/desktop/shell/lock/LoginBackdrop.qml").content_string == login
+    # Both draw the one in Colors, the module of the system's colors, which
+    # Qt finds in its own folder of QML modules.
+    assert host.file("/usr/lib64/qt6/qml/Colors/Backdrop.qml").is_file
+    assert "Backdrop 1.0 Backdrop.qml" in host.file("/usr/lib64/qt6/qml/Colors/qmldir").content_string
+    for screen in ["/usr/share/sddm/themes/login/Main.qml", "/usr/share/desktop/shell/lock/LockSurface.qml"]:
+        assert "import Colors" in host.file(screen).content_string, screen
 
 
 def test_login_screen_runs_in_hyprland(host):

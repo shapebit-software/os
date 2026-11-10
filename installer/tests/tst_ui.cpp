@@ -2,9 +2,11 @@
 // Run under `dbus-run-session` with QT_QPA_PLATFORM=offscreen (see CMakeLists.txt).
 // With INSTALLER_SCREENSHOTS set to a directory, saves a picture of each page.
 #include "backend.h"
+#include "display.h"
 #include "keyboard.h"
 #include "names.h"
 
+#include <QColor>
 #include <QDBusConnectionInterface>
 #include <QKeyEvent>
 #include <QProcess>
@@ -51,6 +53,30 @@ private slots:
         QTest::ignoreMessage(QtInfoMsg, "Installer page: keyboard");
         QMetaObject::invokeMethod(current, "next");
         QTRY_VERIFY(!stack->property("busy").toBool());
+    }
+
+    // The colors come from Colors, the system's module of colors, which Qt
+    // must find; a binding that cannot reach it only warns and leaves the
+    // color black. The default accent is the brand's violet.
+    void colorsComeFromTheSystemsList()
+    {
+        QQmlApplicationEngine engine;
+        engine.loadFromModule("Installer", "Main");
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *theme = engine.singletonInstance<QObject *>("Installer", "Theme");
+        QVERIFY(theme);
+        QCOMPARE(theme->property("accent").value<QColor>().name(), "#5b2fd6");
+        QCOMPARE(theme->property("background").value<QColor>().name(), "#1f1a3c");
+        QCOMPARE(theme->property("text").value<QColor>().name(), "#ffffff");
+        // The accent as text is lighter than the accent itself, to read on night.
+        QVERIFY(theme->property("link").value<QColor>().lightnessF()
+                > theme->property("accent").value<QColor>().lightnessF());
+        // Eight bits a channel: with fewer, the backdrop shows bands, as it
+        // did under cage, which offers 16-bit configs first.
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+        QCOMPARE(window->requestedFormat().redBufferSize(), 8);
+        QCOMPARE(window->requestedFormat().greenBufferSize(), 8);
+        QCOMPARE(window->requestedFormat().blueBufferSize(), 8);
     }
 
     void installsFromFirstPageToLast()
@@ -212,5 +238,13 @@ private:
     QObject *m_stack = nullptr;
 };
 
-QTEST_MAIN(UiTest)
+// As the installer's main does, before the application starts.
+int main(int argc, char *argv[])
+{
+    requestFullColor();
+    QGuiApplication app(argc, argv);
+    UiTest test;
+    QTEST_SET_MAIN_SOURCE_PATH
+    return QTest::qExec(&test, argc, argv);
+}
 #include "tst_ui.moc"

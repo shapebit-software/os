@@ -293,7 +293,7 @@ PanelWindow {
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     exclusionMode: ExclusionMode.Ignore
     anchors { top: true; bottom: true; left: true; right: true }
-    color: "#f4f5f7"
+    color: Theme.background
 
     onVisibleChanged: {
         search.text = "";
@@ -382,13 +382,13 @@ PanelWindow {
 
         width: 228
         height: parent.height
-        color: "#e9ebee"
+        color: Theme.surfaceSunken
 
         Rectangle {
             anchors.right: parent.right
             width: 1
             height: parent.height
-            color: "#d8dbde"
+            color: Theme.line
         }
 
         Column {
@@ -400,7 +400,7 @@ PanelWindow {
             Text {
                 leftPadding: 8
                 text: "Settings"
-                color: "#1d2022"
+                color: Theme.textStrong
                 font { family: Theme.font; pixelSize: 15; weight: Font.DemiBold }
             }
 
@@ -408,14 +408,14 @@ PanelWindow {
                 x: 2
                 width: parent.width - 4
                 height: 30
-                color: "white"
-                border.color: "#d1d5d8"
+                color: Theme.surface
+                border.color: Theme.lineStrong
 
                 Icon {
                     x: 10
                     anchors.verticalCenter: parent.verticalCenter
                     height: 12
-                    color: "#5f6469"
+                    color: Theme.textMuted
                     strokeWidth: 1.5
                     strokes: "M2.4 7a4.6 4.6 0 1 0 9.2 0a4.6 4.6 0 1 0-9.2 0zM10.4 10.4L14 14"
                 }
@@ -424,7 +424,7 @@ PanelWindow {
 
                     anchors { left: parent.left; right: parent.right; leftMargin: 30; rightMargin: 10 }
                     anchors.verticalCenter: parent.verticalCenter
-                    color: "#1d2022"
+                    color: Theme.textStrong
                     selectionColor: Theme.accent
                     font { family: Theme.font; pixelSize: 12 }
                     clip: true
@@ -436,7 +436,7 @@ PanelWindow {
                     Text {
                         visible: !search.text
                         text: "Find a setting"
-                        color: "#65696f"
+                        color: Theme.textMuted
                         font: search.font
                     }
                 }
@@ -460,7 +460,7 @@ PanelWindow {
                         y: 0
                         width: parent.width
                         height: 1
-                        color: "#d8dbde"
+                        color: Theme.line
                     }
 
                     Repeater {
@@ -475,20 +475,20 @@ PanelWindow {
 
                             width: group.width
                             height: 36
-                            color: current ? "white" : entryHover.hovered ? "#e1e3e6" : "transparent"
+                            color: current ? Theme.surface : entryHover.hovered ? Theme.hoverStrong : "transparent"
 
                             Icon {
                                 x: 10
                                 anchors.verticalCenter: parent.verticalCenter
                                 height: 15
-                                color: entry.current ? "#181b1e" : "#3e4348"
+                                color: entry.current ? Theme.textStrong : Theme.textBody
                                 strokes: entry.section.icon
                             }
                             Text {
                                 x: 35
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: entry.section.name
-                                color: entry.current ? "#181b1e" : "#3e4348"
+                                color: entry.current ? Theme.textStrong : Theme.textBody
                                 font { family: Theme.font; pixelSize: 13; weight: entry.current ? Font.DemiBold : Font.Normal }
                             }
 
@@ -516,7 +516,7 @@ PanelWindow {
             y: 14
             width: 30
             height: 30
-            color: closeHover.hovered ? "#e6e8ea" : "transparent"
+            color: closeHover.hovered ? Theme.hover : "transparent"
 
             Icon {
                 anchors.centerIn: parent
@@ -524,7 +524,7 @@ PanelWindow {
                 gridWidth: 8
                 gridHeight: 8
                 strokeWidth: 1.3
-                color: "#44484d"
+                color: Theme.textBody
                 strokes: "M1 1l6 6M7 1l-6 6"
             }
 
@@ -561,7 +561,7 @@ PanelWindow {
                         width: 26
                         height: 26
                         anchors.verticalCenter: parent.verticalCenter
-                        color: backHover.hovered ? "#e6e8ea" : "transparent"
+                        color: backHover.hovered ? Theme.hover : "transparent"
 
                         Icon {
                             anchors.centerIn: parent
@@ -569,7 +569,7 @@ PanelWindow {
                             gridWidth: 10
                             gridHeight: 10
                             strokeWidth: 1.4
-                            color: "#44484d"
+                            color: Theme.textBody
                             strokes: "M6.5 2l-3 3 3 3"
                         }
                         TapHandler {
@@ -583,7 +583,7 @@ PanelWindow {
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: window.pages[window.page]?.[0] ?? ""
-                        color: "#1d2022"
+                        color: Theme.textStrong
                         font { family: Theme.font; pixelSize: 15; weight: Font.DemiBold }
                     }
                 }
@@ -643,8 +643,8 @@ PanelWindow {
                     visible: window.page === "" && window.rows.length > 0
                     width: parent.width
                     height: list.height + 2
-                    color: "white"
-                    border.color: "#d8dbde"
+                    color: Theme.surface
+                    border.color: Theme.line
 
                     Column {
                         id: list
@@ -669,7 +669,7 @@ PanelWindow {
                                     visible: row.index > 0
                                     width: parent.width
                                     height: 1
-                                    color: "#e6e8ea"
+                                    color: Theme.lineSoft
                                 }
                                 SettingsRow {
                                     width: parent.width
@@ -684,7 +684,7 @@ PanelWindow {
                 Text {
                     visible: window.page === "" && window.query !== "" && window.rows.length === 0
                     text: `No settings match “${search.text.trim()}”`
-                    color: "#5f6469"
+                    color: Theme.textMuted
                     font { family: Theme.font; pixelSize: 13 }
                 }
             }

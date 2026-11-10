@@ -321,7 +321,7 @@ Popout {
             Text {
                 anchors.centerIn: parent
                 text: Assistant.model?.mark ?? "?"
-                color: "#fbfbfd"
+                color: Theme.textOnAccent
                 font { family: Theme.font; pixelSize: 11; weight: Font.Bold }
             }
         }
@@ -397,7 +397,7 @@ Popout {
         Text {
             id: tipLabel
             anchors.centerIn: parent
-            color: "#fbfbfd"
+            color: Theme.textOnAccent
             font { family: Theme.font; pixelSize: 11 }
         }
     }

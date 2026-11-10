@@ -9,7 +9,7 @@ Rectangle {
     height: size
     radius: size / 2
     color: Theme.accent
-    border.color: Qt.rgba(1, 1, 1, 0.25)
+    border.color: Theme.ring
     border.width: Math.max(1, size / 40)
 
     Text {

@@ -124,7 +124,7 @@ PanelWindow {
 
     Rectangle {
         anchors.fill: parent
-        color: Qt.rgba(0.05, 0.04, 0.09, 0.45)
+        color: Theme.scrim(0.45)
     }
 
     PopoverFrame {

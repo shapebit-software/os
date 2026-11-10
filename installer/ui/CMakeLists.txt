@@ -4,7 +4,8 @@ set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 qt_add_qml_module(ui
     URI Installer
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Installer
-    SOURCES backend.cpp backend.h keyboard.cpp keyboard.h timezones.cpp timezones.h
+    IMPORT_PATH ${COLORS_IMPORT_PATH}
+    SOURCES backend.cpp backend.h display.h keyboard.cpp keyboard.h timezones.cpp timezones.h
     QML_FILES
         qml/Main.qml
         # Shared parts.

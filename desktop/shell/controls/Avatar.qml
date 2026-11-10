@@ -20,7 +20,7 @@ Rectangle {
         anchors.centerIn: parent
         visible: picture.status !== Image.Ready
         text: avatar.letters
-        color: "#f5feff"
+        color: Theme.textOnAccent
         font { family: Theme.font; pixelSize: Math.round(avatar.height * avatar.lettersScale); weight: Font.DemiBold }
     }
     Image {

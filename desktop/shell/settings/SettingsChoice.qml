@@ -14,7 +14,7 @@ Rectangle {
 
     width: row.width + 4
     height: row.height + 4
-    color: "#eceff1"
+    color: Theme.fill
 
     Row {
         id: row
@@ -42,17 +42,17 @@ Rectangle {
                     anchors.fill: parent
                     offset.y: 1
                     blur: 2
-                    color: Qt.rgba(0, 0, 0, 0.14)
+                    color: Theme.shadow(0.14)
                 }
                 Rectangle {
                     anchors.fill: parent
-                    color: option.current ? "white" : "transparent"
+                    color: option.current ? Theme.surface : "transparent"
                 }
                 Text {
                     id: text
                     anchors.centerIn: parent
                     text: option.label
-                    color: option.current ? "#181b1e" : "#54595e"
+                    color: option.current ? Theme.textStrong : Theme.textSoft
                     font { family: Theme.font; pixelSize: 12 }
                 }
 

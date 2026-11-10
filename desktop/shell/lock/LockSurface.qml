@@ -4,6 +4,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
+import Colors
 import Quickshell
 import qs.controls
 import qs.services
@@ -45,7 +46,7 @@ Item {
 
         implicitWidth: 30 * surface.unit
         implicitHeight: 30 * surface.unit
-        color: fill.a > 0 ? fill : area.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+        color: fill.a > 0 ? fill : area.containsMouse ? Theme.dark.hover : "transparent"
 
         Icon {
             anchors.centerIn: parent
@@ -54,7 +55,7 @@ Item {
             gridHeight: 24
             strokeWidth: 2
             capStyle: ShapePath.RoundCap
-            color: "#ffffff"
+            color: Theme.dark.textStrong
             strokes: button.path
         }
         MouseArea {
@@ -75,8 +76,8 @@ Item {
         z: 2
         width: column.width + 2
         height: column.height + 2
-        color: Qt.rgba(0.09, 0.08, 0.15, 0.94)
-        border.color: Qt.rgba(1, 1, 1, 0.22)
+        color: Theme.dark.surface
+        border.color: Theme.dark.line
 
         Column {
             id: column
@@ -93,20 +94,20 @@ Item {
 
                     width: 180 * surface.unit
                     height: 38 * surface.unit
-                    color: rowArea.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+                    color: rowArea.containsMouse ? Theme.dark.hover : "transparent"
 
                     Text {
                         x: 14 * surface.unit
                         anchors.verticalCenter: parent.verticalCenter
                         text: row.modelData.text
-                        color: "#ffffff"
+                        color: Theme.dark.textStrong
                         font { family: Theme.font; pixelSize: 14 * surface.unit }
                     }
                     Text {
                         visible: row.modelData.checked === true
                         anchors { right: parent.right; rightMargin: 12 * surface.unit; verticalCenter: parent.verticalCenter }
                         text: "✓"
-                        color: "#ffffff"
+                        color: Theme.dark.textStrong
                         font { family: Theme.font; pixelSize: 14 * surface.unit }
                     }
                     MouseArea {
@@ -124,7 +125,7 @@ Item {
         }
     }
 
-    LoginBackdrop {
+    Backdrop {
         anchors.fill: parent
     }
 
@@ -149,13 +150,13 @@ Item {
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: Qt.locale().toString(clock.date, "ddd d MMM")
-            color: Qt.rgba(1, 1, 1, 0.7)
+            color: Theme.dark.textMuted
             font { family: Theme.font; pixelSize: 13 * surface.unit }
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: Qt.formatTime(clock.date, Settings.timePattern)
-            color: "#ffffff"
+            color: Theme.dark.textStrong
             font { family: Theme.font; pixelSize: 13 * surface.unit; weight: Font.DemiBold }
         }
     }
@@ -189,14 +190,14 @@ Item {
             gridHeight: 24
             strokeWidth: 2
             capStyle: ShapePath.RoundCap
-            color: "#ffffff"
+            color: Theme.dark.textStrong
             strokes: "M4 3h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9l-4 4v-4H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"
         }
         Text {
             x: (parent.width - width) / 2
             y: parent.height * 0.395 - height / 2
             text: Keyboard.code.substring(0, 2).toUpperCase()
-            color: "#ffffff"
+            color: Theme.dark.textStrong
             font { family: Theme.font; pixelSize: 8 * surface.unit; weight: Font.Bold }
         }
     }
@@ -221,12 +222,12 @@ Item {
         round: true
         letters: surface.initials
         lettersScale: 0.34
-        border { color: Qt.rgba(1, 1, 1, 0.25); width: Math.max(1, width / 40) }
+        border { color: Theme.sheen(0.25); width: Math.max(1, width / 40) }
     }
     Text {
         anchors { horizontalCenter: parent.horizontalCenter; verticalCenter: avatar.verticalCenter; verticalCenterOffset: 82 * surface.unit }
         text: Account.displayName
-        color: "#ffffff"
+        color: Theme.dark.textStrong
         font { family: Theme.font; pixelSize: 20 * surface.unit; weight: Font.DemiBold }
     }
 
@@ -237,8 +238,8 @@ Item {
         anchors { verticalCenter: avatar.verticalCenter; verticalCenterOffset: 144 * surface.unit; left: parent.horizontalCenter; leftMargin: -173 * surface.unit }
         width: 299 * surface.unit
         height: 44 * surface.unit
-        color: Qt.rgba(0.07, 0.06, 0.11, 0.5)
-        border.color: Lock.messageIsError ? "#ff9a8a" : Qt.rgba(1, 1, 1, 0.22)
+        color: Theme.dark.surfaceSunken
+        border.color: Lock.messageIsError ? Theme.dark.danger : Theme.dark.line
         opacity: Lock.checking ? 0.6 : 1
 
         TextInput {
@@ -249,7 +250,7 @@ Item {
             passwordCharacter: "●"
             enabled: !Lock.checking
             focus: true
-            color: "#ffffff"
+            color: Theme.dark.textStrong
             selectionColor: Theme.accent
             font { family: Theme.font; pixelSize: 15 * surface.unit }
             clip: true
@@ -258,7 +259,7 @@ Item {
             Text {
                 visible: !password.text
                 text: Lock.checking ? "Checking…" : "Password"
-                color: Qt.rgba(1, 1, 1, 0.7)
+                color: Theme.dark.textMuted
                 font: password.font
             }
         }
@@ -283,7 +284,7 @@ Item {
     Text {
         anchors { horizontalCenter: parent.horizontalCenter; top: field.bottom; topMargin: 12 * surface.unit }
         text: Lock.message
-        color: Lock.messageIsError ? "#ff9a8a" : Qt.rgba(1, 1, 1, 0.7)
+        color: Lock.messageIsError ? Theme.dark.danger : Theme.dark.textMuted
         font { family: Theme.font; pixelSize: 13 * surface.unit }
     }
 

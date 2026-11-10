@@ -358,7 +358,7 @@ Loader {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     text: Keyboard.code
-                    color: "#f6f9fb"
+                    color: Theme.textBright
                     font { family: Theme.font; pixelSize: 8; weight: Font.ExtraBold }
                 }
             }
