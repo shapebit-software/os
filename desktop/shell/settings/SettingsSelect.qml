@@ -21,14 +21,14 @@ ComboBox {
     font { family: Theme.font; pixelSize: 12 }
 
     background: Rectangle {
-        color: "white"
-        border.color: select.hovered ? "#b9bec3" : "#d1d5d8"
+        color: Theme.surface
+        border.color: select.hovered ? Theme.lineHover : Theme.lineStrong
     }
     contentItem: Text {
         leftPadding: 10
         verticalAlignment: Text.AlignVCenter
         text: select.displayText
-        color: "#1d2022"
+        color: Theme.textStrong
         font: select.font
     }
     indicator: Icon {
@@ -38,7 +38,7 @@ ComboBox {
         gridWidth: 10
         gridHeight: 10
         strokeWidth: 1.3
-        color: "#44484d"
+        color: Theme.textBody
         strokes: "M2 3.5l3 3 3-3"
     }
 }

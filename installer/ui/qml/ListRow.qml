@@ -14,6 +14,6 @@ T.ItemDelegate {
     opacity: enabled ? 1 : 0.45
 
     background: Rectangle {
-        color: row.chosen ? Theme.selected : row.hovered || row.visualFocus ? Qt.lighter(Theme.panel, 1.25) : "transparent"
+        color: row.chosen ? Theme.selected : row.hovered || row.visualFocus ? Theme.hover : "transparent"
     }
 }

@@ -43,14 +43,14 @@ Item {
         Text {
             width: parent.width
             text: row.modelData.label ?? ""
-            color: "#1d2022"
+            color: Theme.textStrong
             font { family: Theme.font; pixelSize: 13; weight: Font.Medium }
         }
         Text {
             width: parent.width
             wrapMode: Text.Wrap
             text: row.modelData.detail ?? ""
-            color: "#5f6469"
+            color: Theme.textMuted
             font { family: Theme.font; pixelSize: 12 }
         }
     }
@@ -75,7 +75,7 @@ Item {
             Text {
                 anchors.verticalCenter: parent.verticalCenter
                 text: row.kind === "picture" ? "Change" : row.modelData.value ?? ""
-                color: "#44484d"
+                color: Theme.textBody
                 font { family: Theme.font; pixelSize: 12 }
             }
             Avatar {
@@ -90,7 +90,7 @@ Item {
                 gridWidth: 10
                 gridHeight: 10
                 strokeWidth: 1.3
-                color: "#44484d"
+                color: Theme.textBody
                 strokes: "M3.5 2l3 3-3 3"
             }
 
@@ -123,7 +123,7 @@ Item {
                     width: 26
                     height: 26
                     anchors.verticalCenter: parent.verticalCenter
-                    color: stepHover.hovered ? "#e6e8ea" : "transparent"
+                    color: stepHover.hovered ? Theme.hover : "transparent"
 
                     Icon {
                         anchors.centerIn: parent
@@ -131,7 +131,7 @@ Item {
                         gridWidth: 10
                         gridHeight: 10
                         strokeWidth: 1.4
-                        color: "#44484d"
+                        color: Theme.textBody
                         strokes: step.strokes
                     }
                     TapHandler {
@@ -152,7 +152,7 @@ Item {
                     width: 44
                     horizontalAlignment: Text.AlignHCenter
                     text: `${Settings.gapPixels} px`
-                    color: "#1d2022"
+                    color: Theme.textStrong
                     font { family: Theme.mono; pixelSize: 11 }
                 }
                 Step {
@@ -205,7 +205,7 @@ Item {
                     : extra.info.installed ? "Installed"
                     : !Extras.writable ? "An administrator can download this"
                     : Extras.sizeOf(extra.info)
-                color: extra.progress?.state === "failed" ? Theme.danger : "#44484d"
+                color: extra.progress?.state === "failed" ? Theme.danger : Theme.textBody
                 font { family: Theme.font; pixelSize: 12 }
             }
             DialogButton {
@@ -218,7 +218,7 @@ Item {
         Switch {
             visible: row.kind === "toggle"
             on: row.modelData.on ?? false
-            offColor: "#d5d8db"
+            offColor: Theme.lineStrong
             onToggled: row.modelData.toggle()
         }
     }
@@ -264,7 +264,7 @@ Item {
                     height: 30
                     radius: 15
                     z: -1
-                    color: "white"
+                    color: Theme.surface
                     border.width: 2
                     border.color: swatch.color
                 }
@@ -277,20 +277,20 @@ Item {
             }
 
             Repeater {
-                model: Object.keys(Settings.accents)
+                model: Theme.accents
 
                 Swatch {
                     required property string modelData
 
-                    color: Theme.oklch(0.52, 0.11, Settings.accents[modelData])
+                    color: Theme.accentOf(modelData, 0)
                     current: Settings.accent === modelData
                     onClicked: Settings.accent = modelData
                 }
             }
             Swatch {
                 current: Settings.accent === "Custom"
-                color: current ? Theme.accent : "white"
-                border.color: current ? "transparent" : "#cfd3d6"
+                color: current ? Theme.accent : Theme.surface
+                border.color: current ? "transparent" : Theme.lineStrong
                 onClicked: Settings.accent = "Custom"
 
                 Icon {
@@ -300,7 +300,7 @@ Item {
                     gridHeight: 12
                     strokeWidth: 1.6
                     capStyle: ShapePath.RoundCap
-                    color: parent.current ? "#fbfcfd" : "#6a6f74"
+                    color: parent.current ? Theme.textOnAccent : Theme.textMuted
                     strokes: "M6 1.5v9M1.5 6h9"
                 }
             }
@@ -319,13 +319,13 @@ Item {
                     radius: 4
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
-                        GradientStop { position: 0; color: Theme.oklch(0.52, 0.11, 0) }
-                        GradientStop { position: 0.17; color: Theme.oklch(0.52, 0.11, 60) }
-                        GradientStop { position: 0.33; color: Theme.oklch(0.52, 0.11, 120) }
-                        GradientStop { position: 0.5; color: Theme.oklch(0.52, 0.11, 180) }
-                        GradientStop { position: 0.67; color: Theme.oklch(0.52, 0.11, 240) }
-                        GradientStop { position: 0.83; color: Theme.oklch(0.52, 0.11, 300) }
-                        GradientStop { position: 1; color: Theme.oklch(0.52, 0.11, 359) }
+                        GradientStop { position: 0; color: Theme.accentOf("Custom", 0) }
+                        GradientStop { position: 0.17; color: Theme.accentOf("Custom", 60) }
+                        GradientStop { position: 0.33; color: Theme.accentOf("Custom", 120) }
+                        GradientStop { position: 0.5; color: Theme.accentOf("Custom", 180) }
+                        GradientStop { position: 0.67; color: Theme.accentOf("Custom", 240) }
+                        GradientStop { position: 0.83; color: Theme.accentOf("Custom", 300) }
+                        GradientStop { position: 1; color: Theme.accentOf("Custom", 359) }
                     }
                 }
                 Rectangle {
@@ -336,7 +336,7 @@ Item {
                     radius: 7
                     color: Theme.accent
                     border.width: 2
-                    border.color: "white"
+                    border.color: Theme.surface
                 }
                 MouseArea {
                     anchors.fill: parent
@@ -378,14 +378,14 @@ Item {
                         visible: tile.current
                         anchors.fill: parent
                         anchors.margins: -4
-                        color: "white"
+                        color: Theme.surface
                         border.width: 2
                         border.color: Theme.accent
                     }
                     Rectangle {
                         anchors.fill: parent
-                        color: "white"
-                        border.color: "#cfd3d6"
+                        color: Theme.surface
+                        border.color: Theme.lineStrong
                         visible: tile.own && !Settings.wallpaperImage
                     }
                     Backdrop {
@@ -400,7 +400,7 @@ Item {
                         gridWidth: 12
                         gridHeight: 12
                         strokeWidth: 1.4
-                        color: "#6a6f74"
+                        color: Theme.textMuted
                         strokes: "M6 1.5v9M1.5 6h9"
                     }
 

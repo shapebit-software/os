@@ -64,8 +64,8 @@ Column {
 
                 Rectangle {
                     anchors.fill: parent
-                    color: tileHover.hovered ? "#e1e4e7" : "#eceff1"
-                    border.color: "#d8dbde"
+                    color: tileHover.hovered ? Theme.hoverStrong : Theme.fill
+                    border.color: Theme.line
                 }
                 Image {
                     anchors.fill: parent
@@ -83,7 +83,7 @@ Column {
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideMiddle
                     text: tile.fileName + " ›"
-                    color: "#44484d"
+                    color: Theme.textBody
                     font { family: Theme.font; pixelSize: 12 }
                 }
 
@@ -101,7 +101,7 @@ Column {
     Text {
         visible: images.status === FolderListModel.Ready && images.count === 0
         text: "No pictures in this folder"
-        color: "#5f6469"
+        color: Theme.textMuted
         font { family: Theme.font; pixelSize: 13 }
     }
 }

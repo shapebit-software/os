@@ -31,8 +31,8 @@ Rectangle {
 
     height: 200
     clip: true
-    color: "#eef0f2"
-    border.color: "#e1e3e6"
+    color: Theme.fill
+    border.color: Theme.lineSoft
 
     // A new list from the compositor: the drag has landed.
     Connections {
@@ -62,9 +62,9 @@ Rectangle {
             z: at ? 1 : 0
             width: modelData.w * arrangement.frame.fit
             height: modelData.h * arrangement.frame.fit
-            color: current ? Theme.accentSoft : "white"
+            color: current ? Theme.accentSoft : Theme.surface
             border.width: current ? 2 : 1
-            border.color: current ? Theme.accent : "#c3c7cb"
+            border.color: current ? Theme.accent : Theme.disabled
 
             Rectangle {
                 visible: tile.primary
@@ -72,7 +72,7 @@ Rectangle {
                 y: tile.border.width
                 width: tile.width - 2 * x
                 height: 5
-                color: tile.current ? Theme.accent : "#5f6469"
+                color: tile.current ? Theme.accent : Theme.textMuted
             }
 
             Column {
@@ -85,7 +85,7 @@ Rectangle {
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
                     text: tile.modelData.label
-                    color: "#1d2022"
+                    color: Theme.textStrong
                     font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
                 }
                 Text {
@@ -94,7 +94,7 @@ Rectangle {
                     elide: Text.ElideRight
                     text: [tile.primary ? "Primary" : "", tile.mirrors.length ? `Also on ${tile.mirrors.map(d => d.label).join(", ")}` : ""]
                         .filter(t => t).join(" · ")
-                    color: "#5f6469"
+                    color: Theme.textMuted
                     font { family: Theme.font; pixelSize: 11 }
                 }
             }

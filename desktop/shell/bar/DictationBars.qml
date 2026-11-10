@@ -26,7 +26,7 @@ Row {
             width: 2
             height: Math.max(2, bars.size * modelData * (0.15 + 0.85 * bars.shown))
             radius: 1
-            color: "#fbfcfd"
+            color: Theme.textOnAccent
             opacity: Dictation.writing ? 0.6 : 1
         }
     }

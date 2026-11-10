@@ -46,7 +46,7 @@ ColumnLayout {
         onTextEdited: field.edited()
 
         background: Rectangle {
-            color: Theme.panel
+            color: Theme.field
             border.color: input.activeFocus ? Theme.accent : Theme.border
         }
         // T.TextField draws no placeholder by itself.

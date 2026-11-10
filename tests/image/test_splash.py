@@ -54,4 +54,5 @@ def test_login_screen_takes_the_screen_from_the_splash(host):
 def test_desktop_starts_on_the_splash_color(host):
     compositor = host.file("/usr/share/desktop/compositor/hyprland.lua").content_string
     assert re.search(r'background_color\s*=\s*"rgb\(1f1a3c\)"', compositor)
-    assert 'night: "#1f1a3c"' in host.file("/usr/share/sddm/themes/login/Theme.qml").content_string
+    assert 'night = "#1f1a3c"' in host.file("/usr/share/colors/colors.toml").content_string
+    assert "night: Colors.night" in host.file("/usr/share/sddm/themes/login/Theme.qml").content_string

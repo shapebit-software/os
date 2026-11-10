@@ -79,7 +79,7 @@ PanelWindow {
                 y: place.y
                 width: place.width
                 height: place.height
-                color: area.containsMouse || area.pressed ? Qt.rgba(1, 1, 1, 0.22) : "transparent"
+                color: area.containsMouse || area.pressed ? Theme.sheen(0.22) : "transparent"
 
                 MouseArea {
                     id: area

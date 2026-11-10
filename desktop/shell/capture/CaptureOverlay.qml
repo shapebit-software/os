@@ -41,16 +41,16 @@ Scope {
     readonly property bool sharing: SharePicker.asking
     // Under the compositor's blur threshold for this namespace, so what is
     // dimmed stays sharp (compositor/hyprland.lua).
-    readonly property color dim: Qt.rgba(0.05, 0.04, 0.09, 0.45)
-    readonly property color red: "#e5484d"
+    readonly property color dim: Theme.scrim(0.45)
+    readonly property color red: Theme.record
     // A screenshot's symbol, a camera, and a recording's, a video camera.
     readonly property string camera: "M2.75 7.25a1.5 1.5 0 0 1 1.5-1.5h2l1.25-2h5l1.25 2h2a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-1.5 1.5H4.25a1.5 1.5 0 0 1-1.5-1.5zM7 10.5a3 3 0 1 0 6 0a3 3 0 1 0-6 0z"
     readonly property string video: "M2.75 6.75a1.5 1.5 0 0 1 1.5-1.5h7a1.5 1.5 0 0 1 1.5 1.5v6.5a1.5 1.5 0 0 1-1.5 1.5h-7a1.5 1.5 0 0 1-1.5-1.5zM12.75 8.75l4.5-2.5v7.5l-4.5-2.5"
     // Sharing's: a screen with an arrow up.
     readonly property string share: "M2.75 3.75h14.5v9.5H2.75zM7 16.25h6M10 13.25v3M10 11V6M7.75 8.25 10 6l2.25 2.25"
     // The capture panel's fill, and the tracks of its controls.
-    readonly property color panelFill: Theme.oklch(0.94, 0.006, 285)
-    readonly property color track: Theme.oklch(0.885, 0.01, 285)
+    readonly property color panelFill: Theme.paneFill
+    readonly property color track: Theme.paneTrack
 
     PanelWindow {
         id: window
@@ -276,7 +276,7 @@ Scope {
             height: window.lit.height + 2
             visible: window.lit.width > 0 && !window.marking && Capture.mode !== "Screen"
             color: "transparent"
-            border.color: chosen ? Theme.accent : "white"
+            border.color: chosen ? Theme.accent : Theme.textOnDark
             border.width: chosen ? 3 : 1.5
         }
         Repeater {
@@ -294,8 +294,8 @@ Scope {
                 width: 12
                 height: 12
                 radius: 6
-                color: "white"
-                border.color: Qt.rgba(0, 0, 0, 0.25)
+                color: Theme.textOnDark
+                border.color: Theme.shadow(0.25)
 
                 // The opposite corner stays where it is.
                 MouseArea {
@@ -327,13 +327,13 @@ Scope {
             y: below ? window.lit.y + window.lit.height + 10 : Math.max(8, window.lit.y + 10)
             width: size.width + 16
             height: 22
-            color: Qt.rgba(0.05, 0.04, 0.09, 0.7)
+            color: Theme.scrim(0.7)
 
             Text {
                 id: size
                 anchors.centerIn: parent
                 text: `${Math.round(window.lit.width * window.pixels)} × ${Math.round(window.lit.height * window.pixels)}`
-                color: "white"
+                color: Theme.textOnDark
                 font { family: Theme.mono; pixelSize: 11 }
             }
         }
@@ -360,9 +360,9 @@ Scope {
                 && !(Capture.mode === "Window" && window.hovered.width > 0)
             text: (Capture.mode === "Window" ? "Click a window" : "Drag to select an area")
                 + (overlay.sharing ? " to share" : "")
-            color: "white"
+            color: Theme.textOnDark
             style: Text.Raised
-            styleColor: Qt.rgba(0, 0, 0, 0.4)
+            styleColor: Theme.shadow(0.4)
             font { family: Theme.font; pixelSize: 15; weight: Font.Medium }
         }
 
@@ -457,7 +457,7 @@ Scope {
                     width: kinds.knob - 4
                     height: kinds.height - 8
                     radius: 11
-                    color: !window.ready ? Theme.oklch(0.68, 0.025, 285)
+                    color: !window.ready ? Theme.paneDisabled
                         : Capture.record ? overlay.red : Theme.accent
                     scale: shutterTap.pressed ? 0.94 : 1
 
@@ -468,7 +468,7 @@ Scope {
                     Rectangle {
                         anchors.fill: parent
                         radius: parent.radius
-                        color: "white"
+                        color: Theme.surface
                         opacity: shutterHover.hovered && window.ready ? 0.12 : 0
                     }
                     Icon {
@@ -478,7 +478,7 @@ Scope {
                         gridHeight: 20
                         strokeWidth: 1.6
                         capStyle: ShapePath.RoundCap
-                        color: "white"
+                        color: Theme.surface
                         strokes: Capture.record ? overlay.video : overlay.camera
                     }
                     TapHandler {
@@ -507,7 +507,7 @@ Scope {
                 width: 136
                 height: 52
                 radius: 14
-                color: window.ready ? Theme.accent : Theme.oklch(0.68, 0.025, 285)
+                color: window.ready ? Theme.accent : Theme.paneDisabled
                 scale: shareTap.pressed ? 0.96 : 1
 
                 Behavior on color { ColorAnimation { duration: 160 } }
@@ -516,7 +516,7 @@ Scope {
                 Rectangle {
                     anchors.fill: parent
                     radius: parent.radius
-                    color: "white"
+                    color: Theme.surface
                     opacity: shareHover.hovered && window.ready ? 0.12 : 0
                 }
                 Row {
@@ -530,13 +530,13 @@ Scope {
                         gridHeight: 20
                         strokeWidth: 1.6
                         capStyle: ShapePath.RoundCap
-                        color: "white"
+                        color: Theme.textOnDark
                         strokes: overlay.share
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Share"
-                        color: "white"
+                        color: Theme.textOnDark
                         font { family: Theme.font; pixelSize: 14; weight: Font.DemiBold }
                     }
                 }
@@ -660,7 +660,7 @@ Scope {
             }
             Divider {}
             Repeater {
-                model: ["#f05653", "#f5c242", "#3f9cf0", "#1d1a24", "#ffffff"]
+                model: Theme.pens
 
                 Item {
                     id: swatch
@@ -753,12 +753,12 @@ Scope {
             width: 72
             height: 72
             radius: 36
-            color: Qt.rgba(0.05, 0.04, 0.09, 0.7)
+            color: Theme.scrim(0.7)
 
             Text {
                 anchors.centerIn: parent
                 text: Capture.countdown
-                color: "white"
+                color: Theme.textOnDark
                 font { family: Theme.font; pixelSize: 30; weight: Font.DemiBold }
             }
         }
@@ -795,7 +795,7 @@ Scope {
             y: confirmation.area.y
             width: confirmation.area.width
             height: confirmation.area.height
-            color: "white"
+            color: Theme.surface
             opacity: 0
 
             NumberAnimation on opacity {
@@ -828,7 +828,7 @@ Scope {
             offset.y: 8
             blur: 24
             radius: 18
-            color: Qt.rgba(0, 0, 0, 0.3)
+            color: Theme.shadow(0.3)
         }
         Rectangle {
             anchors.fill: parent
@@ -859,7 +859,7 @@ Scope {
         height: 44
         radius: 12
         color: strong ? (textHover.hovered ? Qt.darker(Theme.accent, 1.08) : Theme.accent)
-            : textHover.hovered ? Theme.oklch(0.985, 0.003, 285) : "white"
+            : textHover.hovered ? Theme.popoverHover : Theme.surface
         scale: textTap.pressed ? 0.96 : 1
 
         Behavior on scale { NumberAnimation { duration: 90 } }
@@ -884,13 +884,13 @@ Scope {
                 gridHeight: 20
                 strokeWidth: 1.6
                 capStyle: ShapePath.RoundCap
-                color: textButton.strong ? "white" : Theme.ink
+                color: textButton.strong ? Theme.textOnAccent : Theme.ink
                 strokes: textButton.strokes
             }
             Text {
                 id: label
                 anchors.verticalCenter: parent.verticalCenter
-                color: textButton.strong ? "white" : Theme.ink
+                color: textButton.strong ? Theme.textOnAccent : Theme.ink
                 font { family: Theme.font; pixelSize: 14; weight: Font.DemiBold }
             }
         }
@@ -918,7 +918,7 @@ Scope {
         width: 52
         height: 52
         radius: 12
-        color: on ? "white" : Theme.veil(choiceHover.hovered ? 0.05 : 0)
+        color: on ? Theme.surface : Theme.veil(choiceHover.hovered ? 0.05 : 0)
 
         Rectangle {
             visible: choice.on
@@ -996,7 +996,7 @@ Scope {
                 id: count
                 anchors.centerIn: parent
                 text: option.badge
-                color: "white"
+                color: Theme.textOnAccent
                 font { family: Theme.font; pixelSize: 11; weight: Font.Bold }
             }
         }

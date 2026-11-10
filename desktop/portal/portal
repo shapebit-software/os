@@ -23,6 +23,7 @@ import re
 import shutil
 import subprocess
 import time
+import tomllib
 
 import gi
 
@@ -777,7 +778,8 @@ class Notifications:
 
 
 def oklch(l, c, h):
-    """A color from OKLCH as sRGB, as the shell makes them (shell/services/Theme.qml)."""
+    """A color from OKLCH as sRGB, as Colors makes them (/usr/lib64/qt6/qml/Colors)
+    and scripts/colors.py; tests/unit/test_colors.py checks they agree."""
     a, b = c * math.cos(math.radians(h)), c * math.sin(math.radians(h))
     l_ = (l + 0.3963377774 * a + 0.2158037573 * b) ** 3
     m_ = (l - 0.1055613458 * a - 0.0638541728 * b) ** 3
@@ -792,17 +794,30 @@ def oklch(l, c, h):
             gamma(-0.0041960863 * l_ - 0.7034186147 * m_ + 1.7076147010 * s_))
 
 
+def system_colors():
+    """The system's colors, colors/colors.toml in the first data folder that
+    has it: /usr/share in the image, and the image's source with `make run`."""
+    for folder in GLib.get_system_data_dirs():
+        try:
+            with open(os.path.join(folder, "colors", "colors.toml"), "rb") as file:
+                return tomllib.load(file)
+        except FileNotFoundError:
+            continue
+    raise FileNotFoundError("colors/colors.toml is in no data folder")
+
+
 def accent_color():
-    """The shell's accent (Settings.accent), as in shell/services/Theme.qml."""
+    """The shell's accent (Settings.accent), as Colors.accent makes it."""
     try:
         with open(SHELL_SETTINGS) as file:
             chosen = json.load(file)
     except (OSError, ValueError):
         chosen = {}
-    # The accents' hues, as in shell/services/Settings.qml.
-    hues = {"Cyan": 215, "Indigo": 265, "Green": 150, "Amber": 45, "Plum": 335}
-    accent = chosen.get("accent", "Plum")
-    return oklch(0.52, 0.11, chosen.get("accentHue", 25) if accent == "Custom" else hues.get(accent, 335))
+    accents = system_colors()["accents"]
+    accent = chosen.get("accent", accents["default"])
+    if accent == "Custom":
+        return oklch(*accents["custom"], chosen.get("accentHue", 25))
+    return oklch(*accents["presets"].get(accent, accents["presets"][accents["default"]]))
 
 
 class Settings:

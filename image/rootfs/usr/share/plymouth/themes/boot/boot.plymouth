@@ -2,7 +2,9 @@
 # up to the desktop shares (see /usr/lib/bootc/kargs.d/30-splash.toml). It is
 # Fedora's spinner theme with ShapeBit's logo; the build copies the spinner's
 # images here (see image/Containerfile). watermark.png is the logo of
-# installer/ui/images/horizontal.png, 320 pixels wide.
+# installer/ui/images/horizontal.png, 320 pixels wide. Its colors are copies
+# of the system's (/usr/share/colors/colors.toml): night, nightTrack, and
+# grey0; tests/unit/test_colors.py checks them.
 [Plymouth Theme]
 Name=Boot
 Description=The ShapeBit logo and a spinner.

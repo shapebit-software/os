@@ -2,6 +2,7 @@
 // Usage: installer            talks to the backend on the system bus
 //        installer --session  talks to `installer-backend --simulate`
 #include "backend.h"
+#include "display.h"
 #include "names.h"
 
 #include <QGuiApplication>
@@ -10,6 +11,7 @@
 
 int main(int argc, char *argv[])
 {
+    requestFullColor();
     QGuiApplication app(argc, argv);
     Backend::session = app.arguments().contains(QStringLiteral("--session"));
     registerTypes();

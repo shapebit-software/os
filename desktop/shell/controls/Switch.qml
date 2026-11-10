@@ -20,7 +20,7 @@ Rectangle {
         width: 13
         height: 13
         radius: 7
-        color: "#fbfbfd"
+        color: Theme.textOnAccent
 
         Behavior on x { NumberAnimation { duration: 120 } }
     }

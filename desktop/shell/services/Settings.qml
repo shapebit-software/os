@@ -53,7 +53,7 @@ Singleton {
     property alias dictationSounds: adapter.dictationSounds
     // Whether an application may share what was picked again without asking.
     property alias shareRemember: adapter.shareRemember
-    // One of `accents`, or "Custom" for `accentHue`.
+    // One of Colors.accents, or "Custom" for `accentHue`.
     property alias accent: adapter.accent
     property alias accentHue: adapter.accentHue
     // One of Wallpaper.presets, or "Image" for `wallpaperImage`, a path.
@@ -128,9 +128,6 @@ Singleton {
     property alias mirrors: adapter.mirrors
     property alias primary: adapter.primary
 
-    // The accents' hues, as in the demo (Theme.accent).
-    readonly property var accents: ({ "Cyan": 215, "Indigo": 265, "Green": 150, "Amber": 45, "Plum": 335 })
-    readonly property int accentHueShown: accent === "Custom" ? accentHue : accents[accent] ?? 335
     readonly property var gapSizes: ({ "Tight": 4, "Normal": 10, "Wide": 18 })
     readonly property int gapSize: gaps === "Custom" ? gapPixels : gapSizes[gaps] ?? 10
 
@@ -210,7 +207,7 @@ Singleton {
         JsonAdapter { // qmllint disable unresolved-type
             id: adapter
 
-            property string accent: "Plum"
+            property string accent: "Violet"
             property int accentHue: 25
             property string wallpaper: "Dusk"
             property string wallpaperImage: ""

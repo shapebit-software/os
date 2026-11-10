@@ -78,8 +78,8 @@ Column {
     Rectangle {
         width: page.width
         height: list.height + 2
-        color: "white"
-        border.color: "#d8dbde"
+        color: Theme.surface
+        border.color: Theme.line
 
         Column {
             id: list
@@ -109,7 +109,7 @@ Column {
                             visible: entry.index > 0
                             width: parent.width
                             height: 1
-                            color: "#e6e8ea"
+                            color: Theme.lineSoft
                         }
                         Column {
                             x: 16
@@ -120,7 +120,7 @@ Column {
                                 width: parent.width
                                 elide: Text.ElideRight
                                 text: entry.modelData.name
-                                color: "#1d2022"
+                                color: Theme.textStrong
                                 font { family: Theme.font; pixelSize: 13; weight: entry.modelData.connected ? Font.Medium : Font.Normal }
                             }
                             Text {
@@ -129,7 +129,7 @@ Column {
                                 elide: Text.ElideRight
                                 text: entry.detail
                                 color: (page.kind === "wifi" ? Connectivity.joins[entry.modelData.name]
-                                    : Connectivity.pairs[entry.modelData.dbusPath])?.error !== undefined ? "#b63132" : "#65696f"
+                                    : Connectivity.pairs[entry.modelData.dbusPath])?.error !== undefined ? Theme.dangerInk : Theme.textMuted
                                 font { family: Theme.font; pixelSize: 11 }
                             }
                         }
@@ -148,7 +148,7 @@ Column {
                                     required property var modelData
 
                                     text: modelData[0]
-                                    color: modelData[0] === "Forget" ? "#b63132" : Theme.accent
+                                    color: modelData[0] === "Forget" ? Theme.dangerInk : Theme.accent
                                     font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
 
                                     TapHandler {
@@ -174,8 +174,8 @@ Column {
                             anchors.verticalCenter: parent.verticalCenter
                             width: Math.min(320, parent.width - 120)
                             height: 32
-                            color: "white"
-                            border.color: "#d1d5d8"
+                            color: Theme.surface
+                            border.color: Theme.lineStrong
 
                             TextInput {
                                 id: password
@@ -184,7 +184,7 @@ Column {
                                 anchors.verticalCenter: parent.verticalCenter
                                 echoMode: TextInput.Password
                                 passwordCharacter: "•"
-                                color: "#1d2022"
+                                color: Theme.textStrong
                                 selectionColor: Theme.accent
                                 font { family: Theme.font; pixelSize: 12 }
                                 clip: true
@@ -201,7 +201,7 @@ Column {
                                 Text {
                                     visible: !password.text
                                     text: "Password"
-                                    color: "#65696f"
+                                    color: Theme.textMuted
                                     font: password.font
                                 }
                             }
@@ -236,7 +236,7 @@ Column {
                 width: list.width
                 padding: 16
                 text: page.kind === "wifi" ? "Looking for networks…" : "Looking for devices…"
-                color: "#65696f"
+                color: Theme.textMuted
                 font { family: Theme.font; pixelSize: 12 }
             }
         }

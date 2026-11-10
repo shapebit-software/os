@@ -39,7 +39,7 @@ BarPanel {
                 Text {
                     anchors.centerIn: parent
                     text: Keyboard.languageOf(entry.modelData)
-                    color: entry.active ? "#fbfbfd" : Theme.inkSoft
+                    color: entry.active ? Theme.textOnAccent : Theme.inkSoft
                     font { family: Theme.font; pixelSize: 10; weight: Font.Bold; letterSpacing: 0.6 }
                 }
             }

@@ -60,7 +60,7 @@ PanelWindow {
         width: 20
         height: 20
         radius: 10
-        color: Qt.rgba(0.99, 0.99, 1, 0.4)
+        color: Theme.sheen(0.4)
     }
 
     HoverHandler {
@@ -81,7 +81,7 @@ PanelWindow {
             width: 340
             height: 340
             radius: 170
-            color: Qt.rgba(0.13, 0.13, 0.17, 0.6)
+            color: Theme.hud(0.6)
         }
 
         Repeater {
@@ -102,14 +102,14 @@ PanelWindow {
                 width: 46
                 height: 46
                 radius: 23
-                color: Qt.rgba(1, 1, 1, buttonHover.hovered ? 0.2 : 0.1)
+                color: Theme.sheen(buttonHover.hovered ? 0.2 : 0.1)
                 scale: corner.fanned ? 1 : 0.4
 
                 Behavior on scale { NumberAnimation { duration: 180 } }
 
                 Icon {
                     anchors.centerIn: parent
-                    color: "#f4f5f7"
+                    color: Theme.textBright
                     strokes: button.modelData.strokes
                 }
                 TapHandler {
@@ -133,7 +133,7 @@ PanelWindow {
         width: time.width + 34
         height: 32
         radius: 16
-        color: "#d23a3a"
+        color: Theme.dangerFill
 
         Rectangle {
             x: 12
@@ -141,14 +141,14 @@ PanelWindow {
             width: 8
             height: 8
             radius: 2
-            color: "#fbfcfd"
+            color: Theme.textOnAccent
         }
         Text {
             id: time
             x: 26
             anchors.verticalCenter: parent.verticalCenter
             text: Capture.elapsed
-            color: "#fbfcfd"
+            color: Theme.textOnAccent
             font { family: Theme.mono; pixelSize: 11; weight: Font.DemiBold }
         }
         TapHandler {

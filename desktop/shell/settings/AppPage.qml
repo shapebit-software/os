@@ -53,14 +53,14 @@ Column {
                 width: parent.width
                 elide: Text.ElideRight
                 text: page.app.name ?? ""
-                color: "#1d2022"
+                color: Theme.textStrong
                 font { family: Theme.font; pixelSize: 16; weight: Font.DemiBold }
             }
             Text {
                 width: parent.width
                 elide: Text.ElideRight
                 text: page.app.summary ?? ""
-                color: "#44484d"
+                color: Theme.textBody
                 font { family: Theme.font; pixelSize: 12 }
             }
             Text {
@@ -68,7 +68,7 @@ Column {
                 visible: text !== ""
                 elide: Text.ElideRight
                 text: [page.app.developer, page.app.verified ? "Verified" : "", page.mine?.version, page.mine?.size].filter(t => t).join(" · ")
-                color: "#65696f"
+                color: Theme.textMuted
                 font { family: Theme.font; pixelSize: 11 }
             }
         }
@@ -80,13 +80,13 @@ Column {
             Text {
                 visible: page.busy
                 text: page.busy ? `${page.work.note}…` : ""
-                color: "#65696f"
+                color: Theme.textMuted
                 font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
             }
             Text {
                 visible: !page.busy && (page.app.builtIn === true || (page.mine !== null && !page.mine.removable))
                 text: page.app.builtIn ? "Built in" : "For everyone"
-                color: "#65696f"
+                color: Theme.textMuted
                 font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
             }
             DialogButton {
@@ -108,7 +108,7 @@ Column {
         width: page.width
         wrapMode: Text.Wrap
         text: `Couldn't ${page.work?.action ?? "do that"}: ${page.work?.error ?? ""}`
-        color: "#b63132"
+        color: Theme.dangerInk
         font { family: Theme.font; pixelSize: 12 }
     }
 
@@ -117,8 +117,8 @@ Column {
         visible: page.confirming && !page.busy && page.mine !== null
         width: page.width
         height: asking.height + 28
-        color: "white"
-        border.color: "#d8dbde"
+        color: Theme.surface
+        border.color: Theme.line
 
         Column {
             id: asking
@@ -133,7 +133,7 @@ Column {
                 wrapMode: Text.Wrap
                 text: `Remove ${page.app.name ?? "this app"}?`
                     + (page.mine?.browser ? " It's your default browser, so links won't open until you choose another." : "")
-                color: "#1d2022"
+                color: Theme.textStrong
                 font { family: Theme.font; pixelSize: 13; weight: Font.Medium }
             }
             Item {
@@ -144,13 +144,13 @@ Column {
                     id: dataSwitch
                     anchors.verticalCenter: parent.verticalCenter
                     on: page.deleteData
-                    offColor: "#d5d8db"
+                    offColor: Theme.lineStrong
                     onToggled: page.deleteData = !page.deleteData
                 }
                 Text {
                     anchors { left: dataSwitch.right; leftMargin: 10; verticalCenter: parent.verticalCenter }
                     text: "Also delete its data and settings"
-                    color: "#44484d"
+                    color: Theme.textBody
                     font { family: Theme.font; pixelSize: 12 }
                 }
                 Row {
@@ -211,7 +211,7 @@ Column {
         wrapMode: Text.Wrap
         text: page.app.description ?? ""
         rightPadding: Math.max(0, page.width - 720)
-        color: "#1d2022"
+        color: Theme.textStrong
         lineHeight: 1.2
         font { family: Theme.font; pixelSize: 13 }
     }
@@ -221,8 +221,8 @@ Column {
         visible: !page.app.builtIn
         width: page.width
         height: facts.height + 2
-        color: "white"
-        border.color: "#d8dbde"
+        color: Theme.surface
+        border.color: Theme.line
 
         Column {
             id: facts
@@ -251,13 +251,13 @@ Column {
                         visible: fact.index > 0
                         width: parent.width
                         height: 1
-                        color: "#e6e8ea"
+                        color: Theme.lineSoft
                     }
                     Text {
                         x: 16
                         y: 12
                         text: fact.modelData[0]
-                        color: "#1d2022"
+                        color: Theme.textStrong
                         font { family: Theme.font; pixelSize: 13; weight: Font.Medium }
                     }
                     Text {
@@ -268,7 +268,7 @@ Column {
                         width: parent.width - x - 16
                         wrapMode: Text.Wrap
                         text: fact.modelData[1]
-                        color: "#44484d"
+                        color: Theme.textBody
                         font { family: Theme.font; pixelSize: 12 }
                     }
                 }

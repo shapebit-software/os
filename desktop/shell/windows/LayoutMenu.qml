@@ -96,8 +96,8 @@ Popout {
 
                                                     required property var modelData
                                                     readonly property color color: modelData[1]
-                                                        ? (choice.current ? Theme.accent : Theme.oklch(0.42, 0.07, 290, 0.72))
-                                                        : Theme.oklch(0.42, 0.07, 290, 0.36)
+                                                        ? (choice.current ? Theme.accent : Qt.alpha(Theme.inkMuted, 0.72))
+                                                        : Qt.alpha(Theme.inkMuted, 0.36)
 
                                                     width: column.width
                                                     height: (column.height - column.spacing * (column.modelData[1].length - 1))
@@ -122,7 +122,7 @@ Popout {
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 text: choice.modelData.name
-                                color: choice.current ? Theme.accent : Theme.oklch(0.45, 0.07, 290)
+                                color: choice.current ? Theme.accent : Theme.inkMuted
                                 font { family: Theme.font; pixelSize: 10; weight: Font.Medium }
                             }
 

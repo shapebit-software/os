@@ -57,7 +57,7 @@ GridLayout {
 
         tile: actions.tile
         size: actions.small
-        fill: red || wrong ? "#d23a3a" : shared || dictating ? Theme.accent : "transparent"
+        fill: red || wrong ? Theme.dangerFill : shared || dictating ? Theme.accent : "transparent"
 
         // While recording, its length so far; as wide as the button, so the
         // button keeps its size.
@@ -66,7 +66,7 @@ GridLayout {
             width: actions.small - 12
             horizontalAlignment: Text.AlignHCenter
             text: Capture.elapsed
-            color: "#fbfcfd"
+            color: Theme.textOnAccent
             font { family: Theme.mono; pixelSize: actions.tile ? 9 : 11; weight: Font.DemiBold }
         }
         Tooltip {
@@ -88,7 +88,7 @@ GridLayout {
         Icon {
             visible: !small.red && !small.hearing
             height: actions.tile ? 14 : 18
-            color: "#f6f7f9"
+            color: Theme.textBright
             strokeWidth: 1.5
             strokes: small.dictate ? Dictation.icon : small.shared ? actions.screen : small.strokes
         }
@@ -146,7 +146,7 @@ GridLayout {
             Icon {
                 id: sparkle
                 height: actions.tile ? 20 : 18
-                color: "#fbfcfd"
+                color: Theme.textOnAccent
                 strokes: actions.sparkle
 
                 SequentialAnimation on opacity {
@@ -164,7 +164,7 @@ GridLayout {
                 height: 7
                 radius: 3.5
                 color: Theme.accent
-                border.color: "#fbfcfd"
+                border.color: Theme.textOnAccent
             }
         }
     }

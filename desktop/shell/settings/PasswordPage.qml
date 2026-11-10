@@ -50,8 +50,8 @@ Column {
 
         width: 320
         height: 32
-        color: "white"
-        border.color: input.activeFocus ? Theme.accent : "#d1d5d8"
+        color: Theme.surface
+        border.color: input.activeFocus ? Theme.accent : Theme.lineStrong
 
         TextInput {
             id: input
@@ -61,7 +61,7 @@ Column {
             echoMode: TextInput.Password
             passwordCharacter: "•"
             enabled: !page.busy
-            color: "#1d2022"
+            color: Theme.textStrong
             selectionColor: Theme.accent
             font { family: Theme.font; pixelSize: 12 }
             clip: true
@@ -75,7 +75,7 @@ Column {
             Text {
                 id: hint
                 visible: !input.text
-                color: "#8a8f94"
+                color: Theme.textFaint
                 font: input.font
             }
         }
@@ -99,20 +99,20 @@ Column {
     Text {
         height: 16
         text: page.busy ? "Changing…" : page.message
-        color: page.messageIsError ? "#b63132" : "#44484d"
+        color: page.messageIsError ? Theme.dangerInk : Theme.textBody
         font { family: Theme.font; pixelSize: 12 }
     }
 
     Rectangle {
         width: label.width + 28
         height: 32
-        color: page.ready ? Theme.accent : "#c9cdd1"
+        color: page.ready ? Theme.accent : Theme.disabled
 
         Text {
             id: label
             anchors.centerIn: parent
             text: "Change password"
-            color: "white"
+            color: Theme.textOnAccent
             font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
         }
         TapHandler {

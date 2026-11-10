@@ -7,7 +7,7 @@ T.Button {
     id: button
 
     property string kind: "primary"
-    readonly property color fill: kind === "danger" ? Theme.danger : Theme.accent
+    readonly property color fill: kind === "danger" ? Theme.dangerFill : Theme.accent
 
     implicitWidth: label.implicitWidth + (kind === "secondary" ? 40 : 52)
     implicitHeight: 40
@@ -23,7 +23,7 @@ T.Button {
         verticalAlignment: Text.AlignVCenter
     }
     background: Rectangle {
-        color: button.kind === "secondary" ? (button.hovered ? Theme.panel : "transparent")
+        color: button.kind === "secondary" ? (button.hovered ? Theme.hover : "transparent")
             : button.down ? Qt.darker(button.fill, 1.15) : button.hovered ? Qt.lighter(button.fill, 1.1) : button.fill
         border.color: button.visualFocus ? Theme.text : button.kind === "secondary" ? Theme.border : "transparent"
     }

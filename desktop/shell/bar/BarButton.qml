@@ -3,6 +3,7 @@
 import QtQuick
 import QtQuick.Effects
 import qs.controls
+import qs.services
 
 Item {
     id: button
@@ -30,12 +31,12 @@ Item {
     }
     Rectangle {
         anchors.fill: parent
-        color: Qt.rgba(1, 1, 1, 0.12)
+        color: Theme.sheen(0.12)
         visible: !button.tile && button.open
     }
     Rectangle {
         anchors.fill: parent
-        color: "#05050d"
+        color: Theme.shade(1)
         visible: !button.tile
         opacity: hover.hovered ? 0.14 : 0
     }

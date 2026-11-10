@@ -92,7 +92,7 @@ export OPENQA_DISK_SIZE INSTALLER_REF IMAGE_REVISION IMAGE_ARCHIVE NEXT_ARCHIVE 
 export PYTHONDONTWRITEBYTECODE := 1
 
 .DEFAULT_GOAL := help
-.PHONY: dev release-key help image static-checks lint validate test-unit test-image publish installer sources installer-sources pull-installer disk vm installer-vm ssh test test-plan update-builds test-update test-release test-guest clean
+.PHONY: dev release-key help colors image static-checks lint validate test-unit test-image publish installer sources installer-sources pull-installer disk vm installer-vm ssh test test-plan update-builds test-update test-release test-guest clean
 
 help: ## List targets
 	@awk -F ':.*## ' '/^[a-z-]+:.*## / { printf "  %-12s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -109,6 +109,9 @@ image: $(KEYS) ## Build the container image with its signed UKI
 	  --build-arg IMAGE_REVISION=$(IMAGE_REVISION) \
 	  --build-arg LLAMA_VERSION=$(LLAMA_VERSION) --build-arg LLAMA_SHA256=$(LLAMA_SHA256) \
 	  --build-context desktop=$(DESKTOP_SRC)
+
+colors: ## Write the QML module Colors's values from the system's colors (image/rootfs/usr/share/colors/colors.toml)
+	python3 scripts/colors.py
 
 static-checks: lint validate ## Lint and validate, without building or running the code; in Fedora, as `make dev`
 

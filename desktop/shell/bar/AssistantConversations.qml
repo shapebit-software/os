@@ -55,7 +55,7 @@ PanelWindow {
 
     Rectangle {
         anchors.fill: parent
-        color: Theme.oklch(0.2, 0.04, 290, 0.5)
+        color: Theme.inkScrim(0.5)
 
         TapHandler {
             onTapped: overlay.close()

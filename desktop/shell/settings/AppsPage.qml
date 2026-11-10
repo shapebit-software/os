@@ -45,14 +45,14 @@ Column {
         Rectangle {
             anchors { left: parent.left; right: views.left; rightMargin: 16 }
             height: parent.height
-            color: "white"
-            border.color: "#d1d5d8"
+            color: Theme.surface
+            border.color: Theme.lineStrong
 
             Icon {
                 x: 12
                 anchors.verticalCenter: parent.verticalCenter
                 height: 13
-                color: "#5f6469"
+                color: Theme.textMuted
                 strokeWidth: 1.5
                 strokes: "M2.4 7a4.6 4.6 0 1 0 9.2 0a4.6 4.6 0 1 0-9.2 0zM10.4 10.4L14 14"
             }
@@ -61,7 +61,7 @@ Column {
 
                 anchors { left: parent.left; right: parent.right; leftMargin: 34; rightMargin: 12 }
                 anchors.verticalCenter: parent.verticalCenter
-                color: "#1d2022"
+                color: Theme.textStrong
                 selectionColor: Theme.accent
                 font { family: Theme.font; pixelSize: 13 }
                 clip: true
@@ -70,7 +70,7 @@ Column {
                 Text {
                     visible: !query.text
                     text: "Search"
-                    color: "#65696f"
+                    color: Theme.textMuted
                     font: query.font
                 }
             }
@@ -101,13 +101,13 @@ Column {
 
                 width: chipLabel.width + 24
                 height: 28
-                color: current ? Theme.accent : chipHover.hovered ? "#e1e3e6" : "#eceff1"
+                color: current ? Theme.accent : chipHover.hovered ? Theme.hoverStrong : Theme.fill
 
                 Text {
                     id: chipLabel
                     anchors.centerIn: parent
                     text: chip.modelData[0]
-                    color: chip.current ? "white" : "#3e4348"
+                    color: chip.current ? Theme.textOnAccent : Theme.textBody
                     font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
                 }
                 TapHandler {
@@ -142,8 +142,8 @@ Column {
 
                 width: (page.width - (page.columns - 1) * 12) / page.columns
                 height: 104
-                color: "white"
-                border.color: cardHover.hovered ? "#b9bdc2" : "#d8dbde"
+                color: Theme.surface
+                border.color: cardHover.hovered ? Theme.lineHover : Theme.line
 
                 TapHandler {
                     onTapped: page.opened(card.modelData)
@@ -171,7 +171,7 @@ Column {
                         width: parent.width
                         elide: Text.ElideRight
                         text: card.modelData.name
-                        color: "#1d2022"
+                        color: Theme.textStrong
                         font { family: Theme.font; pixelSize: 13; weight: Font.DemiBold }
                     }
                     Text {
@@ -181,7 +181,7 @@ Column {
                         maximumLineCount: 2
                         elide: Text.ElideRight
                         text: card.work?.error ?? card.modelData.summary
-                        color: card.work?.error ? "#b63132" : "#65696f"
+                        color: card.work?.error ? Theme.dangerInk : Theme.textMuted
                         font { family: Theme.font; pixelSize: 11 }
                     }
                 }
@@ -194,7 +194,7 @@ Column {
                     anchors { right: parent.right; bottom: parent.bottom; rightMargin: 12; bottomMargin: 10 }
                     width: action.width + (acts ? 24 : 0)
                     height: 24
-                    color: !acts ? "transparent" : card.canInstall ? Theme.accent : actionHover.hovered ? "#e1e3e6" : "#eceff1"
+                    color: !acts ? "transparent" : card.canInstall ? Theme.accent : actionHover.hovered ? Theme.hoverStrong : Theme.fill
 
                     Text {
                         id: action
@@ -204,7 +204,7 @@ Column {
                             : card.canInstall ? "Install"
                             : card.canRemove ? "Remove"
                             : card.mine ? "Installed" : ""
-                        color: parent.acts ? (card.canInstall ? "white" : "#b63132") : "#65696f"
+                        color: parent.acts ? (card.canInstall ? Theme.textOnAccent : Theme.dangerInk) : Theme.textMuted
                         font { family: Theme.font; pixelSize: 11; weight: Font.Medium }
                     }
                     TapHandler {
@@ -236,7 +236,7 @@ Column {
             : waiting ? "Looking…"
             : Apps.query ? `No apps match “${Apps.query}”`
             : page.showsAll ? "No apps here" : "No apps installed"
-        color: page.problem ? "#b63132" : "#5f6469"
+        color: page.problem ? Theme.dangerInk : Theme.textMuted
         font { family: Theme.font; pixelSize: 13 }
     }
 

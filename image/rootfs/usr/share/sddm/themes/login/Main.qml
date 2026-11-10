@@ -3,6 +3,7 @@
 import QtQml
 import QtQuick
 import SddmComponents as Sddm
+import Colors
 
 Item {
     id: root

@@ -32,7 +32,7 @@ Item {
         width: 16
         height: 16
         radius: 8
-        color: "#fbfbfd"
+        color: Theme.textOnAccent
         border.color: Theme.veil(0.12)
     }
     MouseArea {

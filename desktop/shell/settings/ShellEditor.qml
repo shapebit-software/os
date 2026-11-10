@@ -45,7 +45,7 @@ Item {
 
         implicitWidth: Math.max(24, content.width + 10)
         implicitHeight: 24
-        color: Qt.rgba(1, 1, 1, 0.14)
+        color: Theme.sheen(0.14)
         opacity: editor.dragged === modelData ? 0.35 : 1
 
         Item {
@@ -59,7 +59,7 @@ Item {
             Icon {
                 visible: editor.icons[tile.modelData] !== undefined
                 height: 13
-                color: "#f2f3f5"
+                color: Theme.textBright
                 strokeWidth: 1.5
                 strokes: editor.icons[tile.modelData] ?? ""
             }
@@ -68,7 +68,7 @@ Item {
                 anchors.centerIn: parent
                 visible: tile.modelData === "clock" || tile.modelData === "language"
                 text: tile.modelData === "clock" ? "09:41" : Keyboard.code || "EN"
-                color: "#f2f3f5"
+                color: Theme.textBright
                 font { family: Theme.font; pixelSize: tile.modelData === "clock" ? 10.5 : 9.5; weight: Font.DemiBold }
             }
             Row {
@@ -83,7 +83,7 @@ Item {
                         required property int index
                         width: 7
                         height: 7
-                        color: index === 0 ? Theme.accent : Qt.rgba(1, 1, 1, 0.4)
+                        color: index === 0 ? Theme.accent : Theme.sheen(0.4)
                     }
                 }
             }
@@ -154,7 +154,7 @@ Item {
                 width: vertical ? depth : screen.width - 2 * inset
                 height: !vertical ? depth
                     : screen.height - 2 * inset - (otherEdge === "Top" || otherEdge === "Bottom" ? depth + inset : 0)
-                color: Qt.rgba(0.09, 0.08, 0.15, 0.55)
+                color: Theme.glass(0.55)
 
                 GridLayout {
                     anchors.fill: parent
@@ -175,10 +175,10 @@ Item {
 
                             Layout.fillWidth: true
                             Layout.fillHeight: true
-                            color: editor.over === key ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
+                            color: editor.over === key ? Theme.sheen(0.1) : "transparent"
                             border.width: 1
-                            border.color: editor.over === key ? Qt.rgba(1, 1, 1, 0.85)
-                                : Qt.rgba(1, 1, 1, editor.dragged ? 0.45 : 0.16)
+                            border.color: editor.over === key ? Theme.sheen(0.85)
+                                : Theme.sheen(editor.dragged ? 0.45 : 0.16)
 
                             DropArea {
                                 anchors.fill: parent
@@ -228,10 +228,10 @@ Item {
         y: screen.height + 8
         width: parent.width
         height: Math.max(40, items.height + 16)
-        color: Qt.rgba(0.09, 0.08, 0.15, editor.over === "hidden" && target ? 0.92 : 0.8)
+        color: Theme.glass(editor.over === "hidden" && target ? 0.92 : 0.8)
         border.width: 1
-        border.color: editor.over === "hidden" && target ? Qt.rgba(1, 1, 1, 0.85)
-            : Qt.rgba(1, 1, 1, target ? 0.45 : 0.16)
+        border.color: editor.over === "hidden" && target ? Theme.sheen(0.85)
+            : Theme.sheen(target ? 0.45 : 0.16)
 
         DropArea {
             anchors.fill: parent
@@ -247,7 +247,7 @@ Item {
             anchors.centerIn: parent
             visible: Settings.hiddenItems.length === 0
             text: "Drag items here to hide them"
-            color: Qt.rgba(1, 1, 1, 0.6)
+            color: Theme.sheen(0.6)
             font { family: Theme.font; pixelSize: 11 }
         }
         Flow {
@@ -277,8 +277,8 @@ Item {
         visible: editor.dragged !== ""
         width: 24
         height: 24
-        color: Qt.rgba(1, 1, 1, 0.3)
-        border.color: Qt.rgba(1, 1, 1, 0.8)
+        color: Theme.sheen(0.3)
+        border.color: Theme.sheen(0.8)
         Drag.hotSpot.x: width / 2
         Drag.hotSpot.y: height / 2
     }

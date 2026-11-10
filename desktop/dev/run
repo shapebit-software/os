@@ -54,8 +54,9 @@ done
 cp "$tree/portal/portals.conf" "$dir/portals/shapebit-portals.conf"
 sed "s|/usr/libexec/desktop/share-picker|$tree/portal/share-picker|" "$tree/portal/xdph.conf" >"$dir/hypr/xdph.conf"
 # The person's Flatpak apps too, which the host's session may not know of if it
-# started before Flatpak was installed.
-data_dirs="$dir/data:${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/exports/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+# started before Flatpak was installed; and the system's colors from the
+# image's source, for the portal.
+data_dirs="$dir/data:$tree/../image/rootfs/usr/share:${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/exports/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 
 # D-Bus starts them on the first request, from here before the system's.
 cat >"$dir/services/org.freedesktop.portal.Desktop.service" <<EOF

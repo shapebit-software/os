@@ -72,7 +72,7 @@ Step {
                 required property int index
                 Layout.fillWidth: true
                 implicitHeight: 3
-                color: page.strength > index ? (page.strength === 1 ? Theme.danger : Theme.accent) : Theme.track
+                color: page.strength > index ? (page.strength === 1 ? Theme.dangerFill : Theme.accent) : Theme.track
             }
         }
     }

@@ -28,8 +28,8 @@ Column {
         width: page.width
         height: column.height + 2
         visible: column.children.length > 1
-        color: "white"
-        border.color: "#d8dbde"
+        color: Theme.surface
+        border.color: Theme.line
 
         Column {
             id: column
@@ -54,14 +54,14 @@ Column {
             visible: entry.index > 0
             width: parent.width
             height: 1
-            color: "#e6e8ea"
+            color: Theme.lineSoft
         }
         Text {
             x: 16
             width: 28
             anchors.verticalCenter: parent.verticalCenter
             text: Keyboard.languageOf(entry.modelData)
-            color: "#1d2022"
+            color: Theme.textStrong
             font { family: Theme.font; pixelSize: 11; weight: Font.Bold }
         }
         Text {
@@ -70,7 +70,7 @@ Column {
             width: parent.width - x - actionText.width - 32
             elide: Text.ElideRight
             text: Keyboard.nameOf(entry.modelData)
-            color: "#1d2022"
+            color: Theme.textStrong
             font { family: Theme.font; pixelSize: 13 }
         }
         Text {
@@ -79,7 +79,7 @@ Column {
             anchors.rightMargin: 16
             anchors.verticalCenter: parent.verticalCenter
             text: entry.action
-            color: entry.action === "Remove" ? "#b63132" : Theme.accent
+            color: entry.action === "Remove" ? Theme.dangerInk : Theme.accent
             font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
 
             TapHandler {
@@ -106,15 +106,15 @@ Column {
     Rectangle {
         width: page.width
         height: 32
-        color: "white"
-        border.color: "#d1d5d8"
+        color: Theme.surface
+        border.color: Theme.lineStrong
 
         TextInput {
             id: search
 
             anchors { left: parent.left; right: parent.right; leftMargin: 12; rightMargin: 12 }
             anchors.verticalCenter: parent.verticalCenter
-            color: "#1d2022"
+            color: Theme.textStrong
             selectionColor: Theme.accent
             font { family: Theme.font; pixelSize: 12 }
             clip: true
@@ -122,7 +122,7 @@ Column {
             Text {
                 visible: !search.text
                 text: "Add a keyboard"
-                color: "#65696f"
+                color: Theme.textMuted
                 font: search.font
             }
         }

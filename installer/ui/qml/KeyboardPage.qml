@@ -54,7 +54,7 @@ Step {
                             required property string modelData
                             width: 36
                             height: 36
-                            color: "#1f222c"
+                            color: Theme.field
                             border.color: Theme.border
                             Text {
                                 anchors.centerIn: parent
