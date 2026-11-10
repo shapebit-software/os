@@ -1,6 +1,6 @@
 // Dictation, from the quick actions and Super+D: a click starts listening,
 // another stops, and what was said goes into the text field that has the focus.
-// Its button shows the state (bar/QuickActions.qml). When it is not sure of the
+// Its button shows the state (bar/QuickButton.qml). When it is not sure of the
 // place, the text waits in a card to be told where (bar/DictationOverlay.qml).
 // dictation/dictate decides all that; this starts it
 // and shows what it says. It understands Parakeet's 25 languages, any of them,

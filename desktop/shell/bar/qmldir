@@ -21,7 +21,7 @@ NetworkPanel NetworkPanel.qml
 NotificationsPanel NotificationsPanel.qml
 Panels Panels.qml
 Popout Popout.qml
-QuickActions QuickActions.qml
+QuickButton QuickButton.qml
 ShellBar ShellBar.qml
 ShellItem ShellItem.qml
 SignalBars SignalBars.qml

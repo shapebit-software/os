@@ -2,7 +2,8 @@
 // the bar's fill behind its items, or the dock, which floats a gap off its
 // edge with each item on glass of its own. Each of its zones holds its items
 // in order: the start zone at the left or top, the center zone in the
-// middle, the end zone at the right or bottom.
+// middle, the end zone at the right or bottom. On the dock, two half-size
+// buttons share a slot, one above the other across the bar.
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
@@ -121,11 +122,27 @@ PanelWindow {
                 y: !window.vertical ? 0 : modelData === "start" ? margin
                     : modelData === "end" ? zones.height - margin - height : (zones.height - height) / 2
 
+                // Each slot holds one item, or two half-size ones across
+                // the bar.
                 Repeater {
-                    model: Settings.zones[window.kind]?.[zone.modelData] ?? []
+                    model: Shell.slots(window.kind, zone.modelData)
 
-                    ShellItem {
-                        bar: window
+                    GridLayout {
+                        id: slot
+
+                        required property var modelData
+
+                        flow: window.vertical ? GridLayout.LeftToRight : GridLayout.TopToBottom
+                        rowSpacing: 4
+                        columnSpacing: 4
+
+                        Repeater {
+                            model: slot.modelData
+
+                            ShellItem {
+                                bar: window
+                            }
+                        }
                     }
                 }
             }

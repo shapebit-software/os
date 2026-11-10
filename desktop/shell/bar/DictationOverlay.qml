@@ -18,8 +18,8 @@ PanelWindow {
 
     required property ShellScreen modelData
 
-    readonly property bool noButton: Settings.quickActions === "Hot corner" || !Settings.dictationButton
-        || Settings.hiddenItems.includes("quick")
+    readonly property bool noButton: Settings.quickActions === "Hot corner"
+        || Settings.hiddenItems.includes("dictation")
     readonly property bool pill: noButton && (Dictation.listening || Dictation.writing || Dictation.notice !== ""
         || Dictation.state === "failed" && !Dictation.retryable)
     readonly property bool card: Dictation.waiting || Dictation.retryable

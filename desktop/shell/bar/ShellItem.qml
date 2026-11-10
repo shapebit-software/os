@@ -1,10 +1,11 @@
 // One item of a bar (ShellBar.qml), by its id in Settings.zones: the clock,
 // the downloads, only while there are any, which opens Settings > Downloads,
 // a status button that opens its panel (the notifications, the microphone,
-// the sound, the
-// brightness, the network, the battery, the input language, the system menu), Apps, the workspaces, or
-// the quick actions. On the dock, buttons are glass tiles; on the system bar,
-// they are plain. A right click on the microphone or the sound mutes it.
+// the sound, the brightness, the network, the battery, the input language,
+// the system menu), Apps, the workspaces, or a quick action's button (the
+// assistant, capture, dictation). On the dock, buttons are glass tiles, full
+// or half size; on the system bar, they are plain. A right click on the
+// microphone or the sound mutes it.
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
@@ -22,7 +23,9 @@ Loader {
     required property var bar
 
     readonly property bool tile: bar.dock
-    readonly property int size: bar.size
+    // Half size stands two buttons across the dock (Shell.isHalf).
+    readonly property bool half: bar.dock && Shell.isHalf(modelData)
+    readonly property int size: half ? (bar.size - 4) / 2 : bar.size
 
     // The icons of the sound devices, and the lines drawn over them when muted.
     readonly property string microphone: "M5.6 4.2a2.4 2.4 0 0 1 4.8 0v3.2a2.4 2.4 0 0 1-4.8 0z"
@@ -44,7 +47,7 @@ Loader {
     // The quick actions open from the hot corner instead, if set so; the
     // brightness shows only with a backlight, the battery with one, and the
     // downloads while there are any.
-    active: !(modelData === "quick" && Settings.quickActions === "Hot corner")
+    active: !(["assistant", "capture", "dictation"].includes(modelData) && Settings.quickActions === "Hot corner")
         && !(modelData === "downloads" && !Downloads.busy)
         && !(modelData === "brightness" && !Brightness.available)
         && !(modelData === "battery" && !Battery.available)
@@ -74,7 +77,9 @@ Loader {
         account: accountButton,
         apps: apps,
         workspaces: workspaces,
-        quick: quick,
+        assistant: quick,
+        capture: quick,
+        dictation: quick,
     })[modelData] ?? null
 
     Component {
@@ -406,8 +411,11 @@ Loader {
     Component {
         id: quick
 
-        QuickActions {
+        QuickButton {
             bar: item.bar
+            kind: item.modelData
+            half: item.half
+            size: item.size
         }
     }
 }

@@ -7,11 +7,13 @@ import qs.services
 BarButton {
     id: button
 
-    readonly property real dot: tile ? 9 : 5
+    // Large dots on a full-size dock tile.
+    readonly property bool large: tile && size >= 40
+    readonly property real dot: large ? 9 : 5
 
     Grid {
         columns: 2
-        spacing: button.tile ? 4 : 2.5
+        spacing: button.large ? 4 : 2.5
 
         Repeater {
             model: 4

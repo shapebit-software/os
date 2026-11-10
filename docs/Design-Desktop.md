@@ -30,9 +30,11 @@ the [future design](#future-design) of what is not built yet.
 ### Bars
 
 - Two bars: the **system bar** (the clock and the status items) and the
-  **dock** (Apps, the workspace maps, and the quick actions). Each can sit on
-  any edge, and their items can move between the bars' zones or be hidden
-  (Settings > Shell).
+  **dock** (Apps, the workspace maps, and the quick actions: **Capture**,
+  **Dictation**, and the **Assistant**). Each can sit on any edge and has
+  three zones. In Settings > Shell, items are dragged to a place in any
+  zone, or selected to move one place at a time, to be hidden, or, on the
+  dock, to be full or half size; two half-size buttons share a slot.
 - The system bar's items each open a panel: **Notifications**,
   **Microphone** and **Sound**, **Brightness** (where the computer has a
   backlight), **Network** (Wi-Fi and Bluetooth, joined and paired in place),

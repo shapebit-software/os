@@ -29,9 +29,13 @@ Rectangle {
             Item {
                 id: option
 
-                required property var modelData
-                readonly property string label: Array.isArray(modelData) ? modelData[0] : modelData
-                readonly property var value: Array.isArray(modelData) ? modelData[1] : modelData
+                required property int index
+                // Read from the options themselves: a Repeater's modelData
+                // of an [label, value] pair is no JavaScript array to
+                // Array.isArray, and as a string it is garbled.
+                readonly property var entry: choice.options[index]
+                readonly property string label: Array.isArray(entry) ? entry[0] : entry
+                readonly property var value: Array.isArray(entry) ? entry[1] : entry
                 readonly property bool current: choice.selected === value
 
                 width: text.width + 20

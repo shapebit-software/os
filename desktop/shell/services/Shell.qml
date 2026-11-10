@@ -2,20 +2,22 @@
 // (ShellBar.qml): the system bar, with the clock and the status buttons, and
 // the dock, with Apps, the workspaces, and the quick actions. Each sits on an
 // edge of the screen and has three zones, start, center, and end, holding
-// items in order; Settings keeps where they are, and Settings > Shell
-// changes it (ShellEditor.qml).
+// items in order; on the dock, buttons can be half size, two to a slot.
+// Settings keeps where they are, and Settings > Shell changes it
+// (ShellEditor.qml), through the functions here over bars.js.
 //
 // A button that opens a panel tells where it is on the screen, and the panel
 // opens beside it, off the bar (Popout.qml). One panel is open at a time.
 pragma Singleton
 import QtQuick
 import Quickshell
+import "bars.js" as Bars
 
 Singleton {
     id: shell
 
     readonly property list<string> edges: ["Top", "Bottom", "Left", "Right"]
-    readonly property list<string> zoneNames: ["start", "center", "end"]
+    readonly property list<string> zoneNames: Bars.zoneNames
     // The items, by id, with their names.
     readonly property var items: ({
         clock: "Clock",
@@ -30,7 +32,9 @@ Singleton {
         account: "System menu",
         apps: "Apps",
         workspaces: "Workspaces",
-        quick: "Quick actions",
+        capture: "Capture",
+        dictation: "Dictation",
+        assistant: "Assistant",
     })
 
     // The open panel: "notifications", "microphone", "sound", "brightness",
@@ -69,25 +73,61 @@ Singleton {
             Settings.dock = edge;
     }
 
-    // Moves an item to a bar's zone, before another item there, or last;
-    // with no bar, off the bars, among the hidden items. The system menu,
-    // the way to Settings, always stays on a bar.
-    function move(item: string, bar: string, zone: string, before: string) {
+    // Moves an item to a bar's zone, at an index of that zone's items as
+    // shown, or last for -1; with no bar, off the bars, among the hidden
+    // items. The system menu, the way to Settings, always stays on a bar.
+    function move(item: string, bar: string, zone: string, index: int) {
         if (!bar && !canHide(item))
             return;
-        const zones = JSON.parse(JSON.stringify(Settings.zones));
-        for (const b of ["system", "dock"])
-            for (const z of zoneNames)
-                zones[b][z] = zones[b][z].filter(i => i !== item);
-        const list = bar ? zones[bar][zone] : Settings.hiddenItems.filter(i => i !== item);
-        const at = before ? list.indexOf(before) : -1;
-        list.splice(at < 0 ? list.length : at, 0, item);
-        Settings.hiddenItems = bar ? Settings.hiddenItems.filter(i => i !== item) : list;
-        Settings.zones = zones;
+        save(Bars.move(Settings.zones, Settings.hiddenItems, item, bar, zone, index));
+    }
+
+    // Moves an item one place earlier (-1) or later (1) on its bar, into
+    // the next zone past its zone's edge.
+    function step(item: string, delta: int) {
+        const next = Bars.step(Settings.zones, Settings.hiddenItems, item, delta);
+        if (next)
+            save(next);
+    }
+
+    // Puts a hidden item back where it is by default, last in that zone.
+    function show(item: string) {
+        const home = Bars.home(Settings.defaultZones, item);
+        move(item, home.bar, home.zone, -1);
+    }
+
+    function save(next: var) {
+        Settings.hiddenItems = next.hidden;
+        Settings.zones = next.zones;
+    }
+
+    // Where an item is: { bar, zone, index }, bar "" when hidden.
+    function find(item: string): var {
+        return Bars.find(Settings.zones, Settings.hiddenItems, item);
     }
 
     function canHide(item: string): bool {
         return item !== "account";
+    }
+
+    function canHalve(item: string): bool {
+        return Bars.canHalve(item);
+    }
+
+    // Whether an item is half size: set so, a button, and on the dock.
+    function isHalf(item: string): bool {
+        return Settings.halfItems.includes(item) && Bars.canHalve(item)
+            && find(item)?.bar === "dock";
+    }
+
+    function setHalf(item: string, half: bool) {
+        Settings.halfItems = [...Settings.halfItems.filter(i => i !== item), ...(half ? [item] : [])];
+    }
+
+    // A zone's items in slots across the bar; half-size ones pair up on the
+    // dock.
+    function slots(bar: string, zone: string): var {
+        return Bars.slots(Settings.zones[bar]?.[zone] ?? [], bar === "dock" ? Settings.halfItems : []);
     }
 
     function toggle(name: string, screen: string, anchor: rect, edge: string, depth: real) {

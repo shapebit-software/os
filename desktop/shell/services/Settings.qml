@@ -5,6 +5,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "bars.js" as Bars
 
 Singleton {
     id: settings
@@ -48,8 +49,7 @@ Singleton {
     property alias captureMarkup: adapter.captureMarkup
     // Whether recordings take sound from the microphone.
     property alias captureMicrophone: adapter.captureMicrophone
-    // Whether dictation has its quick action, and its soft sounds.
-    property alias dictationButton: adapter.dictationButton
+    // Whether dictation plays its soft sounds.
     property alias dictationSounds: adapter.dictationSounds
     // Whether an application may share what was picked again without asking.
     property alias shareRemember: adapter.shareRemember
@@ -78,11 +78,14 @@ Singleton {
     property alias zones: adapter.zones
     // The items on neither bar, by id, which only Settings > Shell shows.
     property alias hiddenItems: adapter.hiddenItems
+    // The buttons shown half size on the dock, two to a slot (bars.js).
+    property alias halfItems: adapter.halfItems
     readonly property var defaultZones: ({
         system: { start: ["clock"], center: [], end: ["downloads", "notifications", "microphone", "sound", "brightness", "network", "language", "battery", "account"] },
-        dock: { start: ["apps", "workspaces"], center: [], end: ["quick"] },
+        dock: { start: ["apps", "workspaces"], center: [], end: ["capture", "dictation", "assistant"] },
     })
-    // How the quick actions open: "Buttons" in the corner, or "Hot corner".
+    // How the quick actions (the assistant, capture, and dictation) open:
+    // "Buttons" on the bars, or "Hot corner".
     property alias quickActions: adapter.quickActions
     // When to lock after the computer has been idle: "1 min", "5 min", or
     // "Never"; lockAfter is that in seconds, 0 for never.
@@ -136,30 +139,17 @@ Singleton {
     readonly property string datePattern: ({ "US": "ddd MMM d", "UK": "ddd d MMM", "EU": "ddd d.M." })[regionShown]
     readonly property string longDatePattern: ({ "US": "dddd, MMMM d", "UK": "dddd d MMMM", "EU": "dddd, d. MMMM" })[regionShown]
 
-    // Items that the saved zones lack, such as ones added since, go where they
-    // are by default: before the next item that follows them there. Hidden
-    // ones stay off the bars.
+    // Whether the quick actions had the dictation button, before each
+    // became an item of its own; read only by placeNewItems.
+    property alias oldDictationButton: adapter.dictationButton
+
+    // Brings saved zones up to date (bars.js).
     function placeNewItems() {
-        const next = JSON.parse(JSON.stringify(zones));
-        const placed = new Set(hiddenItems);
-        for (const bar of Object.values(next))
-            for (const ids of Object.values(bar))
-                ids.forEach(id => placed.add(id));
-        let changed = false;
-        for (const [bar, barZones] of Object.entries(defaultZones)) {
-            for (const [zone, ids] of Object.entries(barZones)) {
-                ids.forEach((id, index) => {
-                    if (placed.has(id))
-                        return;
-                    const list = next[bar][zone];
-                    const following = ids.slice(index + 1).find(other => list.includes(other));
-                    list.splice(following ? list.indexOf(following) : list.length, 0, id);
-                    changed = true;
-                });
-            }
-        }
-        if (changed)
-            zones = next;
+        const next = Bars.migrate(zones, hiddenItems, defaultZones, oldDictationButton);
+        if (!next.changed)
+            return;
+        hiddenItems = next.hidden;
+        zones = next.zones;
     }
 
     function apply() {
@@ -219,8 +209,10 @@ Singleton {
             property string systemBar: "Top"
             property string dock: "Bottom"
             property string barBackground: "None"
-            property var zones: settings.defaultZones
+            // Filled from defaultZones by placeNewItems.
+            property var zones: ({})
             property list<string> hiddenItems: []
+            property list<string> halfItems: ["capture", "dictation"]
             property string quickActions: "Buttons"
             property string batteryPercentage: "Shown"
             property bool doNotDisturb: false
@@ -241,6 +233,8 @@ Singleton {
             property string primary: ""
             property bool captureMarkup: false
             property bool captureMicrophone: false
+            // Read only to bring settings saved before the quick actions
+            // were separate items up to date (placeNewItems).
             property bool dictationButton: true
             property bool dictationSounds: false
             property bool shareRemember: false

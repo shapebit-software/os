@@ -22,3 +22,16 @@ def test_no_array_method_that_qt_lacks(method):
         if re.search(rf"\.{method}\(", line)
     ]
     assert not used, f"Qt's JavaScript has no Array.prototype.{method}: {used}"
+
+
+def test_no_array_check_of_model_data():
+    # A Repeater's modelData of a JavaScript array is a list that
+    # Array.isArray does not take for an array; Settings' choices of
+    # [label, value] pairs showed a garbled first letter (SettingsChoice.qml).
+    used = [
+        f"{path.relative_to(SHELL)}:{number}"
+        for path in sorted(SHELL.rglob("*.qml"))
+        for number, line in enumerate(path.read_text().splitlines(), 1)
+        if re.search(r"Array\.isArray\([\w.]*modelData\)", line)
+    ]
+    assert not used, f"Array.isArray is false for a Repeater's modelData: {used}"

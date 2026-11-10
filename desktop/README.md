@@ -48,7 +48,8 @@ actions; both run on the computer, with their larger models as extras
 (`extras/`).
 
 Each bar can sit on any edge, and its items can move between the bars' zones
-or off the bars, hidden, all but the system menu (Settings > Shell). With the pointer, windows move only on the maps: drag a window's cell onto
+or off the bars, hidden, all but the system menu; buttons on the dock can be
+half size, two to a slot (Settings > Shell, over `shell/services/bars.js`). With the pointer, windows move only on the maps: drag a window's cell onto
 another cell or map; double-click it for full screen (Super+F), which covers
 the bars and ends from the button in the top right corner; right-click it to
 close it (Super+Q).
