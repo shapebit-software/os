@@ -127,10 +127,14 @@ test-image: image $(TEST_DEPS)/.done ## Build the image and test its files; noth
 publish: image ## Push the image to the local update registry
 	scripts/publish.sh $(IMAGE_ARCHIVE)
 
+# The payload's build context holds only the image: the engine copies a context
+# whole, and BUILD also holds disks and other builds. A hard link costs no space.
 installer: image ## Build the installer medium, which carries the image
+	mkdir -p $(BUILD)/payload
+	ln -f $(IMAGE_ARCHIVE) $(BUILD)/payload/image.tar 2>/dev/null || cp $(IMAGE_ARCHIVE) $(BUILD)/payload/image.tar
 	scripts/image.sh image/Containerfile.installer $(INSTALLER_IMAGE) $(BUILD)/installer.tar \
 	  --build-arg BASE=$(IMAGE) --build-arg UPDATE_REF=$(UPDATE_REF) \
-	  --build-context installer=$(INSTALLER_SRC) --build-context payload=$(BUILD)
+	  --build-context installer=$(INSTALLER_SRC) --build-context payload=$(BUILD)/payload
 	scripts/medium.sh
 
 sources: image ## Collect the image's copyleft source RPMs into SOURCES_DIR
