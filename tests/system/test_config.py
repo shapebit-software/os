@@ -31,10 +31,22 @@ def test_first_owner_has_a_luks2_home(sh, setting):
 def test_first_owner_home_leaves_room_for_updates(sh, setting):
     # The installer sizes the home and turns rebalancing off, so that systemd-
     # homed never grows it into the space an update needs: a home that the disk
-    # cannot hold whole does not open, and its owner cannot sign in.
+    # cannot hold whole does not open, and its owner cannot sign in. The
+    # settings must apply to this machine: bound to the installer medium's
+    # machine ID, they once left homed free to grow the home over the disk.
     record = json.loads(sh("homectl inspect -j %s", setting("OWNER_NAME")))
+    machine = sh("cat /etc/machine-id").strip()
+
+    def ids(section, key):
+        value = section.get(key, [])
+        return [value] if isinstance(value, str) else value
+
     sections = [record, *record.get("perMachine", [])]
+    for section in sections[1:]:
+        assert "matchMachineId" not in section or machine in ids(section, "matchMachineId"), section
+        assert machine not in ids(section, "matchNotMachineId"), section
     assert any(section.get("rebalanceWeight") in (0, False) for section in sections)
+    assert all(section.get("rebalanceWeight", 0) in (0, False) for section in sections)
     assert any("diskSize" in section for section in sections)
 
 

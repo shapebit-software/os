@@ -8,7 +8,7 @@
 # UPDATE_ARCHIVE's build, which the machine gets as an OCI layout.
 # Usage: openqa.sh (called by `make test-release`).
 set -euo pipefail
-: "${ENGINE:?}" "${MEDIUM:?}" "${RESULTS:?}" "${SSH_KEY:?}" "${OWNER_NAME:?}" "${OPENQA_IMAGE:?}" "${OPENQA_DISTRI:?}" "${DISK_SIZE:?}" "${MEDIUM_SIZE:?}" "${FLOW:?}" "${FEDORA_VERSION:?}"
+: "${ENGINE:?}" "${MEDIUM:?}" "${RESULTS:?}" "${SSH_KEY:?}" "${OWNER_NAME:?}" "${OPENQA_IMAGE:?}" "${OPENQA_DISTRI:?}" "${OPENQA_DISK_SIZE:?}" "${MEDIUM_SIZE:?}" "${FLOW:?}" "${FEDORA_VERSION:?}"
 cd "$(dirname "$0")/.."
 source scripts/results.sh
 
@@ -37,7 +37,7 @@ if [[ $FLOW == update ]]; then
     "$OPENQA_IMAGE" copy -q --preserve-digests oci-archive:/image.tar oci:/candidate
   candidate=(-v "$run/pool/candidate:/candidate:ro,z")
 fi
-python3 tests/openqa/run.py vars "$record" "$SSH_KEY.pub" "$OWNER_NAME" "$MEDIUM_SIZE" "$DISK_SIZE" \
+python3 tests/openqa/run.py vars "$record" "$SSH_KEY.pub" "$OWNER_NAME" "$MEDIUM_SIZE" "$OPENQA_DISK_SIZE" \
   "$FLOW" "$update_digest" "$run/pool/vars.json"
 
 $ENGINE run --rm --device /dev/kvm -w /pool \
