@@ -81,9 +81,8 @@ jobs:
           echo "VERSION=$version" >>"$GITHUB_ENV"
           echo "version=$version" >>"$GITHUB_OUTPUT"
 
-      # The payload; the build starts from the same image. Its sources, outside
-      # build/, the payload's build context, save downloading most of the
-      # installer's.
+      # The payload; the build starts from the same image. Its sources save
+      # downloading most of the installer's.
       - name: Pull the released system and its sources
         run: |
           mkdir -p build
