@@ -1,16 +1,20 @@
-// Settings, over the whole screen it was opened on, as in the demo: sections
+// Settings, over the windows of the screen it was opened on and between its
+// bars, inset like a window so the desktop shows around it: sections
 // in groups on the left with a search across all of them, and the open
 // section's settings on the right (SettingsRow.qml). Some settings lead to a
-// page of their own, such as choosing a picture. Escape or the close button
-// closes it; on a page, Escape goes back.
+// page of their own, such as choosing a picture. Escape, the close button, or
+// a click beside it closes it; on a page, Escape goes back.
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Effects
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Networking
 import Quickshell.Wayland
 import qs.controls
 import qs.services
+import qs.wallpaper
 
 PanelWindow {
     id: window
@@ -271,7 +275,7 @@ PanelWindow {
     }
 
     // A web page or a folder, in its application; Settings closes, as it covers
-    // the screen.
+    // the windows.
     function openLink(url: string) {
         close();
         Qt.openUrlExternally(url);
@@ -285,19 +289,42 @@ PanelWindow {
 
     screen: modelData
     visible: Settings.openOn === (modelData?.name ?? "")
+    // Over everything, even a fullscreen window. The bars show through,
+    // dimmed, and stay in use: only the space between them takes input.
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "settings"
-    // It covers the screen, so taking the keyboard holds back nothing.
+    // It covers the windows, so taking the keyboard holds back nothing.
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     exclusionMode: ExclusionMode.Ignore
     anchors { top: true; bottom: true; left: true; right: true }
-    color: Theme.background
+    color: "transparent"
+    mask: Region { item: workArea }
+
+    // Something else wanted: a panel off the bars, which would open under
+    // Settings, or a new window, such as an app from the dock.
+    Connections {
+        target: Shell
+
+        function onPanelChanged() {
+            if (Shell.panel)
+                window.close();
+        }
+    }
+    Connections {
+        target: Hyprland
+
+        function onRawEvent(event: HyprlandEvent) {
+            if (event.name === "openwindow")
+                window.close();
+        }
+    }
 
     onVisibleChanged: {
         search.text = "";
         page = "";
         displayName = "";
         if (visible) {
+            opening.restart();
             // From the Apps panel: an app's details.
             if (Settings.appToShow) {
                 Apps.open();
@@ -374,316 +401,414 @@ PanelWindow {
         onActivated: window.page ? window.page = "" : window.close()
     }
 
-    // The sections.
-    Rectangle {
-        id: sidebar
+    // How far the bars on an edge of this screen reach into it.
+    function reserved(edge: string): real {
+        return Shell.bars.filter(b => b.modelData === window.modelData && b.edge === edge)
+            .reduce((sum, b) => sum + b.depth, 0);
+    }
 
-        width: 228
-        height: parent.height
-        color: Theme.surfaceSunken
+    // The space between the bars, where windows are. Settings shows the
+    // wallpaper there rather than the windows: the empty desktop, which the
+    // bars stand on too.
+    Item {
+        id: workArea
 
-        Rectangle {
-            anchors.right: parent.right
-            width: 1
-            height: parent.height
-            color: Theme.line
-        }
+        x: window.reserved("Left")
+        y: window.reserved("Top")
+        width: window.width - x - window.reserved("Right")
+        height: window.height - y - window.reserved("Bottom")
+        clip: true
 
-        Column {
-            x: 10
-            y: 18
-            width: parent.width - 20
-            spacing: 14
-
-            Text {
-                leftPadding: 8
-                text: "Settings"
-                color: Theme.textStrong
-                font { family: Theme.font; pixelSize: 15; weight: Font.DemiBold }
-            }
-
-            Rectangle {
-                x: 2
-                width: parent.width - 4
-                height: 30
-                color: Theme.surface
-                border.color: Theme.lineStrong
-
-                Icon {
-                    x: 10
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: 12
-                    color: Theme.textMuted
-                    strokeWidth: 1.5
-                    strokes: "M2.4 7a4.6 4.6 0 1 0 9.2 0a4.6 4.6 0 1 0-9.2 0zM10.4 10.4L14 14"
-                }
-                TextInput {
-                    id: search
-
-                    anchors { left: parent.left; right: parent.right; leftMargin: 30; rightMargin: 10 }
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: Theme.textStrong
-                    selectionColor: Theme.accent
-                    font { family: Theme.font; pixelSize: 12 }
-                    clip: true
-                    onTextChanged: {
-                        if (text)
-                            window.page = "";
-                    }
-
-                    Text {
-                        visible: !search.text
-                        text: "Find a setting"
-                        color: Theme.textMuted
-                        font: search.font
-                    }
-                }
-            }
-
-            Repeater {
-                model: window.groups
-
-                Column {
-                    id: group
-
-                    required property var modelData
-                    required property int index
-
-                    width: parent.width
-                    topPadding: index > 0 ? 14 : 0
-                    spacing: 2
-
-                    Rectangle {
-                        visible: group.index > 0
-                        y: 0
-                        width: parent.width
-                        height: 1
-                        color: Theme.line
-                    }
-
-                    Repeater {
-                        model: group.modelData
-
-                        Rectangle {
-                            id: entry
-
-                            required property string modelData
-                            readonly property var section: window.sections.find(s => s.id === modelData)
-                            readonly property bool current: !window.query && Settings.section === modelData
-
-                            width: group.width
-                            height: 36
-                            color: current ? Theme.surface : entryHover.hovered ? Theme.hoverStrong : "transparent"
-
-                            Icon {
-                                x: 10
-                                anchors.verticalCenter: parent.verticalCenter
-                                height: 15
-                                color: entry.current ? Theme.textStrong : Theme.textBody
-                                strokes: entry.section.icon
-                            }
-                            Text {
-                                x: 35
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: entry.section.name
-                                color: entry.current ? Theme.textStrong : Theme.textBody
-                                font { family: Theme.font; pixelSize: 13; weight: entry.current ? Font.DemiBold : Font.Normal }
-                            }
-
-                            TapHandler {
-                                onTapped: window.show(entry.modelData)
-                            }
-                            HoverHandler {
-                                id: entryHover
-                                cursorShape: Qt.PointingHandCursor
-                            }
-                        }
-                    }
-                }
-            }
+        Backdrop {
+            x: -workArea.x
+            y: -workArea.y
+            width: window.width
+            height: window.height
         }
     }
 
-    // The open section, or page.
-    Item {
-        anchors { left: sidebar.right; right: parent.right; top: parent.top; bottom: parent.bottom }
+    // Everything but Settings, the bars too, slightly dimmed.
+    Rectangle {
+        anchors.fill: parent
+        color: Theme.scrim(0.2)
+    }
 
-        Rectangle {
-            anchors.right: parent.right
-            anchors.rightMargin: 14
-            y: 14
-            width: 30
-            height: 30
-            color: closeHover.hovered ? Theme.hover : "transparent"
+    // A click beside the card closes Settings, as outside a panel.
+    MouseArea {
+        anchors.fill: workArea
+        onClicked: window.close()
+    }
 
-            Icon {
-                anchors.centerIn: parent
-                height: 10
-                gridWidth: 8
-                gridHeight: 8
-                strokeWidth: 1.3
-                color: Theme.textBody
-                strokes: "M1 1l6 6M7 1l-6 6"
-            }
+    RectangularShadow {
+        anchors.fill: card
+        radius: card.radius
+        offset.y: 6
+        blur: 24
+        color: Theme.shadow(0.16)
+    }
 
-            TapHandler {
-                onTapped: window.close()
-            }
-            HoverHandler {
-                id: closeHover
-                cursorShape: Qt.PointingHandCursor
-            }
+    // Settings itself, inset so the desktop shows around it, at least as far
+    // as windows are apart and far enough not to look like one of them; in
+    // the corners of the windows.
+    Rectangle {
+        id: card
+
+        anchors.fill: workArea
+        anchors.margins: Math.max(Theme.gap, 16)
+        radius: Theme.rounded ? 9 : 0
+        color: Theme.background
+        border.color: Theme.line
+        transformOrigin: Item.Center
+
+        // It grows out of the desktop when it opens.
+        ParallelAnimation {
+            id: opening
+
+            NumberAnimation { target: card; property: "opacity"; from: 0; to: 1; duration: 150; easing.type: Easing.OutCubic }
+            NumberAnimation { target: card; property: "scale"; from: 0.98; to: 1; duration: 150; easing.type: Easing.OutCubic }
         }
 
-        Flickable {
-            x: 36
-            y: 62
-            // The store of apps has room for more.
-            width: Math.min(window.section.id === "apps" && !window.query ? 980 : 620, parent.width - 72)
-            height: parent.height - y
-            contentHeight: content.height + 36
-            clip: true
+        // Clicks on the card stay on it.
+        MouseArea {
+            anchors.fill: parent
+        }
+
+        // The sections.
+        Rectangle {
+            id: sidebar
+
+            x: 1
+            y: 1
+            width: 228
+            height: parent.height - 2
+            topLeftRadius: Math.max(card.radius - 1, 0)
+            bottomLeftRadius: topLeftRadius
+            color: Theme.surfaceSunken
+
+            Rectangle {
+                anchors.right: parent.right
+                width: 1
+                height: parent.height
+                color: Theme.line
+            }
 
             Column {
-                id: content
+                id: heading
 
-                width: parent.width
-                spacing: 16
+                x: 10
+                y: 18
+                width: parent.width - 20
+                spacing: 14
 
-                // A page: the way back, and its title.
-                Row {
-                    visible: window.page !== ""
-                    spacing: 10
-
-                    Rectangle {
-                        width: 26
-                        height: 26
-                        anchors.verticalCenter: parent.verticalCenter
-                        color: backHover.hovered ? Theme.hover : "transparent"
-
-                        Icon {
-                            anchors.centerIn: parent
-                            height: 10
-                            gridWidth: 10
-                            gridHeight: 10
-                            strokeWidth: 1.4
-                            color: Theme.textBody
-                            strokes: "M6.5 2l-3 3 3 3"
-                        }
-                        TapHandler {
-                            onTapped: window.page = ""
-                        }
-                        HoverHandler {
-                            id: backHover
-                            cursorShape: Qt.PointingHandCursor
-                        }
-                    }
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: window.pages[window.page]?.[0] ?? ""
-                        color: Theme.textStrong
-                        font { family: Theme.font; pixelSize: 15; weight: Font.DemiBold }
-                    }
-                }
-
-                ImagePicker {
-                    visible: window.page === "picture" || window.page === "wallpaper"
-                    width: parent.width
-                    onPicked: path => {
-                        if (window.page === "picture") {
-                            Account.setPicture(path);
-                        } else {
-                            Settings.wallpaperImage = path;
-                            Settings.wallpaper = "Image";
-                        }
-                        window.page = "";
-                    }
-                }
-
-                KeyboardsPage {
-                    visible: window.page === "keyboards"
-                    width: parent.width
-                }
-
-                PasswordPage {
-                    visible: window.page === "password"
-                    width: parent.width
-                }
-
-                ConnectionsPage {
-                    visible: window.page === "wifi" || window.page === "bluetooth"
-                    kind: window.page
-                    width: parent.width
-                }
-
-                AppsPage {
-                    id: store
-
-                    visible: window.page === "" && !window.query && window.section.id === "apps"
-                    width: parent.width
-                    onOpened: app => {
-                        Apps.show(app);
-                        window.page = "app";
-                    }
-                }
-
-                AppPage {
-                    visible: window.page === "app"
-                    width: parent.width
-                }
-
-                DownloadsPage {
-                    visible: window.page === "" && !window.query && window.section.id === "downloads"
-                    width: parent.width
+                Text {
+                    leftPadding: 8
+                    text: "Settings"
+                    color: Theme.textStrong
+                    font { family: Theme.font; pixelSize: 15; weight: Font.DemiBold }
                 }
 
                 Rectangle {
-                    visible: window.page === "" && window.rows.length > 0
-                    width: parent.width
-                    height: list.height + 2
+                    x: 2
+                    width: parent.width - 4
+                    height: 30
                     color: Theme.surface
-                    border.color: Theme.line
+                    border.color: Theme.lineStrong
 
-                    Column {
-                        id: list
+                    Icon {
+                        x: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 12
+                        color: Theme.textMuted
+                        strokeWidth: 1.5
+                        strokes: "M2.4 7a4.6 4.6 0 1 0 9.2 0a4.6 4.6 0 1 0-9.2 0zM10.4 10.4L14 14"
+                    }
+                    TextInput {
+                        id: search
 
-                        x: 1
-                        y: 1
-                        width: parent.width - 2
+                        anchors { left: parent.left; right: parent.right; leftMargin: 30; rightMargin: 10 }
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: Theme.textStrong
+                        selectionColor: Theme.accent
+                        font { family: Theme.font; pixelSize: 12 }
+                        clip: true
+                        onTextChanged: {
+                            if (text)
+                                window.page = "";
+                        }
 
-                        // Rows are made again only when their number changes;
-                        // their values change often, such as the volume.
-                        Repeater {
-                            model: window.rows.length
+                        Text {
+                            visible: !search.text
+                            text: "Find a setting"
+                            color: Theme.textMuted
+                            font: search.font
+                        }
+                    }
+                }
 
-                            Column {
-                                id: row
+            }
 
-                                required property int index
+            // The groups, which scroll when the screen is too short for them.
+            Flickable {
+                x: 10
+                y: heading.y + heading.height + 14
+                width: parent.width - 20
+                height: parent.height - y
+                contentHeight: groupList.height + 18
+                boundsBehavior: Flickable.StopAtBounds
+                clip: true
 
-                                width: list.width
+                Column {
+                    id: groupList
+
+                    width: parent.width
+                    spacing: 14
+
+                    Repeater {
+                        model: window.groups
+
+                        Column {
+                            id: group
+
+                            required property var modelData
+                            required property int index
+
+                            width: parent.width
+                            topPadding: index > 0 ? 14 : 0
+                            spacing: 2
+
+                            Rectangle {
+                                visible: group.index > 0
+                                y: 0
+                                width: parent.width
+                                height: 1
+                                color: Theme.line
+                            }
+
+                            Repeater {
+                                model: group.modelData
 
                                 Rectangle {
-                                    visible: row.index > 0
-                                    width: parent.width
-                                    height: 1
-                                    color: Theme.lineSoft
-                                }
-                                SettingsRow {
-                                    width: parent.width
-                                    height: implicitHeight
-                                    modelData: window.rows[row.index] ?? {}
+                                    id: entry
+
+                                    required property string modelData
+                                    readonly property var section: window.sections.find(s => s.id === modelData)
+                                    readonly property bool current: !window.query && Settings.section === modelData
+
+                                    width: group.width
+                                    height: 36
+                                    color: current ? Theme.surface : entryHover.hovered ? Theme.hoverStrong : "transparent"
+
+                                    Icon {
+                                        x: 10
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        height: 15
+                                        color: entry.current ? Theme.textStrong : Theme.textBody
+                                        strokes: entry.section.icon
+                                    }
+                                    Text {
+                                        x: 35
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: entry.section.name
+                                        color: entry.current ? Theme.textStrong : Theme.textBody
+                                        font { family: Theme.font; pixelSize: 13; weight: entry.current ? Font.DemiBold : Font.Normal }
+                                    }
+
+                                    TapHandler {
+                                        onTapped: window.show(entry.modelData)
+                                    }
+                                    HoverHandler {
+                                        id: entryHover
+                                        cursorShape: Qt.PointingHandCursor
+                                    }
                                 }
                             }
                         }
                     }
                 }
+            }
+        }
 
-                Text {
-                    visible: window.page === "" && window.query !== "" && window.rows.length === 0
-                    text: `No settings match “${search.text.trim()}”`
-                    color: Theme.textMuted
-                    font { family: Theme.font; pixelSize: 13 }
+        // The open section, or page.
+        Item {
+            anchors { left: sidebar.right; right: parent.right; top: parent.top; bottom: parent.bottom }
+
+            Rectangle {
+                anchors.right: parent.right
+                anchors.rightMargin: 14
+                y: 14
+                width: 30
+                height: 30
+                color: closeHover.hovered ? Theme.hover : "transparent"
+
+                Icon {
+                    anchors.centerIn: parent
+                    height: 10
+                    gridWidth: 8
+                    gridHeight: 8
+                    strokeWidth: 1.3
+                    color: Theme.textBody
+                    strokes: "M1 1l6 6M7 1l-6 6"
+                }
+
+                TapHandler {
+                    onTapped: window.close()
+                }
+                HoverHandler {
+                    id: closeHover
+                    cursorShape: Qt.PointingHandCursor
+                }
+            }
+
+            Flickable {
+                x: 36
+                y: 62
+                // The store of apps has room for more.
+                width: Math.min(window.section.id === "apps" && !window.query ? 980 : 620, parent.width - 72)
+                height: parent.height - y
+                contentHeight: content.height + 36
+                clip: true
+
+                Column {
+                    id: content
+
+                    width: parent.width
+                    spacing: 16
+
+                    // A page: the way back, and its title.
+                    Row {
+                        visible: window.page !== ""
+                        spacing: 10
+
+                        Rectangle {
+                            width: 26
+                            height: 26
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: backHover.hovered ? Theme.hover : "transparent"
+
+                            Icon {
+                                anchors.centerIn: parent
+                                height: 10
+                                gridWidth: 10
+                                gridHeight: 10
+                                strokeWidth: 1.4
+                                color: Theme.textBody
+                                strokes: "M6.5 2l-3 3 3 3"
+                            }
+                            TapHandler {
+                                onTapped: window.page = ""
+                            }
+                            HoverHandler {
+                                id: backHover
+                                cursorShape: Qt.PointingHandCursor
+                            }
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: window.pages[window.page]?.[0] ?? ""
+                            color: Theme.textStrong
+                            font { family: Theme.font; pixelSize: 15; weight: Font.DemiBold }
+                        }
+                    }
+
+                    ImagePicker {
+                        visible: window.page === "picture" || window.page === "wallpaper"
+                        width: parent.width
+                        onPicked: path => {
+                            if (window.page === "picture") {
+                                Account.setPicture(path);
+                            } else {
+                                Settings.wallpaperImage = path;
+                                Settings.wallpaper = "Image";
+                            }
+                            window.page = "";
+                        }
+                    }
+
+                    KeyboardsPage {
+                        visible: window.page === "keyboards"
+                        width: parent.width
+                    }
+
+                    PasswordPage {
+                        visible: window.page === "password"
+                        width: parent.width
+                    }
+
+                    ConnectionsPage {
+                        visible: window.page === "wifi" || window.page === "bluetooth"
+                        kind: window.page
+                        width: parent.width
+                    }
+
+                    AppsPage {
+                        id: store
+
+                        visible: window.page === "" && !window.query && window.section.id === "apps"
+                        width: parent.width
+                        onOpened: app => {
+                            Apps.show(app);
+                            window.page = "app";
+                        }
+                    }
+
+                    AppPage {
+                        visible: window.page === "app"
+                        width: parent.width
+                    }
+
+                    DownloadsPage {
+                        visible: window.page === "" && !window.query && window.section.id === "downloads"
+                        width: parent.width
+                    }
+
+                    Rectangle {
+                        visible: window.page === "" && window.rows.length > 0
+                        width: parent.width
+                        height: list.height + 2
+                        color: Theme.surface
+                        border.color: Theme.line
+
+                        Column {
+                            id: list
+
+                            x: 1
+                            y: 1
+                            width: parent.width - 2
+
+                            // Rows are made again only when their number changes;
+                            // their values change often, such as the volume.
+                            Repeater {
+                                model: window.rows.length
+
+                                Column {
+                                    id: row
+
+                                    required property int index
+
+                                    width: list.width
+
+                                    Rectangle {
+                                        visible: row.index > 0
+                                        width: parent.width
+                                        height: 1
+                                        color: Theme.lineSoft
+                                    }
+                                    SettingsRow {
+                                        width: parent.width
+                                        height: implicitHeight
+                                        modelData: window.rows[row.index] ?? {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        visible: window.page === "" && window.query !== "" && window.rows.length === 0
+                        text: `No settings match “${search.text.trim()}”`
+                        color: Theme.textMuted
+                        font { family: Theme.font; pixelSize: 13 }
+                    }
                 }
             }
         }
