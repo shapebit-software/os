@@ -1,5 +1,5 @@
 // A page of Settings for one app (Apps.shown): what it is, what it may reach,
-// and installing or removing it. Removing asks first, and keeps the app's data
+// what its notifications do, and installing or removing it. Removing asks first, and keeps the app's data
 // unless told otherwise. Its screenshots come from Flathub when this opens.
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -273,6 +273,38 @@ Column {
                     }
                 }
             }
+        }
+    }
+
+    // What its notifications do, as in Settings > Notifications.
+    Rectangle {
+        visible: page.mine !== null || page.app.builtIn === true
+        width: page.width
+        height: 58
+        color: Theme.surface
+        border.color: Theme.line
+
+        Column {
+            x: 17
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 3
+
+            Text {
+                text: "Notifications"
+                color: Theme.textStrong
+                font { family: Theme.font; pixelSize: 13; weight: Font.Medium }
+            }
+            Text {
+                text: "Banners, only the notifications' panel, or none"
+                color: Theme.textMuted
+                font { family: Theme.font; pixelSize: 11 }
+            }
+        }
+        SettingsChoice {
+            anchors { right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }
+            options: Notifications.modes
+            selected: Notifications.modeOf(page.app.id ?? "")
+            onPicked: mode => Notifications.setMode(page.app.id, mode, page.app.name ?? "")
         }
     }
 

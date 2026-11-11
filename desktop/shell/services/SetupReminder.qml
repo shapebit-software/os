@@ -30,7 +30,7 @@ Singleton {
                     return;
                 Settings.setupPending = false;
                 Notifications.post("Welcome", "system-software-install", "Finish setting up",
-                    "Now that you're online, choose a browser and apps.", () => Settings.welcome());
+                    "Now that you're online, choose a browser and apps.", "welcome", false);
             }
         }
     }

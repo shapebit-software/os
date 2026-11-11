@@ -33,8 +33,7 @@ Item {
 
     // The items' pictures: icons on the demo's grid, or text.
     readonly property var icons: ({
-        downloads: "M8 2v8.4M4.6 7l3.4 3.4L11.4 7M2.6 13.4h10.8",
-        notifications: "M4 11.2V7.4a4 4 0 0 1 8 0v3.8l1.2 1.4H2.8zM6.6 13.6a1.5 1.5 0 0 0 2.8 0",
+        notifications: "M4 10V6.2a4 4 0 0 1 8 0V10l1.2 1.4H2.8zM6.6 12.4a1.5 1.5 0 0 0 2.8 0",
         microphone: "M5.6 4.2a2.4 2.4 0 0 1 4.8 0v3.2a2.4 2.4 0 0 1-4.8 0zM3.4 7.6a4.6 4.6 0 0 0 9.2 0M8 12.2v2",
         sound: "M10.8 5.9a3 3 0 0 1 0 4.2M12.7 4.2a5.6 5.6 0 0 1 0 7.6M3 6.2h2.2L8.6 3.4v9.2L5.2 9.8H3z",
         brightness: Brightness.icon,

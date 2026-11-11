@@ -1,5 +1,5 @@
 // The bars' layout as data (desktop/shell/services/bars.js), run by
-// test_shell_bars.py with qmltestrunner.
+// test_shell_logic.py with qmltestrunner.
 import QtQuick
 import QtTest
 import "../../../desktop/shell/services/bars.js" as Bars
@@ -111,6 +111,16 @@ TestCase {
         compare(migrated.zones.system.end, ["sound", "network", "account"]);
         compare(migrated.zones.dock.start, ["workspaces"]);
         compare(migrated.hidden, ["apps"]);
+    }
+
+    function test_items_that_are_no_more_go() {
+        // The downloads were an item until the notifications' panel showed them.
+        const saved = { system: { start: ["clock"], center: [], end: ["downloads", "sound", "network", "account"] },
+            dock: { start: ["apps", "workspaces"], center: [], end: ["capture", "dictation", "assistant"] } };
+        const migrated = Bars.migrate(saved, ["downloads"], layout(), true);
+        verify(migrated.changed);
+        compare(migrated.zones, layout());
+        compare(migrated.hidden, []);
     }
 
     function test_first_start_takes_the_default_zones() {

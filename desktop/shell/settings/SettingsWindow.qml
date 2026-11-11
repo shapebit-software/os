@@ -136,6 +136,26 @@ PanelWindow {
               options: ["Shown", "Hidden"], selected: Settings.batteryPercentage,
               select: o => Settings.batteryPercentage = o }] : []),
         ] },
+        // Do Not Disturb, and how long it stays on, and each application that has sent a notification (Notifications.qml).
+        { id: "notifications", name: "Notifications", icon: "M4 10V6.2a4 4 0 0 1 8 0V10l1.2 1.4H2.8zM6.6 12.4a1.5 1.5 0 0 0 2.8 0", rows: [
+            { label: "Do Not Disturb", kind: "toggle", on: Settings.doNotDisturb,
+              detail: !Settings.doNotDisturb ? "Holds banners back, except critical ones; they stay in the notifications"
+                  : Settings.doNotDisturbUntil > 0 ? `On until ${Qt.formatTime(new Date(Settings.doNotDisturbUntil), Settings.timePattern)}`
+                  : "On until turned off",
+              toggle: () => Notifications.setQuiet(Settings.doNotDisturb ? "" : "Until turned off") },
+            ...(Settings.doNotDisturb ? [{ label: "Stays on", detail: "Do Not Disturb turns off by itself after the time chosen",
+              kind: "choice", options: Notifications.quietChoices,
+              selected: Settings.doNotDisturbUntil > 0 ? "" : "Until turned off",
+              select: c => Notifications.setQuiet(c) }] : []),
+            { label: "Bell", detail: "On its bar always, or only while there are notifications or downloads, or Do Not Disturb is on",
+              kind: "choice", options: ["Always", "With notifications"], selected: Settings.bell,
+              select: o => Settings.bell = o },
+            ...(Notifications.apps.length ? Notifications.apps.map(a => ({ label: a.name, kind: "choice",
+              detail: a.mode === "Off" ? "Its notifications are dropped"
+                  : a.mode === "Center only" ? "No banners; kept in the notifications" : "Banners, and kept in the notifications",
+              options: Notifications.modes, selected: a.mode, select: m => Notifications.setMode(a.key, m, a.name) }))
+              : [{ label: "Apps", detail: "Each app shows here once it has sent a notification", kind: "info" }]),
+        ] },
         { id: "windows", name: "Windows", icon: "M1.8 2.8h7v10.4h-7zM10.4 2.8h3.8v4.4h-3.8zM10.4 8.8h3.8v4.4h-3.8z", rows: [
             { label: "Corners", detail: "Shape of tiled windows", kind: "choice",
               options: ["Straight", "Rounded"], selected: Settings.windowCorners,
@@ -249,7 +269,7 @@ PanelWindow {
     // The sections in the sidebar's groups.
     readonly property var groups: [
         ["account", "assistant", "language", "time"],
-        ["desktop", "shell", "windows"],
+        ["desktop", "shell", "notifications", "windows"],
         ["display", "pointing", "network", "sound"],
         ["apps", "downloads", "updates", "licenses"],
     ]

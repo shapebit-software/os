@@ -21,7 +21,6 @@ Singleton {
     // The items, by id, with their names.
     readonly property var items: ({
         clock: "Clock",
-        downloads: "Downloads",
         notifications: "Notifications",
         microphone: "Microphone",
         sound: "Sound",

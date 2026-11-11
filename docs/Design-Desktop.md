@@ -35,8 +35,8 @@ the [future design](#future-design) of what is not built yet.
   three zones. In Settings > Shell, items are dragged to a place in any
   zone, or selected to move one place at a time, to be hidden, or, on the
   dock, to be full or half size; two half-size buttons share a slot.
-- The system bar's items each open a panel: **Notifications**,
-  **Microphone** and **Sound**, **Brightness** (where the computer has a
+- The system bar's items each open a panel: **Notifications**, which also
+  shows what is downloading, **Microphone** and **Sound**, **Brightness** (where the computer has a
   backlight), **Network** (Wi-Fi and Bluetooth, joined and paired in place),
   **Input language**, **Battery** with the power profile (where there is a
   battery), and the **System menu** (Settings, Lock, Suspend, Restart, Shut
@@ -44,10 +44,39 @@ the [future design](#future-design) of what is not built yet.
 
 ### Notifications
 
-New notifications show as banners on the focused screen and stay in the
-Notifications panel until dismissed. Critical ones stay until dismissed. **Do
-Not Disturb** holds back all banners but critical ones, and keeps the
-notifications all the same.
+The **Notifications** panel, opened from the bell or with Super+N, is the
+notification center: messages and downloads wait there. The bell is next to
+the clock by default, and shows only while there is a notification or a
+download, or Do Not Disturb is on; Settings > Notifications can show it
+always.
+
+- **Banners:** a new notification shows as a banner on the focused screen,
+  nearest the bell, so in the corner by the clock by default, for a few
+  seconds, or longer under the pointer.
+  Low-urgency ones show no banner; critical ones stay until dismissed. At most
+  three banners show, and the rest are counted in "+N more", which opens the
+  panel. A banner and its card show up to three of the notification's actions
+  as buttons; a click elsewhere on it opens what it is about.
+- **History:** notifications stay in the panel until dismissed, grouped by
+  app, the group with the newest first. A group shows its newest notification
+  and unfolds the rest; a group can be cleared, and all at once. Where the app
+  takes a reply, the card has a field for it. History survives a reload of the
+  shell, not the end of the session, and is never written to disk.
+- **Downloads:** while anything downloads or installs, the bell has a badge
+  with an arrow down, and the panel shows each job first, with its progress; a click
+  opens [Settings > Downloads](#downloads). One that fails says so in a
+  notification.
+- **Do Not Disturb** holds back all banners but critical ones, and keeps the
+  notifications all the same. A right click on the bell turns it on and off,
+  as does Settings > Notifications, which also chooses how long it stays on:
+  for 1 hour, until tomorrow (7:00), or until turned off. Banners are held back in
+  the same way while the screen is shared. When either ends, one banner says
+  how many came meanwhile.
+- **Per app:** Settings > Notifications lists each app that has sent a
+  notification, with a choice: **Banners**, **Center only**, or **Off**, which
+  drops its notifications. The app's page in Settings > Apps has the same
+  choice.
+- **Lock screen:** shows only how many notifications wait.
 
 ### Workspaces and Windows
 
@@ -134,7 +163,8 @@ Everything the desktop downloads and installs goes through one queue: the
 browser and apps from Welcome, installs and removals in Settings > Apps,
 extras, and the daily app updates. One job runs at a time, outside the shell,
 so it goes on if the shell restarts, and what a logout stopped starts again at
-the next sign-in. **Settings > Downloads** shows the queue, where each job can
+the next sign-in. The [Notifications](#notifications) panel shows what is
+under way. **Settings > Downloads** shows the queue, where each job can
 be cancelled or tried again; a download goes on where it stopped.
 
 ### Licenses

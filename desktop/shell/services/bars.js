@@ -91,8 +91,9 @@ function slots(ids, half) {
 }
 
 // Brings saved settings up to date: the old "quick" item becomes its three
-// buttons in its place, without the dictation button if that was off; then
-// zones the saved ones lack, such as all of them before the first save, are
+// buttons in its place, without the dictation button if that was off; items
+// that are no more, such as the downloads, now in the notifications' panel,
+// go; then zones the saved ones lack, such as all of them before the first save, are
 // made, and items they lack, such as ones added since, go where they are by
 // default, before the next item that follows them there. Returns { zones,
 // hidden, changed }.
@@ -113,6 +114,18 @@ function migrate(zones, hidden, defaults, dictationShown) {
         if (!dictationShown && rest.indexOf("dictation") < 0)
             rest.push("dictation");
         changed = true;
+    });
+
+    var known = {};
+    for (var kb in defaults)
+        for (var kz in defaults[kb])
+            defaults[kb][kz].forEach(function (id) { known[id] = true; });
+    lists.forEach(function (list) {
+        for (var i = list.length - 1; i >= 0; i--)
+            if (!known[list[i]]) {
+                list.splice(i, 1);
+                changed = true;
+            }
     });
 
     var placed = {};

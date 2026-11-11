@@ -1,13 +1,14 @@
 // One item of a bar (ShellBar.qml), by its id in Settings.zones: the clock,
-// the downloads, only while there are any, which opens Settings > Downloads,
 // a status button that opens its panel (the notifications, the microphone,
 // the sound, the brightness, the network, the battery, the input language,
 // the system menu), Apps, the workspaces, or a quick action's button (the
 // assistant, capture, dictation). On the dock, buttons are glass tiles, full
 // or half size; on the system bar, they are plain. A right click on the
-// microphone or the sound mutes it.
+// microphone or the sound mutes it, and on the bell turns Do Not Disturb on
+// and off.
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Layouts
 import QtQuick.Shapes
 import Quickshell
 import qs.controls
@@ -35,6 +36,17 @@ Loader {
     readonly property string speakerBody: "M3 6.2h2.2L8.6 3.4v9.2L5.2 9.8H3z"
     readonly property string speakerMuted: "M10.6 6l4 4M14.6 6l-4 4"
 
+    // A button right after the clock on the system bar stands a little
+    // apart from it, so it does not read as part of the date and time.
+    readonly property real apart: {
+        if (bar.dock || modelData === "clock")
+            return 0;
+        const place = Shell.find(modelData);
+        return place?.bar && place.index > 0 && Settings.zones[place.bar][place.zone][place.index - 1] === "clock" ? 8 : 0;
+    }
+    Layout.leftMargin: bar.vertical ? 0 : apart
+    Layout.topMargin: bar.vertical ? apart : 0
+
     function isOpen(panel: string): bool {
         return Shell.isOpen(panel, bar.modelData?.name ?? "");
     }
@@ -46,9 +58,9 @@ Loader {
 
     // The quick actions open from the hot corner instead, if set so; the
     // brightness shows only with a backlight, the battery with one, and the
-    // downloads while there are any.
+    // bell while there is anything for it to show.
     active: !(["assistant", "capture", "dictation"].includes(modelData) && Settings.quickActions === "Hot corner")
-        && !(modelData === "downloads" && !Downloads.busy)
+        && !(modelData === "notifications" && !Notifications.present)
         && !(modelData === "brightness" && !Brightness.available)
         && !(modelData === "battery" && !Battery.available)
     visible: active
@@ -66,7 +78,6 @@ Loader {
 
     sourceComponent: ({
         clock: clock,
-        downloads: downloadsButton,
         notifications: notificationsButton,
         microphone: microphoneButton,
         sound: soundButton,
@@ -114,33 +125,27 @@ Loader {
                     opacity: 0.72
                     font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
                 }
-                // On the day's baseline, so both sit on one line.
+                // On the day's baseline, so both sit on one line; as wide as
+                // its widest digits, so what follows the clock holds still
+                // as the time changes.
                 Text {
+                    id: now
+                    width: item.bar.vertical ? implicitWidth : Math.ceil(widest.width)
                     y: day.visible ? day.y + day.baselineOffset - baselineOffset : (parent.height - height) / 2
-                    horizontalAlignment: Text.AlignHCenter
+                    horizontalAlignment: item.bar.vertical ? Text.AlignHCenter : Text.AlignLeft
                     text: item.bar.vertical
                         ? Qt.formatTime(time.date, Settings.timePattern).replace(/[: ]/, "\n")
                         : Qt.formatTime(time.date, Settings.timePattern)
                     color: Theme.text
                     lineHeight: 0.95
                     font { family: Theme.font; pixelSize: 12; weight: Font.DemiBold }
+
+                    TextMetrics {
+                        id: widest
+                        font: now.font
+                        text: now.text.replace(/\d/g, "0")
+                    }
                 }
-            }
-        }
-    }
-
-    Component {
-        id: downloadsButton
-
-        BarButton {
-            tile: item.tile
-            size: item.size
-            onClicked: Settings.open(item.bar.modelData?.name ?? "", "downloads")
-
-            // An arrow down into a tray, in the accent while it works.
-            Icon {
-                color: Theme.accent
-                strokes: "M8 2v8.4M4.6 7l3.4 3.4L11.4 7M2.6 13.4h10.8"
             }
         }
     }
@@ -154,11 +159,14 @@ Loader {
             size: item.size
             open: item.isOpen("notifications")
             onClicked: item.bar.open("notifications", button)
+            onRightClicked: Notifications.setQuiet(Settings.doNotDisturb ? "" : "Until turned off")
 
-            // A bell; struck through with Do Not Disturb, with a dot while
-            // there are new ones.
+            // A bell, which a right click turns Do Not Disturb on and off
+            // with; struck through with Do Not Disturb, with a dot while
+            // there are new ones, and a badge with an arrow down while
+            // anything downloads or installs, which its panel shows.
             Icon {
-                strokes: "M4 11.2V7.4a4 4 0 0 1 8 0v3.8l1.2 1.4H2.8zM6.6 13.6a1.5 1.5 0 0 0 2.8 0"
+                strokes: "M4 10V6.2a4 4 0 0 1 8 0V10l1.2 1.4H2.8zM6.6 12.4a1.5 1.5 0 0 0 2.8 0"
 
                 Icon {
                     anchors.fill: parent
@@ -174,6 +182,23 @@ Loader {
                     height: 6
                     radius: 3
                     color: Theme.accent
+                }
+                Rectangle {
+                    x: parent.width - 7
+                    y: parent.height - 8
+                    visible: Downloads.busy
+                    width: 10
+                    height: 10
+                    radius: 5
+                    color: Theme.accent
+
+                    Icon {
+                        anchors.centerIn: parent
+                        height: 8
+                        color: Theme.textOnAccent
+                        strokeWidth: 2
+                        strokes: "M8 3v9M4.4 8.6L8 12.2l3.6-3.6"
+                    }
                 }
             }
         }

@@ -159,6 +159,14 @@ Item {
             color: Theme.dark.textStrong
             font { family: Theme.font; pixelSize: 13 * surface.unit; weight: Font.DemiBold }
         }
+        // How many notifications wait, never what they say.
+        Text {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: Notifications.all.length > 0
+            text: Notifications.all.length === 1 ? "· 1 notification" : `· ${Notifications.all.length} notifications`
+            color: Theme.dark.textMuted
+            font { family: Theme.font; pixelSize: 13 * surface.unit }
+        }
     }
 
     IconButton {

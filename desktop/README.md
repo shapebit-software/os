@@ -15,9 +15,9 @@ The shell draws the wallpaper, the system bar and the dock (Apps, the
 workspace maps, and the quick actions) with their panels, the tabs of the Tabs
 and Accordion layouts, the handles that resize tiles, the way out of full
 screen, Settings, and the lock screen. Beyond the demo, the system bar has
-notifications (banners, and a panel with Do Not Disturb), the display's
-brightness, and the battery with the power profile, these two only where the
-computer has them. The shell is also the session's polkit agent, which asks
+notifications (banners, and a panel with them by app, the downloads, and Do
+Not Disturb), the display's brightness, and the battery with the power
+profile, these two only where the computer has them. The shell is also the session's polkit agent, which asks
 for an administrator's password, its notification server, and, through the
 portals, what applications ask: the file chooser, screenshots and what to
 share in the capture overlay, and questions such as permissions, which

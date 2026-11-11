@@ -359,7 +359,7 @@ Singleton {
         }
 
         function setDoNotDisturb(on: bool): void {
-            Settings.doNotDisturb = on;
+            Notifications.setQuiet(on ? "Until turned off" : "");
         }
 
         // The layout's code, such as "us".

@@ -81,7 +81,7 @@ Singleton {
     // The buttons shown half size on the dock, two to a slot (bars.js).
     property alias halfItems: adapter.halfItems
     readonly property var defaultZones: ({
-        system: { start: ["clock"], center: [], end: ["downloads", "notifications", "microphone", "sound", "brightness", "network", "language", "battery", "account"] },
+        system: { start: ["clock", "notifications"], center: [], end: ["microphone", "sound", "brightness", "network", "language", "battery", "account"] },
         dock: { start: ["apps", "workspaces"], center: [], end: ["capture", "dictation", "assistant"] },
     })
     // How the quick actions (the assistant, capture, and dictation) open:
@@ -100,8 +100,17 @@ Singleton {
     // Whether the battery's percentage shows inside its icon on the bar:
     // "Shown" or "Hidden".
     property alias batteryPercentage: adapter.batteryPercentage
-    // Whether new notifications show as banners; critical ones always do.
+    // Do Not Disturb, which holds banners back, except critical ones, and
+    // when it ends by itself, in milliseconds since the epoch, 0 for never
+    // (Notifications.qml).
     property alias doNotDisturb: adapter.doNotDisturb
+    property alias doNotDisturbUntil: adapter.doNotDisturbUntil
+    // When the bell shows on its bar: "Always", or "With notifications",
+    // only while there is anything for it to show (Notifications.present).
+    property alias bell: adapter.bell
+    // What each application's notifications do, for those that have sent
+    // one: { key: { name, mode } } (notifications.js).
+    property alias notificationApps: adapter.notificationApps
     // "12-hour" or "24-hour".
     property alias timeFormat: adapter.timeFormat
     // How dates read: "US", "UK", or "EU"; empty follows the system locale.
@@ -216,6 +225,9 @@ Singleton {
             property string quickActions: "Buttons"
             property string batteryPercentage: "Shown"
             property bool doNotDisturb: false
+            property real doNotDisturbUntil: 0
+            property string bell: "With notifications"
+            property var notificationApps: ({})
             property string autolock: "5 min"
             property string screenOff: "10 min"
             property string timeFormat: "24-hour"
