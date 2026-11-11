@@ -36,6 +36,8 @@ class Model:
     def __init__(self, unix=None):
         self.replies = []
         self.requests = []
+        # The paths asked for with GET, as a warm-up does.
+        self.gets = []
         self.release = threading.Event()
         outer = self
 
@@ -45,6 +47,12 @@ class Model:
 
             def address_string(self):
                 return "local"
+
+            def do_GET(self):
+                outer.gets.append(self.path)
+                self.send_response(200)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
 
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -223,6 +231,38 @@ def test_a_conversation_goes_on_with_what_was_said(setup):
     setup.client.done()
     assert [(m["role"], m["content"]) for m in setup.model.requests[1]["messages"][1:]] == [
         ("user", "Hello"), ("assistant", "Hi."), ("user", "And again")]
+
+
+def test_a_request_tells_the_model_the_selection_and_the_window_and_keeps_them(setup):
+    setup.model.replies.append({"text": ["It says hello."]})
+    context = {"selection": " Bonjour ", "app": "firefox", "title": "Greetings", "clipboard": "secret", "screen": ["pixels"]}
+    sent = setup.client.ask("send", id=None, text="What does this say?", context=context, spoken=True)
+    setup.client.done()
+    content = setup.model.requests[0]["messages"][1]["content"]
+    assert content.startswith("What does this say?")
+    assert "[The focused window: firefox - Greetings]" in content
+    assert "[The text the person has selected:]\nBonjour" in content
+    # Only what is named goes along.
+    assert "secret" not in content and "pixels" not in content
+    asked = setup.client.ask("open", id=sent["conversation"])["messages"][0]
+    assert asked["text"] == "What does this say?"
+    assert asked["context"] == {"selection": "Bonjour", "app": "firefox", "title": "Greetings"}
+    assert asked["spoken"] is True
+
+
+def test_a_request_with_no_context_is_only_the_persons_words(setup):
+    setup.model.replies.append({"text": ["Hi."]})
+    sent = setup.client.ask("send", id=None, text="Hello", context={"selection": "  ", "app": 7})
+    setup.client.done()
+    assert setup.model.requests[0]["messages"][1]["content"] == "Hello"
+    assert "context" not in setup.client.ask("open", id=sent["conversation"])["messages"][0]
+
+
+def test_long_selected_text_is_cut(setup):
+    setup.model.replies.append({"text": ["Long."]})
+    setup.client.ask("send", id=None, text="Sum up", context={"selection": "y" * 10000})
+    setup.client.done()
+    assert setup.model.requests[0]["messages"][1]["content"].count("y") == 4000
 
 
 def test_reading_runs_at_once_and_the_model_hears_the_result(setup):
@@ -421,3 +461,29 @@ def test_a_local_model_is_waited_for_while_it_loads(tmp_path):
     finally:
         made.stop()
         model.close()
+
+
+def test_warming_starts_a_local_model_before_the_request(tmp_path):
+    path = tmp_path / "model.sock"
+    model = Model(unix=path)
+    (tmp_path / "extras" / "gemma").mkdir(parents=True)
+    (tmp_path / "extras" / "gemma" / "model.gguf").write_bytes(b"")
+    made = Setup(tmp_path, model=model, entry={"id": "gemma", "name": "Gemma", "where": "local", "extra": "gemma", "socket": str(path)})
+    try:
+        made.client.send(op="warm")
+        deadline = time.monotonic() + 10
+        while not model.gets and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert model.gets == ["/health"]
+        assert model.requests == [], "nothing is asked of it yet"
+    finally:
+        made.stop()
+        model.close()
+
+
+def test_warming_a_model_that_is_not_there_does_nothing(setup):
+    setup.client.send(op="warm")
+    setup.model.replies.append({"text": ["Still here."]})
+    setup.client.send(op="send", id=None, text="hello")
+    assert setup.client.done()["text"] == "Still here."
+    assert setup.model.gets == []

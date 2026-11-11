@@ -1,0 +1,187 @@
+// The assistant's modes and keys as data (desktop/shell/services/assistant.js),
+// run by test_shell_logic.py with qmltestrunner.
+import QtQuick
+import QtTest
+import "../../../desktop/shell/services/assistant.js" as Logic
+
+TestCase {
+    name: "Assistant"
+
+    readonly property var hidden: Logic.view("", false, false, "bubbles")
+
+    // Runs events through the Super key, and returns the actions they made.
+    function keys(events) {
+        let state = "idle";
+        const actions = [];
+        for (const event of events) {
+            const next = Logic.key(state, event);
+            state = next.state;
+            if (next.action)
+                actions.push(next.action);
+        }
+        compare(state, "idle");
+        return actions;
+    }
+
+    // Modes ------------------------------------------------------------
+
+    function test_a_tap_opens_the_bubbles_first_and_closes_them() {
+        const open = Logic.tap(hidden);
+        compare(open.open, "bubbles");
+        compare(Logic.tap(open).open, "");
+    }
+
+    function test_a_tap_opens_what_was_open_last() {
+        const panel = Logic.toPanel(Logic.tap(hidden));
+        compare(panel.open, "panel");
+        const closed = Logic.hide(panel);
+        compare(closed.open, "");
+        compare(Logic.tap(closed).open, "panel");
+        // And the bubbles again, once they were the last.
+        const bubbles = Logic.hide(Logic.view("bubbles", false, true, "panel"));
+        compare(Logic.tap(bubbles).open, "bubbles");
+    }
+
+    function test_a_tap_closes_the_panel_over_the_windows() {
+        const panel = Logic.toPanel(hidden);
+        verify(!panel.docked);
+        compare(Logic.tap(panel).open, "");
+    }
+
+    function test_a_tap_keeps_the_docked_panel_and_moves_the_keyboard() {
+        const docked = Logic.dock(Logic.toPanel(hidden), true, false);
+        verify(docked.docked && docked.focused);
+        const away = Logic.tap(docked);
+        compare(away.open, "panel");
+        verify(!away.focused);
+        verify(Logic.tap(away).focused);
+    }
+
+    function test_docking_reserves_the_width_and_undocking_gives_it_back() {
+        const panel = Logic.toPanel(hidden);
+        verify(!Logic.reserves(panel, false));
+        const docked = Logic.dock(panel, true, false);
+        verify(Logic.reserves(docked, false));
+        verify(!Logic.reserves(Logic.dock(docked, false, false), false));
+        verify(!Logic.reserves(Logic.hide(docked), false));
+    }
+
+    function test_a_hidden_docked_panel_comes_back_docked() {
+        const back = Logic.tap(Logic.hide(Logic.dock(Logic.toPanel(hidden), true, false)));
+        compare(back.open, "panel");
+        verify(back.docked);
+    }
+
+    function test_a_narrow_screen_never_docks() {
+        const panel = Logic.dock(Logic.toPanel(hidden), true, true);
+        verify(!panel.docked);
+        verify(!Logic.reserves(Logic.view("panel", true, true, "panel"), true));
+    }
+
+    function test_modes_change_nothing_given() {
+        const view = Logic.view("bubbles", false, true, "bubbles");
+        Logic.tap(view);
+        Logic.toPanel(view);
+        Logic.hide(view);
+        compare(view, Logic.view("bubbles", false, true, "bubbles"));
+    }
+
+    // The Super key ----------------------------------------------------
+
+    function test_super_let_go_soon_is_a_tap() {
+        compare(keys(["down", "up"]), ["tap"]);
+    }
+
+    function test_super_held_listens_and_let_go_sends() {
+        compare(keys(["down", "held", "up"]), ["listen", "send"]);
+    }
+
+    function test_super_with_another_key_is_a_shortcut_not_a_tap() {
+        compare(keys(["down", "other", "up"]), []);
+    }
+
+    function test_another_key_while_listening_discards_the_speech() {
+        compare(keys(["down", "held", "other", "up"]), ["listen", "cancel"]);
+    }
+
+    function test_a_late_timer_after_a_shortcut_does_not_listen() {
+        compare(keys(["down", "other", "held", "up"]), []);
+    }
+
+    function test_super_let_go_after_listening_is_no_tap() {
+        verify(!keys(["down", "held", "up"]).includes("tap"));
+    }
+
+    // Bubbles ----------------------------------------------------------
+
+    function test_the_latest_bubbles_are_full_and_the_older_dimmed() {
+        const dim = [0, 1, 2, 3, 4].map(i => Logic.dimmed(i, 5, false));
+        compare(dim, [true, true, false, false, false]);
+        verify(!Logic.dimmed(0, 2, false));
+    }
+
+    function test_scrolling_back_shows_every_bubble_in_full() {
+        verify(!Logic.dimmed(0, 5, true));
+    }
+
+    function test_an_answer_brings_the_bubbles_up_while_hidden() {
+        verify(Logic.peeks(hidden, false, { role: "assistant", state: "done", text: "It is 40%." }));
+        verify(Logic.peeks(hidden, false, { role: "assistant", state: "failed", error: "No model." }));
+        verify(Logic.peeks(hidden, false, { role: "action", state: "proposed" }));
+        verify(Logic.peeks(hidden, false, { role: "action", state: "done" }));
+    }
+
+    function test_nothing_comes_up_for_what_is_under_way_or_the_persons_own() {
+        verify(!Logic.peeks(hidden, false, { role: "assistant", state: "thinking", text: "" }));
+        verify(!Logic.peeks(hidden, false, { role: "assistant", state: "answering", text: "It" }));
+        verify(!Logic.peeks(hidden, false, { role: "assistant", state: "done", text: "" }));
+        verify(!Logic.peeks(hidden, false, { role: "action", state: "running" }));
+        verify(!Logic.peeks(hidden, false, { role: "user", state: "sent", text: "Volume?" }));
+    }
+
+    function test_nothing_comes_up_over_the_assistant_or_another_panel() {
+        const answer = { role: "assistant", state: "done", text: "Done." };
+        verify(!Logic.peeks(Logic.view("panel", false, true, "panel"), false, answer));
+        verify(!Logic.peeks(Logic.view("bubbles", false, true, "bubbles"), false, answer));
+        verify(!Logic.peeks(hidden, true, answer));
+    }
+
+    function test_bubbles_that_came_up_stay_while_one_waits_or_is_pointed_at() {
+        verify(Logic.peekEnds(false, false));
+        verify(!Logic.peekEnds(true, false));
+        verify(!Logic.peekEnds(false, true));
+    }
+
+    function test_a_conversation_left_for_a_while_is_over() {
+        verify(Logic.continues(1000, 1000 + 60));
+        verify(!Logic.continues(1000, 1000 + Logic.restAfter));
+    }
+
+    // The docked panel's width -----------------------------------------
+
+    function test_the_width_stays_between_the_least_and_half_the_screen() {
+        compare(Logic.width(340, 1920), 340);
+        compare(Logic.width(100, 1920), Logic.leastWidth);
+        compare(Logic.width(5000, 1920), 960);
+    }
+
+    // Listening --------------------------------------------------------
+
+    function test_it_listens_only_where_it_may_and_can() {
+        compare(Logic.cannotListen(false, false, false, true, true, true), "");
+        compare(Logic.cannotListen(true, false, false, true, true, true), "locked");
+        compare(Logic.cannotListen(false, true, false, true, true, true), "locked");
+        compare(Logic.cannotListen(false, false, true, true, true, true), "dictating");
+        compare(Logic.cannotListen(false, false, false, false, true, true), "download");
+        compare(Logic.cannotListen(false, false, false, true, true, false), "download");
+        compare(Logic.cannotListen(false, false, false, true, false, true), "microphone");
+    }
+
+    // What a request tells ---------------------------------------------
+
+    function test_a_request_tells_the_selection_and_the_window_and_no_more() {
+        compare(Logic.context("  some words \n", "firefox", "Docs", 2000), { selection: "some words", app: "firefox", title: "Docs" });
+        compare(Logic.context("", "", "", 2000), {});
+        compare(Logic.context("abcdef", "", "", 3), { selection: "abc" });
+    }
+}

@@ -30,26 +30,38 @@ function shortcuts.report()
     hl.dispatch(hl.dsp.event("shortcuts " .. table.concat(list, ";")))
 end
 
--- Super alone, pressed and let go with no other key between, opens Apps;
+-- Super alone is the assistant's: let go soon, it opens or closes it; held,
+-- the assistant listens until it is let go. The shell tells the two apart
+-- (shell/services/assistant.js), from what happens here: "super-down" for
+-- Super pressed with no other key down, "super-other" for any other key
+-- while it is down, which makes it a shortcut, and "super-up".
 -- Alt let go ends the window switcher, if one of its shortcuts opened it.
-list[#list + 1] = "Super_L|Apps"
-local down, tapping, switching = {}, false, false
+list[#list + 1] = "Super_L|Assistant: tap to open, or hold while you speak"
+local down, alone, switching = {}, false, false
 local supers = { [133] = true, [134] = true }
 local alts = { [64] = true, [108] = true }
 
 hl.on("input.keyboard.key", function(code, _, state)
     if state == 1 then
-        tapping = supers[code] and next(down) == nil
+        if supers[code] and next(down) == nil then
+            alone = true
+            hl.dispatch(shell("super-down"))
+        elseif alone then
+            alone = false
+            hl.dispatch(shell("super-other"))
+        end
         down[code] = true
         return
     end
     down[code] = nil
-    if supers[code] and tapping then hl.dispatch(shell("apps")) end
+    if supers[code] and alone then
+        alone = false
+        hl.dispatch(shell("super-up"))
+    end
     if alts[code] and switching then
         switching = false
         hl.dispatch(shell("switch-done"))
     end
-    tapping = false
 end)
 
 local function switch(name)
@@ -195,7 +207,7 @@ bind("SUPER + L", "Lock", shell("lock"))
 -- A tap starts and stops dictation; held, it listens until let go.
 bind("SUPER + D", "Dictate", shell("dictate"))
 hl.bind("SUPER + D", shell("dictate-release"), { release = true })
-bind("SUPER + A", "Assistant", shell("assistant"))
+bind("SUPER + A", "Apps", shell("apps"))
 bind("CTRL + ALT + Delete", "System menu", shell("system"))
 bind("SUPER + code:61", "Keyboard shortcuts", shell("help"))
 -- The keyboard layouts in Settings > Language > Keyboards.

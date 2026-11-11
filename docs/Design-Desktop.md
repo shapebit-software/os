@@ -191,13 +191,57 @@ Assistant adds and removes them later.
 
 ### Assistant
 
-The assistant answers questions and acts on the computer when asked. As in
-the demo, it has three levels:
+The assistant answers questions and acts on the computer when asked. It runs
+on the computer: its model is local, and nothing asked leaves the computer.
+Online models are planned as a choice a person makes; the model catalog
+already allows for them.
 
-- The **command line**, from its button, the hot corner, or Super+A, for a
-  quick question.
-- The **sidebar**, which holds one conversation beside the windows.
-- **Conversations**, the list of all of them, with a search.
+One conversation shows in one of three ways, and moving between them loses
+nothing:
+
+- **Bubbles**, by the assistant's button: each message is a card of its own.
+  The latest three show in full and the older ones are dimmed, until the
+  person scrolls back through them. Below them is the reply line. A bubble,
+  or the reply line, opens the conversation in the panel.
+- The **panel**, at the right of the screen over the windows. Pushing the
+  pointer against the middle of the screen's right edge opens it too. Its
+  header starts a new conversation, lists all of them with a search, shows
+  the conversation as bubbles again, docks the panel, and hides it.
+- The panel **docked**: it looks like a tile and reserves its width, so the
+  windows retile beside it, but it is outside the tiling and stays on every
+  workspace. Its left edge resizes it. A screen narrower than 1024 pixels has
+  no room for it, and keeps the panel over the windows.
+
+A tap on Super, or a click on the assistant's button, opens what was open
+last, and closes it again. A docked panel stays: the tap gives it the
+keyboard, and the next one gives the keyboard back to the window.
+
+**Voice**: hold Super, or the assistant's button, speak, and let go. What was
+said is the request. Nothing opens while the person speaks: the button shows
+sound bars while the assistant listens, and its sparkle turns while the
+assistant works. The answer comes up as a bubble and goes again after a few
+seconds, unless it waits for the person. Bubbles come up the same way for
+any answer that arrives while the assistant is hidden.
+
+- Super counts as held after 0.4 seconds alone. Any other key in that time
+  makes it a shortcut, and a key pressed while the assistant listens discards
+  what was said.
+- The microphone opens only while the key or button is held, never on the
+  lock screen or at a password prompt. The recording goes when the request
+  is made; the words stay, as the request in the conversation.
+- Speech is written down by the dictation model, so voice needs that
+  [extra](#extras) too. [Dictation](#dictation) is separate: its words go
+  into the app, never to the assistant.
+- The model starts loading when the person starts to speak.
+
+The assistant sees only what a request tells it: the selected text and the
+focused window's app and title. The reply line shows both before sending,
+each to take off, and the request's bubble says what went along. It does not
+see the clipboard, the screen, or other windows' contents.
+
+A conversation left for half an hour is over: the next request from the
+bubbles or by voice begins a new one. The panel goes on in the conversation
+it shows.
 
 The assistant acts only through typed actions, never a command it writes.
 Each action shows as a card, and has a risk:
@@ -211,19 +255,24 @@ Each action shows as a card, and has a risk:
 - **Confirm** (shutting down, restarting, installing or removing an app) asks
   every time.
 
-One assistant serves the whole session, with one queue of requests, and runs
-outside the shell. Locking the screen hides it, and nothing new starts until
-unlock. Conversations and an activity log stay on the computer, the log for
-as long as Settings > Assistant chooses.
+Approvals are given on the card, with the pointer or keyboard, never by
+voice. Typed and spoken requests share one queue, in the order they came;
+stopping one lets the next start, and never rolls back what is done.
 
-A model on the computer and an online one work the same way. The built-in
-model, Gemma 4 E2B, is an [extra](#extras): on by default in Welcome where
-the computer has memory enough, and it runs only while in use. A person can
-add their own models, online ones too, with their keys in the keyring.
+One assistant serves the whole session and runs outside the shell. Locking
+the screen hides it, and nothing new starts until unlock. Conversations and
+an activity log stay on the computer: conversations until deleted, the log
+for as long as Settings > Assistant chooses.
+
+The model, Gemma 4 E2B, is an [extra](#extras): on by default in Welcome
+where the computer has memory enough, and it runs only while in use.
 
 The assistant always says that an AI answers, as the EU's AI Act asks
-(article 50): "AI · on this computer" (or "online") beside the empty command
-line, and that answers can be wrong at the start of a conversation.
+(article 50): "AI · on this computer" under the reply line, and that answers
+can be wrong at the start of a conversation.
+
+Not built yet: spoken answers, memory across conversations, reading a
+window's contents, and online models.
 
 ### Welcome
 
@@ -246,9 +295,7 @@ was offline, a notification offers to finish setting up once it is online.
 
 ## Future design
 
-Nothing in this part is built yet, except dictation and the
-[assistant](#assistant)'s chat, actions, and models. The assistant's chat
-follows the demo, which replaced the chat designed here.
+Nothing in this part is built yet.
 
 ### Radial Context Menus
 
@@ -282,39 +329,6 @@ workspaces: global to the person, and cleared at logout.
 - Items keep their order, can be dragged in and out, and opening one leaves
   it there. Removing one, or clearing the Shelf, is immediate, with Undo.
 - Copies share a size limit; nothing is evicted silently.
-
-### Assistant Framework
-
-The assistant framework is the shared foundation for assistant and agent
-interaction.
-
-- Voice and chat are two ways into the same assistant, with the same access
-  and confirmations, and one queue of requests in arrival order. Stopping a
-  request lets the next one start; it never rolls back what is done.
-- The assistant may read the person's files, window contents, and clipboard.
-  Changes are off until allowed per group, and destructive, privileged, or
-  outward actions always ask. Permissions are per agent and per capability,
-  in one place that shows and takes them back. Approvals are given on the
-  card, with the pointer or keyboard, not by voice.
-- Memory stays on the computer and can be viewed, edited, and cleared; raw
-  audio and transcripts never persist.
-- Open: how window contents differ from screen pixels, which each need a
-  fresh grant under the media and privacy policy; detailed capability scopes;
-  and isolating future agents.
-
-### Voice Interaction
-
-Talking to the assistant, as dictation already does for text:
-
-- Only push-to-talk or a click; never always listening. Speech and requests
-  stay on the computer, and audio and transcripts are discarded after each
-  interaction. Never on the login screen, the lock screen, or password
-  prompts.
-- No modes: the **sparkle** button, held, sends speech to the assistant; the
-  **waveform** button dictates into the app.
-- Answers are spoken by default, on the computer, ducking other sound. A
-  click on the indicator or a new push-to-talk stops speech. A request that
-  needs a permission shows the same card as chat.
 
 ### Gaze Input
 

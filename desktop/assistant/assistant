@@ -11,7 +11,10 @@
 # The socket speaks JSON lines. The shell sends {"op": ...}:
 #   hello {pid}             the shell's process, for actions it does; answers "state"
 #   open {id}               answers "conversation"
-#   send {id or null, text, workspace}   queues a request; null starts a conversation
+#   send {id or null, text, workspace, context, spoken}   queues a request; null starts
+#                           a conversation; context is {selection, app, title}, what the
+#                           request tells of where the person is; spoken, that it was said
+#   warm                    has the model start loading, for the request that follows
 #   stop                    ends the request under way; the queue goes on
 #   answer {card, choice}   choice "apply", "always", or "decline", on a proposed action
 #   undo {card}             undoes a change done in this session
@@ -50,6 +53,8 @@ SYSTEM = (
 # tools one request may take.
 CONTEXT = 24
 ROUNDS = 6
+# How much selected text, in characters, a request may tell the model.
+SELECTION = 4000
 # How long a deleted conversation can be restored.
 RESTORE = 60
 
@@ -85,6 +90,29 @@ def title_of(text):
     words = text.split()
     title = " ".join(words[:7])
     return (title[:48].rstrip() + "…") if len(title) > 48 or len(words) > 7 else title
+
+
+def told_context(context):
+    """What a request tells of where the person is, as the shell gave it: the
+    selected text and the focused window's application and title, and no more."""
+    if not isinstance(context, dict):
+        return {}
+    limits = {"selection": SELECTION, "app": 100, "title": 200}
+    return {name: context[name].strip()[:limit] for name, limit in limits.items()
+            if isinstance(context.get(name), str) and context[name].strip()}  # fmt: skip
+
+
+def context_text(context):
+    """The context as the model reads it, after the person's words."""
+    if not context:
+        return ""
+    lines = []
+    window = " - ".join(context[name] for name in ("app", "title") if name in context)
+    if window:
+        lines.append(f"[The focused window: {window}]")
+    if "selection" in context:
+        lines.append(f"[The text the person has selected:]\n{context['selection']}")
+    return "\n\n" + "\n".join(lines)
 
 
 class Stopped(Exception):
@@ -264,6 +292,10 @@ class Assistant:
             elif op == "locked":
                 self.locked = bool(request.get("locked"))
                 self.changed.notify_all()
+            elif op == "warm":
+                entry = self.model_entry()
+                if entry is not None:
+                    threading.Thread(target=models.warm, args=(entry,), daemon=True).start()
             elif op == "models":
                 self.emit("settings", **self.settings_fields())
                 self.tell_status()
@@ -281,6 +313,11 @@ class Assistant:
                             "created": now(), "updated": now(), "messages": []}  # fmt: skip
             self.conversations[conversation["id"]] = conversation
         message = {"id": uuid.uuid4().hex[:12], "role": "user", "text": text, "time": now(), "state": "queued"}
+        context = told_context(request.get("context"))
+        if context:
+            message["context"] = context
+        if request.get("spoken") is True:
+            message["spoken"] = True
         conversation["messages"].append(message)
         conversation["updated"] = now()
         self.save(conversation)
@@ -411,7 +448,7 @@ class Assistant:
         cards = {m["call"]: m for m in listed if m["role"] == "action"}
         for message in listed[max(0, end - CONTEXT):end]:
             if message["role"] == "user":
-                messages.append({"role": "user", "content": message["text"]})
+                messages.append({"role": "user", "content": message["text"] + context_text(message.get("context"))})
             elif message["role"] == "assistant":
                 calls = [cards[c] for c in message.get("calls", []) if c in cards]
                 if not message.get("text") and not calls:

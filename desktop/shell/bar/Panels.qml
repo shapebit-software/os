@@ -71,7 +71,7 @@ Scope {
         screen: panels.modelData
         screenName: panels.modelData?.name ?? ""
     }
-    AssistantPanel {
+    AssistantBubbles {
         screen: panels.modelData
         screenName: panels.modelData?.name ?? ""
     }

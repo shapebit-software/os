@@ -10,9 +10,11 @@
 // button is filled with the accent and its icon says the state: sound bars while
 // listening, a pencil while writing it down, lines while the text waits, red when
 // something is wrong; a click stops, a right click discards, and with nothing
-// under way, brings back the last dictation. The assistant's button opens its command line
-// (AssistantPanel.qml); it is lit while the line or the sidebar is open on its screen, its
-// sparkle breathes while the assistant works, and a dot says an action waits for the person.
+// under way, brings back the last dictation. The assistant's button opens what was open
+// last, its bubbles or its panel (Assistant.qml), and is lit while either is open on its
+// screen; held, it listens until let go, as Super does. It is filled with the accent and
+// shows sound bars while the assistant listens, and its sparkle turns while the assistant
+// works; a dot says an action waits for the person.
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.controls
@@ -43,11 +45,22 @@ BarButton {
     readonly property string screen: "M2 2.5h12v8H2zM5.5 13.5h5M8 10.5v3M8 8.5v-4M6.25 6.25 8 4.5l1.75 1.75"
 
     tile: bar.dock
-    open: assistant && (Shell.isOpen("assistant", screenName) || Assistant.sidebarOn === (bar.modelData?.name ?? "-"))
-    fill: red || wrong ? Theme.dangerFill : shared || dictating ? Theme.accent : "transparent"
+    readonly property bool listening: assistant && Assistant.voice === "listening"
+    readonly property bool working: assistant && !listening && (Assistant.voice === "writing" || Assistant.busy && !Assistant.attention)
+
+    open: assistant && (Shell.isOpen("assistant", screenName) || Assistant.panelOn === (bar.modelData?.name ?? "-"))
+    fill: red || wrong ? Theme.dangerFill : shared || dictating || listening ? Theme.accent : "transparent"
+    onHeld: {
+        if (assistant)
+            Assistant.listen();
+    }
+    onLetGo: {
+        if (assistant)
+            Assistant.endListening(true);
+    }
     onClicked: {
         if (assistant)
-            bar.open("assistant", button);
+            Assistant.tap(screenName, () => bar.open("assistant", button));
         else if (dictate)
             Dictation.toggle();
         else if (Capture.recording)
@@ -73,9 +86,10 @@ BarButton {
     Tooltip {
         target: button
         edge: button.bar.edge
-        hovered: button.visible && !button.assistant && (button.dictate && Dictation.telling
+        hovered: button.visible && (button.assistant ? Assistant.notice !== "" : button.dictate && Dictation.telling
             || button.hovered && (button.red || button.shared || button.dictate))
-        text: button.red ? `Recording ${Capture.elapsed} · click to stop`
+        text: button.assistant ? Assistant.notice
+            : button.red ? `Recording ${Capture.elapsed} · click to stop`
             : button.dictate ? Dictation.status
             : SharePicker.viewers.length ? `Sharing the screen with ${SharePicker.viewers.join(", ")}`
             : "Sharing the screen"
@@ -86,6 +100,15 @@ BarButton {
         // Narrow enough on a half-size button that it keeps its size.
         spacing: button.half ? 1 : 2
     }
+    // The assistant listens: what the microphone hears.
+    DictationBars {
+        visible: button.listening
+        size: button.half ? 12 : 16
+        spacing: button.half ? 1 : 2
+        listening: true
+        writing: false
+        level: Assistant.level
+    }
     Icon {
         visible: !button.assistant && !button.red && !button.hearing
         height: button.half ? 14 : 18
@@ -94,9 +117,9 @@ BarButton {
         strokes: button.dictate ? Dictation.icon : button.shared ? button.screen : button.frame
     }
 
-    // The assistant's sparkle, and its dot.
+    // The assistant's sparkle, which turns while it works, and its dot.
     Item {
-        visible: button.assistant
+        visible: button.assistant && !button.listening
         width: sparkle.width
         height: sparkle.height
 
@@ -106,12 +129,20 @@ BarButton {
             color: Theme.textOnAccent
             strokes: button.sparkle
 
+            RotationAnimation on rotation {
+                running: button.working
+                loops: Animation.Infinite
+                from: 0
+                to: 360
+                duration: 1600
+                onRunningChanged: if (!running) sparkle.rotation = 0
+            }
             SequentialAnimation on opacity {
-                running: button.assistant && Assistant.busy && !Assistant.attention
+                running: button.working
                 loops: Animation.Infinite
                 onRunningChanged: if (!running) sparkle.opacity = 1
-                NumberAnimation { to: 0.35; duration: 700; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 1; duration: 700; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.45; duration: 800; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 1; duration: 800; easing.type: Easing.InOutSine }
             }
         }
         Rectangle {

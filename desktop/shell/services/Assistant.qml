@@ -1,7 +1,15 @@
-// The assistant, as the shell shows it, as in the demo: the command line near
-// the top (bar/AssistantPanel.qml) answers in place; the sidebar
-// (bar/AssistantSidebar.qml) holds a whole conversation; and all of them are
-// listed, with search, over the screen (bar/AssistantConversations.qml).
+// The assistant, as the shell shows it: one conversation, in one of three
+// ways (assistant.js): as bubbles by the assistant's button
+// (bar/AssistantBubbles.qml), the latest few in full; in a panel at the right
+// of the screen, over the windows (bar/AssistantDock.qml); or in that panel
+// docked, which reserves its width, so the windows retile beside it. The
+// panel also lists all the conversations, with a search. A tap on Super, or
+// a click on the button, opens what was open last; held, either listens
+// until let go, and what was said is the request: the button shows the
+// listening and the thinking, and the answer comes up as a bubble.
+// A request tells the model the selected text and the focused window's
+// application and title, as the reply line shows, and nothing else of the
+// screen.
 // assistant/assistant does the work in a user service of its own, so hiding
 // the shell, or restarting it, stops nothing; this talks to it over its
 // socket, shows what it says, and does the actions that are the shell's,
@@ -13,6 +21,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import "assistant.js" as Logic
 
 Singleton {
     id: assistant
@@ -49,12 +58,32 @@ Singleton {
     property var found: null
     property string query
 
-    // Where the sidebar and the list of conversations are open, by screen
-    // name, or "".
-    property string sidebarOn
-    property string listOn
-    // The line's question, and whether it shows the answer.
-    property string asked
+    // The screen the panel is open on, by name, or "".
+    property string panelOn
+    // Whether the docked panel has the keyboard, and whether the panel lists
+    // the conversations rather than showing one.
+    property bool panelFocused
+    property bool listing
+    // Whether the bubbles came up by themselves, for an answer; they then
+    // take no keyboard and go again (peek).
+    property bool peeking
+    property bool peekHovered
+    // What is open, as assistant.js holds it.
+    readonly property var view: Logic.view(panelOn !== "" ? "panel" : Shell.panel === "assistant" && !peeking ? "bubbles" : "",
+        Settings.assistantDocked, panelFocused, Settings.assistantLast)
+
+    // The Super key, "idle", "pressed", or "listening" (assistant.js), and
+    // the voice: "" , "listening", or "writing", with the microphone's
+    // level, 0 to 1, and a word for the button when it cannot listen or
+    // heard nothing.
+    property string keyState: "idle"
+    property string voice
+    property real level
+    property string notice
+    // What the next request tells of where the person is, { selection, app,
+    // title }, each only if there; the reply line shows it, to take off.
+    property var context: ({})
+
     readonly property bool answering: busy || messages.some(m => m.state === "proposed")
     // The model's extra, and how its download goes (Extras.qml).
     readonly property var extra: Extras.list.find(e => e.id === model?.extra) ?? null
@@ -78,22 +107,208 @@ Singleton {
         return workspace ? String(workspace.name ?? workspace.id) : "";
     }
 
-    // A new request: in the open conversation, or a new one.
+    // A new request: in the open conversation, or a new one, with what the
+    // reply line shows of where the person is.
     function send(text: string) {
         text = text.trim();
         if (!text)
             return;
-        request({ op: "send", id: conversation?.id ?? null, text, workspace: workspaceName() });
+        request({ op: "send", id: current(), text, workspace: workspaceName(), context });
+        context = ({});
     }
 
-    // The line asks anew: a conversation of its own, its answer in place.
-    function ask(text: string) {
-        text = text.trim();
-        if (!text)
+    // The conversation a request goes on in, or null for a new one: in the
+    // panel, the one it shows; otherwise the one open, unless it was left
+    // for a while.
+    function current(): var {
+        if (!conversation)
+            return null;
+        const updated = conversations.find(c => c.id === conversation.id)?.updated ?? 0;
+        if (view.open !== "panel" && !Logic.continues(updated, Date.now() / 1000)) {
+            conversation = null;
+            return null;
+        }
+        return conversation.id;
+    }
+
+    // Opening and closing ------------------------------------------------
+
+    // Shows a view on a screen; `show` opens the bubbles, by default as the
+    // assistant's button would.
+    function apply(next: var, screen: string, show: var) {
+        Settings.assistantDocked = next.docked;
+        Settings.assistantLast = next.last;
+        panelFocused = next.open === "panel" && next.focused;
+        peeking = false;
+        if (next.open === "panel") {
+            if (Shell.panel === "assistant")
+                Shell.close();
+            panelOn = screen;
             return;
-        conversation = null;
-        asked = text;
-        send(text);
+        }
+        panelOn = "";
+        listing = false;
+        if (next.open === "bubbles") {
+            Settings.assistantLast = "bubbles";
+            if (!Shell.isOpen("assistant", screen)) {
+                if (show)
+                    show();
+                else
+                    Shell.request("assistant", screen);
+            }
+        } else if (Shell.panel === "assistant") {
+            Shell.close();
+        }
+    }
+
+    // A tap on Super, or a click on the assistant's button.
+    function tap(screen: string, show: var) {
+        if (Lock.locked)
+            return;
+        const next = Logic.tap(view);
+        if (next.open !== "" && view.open === "")
+            look();
+        apply(next, panelOn || screen, show);
+    }
+
+    // From a bubble, or the right edge of the screen.
+    function openPanel(screen: string) {
+        if (Lock.locked)
+            return;
+        apply(Logic.toPanel(view), screen, null);
+    }
+
+    // The panel, as bubbles again.
+    function openBubbles(screen: string) {
+        apply(Logic.view("bubbles", view.docked, false, "bubbles"), screen, null);
+    }
+
+    function dock(docked: bool, narrow: bool) {
+        apply(Logic.dock(view, docked, narrow), panelOn, null);
+    }
+
+    function hide() {
+        apply(Logic.hide(view), panelOn, null);
+    }
+
+    // The bubbles come up by themselves for an answer, and go again.
+    function peek() {
+        const screen = Shortcuts.focused;
+        if (!screen)
+            return;
+        peeking = true;
+        Shell.request("assistant", screen);
+        if (Shell.isOpen("assistant", screen))
+            peekTimer.restart();
+        else
+            peeking = false;
+    }
+
+    // The person takes up the bubbles that came up.
+    function keepPeek() {
+        if (!peeking)
+            return;
+        peeking = false;
+        Settings.assistantLast = "bubbles";
+    }
+
+    // Where the person is: the selected text, and the focused window.
+    function look() {
+        selection.then = null;
+        selection.running = true;
+    }
+
+    function drop(name: string) {
+        const next = Object.assign({}, context);
+        delete next[name];
+        context = next;
+    }
+
+    // The voice ----------------------------------------------------------
+
+    function helper(): string {
+        return tree ? `${tree}/../dictation/dictate` : "/usr/libexec/desktop/dictate";
+    }
+
+    // Super, or the assistant's button, as assistant.js names what happens.
+    function key(event: string) {
+        // The list of shortcuts shows Super's while it is held.
+        if (Shortcuts.listOn && keyState === "idle")
+            return;
+        const next = Logic.key(keyState, event);
+        keyState = next.state;
+        if (keyState === "pressed")
+            hold.restart();
+        else
+            hold.stop();
+        if (next.action === "tap")
+            tap(Shortcuts.focused, null);
+        else if (next.action === "listen")
+            listen();
+        else if (next.action === "send")
+            endListening(true);
+        else if (next.action === "cancel")
+            endListening(false);
+    }
+
+    function listen() {
+        notice = "";
+        const why = Logic.cannotListen(Lock.locked, Authorization.asking, Dictation.active, Dictation.available,
+            Audio.input !== null, ready);
+        if (why === "" && Audio.input.audio?.muted)
+            notice = "Microphone is muted";
+        else if (why === "download")
+            notice = "Needs a download";
+        else if (why === "microphone")
+            notice = "No microphone";
+        // The button says why not; nothing opens, as Super may only have
+        // been held on the way to a shortcut.
+        if (why !== "" || notice !== "")
+            return;
+        // The model loads while the person speaks.
+        request({ op: "warm" });
+        level = 0;
+        voice = "listening";
+        listener.command = [helper(), "--listen"];
+        listener.running = true;
+    }
+
+    // Let go: what was said is the request; or the key began a shortcut, and
+    // what was said is discarded.
+    function endListening(keep: bool) {
+        if (!listener.running)
+            return;
+        listener.write(JSON.stringify({ do: keep && voice === "listening" ? "stop" : "discard" }) + "\n");
+        if (!keep)
+            voice = "";
+    }
+
+    function heard(line: string) {
+        let message;
+        try {
+            message = JSON.parse(line);
+        } catch (e) {
+            return;
+        }
+        if (message.state === "listening") {
+            level = message.level ?? 0;
+        } else if (message.state === "writing") {
+            voice = "writing";
+        } else if (message.state === "nothing") {
+            notice = "Didn't catch that";
+        } else if (message.state === "failed") {
+            notice = "Couldn't hear that";
+        } else if (message.state === "done" && voice !== "") {
+            // With the selection and the window as they are now.
+            selection.then = message.text;
+            selection.running = true;
+        }
+    }
+
+    // What was said, as a request.
+    function sendSpoken(text: string) {
+        request({ op: "send", id: current(), text, workspace: workspaceName(), context, spoken: true });
+        context = ({});
     }
 
     function stop() {
@@ -115,7 +330,7 @@ Singleton {
 
     function startNew() {
         conversation = null;
-        asked = "";
+        listing = false;
     }
 
     function rename(id: string, title: string) {
@@ -176,23 +391,17 @@ Singleton {
             Extras.install(extra.id);
     }
 
-    // Opens or closes the line on a screen, by name.
-    function toggleLine(screen: string) {
-        Shell.request("assistant", screen);
-    }
-
-    // Goes on in the sidebar, with the line's conversation.
-    function openSidebar(screen: string) {
-        Shell.close();
-        listOn = "";
-        sidebarOn = screen;
-    }
-
-    function openList(screen: string) {
-        Shell.close();
+    // The panel lists the conversations, or shows the one open.
+    function list(on: bool) {
         found = null;
         query = "";
-        listOn = screen;
+        listing = on;
+    }
+
+    // A message came or changed: the bubbles come up for an answer.
+    function arrived(message: var) {
+        if (!Lock.locked && Logic.peeks(view, Shell.panel !== "", message))
+            peek();
     }
 
     function receive(line: string) {
@@ -208,8 +417,11 @@ Singleton {
             applyStatus(event);
             applySettings(event);
             greeted = true;
+            // The one open, or the latest, if it was not left for long.
             if (conversation)
                 open(conversation.id);
+            else if (conversations.length && Logic.continues(conversations[0].updated, Date.now() / 1000))
+                open(conversations[0].id);
             break;
         case "sent":
             if (conversation?.id !== event.conversation)
@@ -227,6 +439,7 @@ Singleton {
                 else
                     list.push(event.message);
                 conversation = Object.assign({}, conversation, { messages: list });
+                arrived(event.message);
             }
             break;
         case "conversations":
@@ -266,6 +479,89 @@ Singleton {
         grants = event.grants;
         groups = event.groups;
         retention = event.retention;
+    }
+
+    // Super held this long listens.
+    Timer {
+        id: hold
+        interval: Logic.holdAfter
+        onTriggered: assistant.key("held")
+    }
+
+    // Bubbles that came up by themselves go again, unless one waits for the
+    // person or the pointer is on them.
+    Timer {
+        id: peekTimer
+        interval: Logic.peekFor
+        onTriggered: {
+            if (!assistant.peeking)
+                return;
+            if (!Logic.peekEnds(assistant.attention, assistant.peekHovered)) {
+                restart();
+                return;
+            }
+            assistant.peeking = false;
+            if (Shell.panel === "assistant")
+                Shell.close();
+        }
+    }
+
+    // A word on the button goes by itself.
+    Timer {
+        running: assistant.notice !== ""
+        interval: 4000
+        onTriggered: assistant.notice = ""
+    }
+
+    // The bubbles closed some other way, such as by another panel.
+    Connections {
+        target: Shell
+
+        function onPanelChanged() {
+            if (Shell.panel !== "assistant")
+                assistant.peeking = false;
+        }
+    }
+
+    // Hears for the assistant (dictation/dictate --listen): it delivers
+    // nowhere, and ends with what was said.
+    Process {
+        id: listener
+
+        stdinEnabled: true
+        stdout: SplitParser {
+            onRead: line => assistant.heard(line)
+        }
+        // Quickshell does not declare the status's type to tooling.
+        onExited: exitCode => { // qmllint disable signal-handler-parameters
+            if (assistant.voice !== "" && !selection.running)
+                assistant.voice = "";
+        }
+    }
+
+    // The selected text, as the primary selection holds it; with `then`,
+    // what was said goes on as a request once it is read.
+    Process {
+        id: selection
+
+        property var then: null
+
+        command: ["wl-paste", "--primary", "--no-newline", "--type", "text"]
+        stdout: StdioCollector {
+            id: selected
+        }
+        // Quickshell does not declare the status's type to tooling.
+        onExited: exitCode => { // qmllint disable signal-handler-parameters
+            const window = Hyprland.activeToplevel;
+            const ipc = window?.lastIpcObject;
+            assistant.context = Logic.context(exitCode === 0 ? selected.text : "", ipc?.class ?? "", window?.title ?? "", 4000);
+            if (then !== null) {
+                const said = then;
+                then = null;
+                assistant.voice = "";
+                assistant.sendSpoken(said);
+            }
+        }
     }
 
     // Undo is offered for a while after a delete.
@@ -339,8 +635,11 @@ Singleton {
         function onLockedChanged() {
             assistant.request({ op: "locked", locked: Lock.locked });
             if (Lock.locked) {
-                assistant.sidebarOn = "";
-                assistant.listOn = "";
+                // The panel comes back with the unlock; nothing is heard.
+                assistant.endListening(false);
+                assistant.keyState = "idle";
+                assistant.peeking = false;
+                assistant.listing = false;
             }
         }
     }
@@ -351,7 +650,42 @@ Singleton {
         target: "assistant"
 
         function toggle(): void {
-            assistant.toggleLine(Shortcuts.focused);
+            assistant.tap(Shortcuts.focused, null);
+        }
+
+        // The Super key: "down", "other", "held", or "up".
+        function key(event: string): void {
+            assistant.key(event);
+        }
+
+        function panel(): void {
+            assistant.openPanel(Shortcuts.focused);
+        }
+
+        function dock(docked: bool): void {
+            assistant.dock(docked, false);
+        }
+
+        function hide(): void {
+            assistant.hide();
+        }
+
+        // "", "bubbles", "panel", or "docked"; with ":peek" for bubbles that
+        // came up by themselves.
+        function mode(): string {
+            if (assistant.peeking)
+                return "bubbles:peek";
+            return assistant.view.open === "panel" && assistant.view.docked ? "docked" : assistant.view.open;
+        }
+
+        // "", "listening", or "writing".
+        function voiceState(): string {
+            return assistant.voice;
+        }
+
+        // Why it does not listen, as the button says it, or "".
+        function notice(): string {
+            return assistant.notice;
         }
 
         function doNotDisturb(): bool {

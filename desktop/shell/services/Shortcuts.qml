@@ -55,9 +55,7 @@ Singleton {
             return;
         switch (name) {
         case "apps":
-            // Super is held to see its shortcuts in the list.
-            if (!listOn)
-                Shell.request("apps", focused);
+            Shell.request("apps", focused);
             break;
         case "notifications":
             Shell.request("notifications", focused);
@@ -77,8 +75,12 @@ Singleton {
         case "dictate-release":
             Dictation.release();
             break;
-        case "assistant":
-            Assistant.toggleLine(focused);
+        // Super alone: a tap opens the assistant, held it listens
+        // (Assistant.qml).
+        case "super-down":
+        case "super-other":
+        case "super-up":
+            Assistant.key(name.slice(6));
             break;
         case "lock":
             Lock.lock();

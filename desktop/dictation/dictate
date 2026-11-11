@@ -19,7 +19,13 @@
 #
 # Audio stays in the runtime directory, and it and the text are gone at the end.
 #
-# Usage: dictate [--held] (--held starts with no recording, to be given text with "hold").
+# Usage: dictate [--held | --listen] (--held starts with no recording, to be given
+# text with "hold"; --listen only hears, for the assistant: see below).
+#
+# For the assistant (shell/services/Assistant.qml), --listen writes down what is said
+# until "stop" and ends with it in "done", or with "nothing" or "failed". It delivers
+# nowhere and waits for no one, and it is not an input method: the words are the
+# assistant's request, not text for a field.
 #
 # From the shell, {"do": ...}: "stop"; "text", with
 # "text", for what the person edited; "insert"; "type", for keys, when the person
@@ -92,7 +98,7 @@ class InputMethod:
     """zwp_input_method_v2, as much as this needs: it is small and has no fds,
     and no Python binding ships this protocol."""
 
-    def __init__(self):
+    def __init__(self, connect=True):
         self.socket = None
         self.buffer = b""
         self.found = {}
@@ -105,6 +111,8 @@ class InputMethod:
         self.purpose = self.hint = 0
         self.before = ""
         self.pending = {}
+        if not connect:
+            return
         display = os.environ.get("WAYLAND_DISPLAY", "wayland-0")
         try:
             self.socket = socket.socket(socket.AF_UNIX)
@@ -195,10 +203,12 @@ def clean(said):
 
 
 class Dictation:
-    def __init__(self, held):
+    def __init__(self, held, only_listens=False):
+        # Only hearing, for the assistant: the words go back to the shell.
+        self.only_listens = only_listens
         self.work = pathlib.Path(tempfile.mkdtemp(dir=os.environ["XDG_RUNTIME_DIR"], prefix="dictation-"))
         self.selector = selectors.DefaultSelector()
-        self.method = InputMethod()
+        self.method = InputMethod(connect=not only_listens)
         self.input = b""
         self.state = None
         self.text = ""
@@ -388,7 +398,7 @@ class Dictation:
 
     def stop_listening(self):
         # Where the words were meant to go is where the focus was at the stop.
-        self.target = self.place()
+        self.target = None if self.only_listens else self.place()
         self.stopping = True
         self.sound(False)
         self.state = "writing"
@@ -514,6 +524,8 @@ class Dictation:
         """The recording stays, to try again."""
         self.state = "failed"
         self.emit(state="failed")
+        if self.only_listens:
+            self.finish(1)
 
     def written(self, said):
         self.audio_path.unlink(missing_ok=True)
@@ -522,6 +534,8 @@ class Dictation:
         if not self.text:
             self.emit(state="nothing")
             self.finish(0)
+        if self.only_listens:
+            self.done()
         if not had_text and self.place() == self.target and self.deliverable():
             self.method.commit(self.text)
             self.done()
@@ -613,7 +627,7 @@ class Dictation:
 
 
 def main():
-    Dictation("--held" in sys.argv[1:]).run()
+    Dictation("--held" in sys.argv[1:], "--listen" in sys.argv[1:]).run()
 
 
 if __name__ == "__main__":

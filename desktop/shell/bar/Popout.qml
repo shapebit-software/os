@@ -33,6 +33,9 @@ PanelWindow {
     // Whether the panel opens over the middle of what opened it, such as a
     // window, with no arrow.
     property bool centered
+    // Whether the panel takes the keyboard, and closes on a click outside;
+    // not while it only shows something that came by itself.
+    property bool grab: true
     readonly property rect anchor: Shell.anchor
     readonly property string edge: Shell.edge
 
@@ -44,14 +47,14 @@ PanelWindow {
     // Not Exclusive: Hyprland then holds back clicks everywhere else, so a
     // click outside could not close the panel. The focus grab gives it the
     // keyboard.
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: grab ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     mask: Region { item: body }
 
     HyprlandFocusGrab {
-        active: popout.visible
+        active: popout.visible && popout.grab
         windows: [popout, ...Shell.bars]
         onCleared: popout.dismissed()
     }

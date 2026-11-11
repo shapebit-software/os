@@ -33,8 +33,8 @@ Moving a window past the last workspace makes a new one, up to eight.
 
 | Shortcut | Action |
 |---|---|
-| Super | Apps |
-| Super+A | Assistant |
+| Super | Assistant: tap to open or close it, or hold while you speak |
+| Super+A | Apps |
 | Super+D | Dictate: tap to start and stop, or hold while you speak |
 | Super+N | Notifications |
 | Super+I | Settings |

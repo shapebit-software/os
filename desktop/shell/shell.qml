@@ -1,7 +1,7 @@
 // The shell of ShapeBit Desktop: every surface that is not an application
 // window: the wallpaper, the tabs of Tabs and Accordion, the handles that
 // resize tiles, the system bar and the dock (Shell.qml) with their panels,
-// the hot corner, what dictation shows, the assistant's sidebar and conversations, the way out of
+// the hot corner, what dictation shows, the assistant's panel and the edge that opens it, the way out of
 // full screen, Settings, the lock screen, and
 // the question for an administrator's password, the capture overlay, which
 // also picks what to share, the file chooser and the questions, which the
@@ -90,12 +90,12 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
 
-        AssistantSidebar {}
+        AssistantDock {}
     }
     Variants {
         model: Quickshell.screens
 
-        AssistantConversations {}
+        AssistantEdge {}
     }
     Variants {
         model: Quickshell.screens

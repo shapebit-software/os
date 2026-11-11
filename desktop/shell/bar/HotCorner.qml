@@ -3,7 +3,9 @@
 // corner fans out the buttons for the assistant, dictation (unless hidden
 // in Settings > Shell), and capture, as
 // in the demo. While recording, a red pill there shows the time; a click on
-// it stops the recording. Dictation shows itself (DictationOverlay.qml).
+// it stops the recording. Dictation shows itself (DictationOverlay.qml). While
+// the assistant listens or writes down what was said, a pill there shows it, as
+// its button on a bar would (QuickButton.qml).
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
@@ -28,10 +30,11 @@ PanelWindow {
             Dictation.toggle();
             return;
         }
+        // The assistant: what was open last, its bubbles here or its panel.
         const at = button.mapToItem(null, 0, 0);
-        Shell.toggle(panel, modelData.name,
+        Assistant.tap(modelData.name, () => Shell.toggle(panel, modelData.name,
             Qt.rect(modelData.width - width + at.x, modelData.height - height + at.y, button.width, button.height),
-            "Bottom", Theme.stripHeight + Theme.gap);
+            "Bottom", Theme.stripHeight + Theme.gap));
     }
 
     screen: modelData
@@ -121,6 +124,24 @@ PanelWindow {
                     cursorShape: Qt.PointingHandCursor
                 }
             }
+        }
+    }
+
+    // The assistant listens: what the microphone hears.
+    Rectangle {
+        visible: Assistant.voice !== "" && !corner.fanned
+        x: corner.width - Theme.gap - width
+        y: corner.height - Theme.gap - 14 - height - (pill.visible ? pill.height + 6 : 0)
+        width: 46
+        height: 32
+        radius: 16
+        color: Theme.accent
+
+        DictationBars {
+            anchors.centerIn: parent
+            listening: Assistant.voice === "listening"
+            writing: Assistant.voice === "writing"
+            level: Assistant.level
         }
     }
 

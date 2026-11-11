@@ -17,6 +17,9 @@ Item {
     readonly property bool hovered: hover.hovered
     signal clicked
     signal rightClicked
+    // Pressed and kept down, and let go after that; no click follows.
+    signal held
+    signal letGo
 
     // Wide enough for the widest content shown, such as the input language.
     implicitWidth: Math.max(size, ...holder.children.filter(c => c.visible).map(c => c.width + 12))
@@ -56,7 +59,20 @@ Item {
     }
 
     TapHandler {
+        property bool holding
+
+        longPressThreshold: 0.4
         onTapped: button.clicked()
+        onLongPressed: {
+            holding = true;
+            button.held();
+        }
+        onPressedChanged: {
+            if (!pressed && holding) {
+                holding = false;
+                button.letGo();
+            }
+        }
     }
     TapHandler {
         acceptedButtons: Qt.RightButton

@@ -3,11 +3,12 @@ AccountPanel AccountPanel.qml
 AppsButton AppsButton.qml
 AppsPanel AppsPanel.qml
 AssistantCard AssistantCard.qml
-AssistantConversations AssistantConversations.qml
+AssistantBubbles AssistantBubbles.qml
 AssistantGet AssistantGet.qml
 AssistantMessages AssistantMessages.qml
-AssistantPanel AssistantPanel.qml
-AssistantSidebar AssistantSidebar.qml
+AssistantDock AssistantDock.qml
+AssistantEdge AssistantEdge.qml
+AssistantReply AssistantReply.qml
 BarButton BarButton.qml
 BarPanel BarPanel.qml
 BatteryPanel BatteryPanel.qml

@@ -1,5 +1,6 @@
 // The sound bars that show dictation listening, as in the demo; they follow what
-// the microphone hears, and are still while it writes down what was heard.
+// the microphone hears, and are still while it writes down what was heard. The
+// assistant's button shows its own listening with them (QuickButton.qml).
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.services
@@ -10,7 +11,10 @@ Row {
     // The tallest bar.
     property real size: 16
     // The level, smoothed; half height while it writes down.
-    property real shown: Dictation.listening ? Dictation.level : 0.35
+    property real shown: listening ? level : 0.35
+    property bool listening: Dictation.listening
+    property bool writing: Dictation.writing
+    property real level: Dictation.level
 
     spacing: 2
 
@@ -27,7 +31,7 @@ Row {
             height: Math.max(2, bars.size * modelData * (0.15 + 0.85 * bars.shown))
             radius: 1
             color: Theme.textOnAccent
-            opacity: Dictation.writing ? 0.6 : 1
+            opacity: bars.writing ? 0.6 : 1
         }
     }
 }

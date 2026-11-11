@@ -47,7 +47,7 @@ display, and each one's mode and scale, are also kept as monitor rules in
 `~/.config/desktop/displays.lua`, which the compositor runs as it starts.
 
 Dictation (`dictation/`, Super+D) writes speech into the application in use,
-and the assistant (`assistant/`, Super+A) answers and acts through typed
+and the assistant (`assistant/`, Super) answers and acts through typed
 actions; both run on the computer, with their larger models as extras
 (`extras/`).
 
@@ -63,7 +63,8 @@ description; Super+/ shows them on a keyboard. Super moves the focus and,
 with Shift, the window: the arrows to the tile or screen beside, Alt with
 the arrows to the workspace before or after, and the numbers to a workspace
 by its place. Alt+Tab opens the window switcher, Super+W the window menu,
-and Super alone Apps.
+Super+A Apps, and Super alone the assistant: a tap opens it, and held, it
+listens.
 
 Unlike the demo, the desktop has no Overview: workspaces come and go with
 their windows. The session starts with one; dropping a window or an

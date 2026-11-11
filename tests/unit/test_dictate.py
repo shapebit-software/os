@@ -138,7 +138,7 @@ class Compositor:
 
 class Dictation:
     def __init__(self, tmp_path, recorder=RECORDER, said="", window=BROWSER, compositor=True, available=True,
-                 sound=LOUD, held=False, env=None, draft=None, waits=False, hangs=0, fails=0, parakeet=True):  # fmt: skip
+                 sound=LOUD, held=False, listens=False, env=None, draft=None, waits=False, hangs=0, fails=0, parakeet=True):  # fmt: skip
         self.fakes = tmp_path / "fakes"
         self.runtime = tmp_path / "runtime"
         self.fakes.mkdir()
@@ -160,7 +160,7 @@ class Dictation:
             path.chmod(0o755)
         self.compositor = Compositor(self.runtime / "test", available) if compositor else None
         self.process = subprocess.Popen(
-            [DICTATE, *(["--held"] if held else [])],
+            [DICTATE, *(["--held"] if held else []), *(["--listen"] if listens else [])],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             text=True,
@@ -179,7 +179,7 @@ class Dictation:
         self.lines = queue.Queue()
         self.heard = []
         threading.Thread(target=self.read, daemon=True).start()
-        if self.compositor:
+        if self.compositor and not listens:
             self.compositor.method_bound.wait(5)
 
     def read(self):
@@ -514,6 +514,45 @@ def test_held_text_comes_back_to_be_delivered(dictate):
     dictation.do("insert")
     dictation.wait_for("done")
     assert dictation.inserted == ["From before"]
+
+
+# Only hearing, for the assistant ------------------------------------------------
+
+
+def test_listening_for_the_assistant_gives_the_words_back_and_delivers_nowhere(dictate):
+    dictation = dictate(listens=True, said="Turn the volume down.\n")
+    dictation.say()
+    assert dictation.wait_for("done")["text"] == "Turn the volume down."
+    assert dictation.ended() == 0
+    assert not dictation.compositor.method_bound.is_set(), "it is no input method: no field can get the words"
+    assert dictation.inserted == []
+    assert dictation.typed is None
+    assert dictation.file("copied") is None
+    assert dictation.left_behind == []
+
+
+def test_listening_for_the_assistant_ends_with_nothing_said(dictate):
+    dictation = dictate(listens=True, sound=b"\0" * 1600)
+    dictation.say()
+    dictation.wait_for("nothing")
+    assert dictation.ended() == 0
+    assert dictation.left_behind == []
+
+
+def test_listening_for_the_assistant_ends_when_it_cannot_be_written_down(dictate):
+    dictation = dictate(listens=True, fails=2, said="Lost.\n")
+    dictation.say()
+    dictation.wait_for("failed")
+    assert dictation.ended() == 1
+    assert dictation.left_behind == []
+
+
+def test_listening_for_the_assistant_is_discarded_when_asked(dictate):
+    dictation = dictate(listens=True, said="Never mind.\n")
+    dictation.recording()
+    dictation.do("discard")
+    assert dictation.ended() == 130
+    assert dictation.left_behind == []
 
 
 # Understanding ----------------------------------------------------------------

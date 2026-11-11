@@ -87,6 +87,13 @@ Singleton {
     // How the quick actions (the assistant, capture, and dictation) open:
     // "Buttons" on the bars, or "Hot corner".
     property alias quickActions: adapter.quickActions
+    // The assistant (Assistant.qml): the way it was last opened, "bubbles" or
+    // "panel"; whether its panel is docked beside the windows, and how wide,
+    // in pixels; and whether the right edge of the screen opens the panel.
+    property alias assistantLast: adapter.assistantLast
+    property alias assistantDocked: adapter.assistantDocked
+    property alias assistantWidth: adapter.assistantWidth
+    property alias assistantEdge: adapter.assistantEdge
     // When to lock after the computer has been idle: "1 min", "5 min", or
     // "Never"; lockAfter is that in seconds, 0 for never.
     property alias autolock: adapter.autolock
@@ -227,6 +234,10 @@ Singleton {
             property list<string> hiddenItems: []
             property list<string> halfItems: ["capture", "dictation"]
             property string quickActions: "Buttons"
+            property string assistantLast: "bubbles"
+            property bool assistantDocked: false
+            property int assistantWidth: 340
+            property bool assistantEdge: true
             property string batteryPercentage: "Shown"
             property string trayIcons: "Side by side"
             property bool doNotDisturb: false
