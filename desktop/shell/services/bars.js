@@ -7,7 +7,7 @@
 var zoneNames = ["start", "center", "end"];
 
 // Items that keep their size: the rest are buttons, which can be half size.
-var whole = ["clock", "workspaces"];
+var whole = ["clock", "workspaces", "tray"];
 
 // The quick actions were one item, "quick", until each became one of its own.
 var quick = ["capture", "dictation", "assistant"];

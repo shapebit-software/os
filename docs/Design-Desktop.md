@@ -41,6 +41,11 @@ the [future design](#future-design) of what is not built yet.
   **Input language**, **Battery** with the power profile (where there is a
   battery), and the **System menu** (Settings, Lock, Suspend, Restart, Shut
   down, Log out). One panel is open at a time.
+- **Background apps**: applications that keep running without a window show
+  their icons in the middle of the system bar, side by side or, as set in
+  Settings > Shell, stacked until the pointer is on them. A click does what
+  the application does for it; a right click opens its menu. The item shows
+  only while there are such applications.
 
 ### Notifications
 

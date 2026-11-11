@@ -17,7 +17,11 @@ and Accordion layouts, the handles that resize tiles, the way out of full
 screen, Settings, and the lock screen. Beyond the demo, the system bar has
 notifications (banners, and a panel with them by app, the downloads, and Do
 Not Disturb), the display's brightness, and the battery with the power
-profile, these two only where the computer has them. The shell is also the session's polkit agent, which asks
+profile, these two only where the computer has them, and the icons of the
+applications running in the background, in the middle of the bar unless
+moved: side by side, or stacked until the pointer is on them (Settings >
+Shell); a click on one does what its application does for it, and a right
+click opens its menu. The shell is also the session's polkit agent, which asks
 for an administrator's password, its notification server, and, through the
 portals, what applications ask: the file chooser, screenshots and what to
 share in the capture overlay, and questions such as permissions, which

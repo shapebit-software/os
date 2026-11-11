@@ -81,7 +81,7 @@ Singleton {
     // The buttons shown half size on the dock, two to a slot (bars.js).
     property alias halfItems: adapter.halfItems
     readonly property var defaultZones: ({
-        system: { start: ["clock", "notifications"], center: [], end: ["microphone", "sound", "brightness", "network", "language", "battery", "account"] },
+        system: { start: ["clock", "notifications"], center: ["tray"], end: ["microphone", "sound", "brightness", "network", "language", "battery", "account"] },
         dock: { start: ["apps", "workspaces"], center: [], end: ["capture", "dictation", "assistant"] },
     })
     // How the quick actions (the assistant, capture, and dictation) open:
@@ -100,6 +100,10 @@ Singleton {
     // Whether the battery's percentage shows inside its icon on the bar:
     // "Shown" or "Hidden".
     property alias batteryPercentage: adapter.batteryPercentage
+    // How the icons of the apps running in the background stand on their
+    // bar (TrayIcons.qml): "Side by side", or "Stacked", one over the other
+    // until the pointer is on them.
+    property alias trayIcons: adapter.trayIcons
     // Do Not Disturb, which holds banners back, except critical ones, and
     // when it ends by itself, in milliseconds since the epoch, 0 for never
     // (Notifications.qml).
@@ -224,6 +228,7 @@ Singleton {
             property list<string> halfItems: ["capture", "dictation"]
             property string quickActions: "Buttons"
             property string batteryPercentage: "Shown"
+            property string trayIcons: "Side by side"
             property bool doNotDisturb: false
             property real doNotDisturbUntil: 0
             property string bell: "With notifications"

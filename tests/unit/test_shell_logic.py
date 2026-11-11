@@ -1,6 +1,6 @@
 """The shell's logic that needs no desktop (desktop/shell/services/*.js): the
-bars' layout and the notifications' rules, by their QML tests in
-tests/unit/shell, which qmltestrunner runs offscreen."""
+bars' layout, the notifications' rules, and the background apps' icons, by
+their QML tests in tests/unit/shell, which qmltestrunner runs offscreen."""
 
 import pathlib
 import shutil
@@ -11,7 +11,7 @@ import pytest
 TESTS = pathlib.Path(__file__).parent / "shell"
 
 
-@pytest.mark.parametrize("test", ["tst_bars.qml", "tst_notifications.qml"])
+@pytest.mark.parametrize("test", ["tst_bars.qml", "tst_notifications.qml", "tst_tray.qml"])
 def test_shell_logic(test):
     # Fedora names Qt 6's runner with a suffix; qt6-qtdeclarative-devel has it.
     runner = shutil.which("qmltestrunner-qt6") or shutil.which("qmltestrunner")

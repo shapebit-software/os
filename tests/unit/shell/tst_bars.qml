@@ -72,9 +72,10 @@ TestCase {
         compare(Bars.slots(["a", "b", "c"], ["a", "c"]), [["a"], ["b"], ["c"]]);
     }
 
-    function test_clock_and_workspaces_stay_whole() {
+    function test_clock_workspaces_and_background_apps_stay_whole() {
         compare(Bars.slots(["clock", "sound"], ["clock", "sound"]), [["clock"], ["sound"]]);
         verify(!Bars.canHalve("workspaces"));
+        verify(!Bars.canHalve("tray"));
         verify(Bars.canHalve("apps"));
     }
 

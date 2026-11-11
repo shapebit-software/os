@@ -32,3 +32,4 @@ singleton Shell Shell.qml
 singleton Shortcuts Shortcuts.qml
 singleton Switcher Switcher.qml
 singleton Theme Theme.qml
+singleton Tray Tray.qml

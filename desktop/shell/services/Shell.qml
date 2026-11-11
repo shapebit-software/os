@@ -28,6 +28,7 @@ Singleton {
         network: "Network",
         battery: "Battery",
         language: "Input language",
+        tray: "Background apps",
         account: "System menu",
         apps: "Apps",
         workspaces: "Workspaces",
@@ -37,7 +38,7 @@ Singleton {
     })
 
     // The open panel: "notifications", "microphone", "sound", "brightness",
-    // "network", "battery", "language",
+    // "network", "battery", "language", "tray",
     // "account", "apps", "assistant", "layout", "window", or none; the
     // screen it is open on, by name; the place of what opened it on that
     // screen; and the edge and depth of the bar it opens from.

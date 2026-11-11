@@ -58,6 +58,10 @@ Scope {
         screenName: panels.modelData?.name ?? ""
         name: "language"
     }
+    TrayMenu {
+        screen: panels.modelData
+        screenName: panels.modelData?.name ?? ""
+    }
     AccountPanel {
         screen: panels.modelData
         screenName: panels.modelData?.name ?? ""

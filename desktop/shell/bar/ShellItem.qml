@@ -1,7 +1,7 @@
 // One item of a bar (ShellBar.qml), by its id in Settings.zones: the clock,
 // a status button that opens its panel (the notifications, the microphone,
 // the sound, the brightness, the network, the battery, the input language,
-// the system menu), Apps, the workspaces, or a quick action's button (the
+// the system menu), the background apps' icons, Apps, the workspaces, or a quick action's button (the
 // assistant, capture, dictation). On the dock, buttons are glass tiles, full
 // or half size; on the system bar, they are plain. A right click on the
 // microphone or the sound mutes it, and on the bell turns Do Not Disturb on
@@ -37,12 +37,14 @@ Loader {
     readonly property string speakerMuted: "M10.6 6l4 4M14.6 6l-4 4"
 
     // A button right after the clock on the system bar stands a little
-    // apart from it, so it does not read as part of the date and time.
+    // apart from it, so it does not read as part of the date and time; the
+    // bell, whose icon is narrow in its button, stands closer.
     readonly property real apart: {
         if (bar.dock || modelData === "clock")
             return 0;
         const place = Shell.find(modelData);
-        return place?.bar && place.index > 0 && Settings.zones[place.bar][place.zone][place.index - 1] === "clock" ? 8 : 0;
+        return place?.bar && place.index > 0 && Settings.zones[place.bar][place.zone][place.index - 1] === "clock"
+            ? (modelData === "notifications" ? -3 : 8) : 0;
     }
     Layout.leftMargin: bar.vertical ? 0 : apart
     Layout.topMargin: bar.vertical ? apart : 0
@@ -58,11 +60,13 @@ Loader {
 
     // The quick actions open from the hot corner instead, if set so; the
     // brightness shows only with a backlight, the battery with one, and the
-    // bell while there is anything for it to show.
+    // bell while there is anything for it to show, and the background apps'
+    // icons while there are any.
     active: !(["assistant", "capture", "dictation"].includes(modelData) && Settings.quickActions === "Hot corner")
         && !(modelData === "notifications" && !Notifications.present)
         && !(modelData === "brightness" && !Brightness.available)
         && !(modelData === "battery" && !Battery.available)
+        && !(modelData === "tray" && Tray.items.length === 0)
     visible: active
 
     // A keyboard shortcut opens the item's panel (Shell.request); the
@@ -86,6 +90,7 @@ Loader {
         battery: batteryButton,
         language: languageButton,
         account: accountButton,
+        tray: trayIcons,
         apps: apps,
         workspaces: workspaces,
         assistant: quick,
@@ -410,6 +415,16 @@ Loader {
                     + "M5.9 6.6a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0-4.2 0z"
                     + "M4.1 12.8c.8-1.6 2.2-2.4 3.9-2.4s3.1.8 3.9 2.4"
             }
+        }
+    }
+
+    Component {
+        id: trayIcons
+
+        TrayIcons {
+            bar: item.bar
+            tile: item.tile
+            size: item.size
         }
     }
 

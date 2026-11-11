@@ -25,5 +25,7 @@ QuickButton QuickButton.qml
 ShellBar ShellBar.qml
 ShellItem ShellItem.qml
 SignalBars SignalBars.qml
+TrayIcons TrayIcons.qml
+TrayMenu TrayMenu.qml
 VolumePanel VolumePanel.qml
 WifiList WifiList.qml
