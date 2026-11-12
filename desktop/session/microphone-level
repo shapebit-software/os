@@ -1,0 +1,41 @@
+#!/usr/bin/python3
+# The microphone's level, for the bar's microphone (shell/services/Audio.qml),
+# which runs this only while an application already records from it: it hears
+# the default microphone as one more stream, keeps nothing, and prints the
+# peak, from 0 to 1, ten times a second, until it is stopped. PipeWire has no
+# meter of its own to read, and the shell can't read raw audio, so this does.
+#
+# Usage: microphone-level
+import array
+import subprocess
+import sys
+
+RATE = 8000
+# A tenth of a second of 16-bit samples.
+CHUNK = RATE // 10 * 2
+# The peak shown as full; speech seldom reaches the 16-bit maximum.
+FULL = 12000
+
+
+def main():
+    # Named, so the shell knows this stream for its own and counts no one by it.
+    recorder = subprocess.Popen(
+        ["pw-record", "--rate", str(RATE), "--channels", "1", "--format", "s16",
+         "-P", '{ node.name = "microphone-level" node.description = "Microphone level" }', "-"],
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    )  # fmt: skip
+    try:
+        while data := recorder.stdout.read(CHUNK):
+            samples = array.array("h")
+            samples.frombytes(data[: len(data) // 2 * 2])
+            peak = max((abs(s) for s in samples), default=0)
+            print(f"{min(1, peak / FULL):.2f}", flush=True)
+    except (BrokenPipeError, KeyboardInterrupt):
+        pass
+    finally:
+        recorder.terminate()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

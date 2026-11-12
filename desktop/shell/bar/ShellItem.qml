@@ -221,6 +221,34 @@ Loader {
             onRightClicked: item.toggleMute(Audio.input)
 
             Icon { strokes: item.microphone }
+            // While an application records, the microphone fills from below as
+            // loud as it hears (Audio.qml): its capsule, cut at the level.
+            Item {
+                id: meter
+
+                // The capsule's top and bottom on the 16-unit grid, drawn at 18.
+                readonly property real unit: 18 / 16
+                readonly property real upper: 1.8 * unit
+                readonly property real lower: 9.8 * unit
+
+                visible: Audio.recording
+                width: 18
+                height: 18
+
+                Item {
+                    y: meter.lower - height
+                    width: parent.width
+                    height: (meter.lower - meter.upper) * Math.min(1, Audio.level)
+                    clip: true
+
+                    Behavior on height { NumberAnimation { duration: 90 } }
+
+                    Icon {
+                        y: -parent.y
+                        fills: "M5.6 4.2a2.4 2.4 0 0 1 4.8 0v3.2a2.4 2.4 0 0 1-4.8 0z"
+                    }
+                }
+            }
             Icon {
                 visible: Audio.input?.audio?.muted ?? false
                 color: Theme.danger

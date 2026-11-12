@@ -258,6 +258,33 @@ any answer that arrives while the assistant is hidden.
   into the app, never to the assistant.
 - The model starts loading when the person starts to speak.
 
+**Voice mode** is apart from the conversations: a double tap on Super, or a
+right click on the assistant's button, starts it, and either again ends it.
+The button stays filled while it is on, and its icon tells the state: rings
+going out from a dot while it listens, bars that follow the voice while the
+person speaks, a turning arc while it thinks, and the sparkle with a dot while
+an action waits. The bar's microphone, in any case: while any application
+records from it, it fills from below as loud as it hears, measured only then,
+and nothing kept. Nothing opens but a small
+pill beside the button, off its bar (or in the bottom right corner with no
+button on the bars), with text only, one line that each step replaces: the
+person's words as they speak, and until the answer; then the answer, until
+they speak again; and an action that waits, as one row. Until there is any,
+the pill is not there. Each time the person pauses, about a second, what they said
+is a request, and it goes on listening. "Stop" said, a tap on Super, the lock
+screen, or a minute without a sound ends it, and what was still being said
+goes as a last request. Its requests are a conversation of their own, which
+the service keeps in memory only: it is never listed or saved, and is
+forgotten when voice mode ends; the activity log still notes what was done.
+Nothing is recorded: should speech stop being written down, voice mode ends.
+While an action waits, a short answer answers it: "yes" ("tak", "OK", "do
+it") applies a change, and "no" ("nie", "cancel") declines any action. What
+asks every time, looking at the screen, and the web need a click to go ahead,
+as a video or someone near can say "yes" too; the pill says so, and has
+buttons for them.
+"Always allow" is never said. Answers are not spoken yet. Dictation into the
+reply line is dictation's own button, as into any field.
+
 The assistant sees only what a request tells it: the selected text and the
 focused window's app and title. The reply line shows both before sending,
 each to take off, and the request's bubble says what went along. It does not
@@ -338,8 +365,9 @@ Each action shows as a card, and has a risk:
 - **Confirm** (shutting down, restarting, installing or removing an app) asks
   every time.
 
-Approvals are given on the card, with the pointer or keyboard, never by
-voice. Typed and spoken requests share one queue, in the order they came;
+Approvals are given on the card, with the pointer or keyboard; in voice mode,
+a change can be said yes to, and any action no (above). Typed and spoken
+requests share one queue, in the order they came;
 stopping one lets the next start, and never rolls back what is done.
 
 One assistant serves the whole session and runs outside the shell. Locking

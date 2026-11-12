@@ -28,6 +28,7 @@ def test_desktop_command_is_installed(host, command):
         "/usr/libexec/desktop/portal",
         "/usr/libexec/desktop/share-picker",
         "/usr/libexec/desktop/connection-agent",
+        "/usr/libexec/desktop/microphone-level",
         "/usr/libexec/desktop/app-install",
         "/usr/libexec/desktop/app-catalog",
         "/usr/libexec/desktop/app-remove",
