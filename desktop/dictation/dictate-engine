@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Live speech recognition for dictation/dictate, which runs this for one recording:
+# Live speech recognition for dictation/hear, which runs this for one recording:
 # 16 kHz mono 16-bit audio comes in on the standard input, and JSON lines go out.
 # Silero finds where phrases end, and Parakeet writes each one down when it does. All
 # the audio goes to Parakeet: Silero only says where to cut, as it can take a short

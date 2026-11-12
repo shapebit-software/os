@@ -290,7 +290,7 @@ def test_live_dictation_finds_what_its_extra_installs():
     for name in ("encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt", "silero_vad_v5.onnx"):
         assert name in names
         assert name in engine
-    assert '"/var/lib/extras/parakeet"' in (ROOT / "desktop" / "dictation" / "dictate").read_text()
+    assert '"/var/lib/extras/parakeet"' in (ROOT / "desktop" / "dictation" / "hear").read_text()
 
 
 def test_a_download_can_be_named(extras):

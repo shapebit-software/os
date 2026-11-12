@@ -104,7 +104,7 @@ Singleton {
     property string keyState: "idle"
     property string voice
     // Voice mode, apart from the conversations: it hears on, and each pause
-    // makes what was said a request (dictation/dictate --converse), in a
+    // makes what was said a request (dictation/hear --converse), in a
     // conversation of its own that the service keeps in memory only and
     // forgets at the end. Its pill shows by the assistant's button
     // (VoicePill.qml): at voiceAt, { screen, rect, edge, depth } as the bar
@@ -297,7 +297,7 @@ Singleton {
     // The voice ----------------------------------------------------------
 
     function helper(): string {
-        return tree ? `${tree}/../dictation/dictate` : "/usr/libexec/desktop/dictate";
+        return tree ? `${tree}/../dictation/hear` : "/usr/libexec/desktop/hear";
     }
 
     // Super, or the assistant's button, as assistant.js names what happens.
@@ -436,7 +436,7 @@ Singleton {
         request({ op: "warm" });
         level = 0;
         voice = "listening";
-        listener.command = [helper(), "--listen"];
+        listener.command = [helper()];
         listener.running = true;
     }
 
@@ -803,7 +803,7 @@ Singleton {
         }
     }
 
-    // Hears for the assistant (dictation/dictate --listen): it delivers
+    // Hears for the assistant (dictation/hear): it delivers
     // nowhere, and ends with what was said.
     Process {
         id: listener

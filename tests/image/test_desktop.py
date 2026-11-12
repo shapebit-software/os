@@ -65,9 +65,10 @@ def test_apps_shows_no_session_tools(host):
     assert host.file("/usr/bin/uuctl").exists
 
 
-def test_dictation_helper_is_installed(host, sh):
-    assert host.file("/usr/libexec/desktop/dictate").mode & 0o111
-    sh("python3 -c 'import ast; ast.parse(open(\"/usr/libexec/desktop/dictate\").read())'")
+@pytest.mark.parametrize("helper", ["dictate", "hear"])
+def test_dictation_helpers_are_installed(host, sh, helper):
+    assert host.file(f"/usr/libexec/desktop/{helper}").mode & 0o111
+    sh(f"python3 -c 'import ast; ast.parse(open(\"/usr/libexec/desktop/{helper}\").read())'")
 
 
 def test_dictation_has_its_runtime_but_no_speech_model(sh, host):

@@ -1,6 +1,6 @@
-"""desktop/dictation/dictate, with a made-up compositor, window, recorder, engine,
-keyboard, and clipboard. Every path says where the text goes, and that nothing
-goes anywhere else."""
+"""desktop/dictation/dictate, with a made-up compositor, window, keyboard, clipboard,
+and dictation/hear, which tests/unit/test_hear.py covers. Every path says where the
+text goes, and that nothing goes anywhere else."""
 
 import json
 import os
@@ -17,73 +17,57 @@ import pytest
 
 DICTATE = pathlib.Path(__file__).parents[2] / "desktop" / "dictation" / "dictate"
 
-LOUD = struct.pack("<h", 20000) * 800
-RECORDER = """#!/usr/bin/python3
-import os, signal, sys, time
-signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
-open(os.environ["FAKES"] + "/recording", "w").close()
-while True:
-    sys.stdout.buffer.write(open(os.environ["FAKES"] + "/sound", "rb").read())
-    sys.stdout.buffer.flush()
-    time.sleep(0.05)
-"""
-RECORDER_FAILS = "#!/bin/bash\nexit 1\n"
-# As the real one (dictation/dictate-engine): reads the audio to its end, then says
-# each line of "said" as a phrase. Files in FAKES make it say a draft first
-# ("engine-draft"), wait for "go" ("engine-waits"), or hang or fail for that many
-# runs ("engine-hangs", "engine-fails").
-ENGINE = """#!/usr/bin/python3
+# As dictation/hear: listens until "stop", then says "said" as the words, or nothing.
+# Files in FAKES make it fail before it listens ("cannot-hear"), say a draft
+# ("draft"), stop by itself ("gives-up"), wait for "go" before the words
+# ("waits"), or fail, to retry, that many times ("fails").
+HEAR = """#!/usr/bin/python3
 import json, os, pathlib, sys, time
 fakes = pathlib.Path(os.environ["FAKES"])
+def say(**message):
+    print(json.dumps(message), flush=True)
 def mark(name, default=""):
     path = fakes / name
     return path.read_text() if path.exists() else default
-with open(fakes / "engine-runs", "a") as runs:
+with open(fakes / "hear-runs", "a") as runs:
     runs.write(" ".join(sys.argv[1:]) + "\\n")
-run = len(mark("engine-runs").splitlines())
-sys.stdout.write(mark("engine-draft"))
-sys.stdout.flush()
-(fakes / "engine-audio").write_bytes(sys.stdin.buffer.read())
-(fakes / "engine-writing").touch()
-if run <= int(mark("engine-hangs", "0")):
-    time.sleep(60)
-while (fakes / "engine-waits").exists() and not (fakes / "go").exists():
-    time.sleep(0.02)
-if run <= int(mark("engine-fails", "0")):
+(fakes / "hear-pid").write_text(str(os.getpid()))
+if (fakes / "cannot-hear").exists():
+    say(state="failed", retry=False)
     sys.exit(1)
-for line in mark("said").splitlines():
-    if line.strip():
-        print(json.dumps({"final": line}), flush=True)
-"""
-# Live, as the real one is while the person speaks: each line added to "phrases"
-# comes out as a phrase at once; it ends when the audio does.
-LIVE_ENGINE = """#!/usr/bin/python3
-import json, os, pathlib, sys, threading, time
-fakes = pathlib.Path(os.environ["FAKES"])
-ended = threading.Event()
-def drain():
-    while sys.stdin.buffer.read(65536):
-        pass
-    ended.set()
-threading.Thread(target=drain, daemon=True).start()
-told = 0
-while True:
-    path = fakes / "phrases"
-    lines = path.read_text().splitlines() if path.exists() else []
-    for line in lines[told:]:
-        print(json.dumps({"final": line}), flush=True)
-    # Rewriting the file empties it for a moment: only ever go on.
-    told = max(told, len(lines))
-    if ended.is_set():
-        break
-    time.sleep(0.02)
+say(state="listening", level=1, quiet=False, idle=False)
+if mark("draft"):
+    say(state="draft", text=mark("draft"), tail="")
+def write_down():
+    say(state="writing")
+    while (fakes / "waits").exists() and not (fakes / "go").exists():
+        time.sleep(0.02)
+    fails = int(mark("fails", "0"))
+    if fails:
+        (fakes / "fails").write_text(str(fails - 1))
+        say(state="failed", retry=True)
+        return
+    said = mark("said")
+    if said:
+        say(state="done", text=said)
+    else:
+        say(state="nothing")
+    sys.exit(0)
+if (fakes / "gives-up").exists():
+    write_down()
+for line in sys.stdin:
+    what = json.loads(line)["do"]
+    if what == "discard":
+        sys.exit(130)
+    if what in ("stop", "retry"):
+        write_down()
+sys.exit(130)
 """
 KEYBOARD = """#!/bin/bash
 echo "$*" >"$FAKES/wtype-args"
 cat >"$FAKES/typed"
 """
 CLIPBOARD = '#!/bin/bash\ncat >"$FAKES/copied"\n'
-PLAYER = '#!/bin/bash\necho "$1" >>"$FAKES/played"\n'
 WINDOW = """#!/bin/bash
 cat "$FAKES/window"
 """
@@ -160,31 +144,36 @@ class Compositor:
 
 
 class Dictation:
-    def __init__(self, tmp_path, recorder=RECORDER, said="", window=BROWSER, compositor=True, available=True,
-                 sound=LOUD, held=False, listens=False, env=None, draft=None, waits=False, hangs=0, fails=0, parakeet=True,
-                 converses=False, engine=ENGINE):  # fmt: skip
+    def __init__(self, tmp_path, said="", window=BROWSER, compositor=True, available=True, held=False, draft="",
+                 waits=False, fails=0, hears=True, gives_up=False, real_hear=False):  # fmt: skip
         self.fakes = tmp_path / "fakes"
         self.runtime = tmp_path / "runtime"
         self.fakes.mkdir()
         self.runtime.mkdir()
-        (self.fakes / "said").write_text(said)
-        (self.fakes / "sound").write_bytes(sound)
+        self.said(said)
         self.window(window)
-        if draft:
-            (self.fakes / "engine-draft").write_text(json.dumps(draft) + "\n")
-        if waits:
-            (self.fakes / "engine-waits").touch()
-        (self.fakes / "engine-hangs").write_text(str(hangs))
-        (self.fakes / "engine-fails").write_text(str(fails))
-        fakes = [("pw-record", recorder), ("dictate-engine", engine), ("wtype", KEYBOARD), ("wl-copy", CLIPBOARD),
-                 ("hyprctl", WINDOW), ("pw-play", PLAYER)]  # fmt: skip
-        for name, script in fakes:
+        (self.fakes / "draft").write_text(draft)
+        (self.fakes / "fails").write_text(str(fails))
+        for name, present in (("waits", waits), ("cannot-hear", not hears), ("gives-up", gives_up)):
+            if present:
+                (self.fakes / name).touch()
+        for name, script in (("hear", HEAR), ("wtype", KEYBOARD), ("wl-copy", CLIPBOARD), ("hyprctl", WINDOW)):
             path = self.fakes / name
             path.write_text(script)
             path.chmod(0o755)
+        hearing = {"DICTATION_HEAR": str(self.fakes / "hear")}
+        if real_hear:
+            # With a made-up microphone and engine, as tests/unit/test_hear.py has them.
+            from test_hear import ENGINE, LOUD, RECORDER
+
+            for name, script in (("pw-record", RECORDER), ("dictate-engine", ENGINE)):
+                (self.fakes / name).write_text(script)
+                (self.fakes / name).chmod(0o755)
+            (self.fakes / "sound").write_bytes(LOUD)
+            hearing = {"DICTATION_ENGINE": str(self.fakes / "dictate-engine"), "DICTATION_PARAKEET": str(self.fakes)}
         self.compositor = Compositor(self.runtime / "test", available) if compositor else None
         self.process = subprocess.Popen(
-            [DICTATE, *(["--held"] if held else []), *(["--listen"] if listens else []), *(["--converse"] if converses else [])],
+            [DICTATE, *(["--held"] if held else [])],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             text=True,
@@ -194,21 +183,21 @@ class Dictation:
                 "FAKES": str(self.fakes),
                 "XDG_RUNTIME_DIR": str(self.runtime),
                 "WAYLAND_DISPLAY": "test" if compositor else "none",
-                "DICTATION_ENGINE": str(self.fakes / "dictate-engine"),
-                "DICTATION_PARAKEET": str(self.fakes) if parakeet else "/nonexistent",
-                "DICTATION_ENGINE_WAIT": "1",
-                **(env or {}),
+                **hearing,
             },
         )
         self.lines = queue.Queue()
         self.heard = []
         threading.Thread(target=self.read, daemon=True).start()
-        if self.compositor and not listens and not converses:
+        if self.compositor:
             self.compositor.method_bound.wait(5)
 
     def read(self):
         for line in self.process.stdout:
             self.lines.put(json.loads(line))
+
+    def said(self, text):
+        (self.fakes / "said").write_text(text)
 
     def window(self, window):
         (self.fakes / "window").write_text(json.dumps(window))
@@ -231,19 +220,17 @@ class Dictation:
                     self.compositor and self.compositor.thread.join(5)
                 return message
 
-    def wait_for_file(self, name):
-        deadline = time.monotonic() + 10
-        while not (self.fakes / name).exists():
-            assert time.monotonic() < deadline, f"{name} did not appear"
-            time.sleep(0.02)
-
-    def recording(self):
-        self.wait_for_file("recording")
-        self.wait_for("listening")
-
     def say(self):
-        self.recording()
+        self.wait_for("listening")
         self.do("stop")
+
+    def writing(self):
+        """Stopped, and the words not yet out until go()."""
+        self.say()
+        self.wait_for("writing")
+
+    def go(self):
+        (self.fakes / "go").touch()
 
     def ended(self):
         return self.process.wait(10)
@@ -253,16 +240,20 @@ class Dictation:
         return path.read_text() if path.exists() else None
 
     @property
+    def hearing_gone(self):
+        try:
+            os.kill(int(self.file("hear-pid")), 0)
+        except ProcessLookupError:
+            return True
+        return False
+
+    @property
     def inserted(self):
         return self.compositor.commits if self.compositor else []
 
     @property
     def typed(self):
         return self.file("typed")
-
-    @property
-    def left_behind(self):
-        return [path for path in self.runtime.iterdir() if path.name != "test"]
 
 
 @pytest.fixture
@@ -282,31 +273,29 @@ def dictate(tmp_path):
 # A field that stays: straight in, with no card -----------------------------
 
 
-def test_text_goes_straight_into_the_field_as_one_text(dictate):
-    dictation = dictate(said=" Dzień dobry,\n wszystkim.\n")
+def test_text_goes_straight_into_the_field(dictate):
+    dictation = dictate(said="Dzień dobry, wszystkim.")
     dictation.compositor.focus_field()
     dictation.say()
     assert dictation.wait_for("done")["text"] == "Dzień dobry, wszystkim."
     assert dictation.ended() == 0
     assert dictation.inserted == ["Dzień dobry, wszystkim."]
     assert dictation.typed is None, "keys could press shortcuts"
-    assert dictation.left_behind == []
 
 
-def test_a_terminal_is_a_field_and_no_line_ends_so_nothing_runs(dictate):
-    dictation = dictate(said="rm -rf\n /home\n")
+def test_it_hears_keeping_a_failure_to_retry(dictate):
+    dictation = dictate()
+    dictation.say()
+    dictation.wait_for("nothing")
+    assert dictation.file("hear-runs") == "--retry\n"
+
+
+def test_control_characters_and_line_ends_never_pass(dictate):
+    dictation = dictate(said="rm -rf\n /home\x1b[31m\x07")
     dictation.compositor.focus_field(purpose=13)
     dictation.say()
     dictation.wait_for("done")
-    assert dictation.inserted == ["rm -rf /home"]
-
-
-def test_control_characters_never_pass(dictate):
-    dictation = dictate(said="safe\x1b[31m text\x07\n")
-    dictation.compositor.focus_field()
-    dictation.say()
-    dictation.wait_for("done")
-    assert all(c.isprintable() for c in dictation.inserted[0])
+    assert dictation.inserted == ["rm -rf /home [31m"]
 
 
 @pytest.mark.parametrize(
@@ -321,7 +310,7 @@ def test_control_characters_never_pass(dictate):
     ],
 )
 def test_a_space_goes_where_the_field_needs_one(dictate, before, selected, expected):
-    dictation = dictate(said="there\n")
+    dictation = dictate(said="there")
     dictation.compositor.focus_field(before=before, selected=selected)
     dictation.say()
     dictation.wait_for("done")
@@ -329,9 +318,9 @@ def test_a_space_goes_where_the_field_needs_one(dictate, before, selected, expec
 
 
 def test_moving_to_a_field_before_the_stop_is_where_it_goes(dictate):
-    dictation = dictate(said="Hello\n")
+    dictation = dictate(said="Hello")
     dictation.compositor.focus_field()
-    dictation.recording()
+    dictation.wait_for("listening")
     dictation.window(OTHER)
     dictation.compositor.focus_field()
     time.sleep(0.2)
@@ -340,43 +329,57 @@ def test_moving_to_a_field_before_the_stop_is_where_it_goes(dictate):
     assert dictation.inserted == ["Hello"]
 
 
+def test_where_it_stopped_by_itself_is_where_it_goes(dictate):
+    dictation = dictate(said="Hello", gives_up=True)
+    dictation.compositor.focus_field()
+    dictation.wait_for("done")
+    assert dictation.inserted == ["Hello"]
+
+
 # Moved while it was written down: it waits, so it lands in nothing new ------
 
 
 def test_another_window_while_writing_waits(dictate):
-    dictation = dictate(waits=True, said="Private\n")
+    dictation = dictate(waits=True, said="Private")
     dictation.compositor.focus_field()
-    dictation.say()
-    dictation.wait_for_file("engine-writing")
+    dictation.writing()
     dictation.window(OTHER)
     dictation.compositor.focus_field()
     time.sleep(0.2)
-    (dictation.fakes / "go").touch()
+    dictation.go()
     message = dictation.wait_for("waiting", where="field")
     assert message["app"] == "chat"
     assert dictation.inserted == []
 
 
 def test_another_field_in_the_same_window_while_writing_waits(dictate):
-    dictation = dictate(waits=True, said="Private\n")
+    dictation = dictate(waits=True, said="Private")
     dictation.compositor.focus_field()
-    dictation.say()
-    dictation.wait_for_file("engine-writing")
+    dictation.writing()
     dictation.compositor.focus_field()
     time.sleep(0.2)
-    (dictation.fakes / "go").touch()
+    dictation.go()
     dictation.wait_for("waiting", where="field")
     assert dictation.inserted == []
 
 
 def test_a_field_that_appears_only_after_the_stop_waits(dictate):
-    dictation = dictate(waits=True, said="Hello\n")
-    dictation.say()
-    dictation.wait_for_file("engine-writing")
+    dictation = dictate(waits=True, said="Hello")
+    dictation.writing()
     dictation.compositor.focus_field()
     time.sleep(0.2)
-    (dictation.fakes / "go").touch()
+    dictation.go()
     dictation.wait_for("waiting", where="field")
+    assert dictation.inserted == []
+
+
+def test_a_window_left_after_the_stop_gets_nothing(dictate):
+    dictation = dictate(waits=True, said="Tajne.")
+    dictation.compositor.focus_field()
+    dictation.writing()
+    dictation.window(OTHER)
+    dictation.go()
+    assert dictation.wait_for("waiting")["text"] == "Tajne."
     assert dictation.inserted == []
 
 
@@ -384,7 +387,7 @@ def test_a_field_that_appears_only_after_the_stop_waits(dictate):
 
 
 def test_a_window_with_no_field_waits(dictate):
-    dictation = dictate(said="Hello\n")
+    dictation = dictate(said="Hello")
     dictation.say()
     message = dictation.wait_for("waiting")
     assert (message["where"], message["app"], message["text"]) == ("none", "firefox", "Hello")
@@ -392,7 +395,7 @@ def test_a_window_with_no_field_waits(dictate):
 
 
 def test_no_window_waits_and_keys_are_refused(dictate):
-    dictation = dictate(said="Hello\n", window={})
+    dictation = dictate(said="Hello", window={})
     dictation.say()
     assert dictation.wait_for("waiting")["where"] == "nowindow"
     dictation.do("type")
@@ -402,20 +405,20 @@ def test_no_window_waits_and_keys_are_refused(dictate):
 
 
 def test_xwayland_never_tells_so_it_is_unknown(dictate):
-    dictation = dictate(said="Hello\n", window={"address": "0xc", "class": "old", "xwayland": True})
+    dictation = dictate(said="Hello", window={"address": "0xc", "class": "old", "xwayland": True})
     dictation.say()
     assert dictation.wait_for("waiting")["where"] == "unknown"
     assert dictation.typed is None
 
 
 def test_without_a_compositor_it_is_unknown(dictate):
-    dictation = dictate(said="Hello\n", compositor=False)
+    dictation = dictate(said="Hello", compositor=False)
     dictation.say()
     assert dictation.wait_for("waiting")["where"] == "unknown"
 
 
 def test_with_another_input_method_running_it_is_unknown(dictate):
-    dictation = dictate(said="Hello\n", available=False)
+    dictation = dictate(said="Hello", available=False)
     dictation.say()
     assert dictation.wait_for("waiting")["where"] == "unknown"
 
@@ -425,7 +428,7 @@ def test_with_another_input_method_running_it_is_unknown(dictate):
 
 @pytest.mark.parametrize("purpose, hint", [(8, 0), (9, 0), (0, 0x40)])
 def test_a_secret_field_refuses_both_ways_in(dictate, purpose, hint):
-    dictation = dictate(said="Hello\n")
+    dictation = dictate(said="Hello")
     dictation.compositor.focus_field(purpose=purpose, hint=hint)
     dictation.say()
     assert dictation.wait_for("waiting")["where"] == "password"
@@ -440,7 +443,7 @@ def test_a_secret_field_refuses_both_ways_in(dictate, purpose, hint):
 
 
 def test_a_field_clicked_while_waiting_takes_it_when_asked_and_not_before(dictate):
-    dictation = dictate(said="Hello\n")
+    dictation = dictate(said="Hello")
     dictation.say()
     dictation.wait_for("waiting", where="none")
     dictation.compositor.focus_field()
@@ -453,7 +456,7 @@ def test_a_field_clicked_while_waiting_takes_it_when_asked_and_not_before(dictat
 
 def test_insert_waits_for_the_field_to_come_back(dictate):
     # The shell gives the focus back from the card just before.
-    dictation = dictate(said="Hello\n")
+    dictation = dictate(said="Hello")
     dictation.say()
     dictation.wait_for("waiting", where="none")
     dictation.do("insert")
@@ -464,7 +467,7 @@ def test_insert_waits_for_the_field_to_come_back(dictate):
 
 
 def test_insert_with_no_field_keeps_the_text_waiting(dictate):
-    dictation = dictate(said="Hello\n")
+    dictation = dictate(said="Hello")
     dictation.say()
     dictation.wait_for("waiting")
     dictation.do("insert")
@@ -476,7 +479,7 @@ def test_insert_with_no_field_keeps_the_text_waiting(dictate):
 
 
 def test_type_uses_keys_on_standard_input_so_it_is_never_an_option(dictate):
-    dictation = dictate(said="--help\n")
+    dictation = dictate(said="--help")
     dictation.say()
     dictation.wait_for("waiting")
     dictation.do("type")
@@ -486,7 +489,7 @@ def test_type_uses_keys_on_standard_input_so_it_is_never_an_option(dictate):
 
 
 def test_edited_text_is_what_is_delivered(dictate):
-    dictation = dictate(said="Helo\n")
+    dictation = dictate(said="Helo")
     dictation.say()
     dictation.wait_for("waiting")
     dictation.do("text", text="Hello\n")
@@ -496,22 +499,20 @@ def test_edited_text_is_what_is_delivered(dictate):
 
 
 def test_keep_talking_joins_the_text(dictate):
-    dictation = dictate(said="One.\n")
+    dictation = dictate(said="One.")
     dictation.say()
     dictation.wait_for("waiting", text="One.")
-    (dictation.fakes / "said").write_text("Two.\n")
-    (dictation.fakes / "recording").unlink()
+    dictation.said("Two.")
     dictation.do("add")
     dictation.say()
     dictation.wait_for("waiting", text="One. Two.")
 
 
 def test_keep_talking_never_delivers_by_itself(dictate):
-    dictation = dictate(said="One.\n")
+    dictation = dictate(said="One.")
     dictation.say()
     dictation.wait_for("waiting")
     dictation.compositor.focus_field()
-    (dictation.fakes / "recording").unlink()
     dictation.do("add")
     dictation.say()
     dictation.wait_for("waiting", text="One. One.")
@@ -519,11 +520,10 @@ def test_keep_talking_never_delivers_by_itself(dictate):
 
 
 def test_silence_in_keep_talking_keeps_the_text(dictate):
-    dictation = dictate(said="One.\n")
+    dictation = dictate(said="One.")
     dictation.say()
     dictation.wait_for("waiting")
-    (dictation.fakes / "said").write_text("")
-    (dictation.fakes / "recording").unlink()
+    dictation.said("")
     dictation.do("add")
     dictation.say()
     dictation.wait_for("waiting", text="One.")
@@ -533,139 +533,15 @@ def test_held_text_comes_back_to_be_delivered(dictate):
     dictation = dictate(held=True)
     dictation.do("hold", text="From before")
     dictation.wait_for("waiting", text="From before")
-    assert not (dictation.fakes / "recording").exists(), "no microphone for this"
+    assert dictation.file("hear-runs") is None, "no microphone for this"
     dictation.compositor.focus_field()
     dictation.do("insert")
     dictation.wait_for("done")
     assert dictation.inserted == ["From before"]
 
 
-# Only hearing, for the assistant ------------------------------------------------
-
-
-def test_listening_for_the_assistant_gives_the_words_back_and_delivers_nowhere(dictate):
-    dictation = dictate(listens=True, said="Turn the volume down.\n")
-    dictation.say()
-    assert dictation.wait_for("done")["text"] == "Turn the volume down."
-    assert dictation.ended() == 0
-    assert not dictation.compositor.method_bound.is_set(), "it is no input method: no field can get the words"
-    assert dictation.inserted == []
-    assert dictation.typed is None
-    assert dictation.file("copied") is None
-    assert dictation.left_behind == []
-
-
-def test_listening_for_the_assistant_ends_with_nothing_said(dictate):
-    dictation = dictate(listens=True, sound=b"\0" * 1600)
-    dictation.say()
-    dictation.wait_for("nothing")
-    assert dictation.ended() == 0
-    assert dictation.left_behind == []
-
-
-def test_listening_for_the_assistant_ends_when_it_cannot_be_written_down(dictate):
-    dictation = dictate(listens=True, fails=2, said="Lost.\n")
-    dictation.say()
-    dictation.wait_for("failed")
-    assert dictation.ended() == 1
-    assert dictation.left_behind == []
-
-
-def test_listening_for_the_assistant_is_discarded_when_asked(dictate):
-    dictation = dictate(listens=True, said="Never mind.\n")
-    dictation.recording()
-    dictation.do("discard")
-    assert dictation.ended() == 130
-    assert dictation.left_behind == []
-
-
-# The assistant's voice mode ---------------------------------------------------
-
-QUIET_SOUND = b"\0" * 1600
-VOICE_MODE = {"DICTATION_TURN_PAUSE": "0.3", "DICTATION_CONVERSE_QUIET": "1.5"}
-
-
-def test_voice_mode_gives_each_request_at_a_pause_and_hears_on(dictate):
-    dictation = dictate(converses=True, engine=LIVE_ENGINE, env=VOICE_MODE)
-    dictation.recording()
-    (dictation.fakes / "phrases").write_text("Turn the volume down.\n")
-    # Speaking on, no request yet: a phrase is not yet a pause.
-    time.sleep(0.5)
-    assert not any(m["state"] == "heard" for m in dictation.heard)
-    (dictation.fakes / "sound").write_bytes(QUIET_SOUND)
-    assert dictation.wait_for("heard")["text"] == "Turn the volume down."
-    (dictation.fakes / "sound").write_bytes(LOUD)
-    (dictation.fakes / "phrases").write_text("Turn the volume down.\nOpen Files.\nPlease.\n")
-    time.sleep(0.2)
-    (dictation.fakes / "sound").write_bytes(QUIET_SOUND)
-    assert dictation.wait_for("heard")["text"] == "Open Files. Please."
-    # A minute without a sound, here 1.5 s, ends it.
-    dictation.wait_for("nothing")
-    assert dictation.ended() == 0
-    assert dictation.left_behind == []
-    assert not dictation.compositor.method_bound.is_set(), "it is no input method: no field can get the words"
-
-
-def test_a_room_that_is_never_quiet_still_ends_requests_and_voice_mode(dictate):
-    # A fan or music is loud all along: the engine, which tells speech from noise, decides.
-    env = {**VOICE_MODE, "DICTATION_TURN_LONGEST": "0.6"}
-    dictation = dictate(converses=True, engine=LIVE_ENGINE, env=env)
-    dictation.recording()
-    (dictation.fakes / "phrases").write_text("Mute the sound.\n")
-    assert dictation.wait_for("heard")["text"] == "Mute the sound."
-    # No speech for a minute, here 1.5 s, ends it, noise or not.
-    dictation.wait_for("nothing")
-    assert dictation.ended() == 0
-
-
-def test_stopping_voice_mode_delivers_what_is_left(dictate):
-    dictation = dictate(converses=True, engine=LIVE_ENGINE, env=VOICE_MODE)
-    dictation.recording()
-    (dictation.fakes / "phrases").write_text("What time is it\n")
-    dictation.wait_for("draft", text="What time is it")
-    dictation.do("stop")
-    assert dictation.wait_for("done")["text"] == "What time is it"
-    assert dictation.ended() == 0
-
-
-def test_voice_mode_ends_when_its_engine_fails_and_keeps_no_recording(dictate):
-    dictation = dictate(converses=True, engine="#!/bin/bash\nexit 3\n", env=VOICE_MODE)
-    dictation.wait_for("failed")
-    assert dictation.ended() == 1
-    assert dictation.left_behind == []
-
-
-# Understanding ----------------------------------------------------------------
-
-
-def test_the_engine_hears_the_recording_with_the_models(dictate):
-    dictation = dictate(said="Tak.\n")
-    dictation.compositor.focus_field()
-    dictation.say()
-    dictation.wait_for("done")
-    assert dictation.file("engine-runs") == f"{dictation.fakes}\n"
-    assert (dictation.fakes / "engine-audio").read_bytes().startswith(LOUD)
-
-
-def test_the_draft_goes_to_the_shell_and_nowhere_else(dictate):
-    dictation = dictate(said="Dzień dobry.\n", draft={"draft": "Dzień", "tail": "dobry"})
-    dictation.compositor.focus_field()
-    message = dictation.wait_for("draft")
-    assert (message["text"], message["tail"]) == ("Dzień", "dobry")
-    assert dictation.inserted == []
-    assert dictation.typed is None
-
-
-def test_without_parakeet_it_fails_before_it_listens(dictate):
-    dictation = dictate(parakeet=False)
-    dictation.wait_for("failed")
-    assert dictation.ended() == 1
-    assert dictation.file("recording") is None, "no microphone for this"
-    assert dictation.left_behind == []
-
-
-def test_without_parakeet_held_text_can_still_be_delivered(dictate):
-    dictation = dictate(held=True, parakeet=False)
+def test_held_text_stays_when_it_cannot_hear(dictate):
+    dictation = dictate(held=True, hears=False)
     dictation.do("hold", text="From before")
     dictation.wait_for("waiting", text="From before")
     dictation.do("add")
@@ -674,47 +550,25 @@ def test_without_parakeet_held_text_can_still_be_delivered(dictate):
     assert dictation.wait_for("done")["text"] == "From before"
 
 
-# Hearing ------------------------------------------------------------------------
+# While it listens ---------------------------------------------------------------
 
 
-def test_the_level_follows_the_sound(dictate):
-    dictation = dictate()
-    dictation.recording()
-    assert dictation.wait_for("listening", quiet=False, idle=False, level=1)
+def test_what_hear_says_while_listening_goes_to_the_shell_and_nowhere_else(dictate):
+    dictation = dictate(said="Dzień dobry.", draft="Dzień")
+    dictation.compositor.focus_field()
+    assert dictation.wait_for("listening")["level"] == 1
+    assert dictation.wait_for("draft")["text"] == "Dzień"
+    assert dictation.inserted == []
+    assert dictation.typed is None
 
 
-def test_a_microphone_that_hears_nothing_says_so(dictate):
-    dictation = dictate(sound=b"\0" * 1600, env={"DICTATION_QUIET": "0.2"})
-    dictation.recording()
-    assert dictation.wait_for("listening", quiet=True)["level"] == 0
-
-
-def test_a_long_silence_after_speech_asks_then_stops_and_keeps_the_text(dictate):
-    env = {"DICTATION_IDLE": "0.2", "DICTATION_GIVE_UP": "0.8"}
-    dictation = dictate(said="Hello\n", env=env)
-    dictation.recording()
-    dictation.wait_for("listening", idle=False, quiet=False)
-    (dictation.fakes / "sound").write_bytes(b"\0" * 1600)
-    dictation.wait_for("listening", idle=True, quiet=False)
-    assert dictation.wait_for("waiting")["text"] == "Hello"
-
-
-def test_giving_up_on_silence_stops_listening(dictate):
-    dictation = dictate(sound=b"\0" * 1600, env={"DICTATION_GIVE_UP": "0.3"})
-    dictation.recording()
-    dictation.wait_for("writing")
-    dictation.wait_for("nothing")
-    assert dictation.ended() == 0
-
-
-def test_silence_delivers_nothing_and_says_so(dictate):
+def test_nothing_said_delivers_nothing_and_says_so(dictate):
     dictation = dictate()
     dictation.compositor.focus_field()
     dictation.say()
     dictation.wait_for("nothing")
     assert dictation.ended() == 0
     assert dictation.inserted == []
-    assert dictation.left_behind == []
 
 
 # The way out --------------------------------------------------------------------
@@ -730,174 +584,81 @@ def test_silence_delivers_nothing_and_says_so(dictate):
     ],
     ids=["asked", "the shell ended", "interrupted", "terminated"],
 )
-def test_every_way_of_discarding_leaves_nothing(dictate, discard):
-    dictation = dictate(said="Secret\n")
+def test_every_way_of_discarding_ends_hearing_and_delivers_nothing(dictate, discard):
+    dictation = dictate(said="Secret")
     dictation.compositor.focus_field()
-    dictation.recording()
+    dictation.wait_for("listening")
     discard(dictation)
     assert dictation.ended() == 130
-    assert dictation.file("engine-writing") is None
+    assert dictation.hearing_gone
     assert dictation.inserted == []
-    assert dictation.left_behind == []
 
 
 def test_discarding_while_writing_it_down_delivers_nothing(dictate):
-    dictation = dictate(waits=True, said="Secret\n")
+    dictation = dictate(waits=True, said="Secret")
     dictation.compositor.focus_field()
-    dictation.say()
-    dictation.wait_for_file("engine-writing")
+    dictation.writing()
     dictation.do("discard")
     assert dictation.ended() == 130
+    assert dictation.hearing_gone
     assert dictation.inserted == []
-    assert dictation.left_behind == []
 
 
-def test_discarding_a_waiting_text_leaves_nothing(dictate):
-    dictation = dictate(said="Secret\n")
+def test_discarding_a_waiting_text_ends(dictate):
+    dictation = dictate(said="Secret")
     dictation.say()
     dictation.wait_for("waiting")
     dictation.do("discard")
     assert dictation.ended() == 130
-    assert dictation.left_behind == []
 
 
 # Failing ------------------------------------------------------------------------
 
 
-def test_recorder_failure_is_reported(dictate):
-    dictation = dictate(recorder=RECORDER_FAILS)
+def test_when_it_cannot_hear_it_fails(dictate):
+    dictation = dictate(hears=False)
     dictation.wait_for("failed")
     assert dictation.ended() == 1
-    assert dictation.left_behind == []
 
 
-def test_recorder_failure_keeps_text_that_is_waiting(dictate):
-    dictation = dictate(said="One.\n")
+def test_when_it_cannot_hear_text_that_is_waiting_stays(dictate):
+    dictation = dictate(said="One.")
     dictation.say()
     dictation.wait_for("waiting")
-    (dictation.fakes / "pw-record").write_text(RECORDER_FAILS)
+    (dictation.fakes / "cannot-hear").touch()
     dictation.do("add")
     dictation.wait_for("waiting", text="One.")
 
 
-def test_a_failed_engine_goes_over_the_recording_again(dictate):
-    dictation = dictate(fails=1, said="Dzień dobry.\n")
-    dictation.compositor.focus_field()
-    dictation.say()
-    assert dictation.wait_for("done")["text"] == "Dzień dobry."
-    assert len(dictation.file("engine-runs").splitlines()) == 2
-    assert (dictation.fakes / "engine-audio").read_bytes().startswith(LOUD)
-    assert dictation.left_behind == []
-
-
-def test_a_hung_engine_goes_over_the_recording_again_with_no_draft(dictate):
-    dictation = dictate(hangs=1, said="Dzień dobry.\n", draft={"draft": "Dzień", "tail": ""})
-    dictation.compositor.focus_field()
-    dictation.say()
-    assert dictation.wait_for("done")["text"] == "Dzień dobry."
-    assert [m["state"] for m in dictation.heard].count("draft") == 1
-
-
-def test_an_engine_that_fails_again_keeps_the_audio_to_try_again(dictate):
-    dictation = dictate(fails=2, said="Hello\n")
+def test_a_failure_can_be_tried_again(dictate):
+    dictation = dictate(fails=1, said="Hello")
     dictation.compositor.focus_field()
     dictation.say()
     dictation.wait_for("failed")
     assert dictation.process.poll() is None
     dictation.do("retry")
     assert dictation.wait_for("done")["text"] == "Hello"
-    assert (dictation.fakes / "engine-audio").read_bytes().startswith(LOUD)
-    assert dictation.left_behind == []
+    assert dictation.inserted == ["Hello"]
 
 
 def test_a_failure_can_be_discarded(dictate):
-    dictation = dictate(fails=2, said="Hello\n")
+    dictation = dictate(fails=1, said="Hello")
     dictation.say()
     dictation.wait_for("failed")
     dictation.do("discard")
     assert dictation.ended() == 130
-    assert dictation.left_behind == []
+    assert dictation.hearing_gone
 
 
-# Sounds -------------------------------------------------------------------------
+
+# With the real hear ---------------------------------------------------------------
 
 
-def test_no_sounds_unless_wanted(dictate):
-    dictation = dictate(said="Hello\n")
-    dictation.say()
-    dictation.wait_for("waiting")
-    assert dictation.file("played") is None
-
-
-def test_wanted_sounds_mark_the_start_and_the_stop(dictate):
-    dictation = dictate(said="Hello\n", env={"DICTATION_SOUNDS": "1"})
-    dictation.say()
-    dictation.wait_for("waiting")
-    assert len(dictation.file("played").splitlines()) == 2
-
-
-# The engine, live ----------------------------------------------------------
-
-
-def test_a_window_left_after_the_stop_gets_nothing(dictate):
-    dictation = dictate(waits=True, said="Tajne.\n")
+def test_with_the_real_hear_the_words_go_into_the_field_and_no_audio_stays(dictate):
+    dictation = dictate(said="Dzień dobry.\n", real_hear=True)
     dictation.compositor.focus_field()
-    dictation.say()
-    dictation.wait_for("writing")
-    dictation.window(OTHER)
-    (dictation.fakes / "go").touch()
-    assert dictation.wait_for("waiting")["text"] == "Tajne."
-    assert dictation.inserted == []
-
-
-def test_discarding_stops_the_engine_and_leaves_nothing(dictate):
-    dictation = dictate(said="Tajne.\n", hangs=1)
-    dictation.compositor.focus_field()
-    dictation.recording()
-    dictation.do("discard")
-    assert dictation.ended() == 130
-    assert dictation.inserted == []
-    assert dictation.left_behind == []
-
-
-def test_keeping_talking_adds_to_the_text(dictate):
-    dictation = dictate(said="Dalej.\n")
-    dictation.say()
-    assert dictation.wait_for("waiting")["text"] == "Dalej."
-    dictation.do("add")
-    dictation.wait_for("listening")
+    dictation.wait_for("listening", level=1)
     dictation.do("stop")
-    assert dictation.wait_for("waiting", text="Dalej. Dalej.")
-
-
-def test_words_agree_ignoring_case_and_punctuation():
-    import importlib.machinery
-    import importlib.util
-
-    loader = importlib.machinery.SourceFileLoader("engine", str(DICTATE.with_name("dictate-engine")))
-    spec = importlib.util.spec_from_loader("engine", loader)
-    engine = importlib.util.module_from_spec(spec)
-    loader.exec_module(engine)
-    assert engine.agreed(["Ask", "not,", "what"], ["ask", "not", "when", "what"]) == 2
-    assert engine.agreed([], ["ask"]) == 0
-
-
-def test_silence_gets_no_text_as_a_model_may_invent_words(dictate):
-    dictation = dictate(said="you\n", sound=struct.pack("<h", 0) * 800)
-    dictation.compositor.focus_field()
-    dictation.say()
-    dictation.wait_for("nothing")
-    assert dictation.ended() == 0
-    assert dictation.inserted == []
-    assert dictation.left_behind == []
-
-
-def test_silence_after_text_keeps_the_text(dictate):
-    dictation = dictate(said="Dzień dobry\n")
-    dictation.say()
-    dictation.wait_for("waiting", text="Dzień dobry")
-    (dictation.fakes / "sound").write_bytes(struct.pack("<h", 0) * 800)
-    dictation.do("add")
-    dictation.wait_for("listening")
-    dictation.do("stop")
-    assert dictation.wait_for("waiting", text="Dzień dobry")
+    assert dictation.wait_for("done")["text"] == "Dzień dobry."
+    assert dictation.inserted == ["Dzień dobry."]
+    assert [path.name for path in dictation.runtime.iterdir()] == ["test"]

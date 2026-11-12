@@ -156,7 +156,7 @@ listed in its folder's `qmldir`, and a file imports the other folders it uses.
 | `apps/`       | The helpers of Welcome and Settings > Apps, and the timer that updates the apps.                                         |
 | `assistant/`  | The assistant's service, its actions and skills, the model catalog, and the units that run it and `llama-server` on demand. |
 | `downloads/`  | The one queue of downloads and installs, which Settings > Downloads shows, and the unit that resumes it at sign-in.     |
-| `dictation/`  | Dictation: the input method that writes the text, and the live speech recognition engine.                               |
+| `dictation/`  | Dictation: `hear` turns speech into words, for dictation and the assistant; `dictate` is the input method that delivers them. |
 | `extras/`     | The extras (large optional downloads, such as models) with their hashes, and the helper that installs them.           |
 | `packages`    | The packages the desktop runs on, each with its reason; the image installs them.                                         |
 | `dev/`        | Development only: the session bus of `make run`, and the Portal Tester.                                                    |

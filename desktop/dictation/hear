@@ -1,0 +1,423 @@
+#!/usr/bin/python3
+# Hears the microphone and writes down what is said, for dictation (dictation/dictate)
+# and the assistant (shell/services/Assistant.qml). It only turns speech into words:
+# where they go is for whoever runs it. It talks over its standard input and output,
+# one JSON line at a time.
+#
+# dictate-engine writes it down with Parakeet, downloaded as an extra (extras/extra),
+# while the person speaks: a draft, only ever shown. Parakeet tells its 25 languages
+# apart by itself. Should the engine fail or fall behind, it goes over the whole
+# recording again at the stop. Without Parakeet, nothing can be written down, so it
+# fails before it listens.
+#
+# Audio stays in the runtime directory, and it is gone at the end.
+#
+# Usage: hear [--retry | --converse]
+#
+# By default it hears until "stop", and ends with {"state": "done", "text": ...}, or
+# with "nothing", or "failed". With --retry, a recording that could not be written
+# down is kept, and "failed" waits for "retry" or "discard".
+#
+# --converse is the assistant's voice mode: it hears on, and each time the person
+# stops speaking for a moment, what they said goes out as {"state": "heard",
+# "text": ...}, a request of its own. The engine, which tells speech from noise,
+# says when they stopped: its phrase is out and no other has begun; then a quiet
+# moment (DICTATION_TURN_PAUSE) ends it, or, where it is never quiet, as with a
+# fan, a longer wait (DICTATION_TURN_LONGEST). It ends with "stop", which delivers
+# what is left as "done", or after a minute without speech, with "nothing". No
+# recording is kept: should the live engine fail, it ends with "failed", as going
+# over the recording again would say what was heard once more.
+#
+# In, {"do": ...}: "stop", "retry", "discard". The end of the input discards, as do
+# SIGINT and SIGTERM.
+#
+# Out: {"state": "listening", "level": 0..1, "quiet": bool, "idle": bool};
+# {"state": "draft", "text": ..., "tail": ...}, the words so far and those that may
+# still change; {"state": "writing"}; {"state": "heard", "text": ...};
+# {"state": "failed", "retry": bool}; and at the end, {"state": "done", "text": ...}
+# or {"state": "nothing"}.
+import array
+import json
+import math
+import os
+import pathlib
+import selectors
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+import wave
+
+PARAKEET = pathlib.Path(os.environ.get("DICTATION_PARAKEET", "/var/lib/extras/parakeet"))
+ENGINE = os.environ.get("DICTATION_ENGINE", str(pathlib.Path(__file__).with_name("dictate-engine")))
+SOUNDS = bool(os.environ.get("DICTATION_SOUNDS"))
+# Seconds of silence: until the microphone seems not to hear; after speech,
+# until asking if the person is still there; and until stopping by itself.
+QUIET = float(os.environ.get("DICTATION_QUIET", 4))
+IDLE = float(os.environ.get("DICTATION_IDLE", 60))
+GIVE_UP = float(os.environ.get("DICTATION_GIVE_UP", 120))
+# In voice mode: a pause this long, in seconds, ends what the person says, a little
+# longer than the engine's pause between phrases; and this long without a sound ends
+# the mode.
+TURN_PAUSE = float(os.environ.get("DICTATION_TURN_PAUSE", 1.2))
+TURN_LONGEST = float(os.environ.get("DICTATION_TURN_LONGEST", 2.5))
+CONVERSE_QUIET = float(os.environ.get("DICTATION_CONVERSE_QUIET", 60))
+# What counts as sound, of the largest sample's 32768.
+SOUND_PEAK = 600
+RATE = 16000
+
+# How much audio, in bytes, may wait for an engine that has stopped reading: 10 s.
+ENGINE_BACKLOG = RATE * 2 * 10
+# How long, in seconds, the last phrase may take after the stop.
+ENGINE_WAIT = float(os.environ.get("DICTATION_ENGINE_WAIT", 30))
+
+
+def clean(said):
+    """One line of text, for a field or a terminal: no control characters pass."""
+    said = "".join(c if c.isprintable() else " " for c in said)
+    return " ".join(said.split())
+
+
+class Hearing:
+    def __init__(self, retry=False, converse=False):
+        self.retry = retry and not converse
+        self.converse = converse
+        self.work = pathlib.Path(tempfile.mkdtemp(dir=os.environ["XDG_RUNTIME_DIR"], prefix="hearing-"))
+        self.selector = selectors.DefaultSelector()
+        self.input = b""
+        self.state = None
+        self.recorder = self.engine = None
+        # The engine goes over the whole recording, not along with the person.
+        self.rerun = False
+        self.for_engine = b""
+        self.from_engine = b""
+        self.engine_by = None
+        self.phrases = []
+        self.audio_path = self.work / "audio.raw"
+        self.stopping = False
+        self.last_level = 0
+        self.peak = 0
+        self.last_sound = time.monotonic()
+        self.heard = False
+        # In voice mode: when the engine last finished a phrase, whether one has
+        # begun since, and when it last heard speech at all.
+        self.last_final = self.last_speech = time.monotonic()
+        self.drafting = False
+
+        wake_read, wake_write = os.pipe()
+        os.set_blocking(wake_write, False)
+        signal.set_wakeup_fd(wake_write)
+        for number in (signal.SIGINT, signal.SIGTERM):
+            signal.signal(number, lambda *_: None)
+        self.selector.register(wake_read, selectors.EVENT_READ, self.woken)
+        self.selector.register(sys.stdin.fileno(), selectors.EVENT_READ, self.commanded)
+        self.listen()
+
+    def emit(self, **message):
+        print(json.dumps(message, ensure_ascii=False), flush=True)
+
+    def finish(self, code):
+        for process in (self.recorder, self.engine):
+            if process and process.poll() is None:
+                process.terminate()
+                process.wait()
+        shutil.rmtree(self.work, ignore_errors=True)
+        sys.exit(code)
+
+    def sound(self, rising):
+        """A soft tone, when the person wants them. It is made here, as nothing
+        the image ships fits, and needs no package."""
+        if not SOUNDS:
+            return
+        path = self.work / f"tone-{rising}.wav"
+        if not path.exists():
+            frequency = 660 if rising else 440
+            count = RATE // 8
+            samples = array.array("h", (
+                int(5000 * math.sin(2 * math.pi * frequency * n / RATE) * math.sin(math.pi * n / count))
+                for n in range(count)
+            ))
+            with wave.open(str(path), "wb") as tone:
+                tone.setnchannels(1)
+                tone.setsampwidth(2)
+                tone.setframerate(RATE)
+                tone.writeframes(samples.tobytes())
+        try:
+            subprocess.Popen(["pw-play", str(path)], stderr=subprocess.DEVNULL)
+        except OSError:
+            pass
+
+    # Commands ------------------------------------------------------------
+
+    def woken(self, source):
+        os.read(source, 64)
+        self.finish(130)
+
+    def commanded(self, source):
+        data = os.read(source, 65536)
+        if not data:
+            self.finish(130)
+        self.input += data
+        *lines, self.input = self.input.split(b"\n")
+        for line in lines:
+            what = json.loads(line)["do"]
+            if what == "discard":
+                self.finish(130)
+            elif what == "stop" and self.state == "listening":
+                self.stop_listening()
+            elif what == "retry" and self.state == "failed":
+                self.write_down()
+
+    # Listening -----------------------------------------------------------
+
+    def listen(self):
+        if not PARAKEET.is_dir():
+            # Offered only with it; it may have been removed since.
+            self.cannot_listen()
+        # As the engine reads it: 16 kHz mono 16-bit samples, with no header.
+        self.audio = open(self.audio_path, "wb")
+        # What is under way ends with this, so the microphone never stays open.
+        self.recorder = subprocess.Popen(
+            ["setpriv", "--pdeathsig", "TERM", "pw-record", "--rate", str(RATE), "--channels", "1", "--format", "s16", "--raw", "-"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+        self.selector.register(self.recorder.stdout, selectors.EVENT_READ, self.recording)
+        self.start_engine()
+        self.sound(True)
+        self.state = "listening"
+        self.report_level()
+
+    def recording(self, source):
+        data = os.read(source.fileno(), 8192)
+        if not data:
+            self.recorded()
+            return
+        if not self.converse:
+            self.audio.write(data)
+        self.to_engine(data)
+        samples = array.array("h")
+        samples.frombytes(data[: len(data) // 2 * 2])
+        if samples:
+            peak = max(abs(max(samples)), abs(min(samples)))
+            self.peak = max(self.peak, peak)
+            if peak >= SOUND_PEAK:
+                self.heard = True
+                self.last_sound = time.monotonic()
+
+    def recorded(self):
+        self.selector.unregister(self.recorder.stdout)
+        self.recorder.stdout.close()
+        self.recorder.wait()
+        self.recorder = None
+        self.audio.close()
+        if not self.stopping or self.converse and not self.engine:
+            self.cannot_listen()
+        elif not self.heard:
+            # Given nothing but silence, a model can still invent words.
+            if self.engine:
+                self.drop_engine()
+            self.written("")
+        elif self.engine:
+            self.end_engine_input()
+        else:
+            self.write_down()
+
+    def cannot_listen(self):
+        self.emit(state="failed", retry=False)
+        self.finish(1)
+
+    def report_level(self):
+        now = time.monotonic()
+        if now - self.last_level < 0.08:
+            return
+        self.last_level = now
+        silent = now - self.last_sound
+        self.emit(state="listening", level=round(min(1, self.peak / 12000), 2),
+                  quiet=not self.heard and silent >= QUIET, idle=self.heard and silent >= IDLE)
+        self.peak = 0
+        if self.converse:
+            since_phrase = now - self.last_final
+            if now - self.last_speech >= CONVERSE_QUIET:
+                self.stop_listening()
+            elif self.phrases and not self.drafting and (silent >= TURN_PAUSE or since_phrase >= TURN_LONGEST):
+                # The person stopped: what they said is a request, and listening goes on.
+                self.emit(state="heard", text=" ".join(self.phrases))
+                self.phrases = []
+        elif silent >= GIVE_UP:
+            self.stop_listening()
+
+    def stop_listening(self):
+        self.stopping = True
+        self.sound(False)
+        self.state = "writing"
+        self.emit(state="writing")
+        self.recorder.terminate()
+
+    # The engine ----------------------------------------------------------
+
+    def start_engine(self, recording=None):
+        """Live, given the audio as it comes; or given a whole recording, at the stop.
+        With no engine live, the recording is gone over at the stop."""
+        self.phrases = []
+        self.for_engine = self.from_engine = b""
+        self.engine_by = None
+        self.rerun = recording is not None
+        try:
+            self.engine = subprocess.Popen(
+                ["setpriv", "--pdeathsig", "TERM", ENGINE, str(PARAKEET)],
+                stdin=recording or subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError:
+            return False
+        if not self.rerun:
+            os.set_blocking(self.engine.stdin.fileno(), False)
+        self.selector.register(self.engine.stdout, selectors.EVENT_READ, self.engine_said)
+        return True
+
+    def to_engine(self, data):
+        if not self.engine or self.rerun or self.engine.stdin.closed:
+            return
+        self.for_engine += data
+        try:
+            written = os.write(self.engine.stdin.fileno(), self.for_engine)
+            self.for_engine = self.for_engine[written:]
+        except BlockingIOError:
+            pass
+        except OSError:
+            self.engine_lost()
+            return
+        if len(self.for_engine) > ENGINE_BACKLOG:
+            self.engine_lost()
+
+    def engine_lost(self):
+        """While listening: voice mode ends, and dictation goes over it at the stop."""
+        self.drop_engine()
+        if self.converse:
+            self.failed()
+
+    def end_engine_input(self):
+        """The last of the audio, then the end of it: the last phrase comes out."""
+        stdin = self.engine.stdin
+        try:
+            os.set_blocking(stdin.fileno(), True)
+            os.write(stdin.fileno(), self.for_engine)
+        except OSError:
+            pass
+        self.for_engine = b""
+        self.engine_by = time.monotonic() + ENGINE_WAIT
+        try:
+            stdin.close()
+        except OSError:
+            pass
+
+    def drop_engine(self):
+        """The engine goes over it all again at the stop: the recording is whole."""
+        engine, self.engine = self.engine, None
+        self.selector.unregister(engine.stdout)
+        engine.terminate()
+        engine.wait()
+        engine.stdout.close()
+        if engine.stdin:
+            try:
+                engine.stdin.close()
+            except OSError:
+                pass
+        self.phrases = []
+
+    def engine_said(self, source):
+        data = os.read(source.fileno(), 65536)
+        if not data:
+            self.engine_ended()
+            return
+        self.from_engine += data
+        *lines, self.from_engine = self.from_engine.split(b"\n")
+        for line in lines:
+            message = json.loads(line)
+            # Going over the recording again, there is no draft to show.
+            if "final" in message or "draft" in message:
+                self.last_speech = time.monotonic()
+                self.drafting = "draft" in message
+            if "final" in message:
+                self.last_final = self.last_speech
+                if clean(message["final"]):
+                    self.phrases.append(clean(message["final"]))
+                if not self.rerun:
+                    self.emit(state="draft", text=" ".join(self.phrases), tail="")
+            elif "draft" in message and not self.rerun:
+                self.emit(state="draft", text=" ".join([*self.phrases, clean(message["draft"])]).strip(), tail=clean(message["tail"]))
+
+    def engine_ended(self):
+        engine = self.engine
+        recording_over = self.stopping and not self.recorder
+        code = engine.wait() if recording_over else engine.poll()
+        if code != 0 or not recording_over:
+            rerun = self.rerun
+            if not recording_over:
+                self.engine_lost()
+                return
+            self.drop_engine()
+            if rerun or self.converse:
+                self.failed()
+            else:
+                self.write_down()
+            return
+        self.selector.unregister(engine.stdout)
+        engine.stdout.close()
+        self.engine = None
+        self.written(" ".join(self.phrases))
+
+    # Writing it down -----------------------------------------------------
+
+    def write_down(self):
+        """The engine goes over the whole recording, after it failed or fell behind."""
+        self.state = "writing"
+        self.emit(state="writing")
+        try:
+            with open(self.audio_path, "rb") as recording:
+                started = self.start_engine(recording)
+        except OSError:
+            started = False
+        if not started:
+            self.failed()
+
+    def failed(self):
+        """With --retry, the recording stays, to try again."""
+        self.state = "failed"
+        self.emit(state="failed", retry=self.retry)
+        if not self.retry:
+            self.finish(1)
+
+    def written(self, said):
+        if said:
+            self.emit(state="done", text=said)
+        else:
+            self.emit(state="nothing")
+        self.finish(0)
+
+    # The loop ------------------------------------------------------------
+
+    def tick(self):
+        if self.state == "listening" and not self.stopping:
+            self.report_level()
+        if self.engine and self.engine_by is not None and time.monotonic() >= self.engine_by:
+            self.drop_engine()
+            self.write_down()
+
+    def run(self):
+        while True:
+            for key, _ in self.selector.select(0.05):
+                key.data(key.fileobj)
+            self.tick()
+
+
+def main():
+    Hearing("--retry" in sys.argv[1:], "--converse" in sys.argv[1:]).run()
+
+
+if __name__ == "__main__":
+    main()
