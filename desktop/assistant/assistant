@@ -11,12 +11,20 @@
 # The socket speaks JSON lines. The shell sends {"op": ...}:
 #   hello {pid}             the shell's process, for actions it does; answers "state"
 #   open {id}               answers "conversation"
-#   send {id or null, text, context, spoken}   queues a request; null starts
-#                           a conversation; context is {selection, app, title}, what the
-#                           request tells of where the person is; spoken, that it was said
+#   send {id or null, text, context, spoken, ephemeral}   queues a request; null
+#                           starts a conversation; context is {selection, app, title},
+#                           what the request tells of where the person is; spoken, that
+#                           it was said; ephemeral, a conversation of voice mode, kept in
+#                           memory only, never listed, until "forget"
+#   begin-voice             a new ephemeral conversation, for voice mode; answers
+#                           "voice" {conversation}
+#   forget {id}             an ephemeral conversation, gone
 #   warm                    has the model start loading, for the request that follows
 #   stop                    ends the request under way; the queue goes on
-#   answer {card, choice}   choice "apply", "always", or "decline", on a proposed action
+#   answer {card, choice, spoken}   choice "apply", "always", or "decline", on a
+#                           proposed action; spoken, said in voice mode: then only
+#                           "apply" or "decline", and "apply" only to a change, as
+#                           anything audible, a video or someone near, can say yes
 #   undo {card}             undoes a change done in this session
 #   rename {id, title} | delete {id} | restore {id} | search {query}
 #   model {id} | grant {group} | revoke {group} | retention {days} | clear-history
@@ -241,6 +249,8 @@ class Assistant:
             message.pop("images", None)
 
     def save(self, conversation):
+        if conversation.get("ephemeral"):
+            return
         write_json(DATA / "conversations" / f"{conversation['id']}.json", conversation)
 
     def save_settings(self):
@@ -291,7 +301,7 @@ class Assistant:
                 "updated": conversation["updated"], "snippet": said[-1]["text"][:120] if said else ""}  # fmt: skip
 
     def summaries(self):
-        return sorted((self.summary(c) for c in self.conversations.values()), key=lambda s: -s["updated"])
+        return sorted((self.summary(c) for c in self.conversations.values() if not c.get("ephemeral")), key=lambda s: -s["updated"])
 
     def model_entry(self):
         entries = models.catalog()
@@ -371,7 +381,7 @@ class Assistant:
             if op == "stop":
                 self.stop()
             elif op == "answer":
-                self.answer(request.get("card"), request.get("choice"))
+                self.answer(request.get("card"), request.get("choice"), request.get("spoken") is True)
             elif op == "undo":
                 self.run_undo(request.get("card"))
             elif op == "rename":
@@ -383,6 +393,13 @@ class Assistant:
                     self.emit("conversations", conversations=self.summaries())
             elif op == "delete":
                 self.delete(request.get("id"))
+            elif op == "begin-voice":
+                conversation = {"id": uuid.uuid4().hex[:12], "title": "Voice", "created": now(), "updated": now(),
+                                "messages": [], "ephemeral": True}  # fmt: skip
+                self.conversations[conversation["id"]] = conversation
+                return {"event": "voice", "conversation": conversation["id"]}
+            elif op == "forget":
+                self.forget(request.get("id"))
             elif op == "restore":
                 self.restore(request.get("id"))
             elif op == "search":
@@ -548,6 +565,8 @@ class Assistant:
         if conversation is None:
             conversation = {"id": uuid.uuid4().hex[:12], "title": title_of(text),
                             "created": now(), "updated": now(), "messages": []}  # fmt: skip
+            if request.get("ephemeral") is True:
+                conversation["ephemeral"] = True
             self.conversations[conversation["id"]] = conversation
         message = {"id": uuid.uuid4().hex[:12], "role": "user", "text": text, "time": now(), "state": "queued"}
         context = told_context(request.get("context"))
@@ -563,7 +582,8 @@ class Assistant:
         self.emit("conversations", conversations=self.summaries())
         self.tell_message(conversation, message)
         self.tell_status()
-        return {"event": "sent", "conversation": conversation["id"], "message": message["id"]}
+        return {"event": "sent", "conversation": conversation["id"], "message": message["id"],
+                "ephemeral": conversation.get("ephemeral", False)}  # fmt: skip
 
     def stop(self):
         if self.current is None:
@@ -581,10 +601,14 @@ class Assistant:
                     return conversation, message
         return None, None
 
-    def answer(self, card, choice):
+    def answer(self, card, choice, spoken=False):
         conversation, message = self.find_card(card)
         if not message or message.get("state") != "proposed" or choice not in ("apply", "always", "decline"):
             return
+        if spoken and (choice == "always" or choice == "apply" and message.get("risk") != "change"):
+            return
+        if spoken:
+            message["answered"] = "voice"
         if choice == "always" and message.get("group") in actions.GROUPS:
             if message["group"] not in self.settings["grants"]:
                 self.settings["grants"].append(message["group"])
@@ -608,6 +632,18 @@ class Assistant:
         message.pop("undoable", None)
         self.save(conversation)
         self.tell_message(conversation, message)
+
+    def forget(self, conversation_id):
+        """An ephemeral conversation, gone with what it waited on; the activity
+        log keeps what was done."""
+        conversation = self.conversations.get(conversation_id)
+        if conversation is None or not conversation.get("ephemeral"):
+            return
+        del self.conversations[conversation_id]
+        self.queue = [q for q in self.queue if q[0] != conversation_id]
+        if self.current and self.current[0] == conversation_id:
+            self.stop()
+        self.tell_status()
 
     def delete(self, conversation_id):
         conversation = self.conversations.pop(conversation_id, None)
@@ -867,7 +903,8 @@ class Assistant:
             self.tainted = self.tainted or known.untrusted
             self.card(conversation, call, state="done", output=output, result=output, undoable=bool(undo))
             if known.risk != "read":
-                self.log("done", action=known.name, title=card["title"], arguments=card["arguments"])
+                self.log("done", action=known.name, title=card["title"], arguments=card["arguments"],
+                         **({"by": "voice"} if card.get("answered") == "voice" else {}))  # fmt: skip
         return "done"
 
 

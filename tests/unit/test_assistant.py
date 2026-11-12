@@ -741,3 +741,50 @@ def test_the_window_alone_is_told_in_the_persons_words(setup):
     setup.client.send(op="send", id=None, text="What am I in?", context={"app": "firefox", "title": "News"})
     setup.client.done()
     assert setup.model.requests[0]["messages"][1]["content"] == "What am I in?\n\nThe window I am in: firefox (News)."
+
+
+def test_a_change_can_be_said_yes_to_but_what_asks_every_time_only_no(setup):
+    setup.model.replies += [{"calls": [("set_volume", {"percent": 30})]}, {"text": ["Done."]}]
+    setup.client.send(op="send", id=None, text="volume 30", spoken=True)
+    card = setup.client.card("proposed")
+    # Not "always" by voice: that would allow the group from then on.
+    setup.client.send(op="answer", card=card["id"], choice="always", spoken=True)
+    setup.client.send(op="answer", card=card["id"], choice="apply", spoken=True)
+    setup.client.card("done")
+    setup.client.done()
+    assert setup.settings()["grants"] == []
+    activity = [json.loads(line) for line in (setup.tmp / "state/assistant/activity.jsonl").read_text().splitlines()]
+    assert activity[-1]["kind"] == "done" and activity[-1]["by"] == "voice"
+
+    # Anything audible can say yes, so shutting down waits for a click; no is heard.
+    setup.model.replies += [{"calls": [("power_off", {})]}]
+    setup.client.send(op="send", id=None, text="shut down", spoken=True)
+    card = setup.client.card("proposed")
+    setup.client.send(op="answer", card=card["id"], choice="apply", spoken=True)
+    with pytest.raises(AssertionError):
+        setup.client.card("done", timeout=1)
+    assert "systemctl poweroff" not in setup.commands()
+    setup.client.send(op="answer", card=card["id"], choice="decline", spoken=True)
+    assert setup.client.card("declined")
+
+
+def test_voice_mode_talks_in_a_conversation_that_is_never_kept_or_listed(setup):
+    voice = setup.client.ask("begin-voice")["conversation"]
+    setup.model.replies += [{"text": ["It is sunny."]}, {"calls": [("set_volume", {"percent": 30})]}, {"text": ["Done."]}]
+    sent = setup.client.ask("send", id=voice, text="How is the weather", spoken=True)
+    assert sent["conversation"] == voice and sent["ephemeral"] is True
+    setup.client.done()
+    # It goes on: the model hears what was said before.
+    setup.client.send(op="send", id=voice, text="Volume 30", spoken=True)
+    setup.client.send(op="answer", card=setup.client.card("proposed")["id"], choice="apply", spoken=True)
+    setup.client.card("done")
+    setup.client.done()
+    assert [m["content"] for m in setup.model.requests[1]["messages"] if m["role"] == "user"] == ["How is the weather", "Volume 30"]
+    assert setup.client.ask("search", query="")["ids"] == []
+    assert not list((setup.tmp / "data" / "assistant" / "conversations").glob("*.json"))
+    # What was done is in the activity log all the same.
+    assert "Set volume to 30%" in (setup.tmp / "state/assistant/activity.jsonl").read_text()
+    setup.client.send(op="forget", id=voice)
+    assert setup.client.ask("open", id=voice)["event"] == "error"
+    setup.stop()
+    assert setup.start() and setup.state["conversations"] == []

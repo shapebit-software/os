@@ -33,7 +33,7 @@ Moving a window past the last workspace makes a new one, up to eight.
 
 | Shortcut | Action |
 |---|---|
-| Super | Assistant: tap to open or close it, or hold while you speak |
+| Super | Assistant: tap to open or close it, hold while you speak, or double-tap for voice mode, which listens until you say "stop" or tap again |
 | Super+A | Apps |
 | Super+D | Dictate: tap to start and stop, or hold while you speak |
 | Super+N | Notifications |

@@ -13,7 +13,7 @@ TestCase {
     function keys(events) {
         let state = "idle";
         const actions = [];
-        for (const event of events) {
+        for (const event of [...events, "late"]) {
             const next = Logic.key(state, event);
             state = next.state;
             if (next.action)
@@ -237,5 +237,33 @@ TestCase {
         verify(!Logic.opens("file:///etc/passwd"));
         verify(!Logic.opens("javascript:alert(1)"));
         verify(!Logic.opens(""));
+    }
+
+    // Voice mode -------------------------------------------------------
+
+    function test_a_double_tap_starts_voice_mode_after_the_first_tap_acted() {
+        compare(keys(["down", "up", "down", "up"]), ["tap", "converse"]);
+        // Too late for a double tap: two taps.
+        compare(keys(["down", "up", "late", "down", "up"]), ["tap", "tap"]);
+        // Held on the second press, it listens as ever.
+        compare(keys(["down", "up", "down", "held", "up"]), ["tap", "listen", "send"]);
+        // A shortcut on the second press is no double tap.
+        compare(keys(["down", "up", "down", "other", "up"]), ["tap"]);
+    }
+
+    function test_a_short_answer_answers_and_anything_else_is_a_request() {
+        for (const yes of ["Yes.", "yes please", "OK!", "Okay.", "Tak.", "Do it.", "Zrób to."])
+            compare(Logic.spokenAnswer(yes), "apply", yes);
+        for (const no of ["No.", "Nope", "Cancel.", "Don't.", "Nie.", "Anuluj"])
+            compare(Logic.spokenAnswer(no), "decline", no);
+        for (const request of ["Yes, and turn the volume down.", "No idea what that is", "Turn Wi-Fi off.", ""])
+            compare(Logic.spokenAnswer(request), "", request);
+    }
+
+    function test_stop_ends_voice_mode_but_a_request_with_stop_does_not() {
+        for (const stop of ["Stop.", "Stop listening.", "That's all.", "Koniec.", "Wystarczy!"])
+            verify(Logic.stopsListening(stop), stop);
+        for (const request of ["Stop the music.", "Stop Wi-Fi", "What is a bus stop?"])
+            verify(!Logic.stopsListening(request), request);
     }
 }

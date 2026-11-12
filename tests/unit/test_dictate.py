@@ -55,6 +55,29 @@ for line in mark("said").splitlines():
     if line.strip():
         print(json.dumps({"final": line}), flush=True)
 """
+# Live, as the real one is while the person speaks: each line added to "phrases"
+# comes out as a phrase at once; it ends when the audio does.
+LIVE_ENGINE = """#!/usr/bin/python3
+import json, os, pathlib, sys, threading, time
+fakes = pathlib.Path(os.environ["FAKES"])
+ended = threading.Event()
+def drain():
+    while sys.stdin.buffer.read(65536):
+        pass
+    ended.set()
+threading.Thread(target=drain, daemon=True).start()
+told = 0
+while True:
+    path = fakes / "phrases"
+    lines = path.read_text().splitlines() if path.exists() else []
+    for line in lines[told:]:
+        print(json.dumps({"final": line}), flush=True)
+    # Rewriting the file empties it for a moment: only ever go on.
+    told = max(told, len(lines))
+    if ended.is_set():
+        break
+    time.sleep(0.02)
+"""
 KEYBOARD = """#!/bin/bash
 echo "$*" >"$FAKES/wtype-args"
 cat >"$FAKES/typed"
@@ -138,7 +161,8 @@ class Compositor:
 
 class Dictation:
     def __init__(self, tmp_path, recorder=RECORDER, said="", window=BROWSER, compositor=True, available=True,
-                 sound=LOUD, held=False, listens=False, env=None, draft=None, waits=False, hangs=0, fails=0, parakeet=True):  # fmt: skip
+                 sound=LOUD, held=False, listens=False, env=None, draft=None, waits=False, hangs=0, fails=0, parakeet=True,
+                 converses=False, engine=ENGINE):  # fmt: skip
         self.fakes = tmp_path / "fakes"
         self.runtime = tmp_path / "runtime"
         self.fakes.mkdir()
@@ -152,7 +176,7 @@ class Dictation:
             (self.fakes / "engine-waits").touch()
         (self.fakes / "engine-hangs").write_text(str(hangs))
         (self.fakes / "engine-fails").write_text(str(fails))
-        fakes = [("pw-record", recorder), ("dictate-engine", ENGINE), ("wtype", KEYBOARD), ("wl-copy", CLIPBOARD),
+        fakes = [("pw-record", recorder), ("dictate-engine", engine), ("wtype", KEYBOARD), ("wl-copy", CLIPBOARD),
                  ("hyprctl", WINDOW), ("pw-play", PLAYER)]  # fmt: skip
         for name, script in fakes:
             path = self.fakes / name
@@ -160,7 +184,7 @@ class Dictation:
             path.chmod(0o755)
         self.compositor = Compositor(self.runtime / "test", available) if compositor else None
         self.process = subprocess.Popen(
-            [DICTATE, *(["--held"] if held else []), *(["--listen"] if listens else [])],
+            [DICTATE, *(["--held"] if held else []), *(["--listen"] if listens else []), *(["--converse"] if converses else [])],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             text=True,
@@ -179,7 +203,7 @@ class Dictation:
         self.lines = queue.Queue()
         self.heard = []
         threading.Thread(target=self.read, daemon=True).start()
-        if self.compositor and not listens:
+        if self.compositor and not listens and not converses:
             self.compositor.method_bound.wait(5)
 
     def read(self):
@@ -552,6 +576,62 @@ def test_listening_for_the_assistant_is_discarded_when_asked(dictate):
     dictation.recording()
     dictation.do("discard")
     assert dictation.ended() == 130
+    assert dictation.left_behind == []
+
+
+# The assistant's voice mode ---------------------------------------------------
+
+QUIET_SOUND = b"\0" * 1600
+VOICE_MODE = {"DICTATION_TURN_PAUSE": "0.3", "DICTATION_CONVERSE_QUIET": "1.5"}
+
+
+def test_voice_mode_gives_each_request_at_a_pause_and_hears_on(dictate):
+    dictation = dictate(converses=True, engine=LIVE_ENGINE, env=VOICE_MODE)
+    dictation.recording()
+    (dictation.fakes / "phrases").write_text("Turn the volume down.\n")
+    # Speaking on, no request yet: a phrase is not yet a pause.
+    time.sleep(0.5)
+    assert not any(m["state"] == "heard" for m in dictation.heard)
+    (dictation.fakes / "sound").write_bytes(QUIET_SOUND)
+    assert dictation.wait_for("heard")["text"] == "Turn the volume down."
+    (dictation.fakes / "sound").write_bytes(LOUD)
+    (dictation.fakes / "phrases").write_text("Turn the volume down.\nOpen Files.\nPlease.\n")
+    time.sleep(0.2)
+    (dictation.fakes / "sound").write_bytes(QUIET_SOUND)
+    assert dictation.wait_for("heard")["text"] == "Open Files. Please."
+    # A minute without a sound, here 1.5 s, ends it.
+    dictation.wait_for("nothing")
+    assert dictation.ended() == 0
+    assert dictation.left_behind == []
+    assert not dictation.compositor.method_bound.is_set(), "it is no input method: no field can get the words"
+
+
+def test_a_room_that_is_never_quiet_still_ends_requests_and_voice_mode(dictate):
+    # A fan or music is loud all along: the engine, which tells speech from noise, decides.
+    env = {**VOICE_MODE, "DICTATION_TURN_LONGEST": "0.6"}
+    dictation = dictate(converses=True, engine=LIVE_ENGINE, env=env)
+    dictation.recording()
+    (dictation.fakes / "phrases").write_text("Mute the sound.\n")
+    assert dictation.wait_for("heard")["text"] == "Mute the sound."
+    # No speech for a minute, here 1.5 s, ends it, noise or not.
+    dictation.wait_for("nothing")
+    assert dictation.ended() == 0
+
+
+def test_stopping_voice_mode_delivers_what_is_left(dictate):
+    dictation = dictate(converses=True, engine=LIVE_ENGINE, env=VOICE_MODE)
+    dictation.recording()
+    (dictation.fakes / "phrases").write_text("What time is it\n")
+    dictation.wait_for("draft", text="What time is it")
+    dictation.do("stop")
+    assert dictation.wait_for("done")["text"] == "What time is it"
+    assert dictation.ended() == 0
+
+
+def test_voice_mode_ends_when_its_engine_fails_and_keeps_no_recording(dictate):
+    dictation = dictate(converses=True, engine="#!/bin/bash\nexit 3\n", env=VOICE_MODE)
+    dictation.wait_for("failed")
+    assert dictation.ended() == 1
     assert dictation.left_behind == []
 
 

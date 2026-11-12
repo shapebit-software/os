@@ -4,7 +4,8 @@
 // focused window, each to take off before sending. Enter sends; while this
 // conversation's request is under way and the line is empty, the button
 // stops it. On a ChatGPT plan, below it, that the plan is used, and where to
-// manage its usage, as OpenAI asks.
+// manage its usage, as OpenAI asks. Voice mode is apart from it
+// (VoicePill.qml); dictation writes into it as into any field.
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.controls

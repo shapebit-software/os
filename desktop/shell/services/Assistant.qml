@@ -103,6 +103,37 @@ Singleton {
     // heard nothing.
     property string keyState: "idle"
     property string voice
+    // Voice mode, apart from the conversations: it hears on, and each pause
+    // makes what was said a request (dictation/dictate --converse), in a
+    // conversation of its own that the service keeps in memory only and
+    // forgets at the end. Its pill shows by the assistant's button
+    // (VoicePill.qml): at voiceAt, { screen, rect, edge, depth } as the bar
+    // tells it, or with no rect in a corner of the screen. With the words of
+    // what is being said, as they come, and what voice mode said and did.
+    property bool conversing
+    property string draft
+    property var voiceAt: null
+    property string voiceConversation
+    property var voiceMessages: []
+    // A request just said, until its message comes back; and a word for the
+    // person when what they said did nothing, such as yes to what needs a click.
+    property bool voiceSent
+    property string voiceNotice
+    // What the person said last in voice mode, shown until the answer.
+    property string voiceHeard
+    readonly property var voiceWaiting: voiceMessages.find(m => m.role === "action" && m.state === "proposed") ?? null
+    readonly property var voiceLast: voiceMessages.length ? voiceMessages[voiceMessages.length - 1] : null
+    // Voice mode's state, for its button and pill: "speaking" (words being
+    // said), "waiting" (an action waits for the person), "thinking" (a
+    // request under way), "listening", or "" with voice mode off.
+    readonly property string voiceState: !conversing ? ""
+        : draft !== "" ? "speaking"
+        : voiceWaiting ? "waiting"
+        : voiceSent || voiceLast && (voiceLast.role === "user" || voiceLast.state === "running"
+            || ["thinking", "starting", "answering"].includes(voiceLast.state)) ? "thinking"
+        : "listening"
+    // Asks the assistant's button on a screen where it is, for the pill.
+    signal voiceAsked(screen: string)
     property real level
     property string notice
     // What the next request tells of where the person is, { selection, app,
@@ -284,8 +315,14 @@ Singleton {
             longest.restart();
         else
             longest.stop();
-        if (next.action === "tap")
+        if (keyState === "tapped")
+            doubleTap.restart();
+        if (next.action === "tap" && conversing)
+            endConversation();
+        else if (next.action === "tap")
             tap(Shortcuts.focused, null);
+        else if (next.action === "converse")
+            converse(Shortcuts.focused, null);
         else if (next.action === "listen")
             listen();
         else if (next.action === "send")
@@ -294,7 +331,94 @@ Singleton {
             endListening(false);
     }
 
+    // Why voice can't be used now, as the button says it, or "".
+    function cannotHear(): string {
+        const why = Logic.cannotListen(Lock.locked, Authorization.asking, Dictation.active, Dictation.available,
+            Audio.input !== null, ready);
+        if (why === "" && Audio.input.audio?.muted)
+            return "Microphone is muted";
+        return why === "download" ? "Needs a download" : why === "microphone" ? "No microphone" : why === "" ? "" : " ";
+    }
+
+    // Voice mode, started by a double tap on Super or a right click on the
+    // assistant's button, on `screen`; `at`, where the button is, if known.
+    // Nothing opens but its pill. It hears until "stop", a tap on Super, a
+    // right click again, or a minute without a sound.
+    function converse(screen: string, at: var) {
+        if (conversing || listener.running)
+            return;
+        notice = cannotHear().trim();
+        if (cannotHear() !== "")
+            return;
+        voiceAt = at;
+        if (!voiceAt)
+            voiceAsked(screen);
+        if (!voiceAt)
+            voiceAt = { screen, rect: null };
+        request({ op: "warm" });
+        level = 0;
+        draft = "";
+        voiceConversation = "";
+        voiceMessages = [];
+        voiceHeard = "";
+        request({ op: "begin-voice" });
+        voice = "listening";
+        conversing = true;
+        listener.command = [helper(), "--converse"];
+        listener.running = true;
+    }
+
+    function toggleConversation(screen: string, at: var) {
+        if (conversing)
+            endConversation();
+        else
+            converse(screen, at);
+    }
+
+    // What is left is still said, as the last request; voice mode ends when
+    // the helper does.
+    function endConversation() {
+        if (conversing && listener.running)
+            listener.write(JSON.stringify({ do: "stop" }) + "\n");
+    }
+
+    // What was said in voice mode: the end of it, an answer to the action
+    // that waits, or a request. The service takes only "yes" to a change,
+    // never to what asks every time.
+    function spoken(text: string) {
+        draft = "";
+        voiceNotice = "";
+        if (!text.trim())
+            return;
+        if (Logic.stopsListening(text)) {
+            endConversation();
+            return;
+        }
+        voiceHeard = text.trim();
+        const waiting = voiceWaiting;
+        const choice = waiting ? Logic.spokenAnswer(text) : "";
+        if (choice === "apply" && waiting.risk !== "change") {
+            say(`${waiting.title} needs a click: yes can't be said to it`);
+        } else if (choice) {
+            request({ op: "answer", card: waiting.id, choice, spoken: true });
+        } else {
+            if (waiting)
+                say(`First “${waiting.title}”: yes or no`);
+            voiceSent = true;
+            request({ op: "send", id: voiceConversation || null, text, context: ({}), spoken: true, ephemeral: true });
+        }
+    }
+
+    // A word in voice mode's pill, for a while.
+    function say(text: string) {
+        voiceNotice = text;
+        voiceNoticeEnds.restart();
+    }
+
     function listen() {
+        // Voice mode already hears.
+        if (listener.running)
+            return;
         notice = "";
         const why = Logic.cannotListen(Lock.locked, Authorization.asking, Dictation.active, Dictation.available,
             Audio.input !== null, ready);
@@ -319,7 +443,8 @@ Singleton {
     // Let go: what was said is the request; or the key began a shortcut, and
     // what was said is discarded.
     function endListening(keep: bool) {
-        if (!listener.running)
+        // Voice mode goes on: Super held and let go there is not its end.
+        if (!listener.running || conversing && keep)
             return;
         listener.write(JSON.stringify({ do: keep && voice === "listening" ? "stop" : "discard" }) + "\n");
         if (!keep)
@@ -335,6 +460,14 @@ Singleton {
         }
         if (message.state === "listening") {
             level = message.level ?? 0;
+        } else if (message.state === "draft" && conversing) {
+            draft = message.text ?? "";
+        } else if (message.state === "heard") {
+            spoken(message.text ?? "");
+        } else if (conversing && message.state === "done") {
+            spoken(message.text ?? "");
+        } else if (conversing && message.state === "nothing") {
+            draft = "";
         } else if (message.state === "writing") {
             voice = "writing";
         } else if (message.state === "nothing") {
@@ -508,14 +641,30 @@ Singleton {
             else if (conversations.length && Logic.continues(conversations[0].updated, Date.now() / 1000))
                 open(conversations[0].id);
             break;
+        case "voice":
+            if (conversing)
+                voiceConversation = event.conversation;
+            else
+                request({ op: "forget", id: event.conversation });
+            break;
         case "sent":
-            if (conversation?.id !== event.conversation)
+            if (!event.ephemeral && conversation?.id !== event.conversation)
                 open(event.conversation);
             break;
         case "conversation":
             conversation = { id: event.id, title: event.title, workspace: event.workspace, messages: event.messages };
             break;
         case "message":
+            if (event.conversation === voiceConversation && voiceConversation) {
+                voiceSent = false;
+                const said = voiceMessages.slice();
+                const at = said.findIndex(m => m.id === event.message.id);
+                if (at >= 0)
+                    said[at] = event.message;
+                else
+                    said.push(event.message);
+                voiceMessages = said;
+            }
             if (conversation?.id === event.conversation) {
                 const list = conversation.messages.slice();
                 const at = list.findIndex(m => m.id === event.message.id);
@@ -592,6 +741,19 @@ Singleton {
         chatgpt = event.chatgpt ?? null;
     }
 
+    Timer {
+        id: voiceNoticeEnds
+        interval: 4000
+        onTriggered: assistant.voiceNotice = ""
+    }
+
+    // A second tap this soon after a tap is a double tap.
+    Timer {
+        id: doubleTap
+        interval: Logic.doubleTapWithin
+        onTriggered: assistant.key("late")
+    }
+
     // Super held this long listens.
     Timer {
         id: hold
@@ -654,6 +816,16 @@ Singleton {
         onExited: exitCode => { // qmllint disable signal-handler-parameters
             if (assistant.voice !== "" && !selection.running)
                 assistant.voice = "";
+            if (assistant.voiceConversation)
+                assistant.request({ op: "forget", id: assistant.voiceConversation });
+            assistant.conversing = false;
+            assistant.draft = "";
+            assistant.voiceConversation = "";
+            assistant.voiceMessages = [];
+            assistant.voiceAt = null;
+            assistant.voiceSent = false;
+            assistant.voiceNotice = "";
+            assistant.voiceHeard = "";
         }
     }
 

@@ -34,12 +34,19 @@ PanelWindow {
     // moves from a map to its button.
     readonly property real reach: Math.max(dock ? Theme.gap : 0, buttonReach - (depth - zones.inset - size))
 
-    // Opens a panel beside one of the bar's items.
-    function open(panel: string, item: Item) {
+    // Where one of the bar's items is on its screen: { screen, rect, edge,
+    // depth }, for what opens beside it.
+    function place(item: Item): var {
         const at = item.mapToItem(null, 0, 0);
         const x = at.x + (edge === "Right" ? window.modelData.width - window.width : 0);
         const y = at.y + (edge === "Bottom" ? window.modelData.height - window.height : 0);
-        Shell.toggle(panel, window.modelData.name, Qt.rect(x, y, item.width, item.height), edge, depth);
+        return { screen: window.modelData.name, rect: Qt.rect(x, y, item.width, item.height), edge, depth };
+    }
+
+    // Opens a panel beside one of the bar's items.
+    function open(panel: string, item: Item) {
+        const at = place(item);
+        Shell.toggle(panel, at.screen, at.rect, at.edge, at.depth);
     }
 
     screen: modelData

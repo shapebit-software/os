@@ -90,6 +90,11 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
 
+        VoicePill {}
+    }
+    Variants {
+        model: Quickshell.screens
+
         AssistantDock {}
     }
     Variants {

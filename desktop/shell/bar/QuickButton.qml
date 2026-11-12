@@ -13,7 +13,12 @@
 // under way, brings back the last dictation. The assistant's button opens what was open
 // last, its bubbles or its panel (Assistant.qml), and closes it; while either is open
 // on its screen, the button is lit and its sparkle filled. Held, it listens until let
-// go, as Super does. It is filled with the accent and shows sound bars while the
+// go, as Super does; a right click starts voice mode, or ends it, as a double tap on
+// Super does: its pill shows beside the button (VoicePill.qml). In voice mode the
+// button stays filled, so the open microphone is never out of sight, and its icon
+// tells the state: rings going out from a dot while it listens, bars that follow the
+// voice while the person speaks, a turning arc while it thinks, and the sparkle with a dot while
+// an action waits. It is filled with the accent and shows sound bars while the
 // assistant listens, and its sparkle turns while the assistant works; a dot says an
 // action waits for the person.
 pragma ComponentBehavior: Bound
@@ -46,11 +51,15 @@ BarButton {
     readonly property string screen: "M2 2.5h12v8H2zM5.5 13.5h5M8 10.5v3M8 8.5v-4M6.25 6.25 8 4.5l1.75 1.75"
 
     tile: bar.dock
-    readonly property bool listening: assistant && Assistant.voice === "listening"
-    readonly property bool working: assistant && !listening && (Assistant.voice === "writing" || Assistant.busy && !Assistant.attention)
+    // Voice mode's state (Assistant.voiceState), or "".
+    readonly property string voiceState: assistant ? Assistant.voiceState : ""
+    // Bars: held to talk, or speaking in voice mode.
+    readonly property bool listening: assistant && Assistant.voice === "listening" && ["", "speaking"].includes(voiceState)
+    readonly property bool working: assistant && !listening && voiceState === ""
+        && (Assistant.voice === "writing" || Assistant.busy && !Assistant.attention)
 
     open: assistant && (Shell.isOpen("assistant", screenName) || Assistant.panelOn === (bar.modelData?.name ?? "-"))
-    fill: red || wrong ? Theme.dangerFill : shared || dictating || listening ? Theme.accent : "transparent"
+    fill: red || wrong ? Theme.dangerFill : shared || dictating || listening || assistant && Assistant.conversing ? Theme.accent : "transparent"
     onHeld: {
         if (assistant)
             Assistant.listen();
@@ -72,6 +81,18 @@ BarButton {
     onRightClicked: {
         if (dictate)
             Dictation.secondary();
+        else if (assistant)
+            Assistant.toggleConversation(screenName, bar.place(button));
+    }
+
+    // Voice mode, started from the keyboard, shows its pill by this button.
+    Connections {
+        target: button.assistant ? Assistant : null
+
+        function onVoiceAsked(screen: string) {
+            if (screen === button.screenName && button.visible && !Assistant.voiceAt)
+                Assistant.voiceAt = button.bar.place(button);
+        }
     }
 
     // While recording, its length so far; as wide as the button, so the
@@ -101,7 +122,8 @@ BarButton {
         // Narrow enough on a half-size button that it keeps its size.
         spacing: button.half ? 1 : 2
     }
-    // The assistant listens: what the microphone hears.
+    // The assistant listens: what the microphone hears; in voice mode, flat
+    // until the person speaks, so a noisy room doesn't look like speech.
     DictationBars {
         visible: button.listening
         size: button.half ? 12 : 16
@@ -109,6 +131,73 @@ BarButton {
         listening: true
         writing: false
         level: Assistant.level
+    }
+    // Voice mode listens: a dot, with rings going out from it, as from a
+    // pebble in water, one after the other.
+    Item {
+        id: ripple
+
+        readonly property real size: button.half ? 14 : 18
+
+        visible: button.voiceState === "listening"
+        width: size
+        height: size
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: ripple.size / 4
+            height: width
+            radius: width / 2
+            color: Theme.textOnAccent
+        }
+        Repeater {
+            model: 2
+
+            Rectangle {
+                id: ring
+
+                required property int index
+
+                anchors.centerIn: parent
+                width: ripple.size
+                height: width
+                radius: width / 2
+                color: "transparent"
+                border.color: Theme.textOnAccent
+                border.width: 1.5
+                scale: 0.3
+                opacity: 0
+
+                SequentialAnimation {
+                    running: ripple.visible
+                    loops: Animation.Infinite
+
+                    PauseAnimation { duration: ring.index * 800 }
+                    ParallelAnimation {
+                        NumberAnimation { target: ring; property: "scale"; from: 0.3; to: 1; duration: 1600; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: ring; property: "opacity"; from: 0.9; to: 0; duration: 1600; easing.type: Easing.InQuad }
+                    }
+                    PauseAnimation { duration: (1 - ring.index) * 800 }
+                }
+            }
+        }
+    }
+    // Voice mode thinks: a turning arc.
+    Icon {
+        id: arc
+        visible: button.voiceState === "thinking"
+        height: button.half ? 14 : 18
+        color: Theme.textOnAccent
+        strokeWidth: 1.8
+        strokes: "M8 2.5a5.5 5.5 0 1 1-5.5 5.5"
+
+        RotationAnimation on rotation {
+            running: arc.visible
+            loops: Animation.Infinite
+            from: 0
+            to: 360
+            duration: 900
+        }
     }
     Icon {
         visible: !button.assistant && !button.red && !button.hearing
@@ -120,7 +209,7 @@ BarButton {
 
     // The assistant's sparkle, which turns while it works, and its dot.
     Item {
-        visible: button.assistant && !button.listening
+        visible: button.assistant && !button.listening && ["", "waiting"].includes(button.voiceState)
         width: sparkle.width
         height: sparkle.height
 

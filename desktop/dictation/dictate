@@ -19,13 +19,23 @@
 #
 # Audio stays in the runtime directory, and it and the text are gone at the end.
 #
-# Usage: dictate [--held | --listen] (--held starts with no recording, to be given
-# text with "hold"; --listen only hears, for the assistant: see below).
+# Usage: dictate [--held | --listen | --converse] (--held starts with no recording,
+# to be given text with "hold"; --listen and --converse only hear, for the
+# assistant: see below).
 #
 # For the assistant (shell/services/Assistant.qml), --listen writes down what is said
 # until "stop" and ends with it in "done", or with "nothing" or "failed". It delivers
 # nowhere and waits for no one, and it is not an input method: the words are the
 # assistant's request, not text for a field.
+#
+# --converse is the assistant's voice mode: it hears on, and each time the person
+# stops speaking for a moment, what they said goes out as {"state": "heard",
+# "text": ...}, a request of its own. The engine, which tells speech from noise,
+# says when they stopped: its phrase is out and no other has begun; then a quiet
+# moment (DICTATION_TURN_PAUSE) ends it, or, where it is never quiet, as with a
+# fan, a longer wait (DICTATION_TURN_LONGEST). It ends with "stop", which delivers
+# what is left as "done", or after a minute without speech, with "nothing". No recording is kept: should the live engine fail, it ends with
+# "failed", as going over the recording again would say what was heard once more.
 #
 # From the shell, {"do": ...}: "stop"; "text", with
 # "text", for what the person edited; "insert"; "type", for keys, when the person
@@ -64,6 +74,12 @@ SOUNDS = bool(os.environ.get("DICTATION_SOUNDS"))
 QUIET = float(os.environ.get("DICTATION_QUIET", 4))
 IDLE = float(os.environ.get("DICTATION_IDLE", 60))
 GIVE_UP = float(os.environ.get("DICTATION_GIVE_UP", 120))
+# In voice mode: a pause this long, in seconds, ends what the person says, a little
+# longer than the engine's pause between phrases; and this long without a sound ends
+# the mode.
+TURN_PAUSE = float(os.environ.get("DICTATION_TURN_PAUSE", 1.2))
+TURN_LONGEST = float(os.environ.get("DICTATION_TURN_LONGEST", 2.5))
+CONVERSE_QUIET = float(os.environ.get("DICTATION_CONVERSE_QUIET", 60))
 # What counts as sound, of the largest sample's 32768.
 SOUND_PEAK = 600
 RATE = 16000
@@ -203,12 +219,14 @@ def clean(said):
 
 
 class Dictation:
-    def __init__(self, held, only_listens=False):
-        # Only hearing, for the assistant: the words go back to the shell.
-        self.only_listens = only_listens
+    def __init__(self, held, only_listens=False, converse=False):
+        # Only hearing, for the assistant: the words go back to the shell; in
+        # voice mode, a request at each pause.
+        self.only_listens = only_listens or converse
+        self.converse = converse
         self.work = pathlib.Path(tempfile.mkdtemp(dir=os.environ["XDG_RUNTIME_DIR"], prefix="dictation-"))
         self.selector = selectors.DefaultSelector()
-        self.method = InputMethod(connect=not only_listens)
+        self.method = InputMethod(connect=not self.only_listens)
         self.input = b""
         self.state = None
         self.text = ""
@@ -230,6 +248,10 @@ class Dictation:
         self.peak = 0
         self.last_sound = time.monotonic()
         self.heard = False
+        # In voice mode: when the engine last finished a phrase, whether one has
+        # begun since, and when it last heard speech at all.
+        self.last_final = self.last_speech = time.monotonic()
+        self.drafting = False
 
         wake_read, wake_write = os.pipe()
         os.set_blocking(wake_write, False)
@@ -346,7 +368,8 @@ class Dictation:
         if not data:
             self.recorded()
             return
-        self.audio.write(data)
+        if not self.converse:
+            self.audio.write(data)
         self.to_engine(data)
         samples = array.array("h")
         samples.frombytes(data[: len(data) // 2 * 2])
@@ -363,7 +386,9 @@ class Dictation:
         self.recorder.wait()
         self.recorder = None
         self.audio.close()
-        if self.stopping and not self.heard:
+        if self.converse and not self.engine:
+            self.failed()
+        elif self.stopping and not self.heard:
             # Given nothing but silence, a model can still invent words.
             if self.engine:
                 self.drop_engine()
@@ -373,6 +398,8 @@ class Dictation:
                 self.end_engine_input()
             else:
                 self.write_down()
+        elif self.converse:
+            self.failed()
         else:
             self.cannot_listen()
 
@@ -393,7 +420,15 @@ class Dictation:
         self.emit(state="listening", level=round(min(1, self.peak / 12000), 2),
                   quiet=not self.heard and silent >= QUIET, idle=self.heard and silent >= IDLE)
         self.peak = 0
-        if silent >= GIVE_UP:
+        if self.converse:
+            since_phrase = now - self.last_final
+            if now - self.last_speech >= CONVERSE_QUIET:
+                self.stop_listening()
+            elif self.phrases and not self.drafting and (silent >= TURN_PAUSE or since_phrase >= TURN_LONGEST):
+                # The person stopped: what they said is a request, and listening goes on.
+                self.emit(state="heard", text=" ".join(self.phrases))
+                self.phrases = []
+        elif silent >= GIVE_UP:
             self.stop_listening()
 
     def stop_listening(self):
@@ -439,9 +474,13 @@ class Dictation:
             pass
         except OSError:
             self.drop_engine()
+            if self.converse:
+                self.failed()
             return
         if len(self.for_engine) > ENGINE_BACKLOG:
             self.drop_engine()
+            if self.converse:
+                self.failed()
 
     def end_engine_input(self):
         """The last of the audio, then the end of it: the last phrase comes out."""
@@ -482,8 +521,13 @@ class Dictation:
         for line in lines:
             message = json.loads(line)
             # Going over the recording again, there is no draft to show.
+            if "final" in message or "draft" in message:
+                self.last_speech = time.monotonic()
+                self.drafting = "draft" in message
             if "final" in message:
-                self.phrases.append(clean(message["final"]))
+                self.last_final = self.last_speech
+                if clean(message["final"]):
+                    self.phrases.append(clean(message["final"]))
                 if not self.rerun:
                     self.emit(state="draft", text=" ".join(self.phrases), tail="")
             elif "draft" in message and not self.rerun:
@@ -496,7 +540,9 @@ class Dictation:
         if code != 0 or not recording_over:
             rerun = self.rerun
             self.drop_engine()
-            if recording_over and rerun:
+            if self.converse:
+                self.failed()
+            elif recording_over and rerun:
                 self.failed()
             elif recording_over:
                 self.write_down()
@@ -528,7 +574,8 @@ class Dictation:
             self.finish(1)
 
     def written(self, said):
-        self.audio_path.unlink(missing_ok=True)
+        if self.audio_path:
+            self.audio_path.unlink(missing_ok=True)
         had_text = bool(self.text)
         self.text = f"{self.text} {said}".strip()
         if not self.text:
@@ -627,7 +674,7 @@ class Dictation:
 
 
 def main():
-    Dictation("--held" in sys.argv[1:], "--listen" in sys.argv[1:]).run()
+    Dictation("--held" in sys.argv[1:], "--listen" in sys.argv[1:], "--converse" in sys.argv[1:]).run()
 
 
 if __name__ == "__main__":

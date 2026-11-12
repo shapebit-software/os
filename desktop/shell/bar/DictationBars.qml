@@ -15,6 +15,8 @@ Row {
     property bool listening: Dictation.listening
     property bool writing: Dictation.writing
     property real level: Dictation.level
+    // White on the accent, as the buttons have them.
+    property color color: Theme.textOnAccent
 
     spacing: 2
 
@@ -30,7 +32,7 @@ Row {
             width: 2
             height: Math.max(2, bars.size * modelData * (0.15 + 0.85 * bars.shown))
             radius: 1
-            color: Theme.textOnAccent
+            color: bars.color
             opacity: bars.writing ? 0.6 : 1
         }
     }

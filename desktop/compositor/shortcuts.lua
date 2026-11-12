@@ -36,7 +36,7 @@ end
 -- Super pressed with no other key down, "super-other" for any other key
 -- while it is down, which makes it a shortcut, and "super-up".
 -- Alt let go ends the window switcher, if one of its shortcuts opened it.
-list[#list + 1] = "Super_L|Assistant: tap to open, or hold while you speak"
+list[#list + 1] = "Super_L|Assistant: tap to open, hold while you speak, or double-tap to talk on"
 local down, alone, switching = {}, false, false
 local supers = { [133] = true, [134] = true }
 -- In development (make run), the right Ctrl key stands in for Super alone:

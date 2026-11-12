@@ -63,20 +63,34 @@ function reserves(now, narrow) {
     return now.open === "panel" && now.docked && !narrow;
 }
 
-// The Super key. `state` is "idle", "pressed" (down alone, not yet held), or
-// "listening". `event` is "down" (Super pressed with no other key down),
-// "other" (any other key or button while Super is down), "held" (holdAfter
-// has passed), "long" (longestHold has passed), or "up". Returns { state, action }, the action one of "",
-// "tap", "listen", "send" (the speech is the request), or "cancel" (the
-// speech is discarded: the key began a shortcut).
+// How long after a tap, in milliseconds, a second one makes a double tap.
+var doubleTapWithin = 350;
+
+// The Super key. `state` is "idle", "pressed" (down alone, not yet held),
+// "listening", "tapped" (a tap just ended, and a second may come), or
+// "pressed again" (down for that second tap). `event` is "down" (Super pressed
+// with no other key down), "other" (any other key or button while Super is
+// down), "held" (holdAfter has passed), "long" (longestHold has passed), "up",
+// or "late" (doubleTapWithin has passed since a tap). Returns { state, action },
+// the action one of "", "tap", "listen", "send" (the speech is the request),
+// "cancel" (the speech is discarded: the key began a shortcut), or "converse"
+// (a double tap: voice mode). The first tap of a double tap acts as a tap, so
+// a single one never waits.
 function key(state, event) {
+    if (state === "tapped") {
+        if (event === "down")
+            return { state: "pressed again", action: "" };
+        return { state: "idle", action: "" };
+    }
     if (event === "down")
         return { state: state === "idle" ? "pressed" : state, action: "" };
-    if (state === "pressed") {
+    if (state === "pressed" || state === "pressed again") {
         if (event === "up")
-            return { state: "idle", action: "tap" };
+            return state === "pressed" ? { state: "tapped", action: "tap" } : { state: "idle", action: "converse" };
         if (event === "held")
             return { state: "listening", action: "listen" };
+        if (event === "late")
+            return { state: state, action: "" };
         return { state: "idle", action: "" };
     }
     if (state === "listening") {
@@ -197,4 +211,33 @@ function markdown(text, linkColor) {
 // Whether a link in an answer may open, in the person's browser.
 function opens(link) {
     return /^(https?|mailto):/i.test(link || "");
+}
+
+// What was said in voice mode, as words only: no case, and no punctuation at
+// either end, which the speech engine adds.
+function plainly(said) {
+    return (said || "").toLowerCase().replace(/’/g, "'").replace(/[.,!?;:…"“”„]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// What a short answer said in voice mode means for an action that waits:
+// "apply", "decline", or "" when it is no answer but a request. Only the whole
+// of what was said counts, with a "please" at most.
+var yesWords = ["yes", "yeah", "yep", "ok", "okay", "sure", "do it", "go ahead", "apply", "confirm",
+                "tak", "dobrze", "zgoda", "jasne", "zrób to", "potwierdzam"];
+var noWords = ["no", "nope", "cancel", "don't", "dont", "do not", "never mind",
+               "nie", "anuluj", "nie rób tego", "nieważne"];
+function spokenAnswer(said) {
+    var words = plainly(said).replace(/^(please|proszę) | (please|proszę)$/g, "");
+    if (yesWords.indexOf(words) >= 0)
+        return "apply";
+    if (noWords.indexOf(words) >= 0)
+        return "decline";
+    return "";
+}
+
+// Whether what was said in voice mode ends it.
+var stopWords = ["stop", "stop listening", "that's all", "thats all", "that is all", "goodbye",
+                 "koniec", "wystarczy", "przestań słuchać", "stop słuchania", "dziękuję to wszystko"];
+function stopsListening(said) {
+    return stopWords.indexOf(plainly(said)) >= 0;
 }

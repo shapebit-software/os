@@ -30,5 +30,6 @@ ShellItem ShellItem.qml
 SignalBars SignalBars.qml
 TrayIcons TrayIcons.qml
 TrayMenu TrayMenu.qml
+VoicePill VoicePill.qml
 VolumePanel VolumePanel.qml
 WifiList WifiList.qml
