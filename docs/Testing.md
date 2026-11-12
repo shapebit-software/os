@@ -135,6 +135,11 @@ engine, in a container built from `tests/openqa/Containerfile`. The same directo
 works as the case directory of an openQA server. A server is not required, and
 this repository does not run one.
 
+The update flow installs with the installer of the download site, which may
+look as it did before the tree's last change to it. A needle named `-stable`
+is that installer's screen, under the same tag, so either look matches. When
+the installer is published again, the `-stable` needles go.
+
 Each module pairs what the screen shows (`assert_screen`) with the state beneath
 it (`lib/sut.py`, over SSH): a check that only looks would pass on a right
 picture of a wrong system.
