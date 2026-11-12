@@ -156,3 +156,45 @@ function context(selection, app, title, limit) {
         said.title = title.slice(0, 200);
     return said;
 }
+
+// What marks an answer as Markdown: a heading, a list, bold, code, a quote,
+// a link, or a table. An answer without any shows as plain text.
+var markdownMarks = [
+    /^#{1,6}\s+\S/m,
+    /^\s*[-*+]\s+\S/m,
+    /^\s*\d+[.)]\s+\S/m,
+    /\*\*[^*\n]+\*\*/,
+    /__[^_\n]+__/,
+    /`[^`\n]+`/,
+    /^\s*```/m,
+    /^>\s?\S/m,
+    /\[[^\]\n]+\]\([^)\s]+\)/,
+    /^\s*\|.*\|\s*$/m,
+];
+
+// An answer as Markdown, for Text.MarkdownText, or "" when it reads as plain
+// text. An answer may carry text from web pages or windows, which must not
+// make the shell fetch anything: outside code, HTML shows as text, and a
+// picture becomes a link, to open only if clicked. A link to a web page or
+// mail address is written as HTML of our own, in `linkColor`, which Qt's
+// Markdown would not take; any other link is its label alone. Code stays as
+// written; an answer still coming may leave its last block open.
+function markdown(text, linkColor) {
+    if (!text || !markdownMarks.some(function (mark) { return mark.test(text); }))
+        return "";
+    var parts = text.split(/(^\s*```[\s\S]*?(?:^\s*```[^\n]*$|(?![\s\S]))|`[^`\n]+`)/m);
+    return parts.map(function (part, index) {
+        if (index % 2 === 1)
+            return part;
+        return part.replace(/</g, "&lt;").replace(/!\[/g, "[").replace(/\[([^\]\n]*)\]\(([^)\s]*)\)/g, function (all, label, url) {
+            if (!opens(url) || /["']/.test(url))
+                return label;
+            return '<a href="' + url + '"><font color="' + (linkColor || "") + '">' + (label || url) + "</font></a>";
+        });
+    }).join("");
+}
+
+// Whether a link in an answer may open, in the person's browser.
+function opens(link) {
+    return /^(https?|mailto):/i.test(link || "");
+}

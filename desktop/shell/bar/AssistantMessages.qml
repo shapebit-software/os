@@ -1,9 +1,10 @@
 // The messages of a conversation: the person's on the right in the accent's
-// tint, with what the request told of where they were; the assistant's as
-// plain text; its actions as cards (AssistantCard.qml). An answer grows as it
-// comes. Messages are listed by id, so a growing answer changes only its own
-// item. As bubbles (AssistantBubbles.qml), each is a card of its own, the
-// older ones dimmed until the person scrolls back.
+// tint, with what the request told of where they were, as plain text; the
+// assistant's as Markdown when it reads as such, made safe first, or else as
+// plain text (assistant.js); its actions as cards (AssistantCard.qml). An
+// answer grows as it comes. Messages are listed by id, so a growing answer
+// changes only its own item. As bubbles (AssistantBubbles.qml), each is a card
+// of its own, the older ones dimmed until the person scrolls back.
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
@@ -75,6 +76,7 @@ Column {
                     text: item.message.text ?? ""
                     color: Theme.ink
                     wrapMode: Text.Wrap
+                    textFormat: Text.PlainText
                     font { family: Theme.font; pixelSize: list.textSize }
                 }
                 // What the request told of where the person was.
@@ -113,14 +115,27 @@ Column {
                 spacing: 4
 
                 Text {
+                    id: answer
+
+                    readonly property string marked: Logic.markdown(item.message.text ?? "", Theme.accent.toString())
+
                     width: parent.width
                     visible: text !== ""
-                    text: item.message.text ?? ""
+                    text: marked || (item.message.text ?? "")
+                    textFormat: marked ? Text.MarkdownText : Text.PlainText
                     color: Theme.ink
+                    linkColor: Theme.accent
                     wrapMode: Text.Wrap
-                    lineHeight: 1.4
-                    textFormat: Text.PlainText
+                    lineHeight: marked ? 1.15 : 1.4
                     font { family: Theme.font; pixelSize: list.textSize }
+                    onLinkActivated: link => {
+                        if (Logic.opens(link))
+                            Qt.openUrlExternally(link);
+                    }
+
+                    HoverHandler {
+                        cursorShape: answer.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    }
                 }
                 Text {
                     width: parent.width
