@@ -1,6 +1,8 @@
 module qs.settings
 AppPage AppPage.qml
 AppsPage AppsPage.qml
+AssistantModelsPage AssistantModelsPage.qml
+AssistantSkillsPage AssistantSkillsPage.qml
 DownloadsPage DownloadsPage.qml
 ConnectionsPage ConnectionsPage.qml
 DisplayArrangement DisplayArrangement.qml

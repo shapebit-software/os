@@ -3,7 +3,8 @@
 // the request will tell of where the person is, the selected text and the
 // focused window, each to take off before sending. Enter sends; while this
 // conversation's request is under way and the line is empty, the button
-// stops it.
+// stops it. On a ChatGPT plan, below it, that the plan is used, and where to
+// manage its usage, as OpenAI asks.
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.controls
@@ -138,6 +139,29 @@ Column {
             }
             TapHandler {
                 onTapped: send.stopping ? Assistant.stop() : reply.go()
+            }
+            HoverHandler {
+                cursorShape: Qt.PointingHandCursor
+            }
+        }
+    }
+
+    Row {
+        visible: Assistant.model?.provider === "chatgpt"
+        spacing: 6
+
+        Text {
+            text: "Using ChatGPT plan"
+            color: Theme.inkFaint
+            font { family: Theme.font; pixelSize: 11 }
+        }
+        Text {
+            text: "Manage usage"
+            color: Theme.accent
+            font { family: Theme.font; pixelSize: 11; weight: Font.Medium }
+
+            TapHandler {
+                onTapped: Qt.openUrlExternally(Assistant.providers.chatgpt?.usage ?? "https://chatgpt.com/settings/usage")
             }
             HoverHandler {
                 cursorShape: Qt.PointingHandCursor

@@ -1,0 +1,13 @@
+# Keeps the language model %i loaded, for answers at once: while this runs,
+# llama-server@%i.service is needed, and stays. The assistant starts it a
+# little after the session starts, when Settings > Assistant loads the model
+# at sign-in, and stops it when the model loads only when used.
+[Unit]
+Description=Language model %i, kept loaded
+Requires=llama-server@%i.service
+After=llama-server@%i.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true

@@ -90,4 +90,7 @@ Exec=$tree/dev/portal-tester
 EOF
 
 export data_dirs
+# The session bus here has no keyring; the assistant keeps keys and sign-ins
+# in the host's, which is unlocked (assistant/providers.py).
+[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] || export ASSISTANT_KEYRING_BUS="$DBUS_SESSION_BUS_ADDRESS"
 dbus-run-session --config-file="$dir/bus.conf" -- "$0" session

@@ -33,6 +33,8 @@ PanelWindow {
     readonly property var conversation: Assistant.conversation
     // Too narrow to leave the windows room beside the panel.
     readonly property bool narrow: (modelData?.width ?? 0) < Logic.narrowBelow
+    // Whether the models unfold, to choose another.
+    property bool choosing
     readonly property bool docked: Logic.reserves(Assistant.view, narrow)
     readonly property int wide: Logic.width(Settings.assistantWidth, modelData?.width ?? 0)
     // A tile's corners and edge, as the compositor draws the windows'
@@ -304,19 +306,60 @@ PanelWindow {
             visible: !Assistant.listing
             anchors.bottom: parent.bottom
             width: parent.width
-            height: visible ? reply.height + 21 : 0
+            height: visible ? lower.height + 21 : 0
 
             Rectangle {
                 anchors { top: parent.top; left: parent.left; right: parent.right }
                 height: 1
                 color: Theme.veil(0.07)
             }
-            AssistantReply {
-                id: reply
+            Column {
+                id: lower
                 x: 10
                 y: 11
                 width: parent.width - 20
-                onEscaped: dock.leave()
+                spacing: 6
+
+                // The model that answers, which unfolds the others above it.
+                AssistantModelList {
+                    visible: dock.choosing
+                    width: parent.width
+                    onChosen: dock.choosing = false
+                }
+                Rectangle {
+                    width: modelName.width + 30
+                    height: 24
+                    color: dock.choosing ? Theme.veil(0.12) : modelHover.hovered ? Theme.veil(0.07) : "transparent"
+
+                    // Its name says that an AI answers: people must know (Assistant.qml).
+                    Text {
+                        id: modelName
+                        x: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: Assistant.model?.name ?? "No model"
+                        color: Theme.inkSoft
+                        font { family: Theme.font; pixelSize: 11; weight: Font.Medium }
+                    }
+                    Icon {
+                        anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
+                        height: 10
+                        color: Theme.inkFaint
+                        strokeWidth: 1.5
+                        strokes: dock.choosing ? "M4 6l4 4 4-4" : "M4 10l4-4 4 4"
+                    }
+                    TapHandler {
+                        onTapped: dock.choosing = !dock.choosing
+                    }
+                    HoverHandler {
+                        id: modelHover
+                        cursorShape: Qt.PointingHandCursor
+                    }
+                }
+                AssistantReply {
+                    id: reply
+                    width: parent.width
+                    onEscaped: dock.leave()
+                }
             }
         }
 

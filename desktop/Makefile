@@ -59,11 +59,12 @@ install: ## Install into DESTDIR
 	install -Dm644 -t $(share)/desktop extras/extras.json
 	install -Dm755 -t $(DESTDIR)$(PREFIX)/libexec/desktop/assistant assistant/assistant
 	install -Dm644 -t $(DESTDIR)$(PREFIX)/libexec/desktop/assistant assistant/actions.py assistant/models.py \
-	  assistant/skills.py
+	  assistant/skills.py assistant/web.py assistant/providers.py assistant/chatgpt.py
 	install -Dm644 -t $(share)/desktop/assistant assistant/models.json
 	install -Dm644 -t $(share)/desktop/assistant/skills assistant/skills/*.md
 	install -Dm644 -t $(DESTDIR)$(PREFIX)/lib/systemd/user assistant/assistant.socket assistant/assistant.service \
-	  assistant/language-model@.socket assistant/language-model@.service assistant/llama-server@.service
+	  assistant/language-model@.socket assistant/language-model@.service assistant/language-model-ready@.service \
+	  assistant/llama-server@.service
 	install -d $(DESTDIR)$(PREFIX)/lib/systemd/user/sockets.target.wants
 	ln -sf ../assistant.socket $(DESTDIR)$(PREFIX)/lib/systemd/user/sockets.target.wants/assistant.socket
 	install -Dm644 -t $(DESTDIR)$(PREFIX)/lib/systemd/user apps/app-update.service apps/app-update.timer downloads/downloads.service

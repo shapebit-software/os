@@ -124,12 +124,13 @@ def test_extras_can_be_downloaded_by_administrators(host, sh):
 
 
 def test_assistant_is_installed_and_starts_with_its_socket(host, sh):
-    for name in ("assistant", "actions.py", "models.py", "skills.py"):
+    for name in ("assistant", "actions.py", "models.py", "skills.py", "web.py", "providers.py", "chatgpt.py"):
         sh(f"python3 -c 'import ast; ast.parse(open(\"/usr/libexec/desktop/assistant/{name}\").read())'")
     assert host.file("/usr/libexec/desktop/assistant/assistant").mode & 0o111
     assert host.file("/usr/share/desktop/assistant/skills/writing.md").content_string.startswith("---\nname: writing\n")
     units = "/usr/lib/systemd/user"
-    for unit in ("assistant.socket", "assistant.service", "language-model@.socket", "language-model@.service", "llama-server@.service"):
+    for unit in ("assistant.socket", "assistant.service", "language-model@.socket", "language-model@.service",
+                 "language-model-ready@.service", "llama-server@.service"):
         assert host.file(f"{units}/{unit}").size > 0
     assert host.file(f"{units}/sockets.target.wants/assistant.socket").linked_to == f"{units}/assistant.socket"
 

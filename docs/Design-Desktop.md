@@ -193,8 +193,25 @@ Assistant adds and removes them later.
 
 The assistant answers questions and acts on the computer when asked. It runs
 on the computer: its model is local, and nothing asked leaves the computer.
-Online models are planned as a choice a person makes; the model catalog
-already allows for them.
+A person may add online models, and choose which model answers, in Settings
+> Assistant > Models or in the assistant itself, where the model's name opens
+the list. Each provider is reached only as its terms allow:
+
+- **OpenAI**: **Continue with ChatGPT** uses the person's ChatGPT Plus or Pro
+  plan, as OpenAI allows open-source and local apps ("Sign in with ChatGPT").
+  They sign in on OpenAI's page in their browser; usage counts toward the
+  plan and is never billed otherwise. The assistant shows "Using ChatGPT
+  plan" with **Manage usage** under the reply line, as OpenAI asks. Or an
+  OpenAI API key.
+- **Claude** and **Gemini**: an API key only, billed by the provider.
+  Anthropic and Google forbid apps to sign in with their plans, and Google
+  suspends accounts that do, so the assistant never offers it.
+
+Keys and the ChatGPT sign-in stay in the keyring, never in a file. An online
+model gets what the person asks, and what the assistant reads for it, on the
+provider's servers, under their account there; Settings says so. Removing the
+last model of a provider forgets its key; signing out of ChatGPT revokes the
+sign-in at OpenAI.
 
 One conversation shows in one of three ways, and moving between them loses
 nothing:
@@ -257,25 +274,48 @@ the actions of the **See** risk, below, in two steps:
   **Screen understanding** (1 GB), which Welcome does not offer; Settings >
   Assistant does.
 
+**The web**, in the group **Look things up on the web**, which asks on its
+card until allowed; what is looked up leaves the computer, which the group,
+and the Assistant extra, say:
+
+- **Reading a page**: its title, address, and main text, without menus,
+  lists of links, scripts, and ads, 6,000 characters at most. No page's
+  JavaScript runs: a page that needs it says so, and the browser can open it.
+- **Searching Wikipedia**, in the person's language, then in English: the
+  start of the three articles that match best. Other web search waits for a
+  provider to be chosen.
+- **Opening a page** in the person's browser, a change in the windows group.
+
+Only public addresses are reached, redirects too: never this computer or the
+local network. The card shows the address, and nothing, not even the name's
+lookup, happens before it is allowed.
+
 The model is told what it is and how to act, then facts of the computer: the
-OS's version, the language and region, and the time zone. Each request says
-when it was sent. Neither changes from one request to the next, so a local
-model keeps them processed.
+OS's version, the language and region, and the time zone; the time comes from
+the status action. None of it changes from one request to the next, so a
+local model keeps it processed. The prompt was tuned on conversations replayed
+to the model: it says to answer in the language of the latest message, and
+that a short follow-up, such as "translate it", is about the last answer. What
+a request tells beside the person's words reads as their own words: "The text
+I have selected, in Firefox (News):", then the text in quotes.
 
 What the model is told beside the person's words, the selected text and
 window titles, and what actions return, such as file names and pictures, is
 information, never a request; the model is told so. A text can still ask the
-model for something, so a change asked in a request that carries any of it
-asks on its card, even in a group the person allowed.
+model for something, so a change, or a look on the web, which sends what it
+is given out, asked in a request that carries any of it asks on its card,
+even in a group the person allowed.
 
 **Skills** are instructions the model reads only when a request needs them,
 so the prompt every request sends stays short: the prompt lists each skill's
 name and description, and the model reads one with an action. A skill can set
 the model's temperature for the rest of the request. The OS has one,
 **writing**, for longer texts: articles, letters, emails, posts, and stories,
-at temperature 0.8, where everything else runs at 0.2 for exact actions. A
-person can add their own, or replace the OS's, as Markdown files in
-`~/.config/assistant/skills`. A model's catalog entry can add to the prompt
+at temperature 0.8, where everything else runs at 0.2 for exact actions. The
+OS's skills can be read, not changed. A person adds their own in Settings >
+Assistant > Skills and tools, with a name, when to use it, a temperature, and
+the instructions, and changes or deletes them there; they are Markdown files
+in `~/.config/assistant/skills`. A model's catalog entry can add to the prompt
 what that model needs told.
 
 A conversation left for half an hour is over: the next request from the
@@ -287,12 +327,14 @@ Each action shows as a card, and has a risk:
 
 - **Read** (the computer's status, the installed apps, finding files by name,
   reading a skill) runs at once.
-- **See** (the open windows, pictures of the screen) asks on its card, as a
-  change does, until the person allows the group **See the screen**.
+- **See** (the open windows, pictures of the screen, web pages, Wikipedia)
+  asks on its card, as a change does, until the person allows its group:
+  **See the screen**, or **Look things up on the web**.
 - **Change** (volume, brightness, keyboard layout, Do Not Disturb, Wi-Fi,
-  Bluetooth, opening apps, moving windows, screenshots, locking) asks on its
-  card: once, always for that group, or not at all. Settings > Assistant shows
-  the groups, to allow or take back. A change can be undone from its card.
+  Bluetooth, opening apps and web pages, moving windows, screenshots,
+  locking) asks on its card: once, always for that group, or not at all.
+  Settings > Assistant > Permissions shows the groups, to allow or take back.
+  A change can be undone from its card.
 - **Confirm** (shutting down, restarting, installing or removing an app) asks
   every time.
 
@@ -306,7 +348,22 @@ an activity log stay on the computer: conversations until deleted, the log
 for as long as Settings > Assistant chooses.
 
 The model, Gemma 4 E2B, is an [extra](#extras): on by default in Welcome
-where the computer has memory enough, and it runs only while in use.
+where the computer has memory enough. Settings > Assistant chooses when it
+loads, and says how much memory it holds, about 3.5 GB, 4.5 GB with Screen
+understanding:
+
+- **After sign-in**, the default: it loads half a minute after the session
+  starts, so it answers at once from then on, and stays loaded.
+- **When used**: it loads with the first request, which then waits some
+  seconds, and frees its memory after ten minutes without one.
+
+Settings > Assistant has, in order: **Models** (every model, the one in use,
+adding and removing online ones), the extras (Gemma 4 E2B, Screen
+understanding, and Dictation, which voice needs), when the local model loads,
+**Skills and tools** (each skill to read, the person's own to add, change, or
+delete, and each action with whether it runs at once or asks), **Permissions**
+(the groups allowed without asking, and the activity log), and where the panel
+shows.
 
 The assistant always says that an AI answers, as the EU's AI Act asks
 (article 50): "AI · on this computer" under the reply line, and that answers

@@ -79,25 +79,28 @@ PanelWindow {
                   Settings.welcomeOn = window.modelData.name;
               } },
         ] },
+        // The models and the downloads of the one on this computer, how it
+        // loads, what it can do, and what it may do unasked; then where it shows.
         { id: "assistant", name: "Assistant", icon: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z", rows: [
-            ...Extras.list.map(e => ({ label: e.name, detail: e.detail, kind: "extra", extra: e })),
-            ...(Assistant.models.length > 1 ? [{ label: "Model", detail: "What answers; one on this computer keeps what you ask on it",
-              kind: "select", options: Assistant.models.map(m => [`${m.name}${m.where === "local" ? "" : " · online"}${m.ready ? "" : " · not downloaded"}`, m.id]),
-              selected: Assistant.model?.id ?? "", select: id => Assistant.chooseModel(id) }] : []),
-            // What the assistant may change without asking; the rest asks every time.
-            ...Object.keys(Assistant.groups).map(g => ({ label: Assistant.groups[g], kind: "toggle",
-              detail: Assistant.grants.includes(g) ? "Without asking" : "Asks first, on its card",
-              on: Assistant.grants.includes(g), toggle: () => Assistant.grants.includes(g) ? Assistant.revoke(g) : Assistant.grant(g) })),
+            { label: "Models", detail: "Gemma on this computer, and online ones: ChatGPT, Claude, and Gemini",
+              value: Assistant.model?.name ?? "None", open: () => page = "assistant-models" },
+            ...assistantExtras.map(e => ({ label: e.name, detail: e.detail, kind: "extra", extra: e })),
+            ...(Assistant.model?.where === "local" ? [{ label: "Load the model", kind: "choice",
+              detail: Assistant.loading === "used"
+                  ? `When first asked, which takes some seconds; it frees about ${modelMemory} of memory after 10 minutes unused`
+                  : `Shortly after sign-in, to answer at once; it keeps about ${modelMemory} of memory in use`,
+              options: ["After sign-in", "When used"], selected: Assistant.loading === "used" ? "When used" : "After sign-in",
+              select: o => Assistant.setLoading(o === "When used" ? "used" : "ready") }] : []),
+            { label: "Skills and tools", detail: "What the assistant knows how to do, and skills of your own",
+              value: `${Assistant.skills.length} ${Assistant.skills.length === 1 ? "skill" : "skills"} · ${Assistant.tools.length} tools`,
+              open: () => page = "assistant-skills" },
+            { label: "Permissions", detail: "What it may do without asking, and the activity log",
+              value: `${Assistant.grants.length} of ${Object.keys(Assistant.groups).length} allowed`,
+              open: () => page = "assistant-permissions" },
             { label: "Panel beside the windows", detail: "The assistant's panel takes its own room at the right, and windows retile beside it",
               kind: "toggle", on: Settings.assistantDocked, toggle: () => Settings.assistantDocked = !Settings.assistantDocked },
             { label: "Right edge opens the panel", detail: "Push the pointer against the middle of the screen's right edge",
               kind: "toggle", on: Settings.assistantEdge, toggle: () => Settings.assistantEdge = !Settings.assistantEdge },
-            { label: "Activity log", detail: "What the assistant did and what it was allowed, kept on this computer", kind: "choice",
-              options: ["7 days", "30 days", "90 days", "Always"],
-              selected: Assistant.retention === 0 ? "Always" : `${Assistant.retention} days`,
-              select: o => Assistant.setRetention(o === "Always" ? 0 : parseInt(o)) },
-            { label: "Clear the activity log", detail: "Conversations stay; delete them from the assistant's list", value: "Clear",
-              open: () => Assistant.clearHistory() },
         ] },
         { id: "language", name: "Language", icon: "M2 8a6 6 0 1 0 12 0a6 6 0 1 0-12 0zM2 8h12M8 2c-2.2 2.4-2.2 9.6 0 12M8 2c2.2 2.4 2.2 9.6 0 12", rows: [
             { label: "System language", detail: "For the whole computer, from the next sign-in; needs an administrator",
@@ -280,8 +283,42 @@ PanelWindow {
         ["display", "pointing", "network", "sound"],
         ["apps", "downloads", "updates", "licenses"],
     ]
+    // The extras of Settings > Assistant: the model's first, then its vision
+    // projector, then the rest, such as dictation's, which voice needs.
+    readonly property var assistantExtras: {
+        const model = Assistant.model?.extra ?? "";
+        const rank = e => e.id === model ? 0 : e.id === `${model}-vision` ? 1 : 2;
+        return Extras.list.slice().sort((a, b) => rank(a) - rank(b));
+    }
+    // The memory a local model holds while loaded: its files, read into
+    // memory, and room for the conversation.
+    readonly property string modelMemory: {
+        const extra = Extras.list.find(e => e.id === Assistant.model?.extra);
+        const vision = Extras.list.find(e => e.id === `${Assistant.model?.extra}-vision` && e.installed);
+        return `${(((extra?.bytes ?? 0) + (vision?.bytes ?? 0) + 1300000000) / 1e9).toFixed(1)} GB`;
+    }
+
+    // Pages that are rows, as a section's.
+    readonly property var pageRows: ({
+        "assistant-permissions": [
+            // What the assistant may do without asking; the rest asks every time.
+            ...Object.keys(Assistant.groups).map(g => ({ label: Assistant.groups[g], kind: "toggle",
+              detail: Assistant.grants.includes(g) ? "Without asking" : "Asks first, on its card",
+              on: Assistant.grants.includes(g), toggle: () => Assistant.grants.includes(g) ? Assistant.revoke(g) : Assistant.grant(g) })),
+            { label: "Activity log", detail: "What the assistant did and what it was allowed, kept on this computer", kind: "choice",
+              options: ["7 days", "30 days", "90 days", "Always"],
+              selected: Assistant.retention === 0 ? "Always" : `${Assistant.retention} days`,
+              select: o => Assistant.setRetention(o === "Always" ? 0 : parseInt(o)) },
+            { label: "Clear the activity log", detail: "Conversations stay; delete them from the assistant's list", value: "Clear",
+              open: () => Assistant.clearHistory() },
+        ],
+    })
+
     // The pages: their title, and the section they belong to.
     readonly property var pages: ({
+        "assistant-models": ["Models", "assistant"],
+        "assistant-skills": ["Skills and tools", "assistant"],
+        "assistant-permissions": ["Permissions", "assistant"],
         "picture": ["Choose a picture", "account"],
         "wallpaper": ["Choose a wallpaper", "desktop"],
         "keyboards": ["Keyboards", "language"],
@@ -294,8 +331,8 @@ PanelWindow {
     readonly property string query: search.text.trim().toLowerCase()
     readonly property var section: sections.find(s => s.id === Settings.section) ?? sections[0]
     readonly property var rows: query
-        ? [].concat(...sections.map(s => s.rows)).filter(r => (r.label + " " + r.detail).toLowerCase().includes(query))
-        : section.own ? [] : section.rows
+        ? [].concat(...sections.map(s => s.rows), ...Object.values(pageRows)).filter(r => (r.label + " " + r.detail).toLowerCase().includes(query))
+        : page ? pageRows[page] ?? [] : section.own ? [] : section.rows
 
     function close() {
         Settings.openOn = "";
@@ -788,8 +825,18 @@ PanelWindow {
                         width: parent.width
                     }
 
+                    AssistantSkillsPage {
+                        visible: window.page === "assistant-skills"
+                        width: parent.width
+                    }
+
+                    AssistantModelsPage {
+                        visible: window.page === "assistant-models"
+                        width: parent.width
+                    }
+
                     Rectangle {
-                        visible: window.page === "" && window.rows.length > 0
+                        visible: (window.page === "" || window.pageRows[window.page] !== undefined) && window.rows.length > 0
                         width: parent.width
                         height: list.height + 2
                         color: Theme.surface

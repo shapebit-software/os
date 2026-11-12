@@ -1,22 +1,27 @@
 """The language models the assistant can use, and how it talks to them.
 
-Every model speaks the same chat API, OpenAI's /v1/chat/completions with
-streaming and tools, which llama-server and most online services offer; so a
-new model, on this computer or online, is one entry in a catalog:
+A model speaks one of three chat APIs, each streamed and with tools: "chat",
+OpenAI's /chat/completions, which llama-server, OpenAI, and Gemini offer;
+"anthropic", Claude's /messages; and "responses", OpenAI's /responses, which
+a ChatGPT plan answers on. The assistant hands every one the conversation as
+the chat API has it, and each adapter here turns it into its own. So a new
+model, on this computer or online, is one entry in a catalog:
 
 - models.json beside this file, from the OS: the local models, each an extra
   (desktop/extras), run by llama-server on demand (language-model@.socket).
-- $XDG_CONFIG_HOME/assistant/models.json: the person's own, such as online
-  ones. Their API key, if any, is in the keyring (secret-tool), never in a
-  file: secret-tool store --label=... assistant-model ID.
+- $XDG_CONFIG_HOME/assistant/models.json: the person's own, the online ones
+  that Settings > Assistant > Models adds (providers.py). Their key, or the
+  ChatGPT sign-in, is in the keyring, never in a file.
 
 An entry: {"id", "name", "mark": one letter, "color": "#rrggbb",
 "where": "local" or "online", "extra": the extra that holds model.gguf (local),
-"url": the API's base, such as https://api.example.com/v1 (online),
-"model": the name the API knows it by, "key": true if it needs an API key,
-"options": what else every request sends, such as {"temperature": 0.2},
-"prompt": what the model needs told beyond the assistant's own prompt,
-"vision": true if it reads pictures (online)}.
+"provider": an online provider's id (providers.py), "api": "chat",
+"anthropic", or "responses" ("chat" if none), "url": the API's base, such as
+https://api.example.com/v1 (online), "model": the name the API knows it by,
+"key": true if it needs an API key kept for the model itself, "options": what
+else every request sends, such as {"temperature": 0.2}, "prompt": what the
+model needs told beyond the assistant's own prompt, "vision": true if it
+reads pictures (online)}.
 
 A local model reads pictures once the extra of its vision projector, its own
 extra's id with "-vision", holds mmproj.gguf; llama-server@.service loads it.
@@ -30,6 +35,9 @@ import socket
 import subprocess
 import time
 import urllib.parse
+
+import chatgpt
+import providers
 
 HERE = pathlib.Path(__file__).resolve().parent
 VENDOR = pathlib.Path(os.environ.get("ASSISTANT_MODELS", HERE / "models.json"))
@@ -66,10 +74,24 @@ def _read(path):
 def catalog():
     """The OS's models, then the person's; a person's entry replaces one with its id."""
     entries = {}
-    for entry in [*_read(VENDOR), *_read(config_dir() / "models.json")]:
-        if isinstance(entry, dict) and entry.get("id"):
-            entries[entry["id"]] = entry
+    for own, found in ((False, _read(VENDOR)), (True, _read(config_dir() / "models.json"))):
+        for entry in found:
+            if isinstance(entry, dict) and entry.get("id"):
+                entries[entry["id"]] = {**entry, "own": own}
     return list(entries.values())
+
+
+def save_own(entries):
+    """The person's catalog, written whole."""
+    path = config_dir() / "models.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    partial = path.with_suffix(".partial")
+    partial.write_text(json.dumps([{k: v for k, v in e.items() if k != "own"} for e in entries], indent=2, ensure_ascii=False))
+    os.replace(partial, path)
+
+
+def own():
+    return [e for e in _read(config_dir() / "models.json") if isinstance(e, dict) and e.get("id")]
 
 
 def ready(entry):
@@ -90,11 +112,23 @@ def describe(entry):
     return {
         "id": entry["id"], "name": entry.get("name", entry["id"]), "mark": entry.get("mark", entry.get("name", "?")[:1]),
         "color": entry.get("color", "#6b6f80"), "where": entry.get("where", "online"), "extra": entry.get("extra"),
-        "ready": ready(entry), "sees": sees(entry),
+        "ready": ready(entry), "sees": sees(entry), "provider": entry.get("provider"), "model": entry.get("model"),
+        "own": entry.get("own", False),
     }  # fmt: skip
 
 
 def _key(entry):
+    """The credential an online model is asked with, or None."""
+    if entry.get("provider") == "chatgpt":
+        try:
+            return chatgpt.access_token()
+        except chatgpt.Failed as error:
+            raise Unavailable(str(error)) from None
+    if entry.get("provider") in providers.PROVIDERS:
+        found = providers.secret(entry["provider"])
+        if not found:
+            raise Unavailable(f"{entry.get('name', entry['id'])} needs its API key; add it again in Settings > Assistant > Models.")
+        return found
     if not entry.get("key"):
         return None
     try:
@@ -162,19 +196,21 @@ class Chat:
             except OSError:
                 pass
 
-    def _connect(self):
+    def _connect(self, endpoint):
         entry = self.entry
         if entry.get("where") == "local":
-            return _UnixConnection(local_socket(entry), TIMEOUT), "/v1/chat/completions"
-        url = urllib.parse.urlsplit(entry["url"].rstrip("/") + "/chat/completions")
+            return _UnixConnection(local_socket(entry), TIMEOUT), "/v1" + endpoint
+        url = urllib.parse.urlsplit(entry["url"].rstrip("/") + endpoint)
         kind = http.client.HTTPSConnection if url.scheme == "https" else http.client.HTTPConnection
         return kind(url.netloc, timeout=TIMEOUT), url.path
 
-    def _open(self, body, on_status):
+    def _open(self, body, on_status, endpoint="/chat/completions"):
         """Posts the request; a local model still starting is waited for."""
         headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
         key = _key(self.entry)
-        if key:
+        if key and self.entry.get("api") == "anthropic":
+            headers.update({"x-api-key": key, "anthropic-version": providers.ANTHROPIC_VERSION})
+        elif key:
             headers["Authorization"] = f"Bearer {key}"
         local = self.entry.get("where") == "local"
         deadline = time.monotonic() + STARTUP
@@ -183,7 +219,7 @@ class Chat:
             if self.stopped:
                 raise Cancelled()
             try:
-                self.connection, path = self._connect()
+                self.connection, path = self._connect(endpoint)
                 self.connection.request("POST", path, body, headers)
                 self.socket = self.connection.sock
                 if self.stopped:
@@ -195,12 +231,21 @@ class Chat:
                 return reply
             if reply is not None and reply.status != 503:
                 detail = reply.read(2000).decode("utf-8", "replace")
+                code = ""
                 try:
-                    detail = json.loads(detail)["error"]["message"]
-                except (ValueError, KeyError, TypeError):
-                    pass
+                    said = json.loads(detail)
+                except ValueError:
+                    said = None
+                error = said.get("error", said) if isinstance(said, dict) else None
+                if isinstance(error, dict):
+                    code = error.get("code") or error.get("type") or ""
+                    detail = error.get("message") or error.get("detail") or detail
+                elif isinstance(error, str):
+                    detail = error
+                if str(code).startswith(("subscription_sharing", "chatpass")):
+                    raise Unavailable(plan_error(str(code), detail))
                 if reply.status in (401, 403):
-                    raise Unavailable(f"{self.entry.get('name')} refused the API key.")
+                    raise Unavailable(f"{self.entry.get('name')} refused the API key, or the sign-in.")
                 raise Unavailable(f"{self.entry.get('name')} answered with an error: {str(detail)[:200]}")
             if not local or time.monotonic() > deadline:
                 if self.stopped:
@@ -218,15 +263,13 @@ class Chat:
         """Streams the answer: its text to on_text as it comes; returns the whole
         text and the tool calls, each {"id", "name", "arguments": text}. options
         go over the model's own, for this request."""
-        body = {"messages": messages, "stream": True, **self.entry.get("options", {}), **(options or {})}
+        api = self.entry.get("api", "chat")
+        endpoint, body = BUILD[api](self.entry, messages, tools, {**self.entry.get("options", {}), **(options or {})})
         if self.entry.get("model"):
             body["model"] = self.entry["model"]
-        if tools:
-            body["tools"] = tools
-        reply = self._open(json.dumps(body).encode(), on_status)
+        reply = self._open(json.dumps(body).encode(), on_status, endpoint)
         on_status("answering")
-        text = []
-        calls = {}
+        reading = READ[api](self.entry.get("name", "The model"), on_text)
         try:
             while True:
                 line = reply.readline()
@@ -242,19 +285,8 @@ class Chat:
                     chunk = json.loads(data)
                 except ValueError:
                     continue
-                if "error" in chunk:
-                    raise Unavailable(f"{self.entry.get('name')} failed: {chunk['error'].get('message', '')[:200]}")
-                for choice in chunk.get("choices") or []:
-                    delta = choice.get("delta") or {}
-                    if delta.get("content"):
-                        text.append(delta["content"])
-                        on_text(delta["content"])
-                    for call in delta.get("tool_calls") or []:
-                        held = calls.setdefault(call.get("index", len(calls)), {"id": "", "name": "", "arguments": ""})
-                        held["id"] = call.get("id") or held["id"]
-                        function = call.get("function") or {}
-                        held["name"] += function.get("name") or ""
-                        held["arguments"] += function.get("arguments") or ""
+                if reading.feed(chunk):
+                    break
         except (OSError, http.client.HTTPException):
             if self.stopped:
                 raise Cancelled() from None
@@ -263,7 +295,205 @@ class Chat:
             self.connection.close()
         if self.stopped:
             raise Cancelled()
-        result = [calls[index] for index in sorted(calls)]
+        reading.check()
+        result = [reading.calls[index] for index in sorted(reading.calls)]
         for number, call in enumerate(result):
             call["id"] = call["id"] or f"call-{number}"
-        return "".join(text), result
+            call["arguments"] = call["arguments"] or "{}"
+        return "".join(reading.text), result
+
+
+def plan_error(code, detail):
+    """What a ChatGPT plan's refusal means for people."""
+    if code == "subscription_sharing_usage_limit_exceeded":
+        return "Your ChatGPT plan's usage limit is reached for now. See how much is left at chatgpt.com/settings/usage."
+    if code in ("subscription_sharing_user_not_eligible", "subscription_sharing_route_not_supported"):
+        return "Your ChatGPT plan can't be used here. Plus and Pro can."
+    if code in ("subscription_sharing_usage_unavailable", "subscription_sharing_user_unavailable"):
+        return "ChatGPT can't answer on your plan right now; try again in a moment."
+    if code in ("subscription_sharing_invalid_user", "chatpass_v2_scope_not_authorized", "chatpass_v2_invalid_authorization_context"):
+        return "Sign in to ChatGPT again in Settings > Assistant > Models."
+    return f"ChatGPT refused: {detail or code}"[:240]
+
+
+# What each API is sent: (its endpoint, the request), from the conversation
+# as the chat API has it: system, user (text, or parts with pictures),
+# assistant (with tool_calls), and tool messages.
+
+
+def build_chat(entry, messages, tools, options):
+    body = {"messages": messages, "stream": True, **options}
+    if tools:
+        body["tools"] = tools
+    return "/chat/completions", body
+
+
+def pictures(content):
+    """[("text", text) or ("image", data URL)] of a message's content."""
+    if isinstance(content, str):
+        return [("text", content)] if content else []
+    return [("image", p["image_url"]["url"]) if p.get("type") == "image_url" else ("text", p.get("text", "")) for p in content]
+
+
+def build_anthropic(entry, messages, tools, options):
+    turns = []
+
+    def add(role, blocks):
+        if not blocks:
+            return
+        if turns and turns[-1]["role"] == role:
+            turns[-1]["content"] += blocks
+        else:
+            turns.append({"role": role, "content": blocks})
+
+    for message in messages:
+        if message["role"] == "user":
+            blocks = []
+            for kind, value in pictures(message["content"]):
+                if kind == "text" and value:
+                    blocks.append({"type": "text", "text": value})
+                elif kind == "image":
+                    media, _, data = value.removeprefix("data:").partition(";base64,")
+                    blocks.append({"type": "image", "source": {"type": "base64", "media_type": media, "data": data}})
+            add("user", blocks)
+        elif message["role"] == "assistant":
+            blocks = [{"type": "text", "text": message["content"]}] if message.get("content") else []
+            for call in message.get("tool_calls", []):
+                try:
+                    arguments = json.loads(call["function"]["arguments"] or "{}")
+                except ValueError:
+                    arguments = {}
+                blocks.append({"type": "tool_use", "id": call["id"], "name": call["function"]["name"], "input": arguments})
+            add("assistant", blocks)
+        elif message["role"] == "tool":
+            add("user", [{"type": "tool_result", "tool_use_id": message["tool_call_id"], "content": message["content"]}])
+    body = {"system": "\n\n".join(m["content"] for m in messages if m["role"] == "system"), "messages": turns,
+            "max_tokens": 4096, "stream": True}  # fmt: skip
+    if "temperature" in options:
+        body["temperature"] = min(1.0, options["temperature"])
+    if tools:
+        body["tools"] = [{"name": t["function"]["name"], "description": t["function"]["description"],
+                          "input_schema": t["function"]["parameters"]} for t in tools]  # fmt: skip
+    return "/messages", body
+
+
+def build_responses(entry, messages, tools, options):
+    # A ChatGPT plan takes no temperature, nor a system message: the
+    # instructions say it.
+    items = []
+    for message in messages:
+        if message["role"] == "user":
+            parts = pictures(message["content"])
+            if isinstance(message["content"], str):
+                items.append({"role": "user", "content": message["content"]})
+            else:
+                items.append({"role": "user", "content": [{"type": "input_text", "text": v} if k == "text" else
+                                                          {"type": "input_image", "image_url": v} for k, v in parts]})  # fmt: skip
+        elif message["role"] == "assistant":
+            if message.get("content"):
+                items.append({"role": "assistant", "content": message["content"]})
+            items += [{"type": "function_call", "call_id": c["id"], "name": c["function"]["name"],
+                       "arguments": c["function"]["arguments"] or "{}"} for c in message.get("tool_calls", [])]  # fmt: skip
+        elif message["role"] == "tool":
+            items.append({"type": "function_call_output", "call_id": message["tool_call_id"], "output": message["content"]})
+    body = {"instructions": "\n\n".join(m["content"] for m in messages if m["role"] == "system"), "input": items,
+            "store": False, "stream": True}  # fmt: skip
+    if tools:
+        body["tools"] = [{"type": "function", "name": t["function"]["name"], "description": t["function"]["description"],
+                          "parameters": t["function"]["parameters"]} for t in tools]  # fmt: skip
+    return "/responses", body
+
+
+BUILD = {"chat": build_chat, "anthropic": build_anthropic, "responses": build_responses}
+
+
+# How each API's stream is read: feed() takes each event, and says whether
+# the answer ended; check() fails an answer that didn't end as it should.
+
+
+class ReadChat:
+    def __init__(self, name, on_text):
+        self.name, self.on_text = name, on_text
+        self.text, self.calls = [], {}
+
+    def failed(self, message):
+        raise Unavailable(f"{self.name} failed: {str(message)[:200]}")
+
+    def feed(self, chunk):
+        if "error" in chunk:
+            self.failed(chunk["error"].get("message", "") if isinstance(chunk["error"], dict) else chunk["error"])
+        for choice in chunk.get("choices") or []:
+            delta = choice.get("delta") or {}
+            if delta.get("content"):
+                self.text.append(delta["content"])
+                self.on_text(delta["content"])
+            for call in delta.get("tool_calls") or []:
+                held = self.calls.setdefault(call.get("index", len(self.calls)), {"id": "", "name": "", "arguments": ""})
+                held["id"] = call.get("id") or held["id"]
+                function = call.get("function") or {}
+                held["name"] += function.get("name") or ""
+                held["arguments"] += function.get("arguments") or ""
+        return False
+
+    def check(self):
+        pass
+
+
+class ReadAnthropic(ReadChat):
+    def __init__(self, name, on_text):
+        super().__init__(name, on_text)
+        self.ended = False
+
+    def feed(self, chunk):
+        kind = chunk.get("type")
+        if kind == "error":
+            self.failed(chunk.get("error", {}).get("message", ""))
+        elif kind == "content_block_start" and chunk["content_block"].get("type") == "tool_use":
+            block = chunk["content_block"]
+            self.calls[chunk["index"]] = {"id": block["id"], "name": block["name"], "arguments": ""}
+        elif kind == "content_block_delta":
+            delta = chunk["delta"]
+            if delta.get("type") == "text_delta":
+                self.text.append(delta["text"])
+                self.on_text(delta["text"])
+            elif delta.get("type") == "input_json_delta" and chunk["index"] in self.calls:
+                self.calls[chunk["index"]]["arguments"] += delta.get("partial_json", "")
+        elif kind == "message_stop":
+            self.ended = True
+            return True
+        return False
+
+    def check(self):
+        if not self.ended:
+            raise Unavailable(f"The connection to {self.name} was lost.")
+
+
+class ReadResponses(ReadChat):
+    def __init__(self, name, on_text):
+        super().__init__(name, on_text)
+        self.ended = False
+
+    def feed(self, chunk):
+        kind = chunk.get("type")
+        if kind == "response.output_text.delta":
+            self.text.append(chunk["delta"])
+            self.on_text(chunk["delta"])
+        elif kind == "response.output_item.done" and chunk.get("item", {}).get("type") == "function_call":
+            item = chunk["item"]
+            self.calls[len(self.calls)] = {"id": item.get("call_id", ""), "name": item["name"], "arguments": item.get("arguments", "")}
+        elif kind in ("response.failed", "error"):
+            error = chunk.get("response", {}).get("error") or chunk.get("error") or chunk
+            code, message = error.get("code") or "", error.get("message") or ""
+            raise Unavailable(plan_error(code, message) if str(code).startswith(("subscription_sharing", "chatpass"))
+                              else f"{self.name} failed: {message or code}"[:240])  # fmt: skip
+        elif kind in ("response.completed", "response.incomplete"):
+            self.ended = True
+            return True
+        return False
+
+    def check(self):
+        if not self.ended:
+            raise Unavailable(f"The connection to {self.name} was lost.")
+
+
+READ = {"chat": ReadChat, "anthropic": ReadAnthropic, "responses": ReadResponses}

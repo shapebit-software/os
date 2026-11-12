@@ -1,5 +1,6 @@
 # Passes requests to llama-server for the model %i, and ends after ten minutes
-# without one; llama-server then stops too, which frees its memory.
+# without one; llama-server then stops too, which frees its memory, unless
+# language-model-ready@%i.service keeps it.
 [Unit]
 Description=Language model %i
 Requires=llama-server@%i.service

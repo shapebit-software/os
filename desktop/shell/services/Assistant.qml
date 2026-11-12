@@ -46,7 +46,8 @@ Singleton {
     property int queued
     // An action waits for the person.
     property bool attention
-    // { id, name, mark, color, where, extra, ready }, or null.
+    // { id, name, mark, color, where, extra, ready, sees, provider, model,
+    // own }, or null.
     property var model: null
     property var models: []
     // The groups allowed, and every group's description, by id.
@@ -54,6 +55,28 @@ Singleton {
     property var groups: ({})
     // Days the activity log keeps; 0 is for ever.
     property int retention: 30
+    // "ready": the local model loads a little after sign-in and stays;
+    // "used": it loads with a request, and goes after ten minutes unused.
+    property string loading: "ready"
+    // The skills, { name, description, temperature, instructions, own }, and
+    // the actions, { name, description, risk, group }, as the model has them.
+    property var skills: []
+    property var tools: []
+    // The answer to the last skill saved or deleted: "" or why it failed.
+    property string skillError
+    signal skillSaved(name: string)
+    // The online providers, by id: { name, auth: "plan" or "key", usage: its
+    // page of usage }; the ChatGPT account signed in, { email }, or null; and
+    // what Settings > Assistant > Models is doing: the models a provider
+    // listed, by provider, each { models } or { error }; a sign-in under way;
+    // and the last error of adding a model.
+    property var providers: ({})
+    property var chatgpt: null
+    property var providerModels: ({})
+    property bool signingIn
+    property string signInError
+    property string addError
+    signal modelAdded(id: string)
     // The conversation deleted last, { id, title }, for Undo.
     property var deleted: null
     // The search's ids, or null with no search.
@@ -94,7 +117,7 @@ Singleton {
     // That an AI answers, wherever the assistant is used: people must know (the EU's
     // AI Act, article 50).
     readonly property string disclosure: model?.where === "online"
-        ? "Answers come from an online AI model, and can be wrong."
+        ? `Answers come from ${providers[model?.provider]?.name ?? "an online AI model"}, online, and can be wrong.`
         : "Answers come from an AI model on this computer, and can be wrong."
 
     function request(fields: var) {
@@ -405,6 +428,48 @@ Singleton {
         request({ op: "clear-history" });
     }
 
+    function setLoading(mode: string) {
+        request({ op: "loading", mode });
+    }
+
+    // previous: the skill's name before, when changing one.
+    function saveSkill(skill: var, previous: string) {
+        skillError = "";
+        request(Object.assign({ op: "save-skill", previous: previous || null }, skill));
+    }
+
+    // A provider's chat models, with the key typed, or the one kept.
+    function listProvider(provider: string, key: string) {
+        providerModels = Object.assign({}, providerModels, { [provider]: { listing: true } });
+        request({ op: "provider-models", provider, key: key || null });
+    }
+
+    function addModel(provider: string, model: string, name: string, key: string) {
+        addError = "";
+        request({ op: "add-model", provider, model, name, key: key || null });
+    }
+
+    function removeModel(id: string) {
+        request({ op: "remove-model", id });
+    }
+
+    // Continue with ChatGPT: the service gives the page, which opens in the
+    // person's browser, and is told when the sign-in ends.
+    function signInChatgpt() {
+        signInError = "";
+        signingIn = true;
+        request({ op: "chatgpt-sign-in" });
+    }
+
+    function signOutChatgpt() {
+        request({ op: "chatgpt-sign-out" });
+    }
+
+    function deleteSkill(name: string) {
+        skillError = "";
+        request({ op: "delete-skill", name });
+    }
+
     // Downloads the model, through the one queue.
     function getModel() {
         if (extra)
@@ -475,6 +540,27 @@ Singleton {
         case "settings":
             applySettings(event);
             break;
+        case "provider-models":
+            providerModels = Object.assign({}, providerModels, { [event.provider]: event.error ? { error: event.error } : { models: event.models } });
+            break;
+        case "model-added":
+            addError = event.error ?? "";
+            if (event.id)
+                modelAdded(event.id);
+            break;
+        case "chatgpt":
+            if (event.url) {
+                Qt.openUrlExternally(event.url);
+            } else {
+                signingIn = false;
+                signInError = event.error ?? "";
+            }
+            break;
+        case "skill":
+            skillError = event.error ?? "";
+            if (event.name)
+                skillSaved(event.name);
+            break;
         case "deleted":
             deleted = { id: event.id, title: event.title };
             forget.restart();
@@ -499,6 +585,11 @@ Singleton {
         grants = event.grants;
         groups = event.groups;
         retention = event.retention;
+        loading = event.loading ?? "ready";
+        skills = event.skills ?? [];
+        tools = event.tools ?? [];
+        providers = event.providers ?? ({});
+        chatgpt = event.chatgpt ?? null;
     }
 
     // Super held this long listens.
@@ -654,6 +745,13 @@ Singleton {
     // provides it (ASSISTANT_LLAMA).
     readonly property string llama: tree ? Quickshell.env("ASSISTANT_LLAMA") ?? "" : ""
     property bool modelWanted
+    // A model kept ready loads a little after the start, as the service has
+    // it (language-model-ready@.service); here it stays until the shell ends.
+    Timer {
+        running: assistant.llama !== "" && assistant.loading === "ready"
+        interval: 30000
+        onTriggered: assistant.modelWanted = true
+    }
     Process {
         running: assistant.llama !== "" && assistant.modelWanted && assistant.ready && assistant.model?.where === "local"
         command: ["sh", "-c", 'rm -f "$3"; vision=; [ -f "$4" ] && vision=--mmproj; '
@@ -778,6 +876,11 @@ Singleton {
 
         function lock(): void {
             Lock.lock();
+        }
+
+        // A web page, in the person's browser.
+        function openUrl(url: string): void {
+            Qt.openUrlExternally(url);
         }
 
         // The applications with an icon on the bar, one name a line.

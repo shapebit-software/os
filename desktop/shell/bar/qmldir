@@ -7,6 +7,7 @@ AssistantBubbles AssistantBubbles.qml
 AssistantButton AssistantButton.qml
 AssistantGet AssistantGet.qml
 AssistantMessages AssistantMessages.qml
+AssistantModelList AssistantModelList.qml
 AssistantDock AssistantDock.qml
 AssistantEdge AssistantEdge.qml
 AssistantReply AssistantReply.qml

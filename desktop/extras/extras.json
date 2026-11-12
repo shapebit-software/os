@@ -49,8 +49,8 @@
   },
   {
     "id": "gemma-4-e2b",
-    "name": "Assistant",
-    "detail": "Answers questions and changes settings when you ask, on this computer: nothing you type leaves it. Polish, English, and many more languages.",
+    "name": "Gemma 4 E2B",
+    "detail": "The assistant's model on this computer, by Google: it answers questions and changes settings when you ask, and nothing you type leaves the computer, unless you let it look things up on the web. Polish, English, and many more languages.",
     "unpacked": 3106738272,
     "memory": 7000000000,
     "credits": [

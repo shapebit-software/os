@@ -2,12 +2,14 @@
 takes, a risk, and the commands the OS already ships; never a shell, never a
 command the model writes.
 
-Risks: "read" runs at once; "see" looks at the screen, and "change" is
-reversible: each runs once the person allowed its group, or applied it on its
-card; "confirm" asks on its card every time: it is destructive, privileged, or
-reaches the network. An action marked untrusted brings text from elsewhere,
-such as window titles, into the request: changes after it ask on their card
-(assistant).
+Risks: "read" runs at once; "see" brings in what the screen or the web shows,
+and "change" is reversible: each runs once the person allowed its group, or
+applied it on its card; "confirm" asks on its card every time: it is
+destructive, privileged, or installs from the network. An action marked
+untrusted brings text from elsewhere, such as window titles or a web page,
+into the request; one marked outward sends what it is given out, as a web
+address does. Changes, and outward actions, after an untrusted one ask on
+their card (assistant): the text may have asked for them.
 
 An action is prepared first: what it would do, for its card, such as which app
 "firefox" is; then run. A change returns how to undo it. What the shell owns,
@@ -22,9 +24,11 @@ import pathlib
 import shutil
 import subprocess
 import time
+import urllib.parse
 import uuid
 
 import skills
+import web
 
 HERE = pathlib.Path(__file__).resolve().parent
 TREE = os.environ.get("DESKTOP_SHELL")
@@ -39,6 +43,7 @@ GROUPS = {
     "connections": "Turn Wi-Fi and Bluetooth on and off",
     "windows": "Open apps, move windows, take screenshots, and lock the screen",
     "screen": "See the screen: window titles, background apps, and pictures of workspaces",
+    "web": "Look things up on the web: read web pages and search Wikipedia; what is looked up leaves this computer",
 }
 # The widest picture of the screen the model gets, in pixels, and how many
 # windows of a workspace that isn't shown it gets pictures of.
@@ -94,7 +99,7 @@ class Plan:
 
 
 class Action:
-    def __init__(self, name, description, risk, group, params, prepare, untrusted=False):
+    def __init__(self, name, description, risk, group, params, prepare, untrusted=False, outward=False):
         self.name = name
         self.description = description
         self.risk = risk
@@ -102,6 +107,7 @@ class Action:
         self.params = params
         self.prepare = prepare
         self.untrusted = untrusted
+        self.outward = outward
 
     def schema(self):
         return {"type": "function", "function": {"name": self.name, "description": self.description, "parameters": {
@@ -139,9 +145,9 @@ class Action:
 ACTIONS = {}
 
 
-def action(description, risk, group=None, untrusted=False, **params):
+def action(description, risk, group=None, untrusted=False, outward=False, **params):
     def register(prepare):
-        ACTIONS[prepare.__name__] = Action(prepare.__name__, description, risk, group, params, prepare, untrusted)
+        ACTIONS[prepare.__name__] = Action(prepare.__name__, description, risk, group, params, prepare, untrusted, outward)
         return prepare
 
     return register
@@ -433,6 +439,53 @@ def look_at_screen(context, workspace):
     plan = Plan("Look at the screen" if shown is focused else f"Look at workspace {number}", do,
                 "The pictures go to the model for this request only, and aren't kept.")  # fmt: skip
     return plan
+
+
+# The web: what pages say, as text (web.py).
+
+
+def site(url):
+    return urllib.parse.urlsplit(url).hostname or url
+
+
+def web_address(url):
+    """The address, with https:// if none was given. Nothing is looked up
+    before the person allows it: even the name's lookup tells the site."""
+    address = url.strip() if "://" in url else f"https://{url.strip()}"
+    if urllib.parse.urlsplit(address).scheme not in ("http", "https") or not urllib.parse.urlsplit(address).hostname:
+        raise Failed("Only web addresses, http or https, can be used.")
+    return address
+
+
+def from_web(step):
+    try:
+        return step()
+    except web.Failed as error:
+        raise Failed(str(error)) from None
+
+
+@action("Read what the web page at an address says, such as shapebit.software or example.org/news.", "see", "web", untrusted=True, outward=True, url={"type": "string"})
+def read_web_page(context, url):
+    address = web_address(url)
+    return Plan(f"Read {site(address)}", lambda: (from_web(lambda: web.read_page(address)), None), address)
+
+
+@action("Search Wikipedia, only when the person asks to look something up, or for a fact you don't know.", "see", "web",
+        untrusted=True, outward=True,
+        query={"type": "string"})  # fmt: skip
+def search_wikipedia(context, query):
+    return Plan(f"Search Wikipedia for “{query}”", lambda: (from_web(lambda: web.search_wikipedia(query)), None))
+
+
+@action("Open a web page in the person's browser.", "change", "windows", url={"type": "string"})
+def open_url(context, url):
+    address = web_address(url)
+
+    def do():
+        context.shell("openUrl", address)
+        return f"{site(address)} is open in the browser.", None
+
+    return Plan(f"Open {site(address)}", do, address)
 
 
 # Changing settings, which can be undone.

@@ -1,6 +1,7 @@
 """desktop/assistant/actions.py and skills.py: arguments are checked against
 each action's schema, apps are found by the names people use, and skills are
-read from their files, the person's over the OS's."""
+read from their files: the OS's as they are, and the person's, which can be
+added, changed, and deleted."""
 
 import pathlib
 import sys
@@ -63,7 +64,11 @@ def test_every_action_has_a_risk_and_changes_and_looks_have_a_group():
         assert (action.group in actions.GROUPS) == (action.risk in ("change", "see")), action.name
     assert {a.name for a in actions.ACTIONS.values() if a.group == "screen"} == {"get_windows", "look_at_screen"}
     # What brings text from elsewhere into the request.
-    assert {a.name for a in actions.ACTIONS.values() if a.untrusted} == {"search_files", "get_windows", "look_at_screen"}
+    assert {a.name for a in actions.ACTIONS.values() if a.group == "web"} == {"read_web_page", "search_wikipedia"}
+    assert {a.name for a in actions.ACTIONS.values() if a.untrusted} == {
+        "search_files", "get_windows", "look_at_screen", "read_web_page", "search_wikipedia"}
+    # What sends what it is given out.
+    assert {a.name for a in actions.ACTIONS.values() if a.outward} == {"read_web_page", "search_wikipedia"}
     assert {a.name for a in actions.ACTIONS.values() if a.risk == "confirm"} == {"power_off", "restart", "install_app", "remove_app"}
 
 
@@ -72,15 +77,45 @@ def skill(directory, name, body):
     (directory / f"{name}.md").write_text(body)
 
 
-def test_skills_are_read_and_the_persons_replace_the_oses(tmp_path, monkeypatch):
+@pytest.fixture
+def skill_dirs(tmp_path, monkeypatch):
     monkeypatch.setattr(skills, "VENDOR", tmp_path / "vendor")
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     skill(tmp_path / "vendor", "writing", "---\nname: writing\ndescription: Write.\ntemperature: 0.8\n---\nWrite well.\n")
-    skill(tmp_path / "vendor", "plain", "---\nname: plain\ndescription: Plain.\n---\nBe plain.\n")
-    skill(tmp_path / "config" / "assistant" / "skills", "mine", "---\nname: writing\ndescription: My way.\n---\nShort.\n")
+    return tmp_path / "config" / "assistant" / "skills"
+
+
+def test_skills_are_read_and_the_oses_stay_as_they_are(skill_dirs):
+    skill(skill_dirs, "mine", "---\nname: writing\ndescription: My way.\n---\nShort.\n")
+    skill(skill_dirs, "plain", "---\nname: plain\ndescription: Plain.\n---\nBe plain.\n")
     found = skills.load()
-    assert found["writing"] == {"name": "writing", "description": "My way.", "temperature": None, "instructions": "Short."}
-    assert found["plain"]["instructions"] == "Be plain."
+    assert {k: v for k, v in found["writing"].items() if k != "path"} == {
+        "name": "writing", "description": "Write.", "temperature": 0.8, "instructions": "Write well.", "own": False}
+    assert found["plain"]["instructions"] == "Be plain." and found["plain"]["own"] is True
+
+
+def test_a_persons_skill_is_added_changed_renamed_and_deleted(skill_dirs):
+    skills.save("Notes", " Sum up\n notes. ", 0.5, "List the decisions.")
+    assert (skill_dirs / "notes.md").read_text() == "---\nname: notes\ndescription: Sum up notes.\ntemperature: 0.5\n---\nList the decisions.\n"
+    skills.save("notes", "Sum up notes.", None, "List the tasks.", previous="notes")
+    assert skills.load()["notes"]["instructions"] == "List the tasks." and skills.load()["notes"]["temperature"] is None
+    skills.save("meeting-notes", "Sum up notes.", None, "List the tasks.", previous="notes")
+    assert sorted(p.name for p in skill_dirs.iterdir()) == ["meeting-notes.md"]
+    skills.delete("meeting-notes")
+    assert list(skill_dirs.iterdir()) == []
+
+
+def test_a_skill_that_cant_be_saved_says_why(skill_dirs):
+    for args, why in ((("writing", "x", None, "x"), "skill of the system's"), (("Bad name", "x", None, "x"), "small letters"),
+                      (("a", "", None, "x"), "needs a description"), (("a", "x", 3, "x"), "from 0 to 2"),
+                      (("a", "x", "hot", "x"), "is a number")):  # fmt: skip
+        with pytest.raises(ValueError, match=why):
+            skills.save(*args)
+    skills.save("a", "x", None, "x")
+    with pytest.raises(ValueError, match="already"):
+        skills.save("a", "y", None, "y")
+    with pytest.raises(ValueError, match="no skill called writing"):
+        skills.delete("writing")
 
 
 def test_a_skill_with_a_wrong_header_is_left_out():
