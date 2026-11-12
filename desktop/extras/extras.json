@@ -70,5 +70,30 @@
         "as": "model.gguf"
       }
     ]
+  },
+  {
+    "id": "gemma-4-e2b-vision",
+    "name": "Screen understanding",
+    "detail": "Lets the assistant look at your screen when you allow it, on this computer: the pictures never leave it. Needs the Assistant.",
+    "unpacked": 985654080,
+    "memory": 8000000000,
+    "welcome": false,
+    "credits": [
+      {
+        "work": "Gemma 4 E2B vision projector",
+        "by": "Google",
+        "license": "Apache 2.0",
+        "changes": "converted to GGUF by Unsloth",
+        "url": "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF"
+      }
+    ],
+    "downloads": [
+      {
+        "url": "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/0314792d7f1f7e229411f620751375812bb9faf2/mmproj-F16.gguf",
+        "sha256": "140be8d7849741f88c50757d529b84373ee8e27052cc2236855b537f4a8215fa",
+        "bytes": 985654080,
+        "as": "mmproj.gguf"
+      }
+    ]
   }
 ]

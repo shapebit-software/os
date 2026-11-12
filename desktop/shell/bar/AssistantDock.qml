@@ -1,15 +1,18 @@
 // The assistant's panel, at the right of the screen between the bars: one
-// conversation, opened from a bubble (AssistantBubbles.qml) or by pushing the
+// conversation, opened from the bubbles (AssistantBubbles.qml) or by pushing the
 // pointer against the right edge (AssistantEdge.qml). It lies over the
 // windows, or is docked: then it looks like a tile and reserves its width,
 // so the windows retile beside it, though it is none of them and stays on
 // every workspace. Its left edge is dragged to resize it. A narrow screen
 // has no room to dock it.
 //
-// Its header names the conversation (a double click renames it) and the
-// workspace it began on; its buttons start a new one, list them all, with a
-// search and the workspaces they began on, show the conversation as bubbles
-// again, dock or undock the panel, and hide it. A reply sent while the
+// Its header names the conversation (a double click renames it); the buttons
+// at its left start a new one and list them all, with a search, and those at
+// its right show the conversation as bubbles again, and dock or undock the
+// panel. A conversation belongs to no workspace. The assistant's button, or a
+// tap on Super, opens and closes it; over the windows, a click on another
+// window, or on the bars off their items (ShellBar.qml), closes it, as Escape
+// does, while their buttons, such as the apps' or dictation's, leave it. A reply sent while the
 // assistant works waits its turn; Stop ends what is under way, and the queue
 // goes on. Deleting a conversation is at once, with Undo for a while.
 pragma ComponentBehavior: Bound
@@ -38,11 +41,8 @@ PanelWindow {
     readonly property bool tileBorder: Settings.windowDecoration === "Hairline" || Settings.windowDecoration === "Soft"
     readonly property bool tileShadow: Settings.windowDecoration === "Shadow" || Settings.windowDecoration === "Soft"
 
-    // The list of conversations: the workspace it is narrowed to.
-    property string workspace: "All"
-    readonly property list<string> workspaces: ["All", ...new Set(Assistant.conversations.map(c => c.workspace).filter(w => w))]
-    readonly property var listed: Assistant.conversations.filter(c => (workspace === "All" || c.workspace === workspace)
-        && (Assistant.found === null || Assistant.found.includes(c.id)))
+    // The list of conversations, narrowed by the search.
+    readonly property var listed: Assistant.conversations.filter(c => Assistant.found === null || Assistant.found.includes(c.id))
 
     function when(seconds: real): string {
         const date = new Date(seconds * 1000);
@@ -100,19 +100,24 @@ PanelWindow {
         }
 
         function onListingChanged() {
-            dock.workspace = "All";
             search.text = "";
             if (dock.here && Assistant.panelFocused)
                 dock.takeKeyboard();
         }
     }
 
-    // The keyboard is the panel's while it has the focus; a click elsewhere
-    // gives it back.
+    // The keyboard is the panel's while it has the focus. A click outside it
+    // and the bars gives it back, docked; over the windows, it closes the
+    // panel.
     HyprlandFocusGrab {
-        active: dock.here && Assistant.panelFocused
+        active: dock.here && (Assistant.panelFocused || !dock.docked)
         windows: [dock, ...Shell.bars]
-        onCleared: Assistant.panelFocused = false
+        onCleared: {
+            if (dock.docked)
+                Assistant.panelFocused = false;
+            else
+                Assistant.dismiss();
+        }
     }
 
     Item {
@@ -161,19 +166,33 @@ PanelWindow {
             width: parent.width
             height: 40
 
-            Icon {
-                id: sparkle
-                x: 12
-                anchors.verticalCenter: parent.verticalCenter
-                height: 13
-                color: Theme.accent
-                strokes: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z"
+            // The conversations, at the left: a new one, and all of them.
+            Row {
+                id: conversationButtons
+                anchors { left: parent.left; leftMargin: 5; verticalCenter: parent.verticalCenter }
+
+                AssistantButton {
+                    tip: "New conversation"
+                    tipLeft: true
+                    strokes: "M8 3.5v9M3.5 8h9"
+                    onActivated: {
+                        Assistant.startNew();
+                        reply.focusInput();
+                    }
+                }
+                AssistantButton {
+                    tip: "Conversations"
+                    tipLeft: true
+                    on: Assistant.listing
+                    strokes: "M2.5 4h11M2.5 8h11M2.5 12h7"
+                    onActivated: Assistant.list(!Assistant.listing)
+                }
             }
             Text {
                 id: title
 
                 visible: !renaming.visible
-                anchors { left: sparkle.right; leftMargin: 8; right: badge.left; rightMargin: 8; verticalCenter: parent.verticalCenter }
+                anchors { left: conversationButtons.right; leftMargin: 8; right: viewButtons.left; rightMargin: 8; verticalCenter: parent.verticalCenter }
                 text: Assistant.listing ? "Conversations" : dock.conversation?.title ?? "New conversation"
                 color: Theme.ink
                 elide: Text.ElideRight
@@ -212,57 +231,22 @@ PanelWindow {
                         done(true);
                 }
             }
-            Rectangle {
-                id: badge
-
-                visible: !Assistant.listing && (dock.conversation?.workspace ?? "") !== ""
-                anchors { right: buttons.left; rightMargin: 4; verticalCenter: parent.verticalCenter }
-                width: visible ? badgeText.width + 12 : 0
-                height: 18
-                color: Theme.veil(0.12)
-
-                Text {
-                    id: badgeText
-                    anchors.centerIn: parent
-                    text: dock.conversation?.workspace ?? ""
-                    color: Theme.inkFaint
-                    font { family: Theme.mono; pixelSize: 10 }
-                }
-            }
+            // How it shows, at the right: as bubbles, or the panel docked.
             Row {
-                id: buttons
+                id: viewButtons
                 anchors { right: parent.right; rightMargin: 5; verticalCenter: parent.verticalCenter }
 
-                HeaderButton {
-                    tip: "New conversation"
-                    strokes: "M8 3.5v9M3.5 8h9"
-                    onActivated: {
-                        Assistant.startNew();
-                        reply.focusInput();
-                    }
-                }
-                HeaderButton {
-                    tip: "Conversations"
-                    on: Assistant.listing
-                    strokes: "M2.5 4h11M2.5 8h11M2.5 12h7"
-                    onActivated: Assistant.list(!Assistant.listing)
-                }
-                HeaderButton {
+                AssistantButton {
                     tip: "Show as bubbles"
                     strokes: "M2.5 3h8v5h-8zM5.5 10.5h8v3h-8z"
                     onActivated: Assistant.openBubbles(dock.modelData.name)
                 }
-                HeaderButton {
+                AssistantButton {
                     visible: !dock.narrow
                     tip: dock.docked ? "Over the windows" : "Beside the windows"
                     on: dock.docked
                     strokes: "M2.5 2.5h11v11h-11zM10 2.5v11"
                     onActivated: Assistant.dock(!dock.docked, dock.narrow)
-                }
-                HeaderButton {
-                    tip: "Hide"
-                    strokes: "M5 5l6 6M11 5l-6 6"
-                    onActivated: Assistant.hide()
                 }
             }
             Rectangle {
@@ -379,49 +363,10 @@ PanelWindow {
                 }
             }
 
-            // The workspaces they began on.
-            Flow {
-                id: filters
-
-                anchors { top: searchBox.bottom; topMargin: 8 }
-                x: 10
-                width: parent.width - 20
-                spacing: 4
-
-                Repeater {
-                    model: dock.workspaces
-
-                    Rectangle {
-                        id: filter
-
-                        required property string modelData
-                        readonly property bool on: dock.workspace === modelData
-
-                        width: filterText.width + 20
-                        height: 22
-                        color: on ? Theme.accentSoft : Theme.veil(0.05)
-
-                        Text {
-                            id: filterText
-                            anchors.centerIn: parent
-                            text: filter.modelData
-                            color: filter.on ? Theme.ink : Theme.inkSoft
-                            font { family: Theme.mono; pixelSize: 10; letterSpacing: 0.4 }
-                        }
-                        TapHandler {
-                            onTapped: dock.workspace = filter.modelData
-                        }
-                        HoverHandler {
-                            cursorShape: Qt.PointingHandCursor
-                        }
-                    }
-                }
-            }
-
             ListView {
                 id: list
 
-                anchors { top: filters.bottom; bottom: undo.top; left: parent.left; right: parent.right; margins: 8; topMargin: 6 }
+                anchors { top: searchBox.bottom; bottom: undo.top; left: parent.left; right: parent.right; margins: 8; topMargin: 6 }
                 clip: true
                 model: ScriptModel {
                     values: dock.listed
@@ -460,7 +405,7 @@ PanelWindow {
                         id: time
                         anchors { right: remove.left; rightMargin: 4; verticalCenter: parent.verticalCenter }
                         horizontalAlignment: Text.AlignRight
-                        text: [row.modelData.workspace, dock.when(row.modelData.updated)].filter(w => w).join(" · ")
+                        text: dock.when(row.modelData.updated)
                         color: Theme.inkFaint
                         font { family: Theme.mono; pixelSize: 10 }
                     }
@@ -568,51 +513,6 @@ PanelWindow {
                     if (active)
                         Settings.assistantWidth = Logic.width(dock.width - centroid.scenePosition.x - Theme.gap, dock.modelData.width);
                 }
-            }
-        }
-    }
-
-    component HeaderButton: Rectangle {
-        id: headerButton
-
-        property string strokes
-        property string tip
-        property bool on
-        signal activated
-
-        width: 28
-        height: 28
-        color: on ? Theme.veil(0.12) : headerHover.hovered ? Theme.veil(0.07) : "transparent"
-
-        Icon {
-            anchors.centerIn: parent
-            height: 13
-            color: headerButton.on ? Theme.ink : Theme.inkFaint
-            strokeWidth: 1.3
-            strokes: headerButton.strokes
-        }
-        TapHandler {
-            onTapped: headerButton.activated()
-        }
-        HoverHandler {
-            id: headerHover
-            cursorShape: Qt.PointingHandCursor
-        }
-        // What the button does, below it.
-        Rectangle {
-            visible: headerHover.hovered && headerButton.tip !== ""
-            z: 10
-            anchors { right: parent.right; top: parent.bottom; topMargin: 4 }
-            width: tipLabel.width + 14
-            height: 22
-            color: Theme.ink
-
-            Text {
-                id: tipLabel
-                anchors.centerIn: parent
-                text: headerButton.tip
-                color: Theme.textOnAccent
-                font { family: Theme.font; pixelSize: 11 }
             }
         }
     }

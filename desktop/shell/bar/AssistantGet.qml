@@ -16,7 +16,7 @@ Column {
     Text {
         width: get.width
         text: !get.extra ? (Assistant.model ? `${Assistant.model.name} can't be reached.` : "No model is set up for the assistant.")
-            : `The assistant runs on this computer, so nothing you ask leaves it. It needs its model, ${Assistant.model?.name ?? ""}, `
+            : `The assistant runs on this computer, so nothing you ask leaves it. It needs its model, ${get.extra.credits?.[0]?.work ?? Assistant.model?.name ?? ""}, `
               + `a download of ${Extras.sizeOf(get.extra)}.`
         color: Theme.ink
         wrapMode: Text.Wrap

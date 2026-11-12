@@ -48,13 +48,14 @@ TestCase {
         compare(Logic.tap(panel).open, "");
     }
 
-    function test_a_tap_keeps_the_docked_panel_and_moves_the_keyboard() {
+    function test_a_tap_closes_the_docked_panel_too() {
         const docked = Logic.dock(Logic.toPanel(hidden), true, false);
         verify(docked.docked && docked.focused);
-        const away = Logic.tap(docked);
-        compare(away.open, "panel");
-        verify(!away.focused);
-        verify(Logic.tap(away).focused);
+        const closed = Logic.tap(docked);
+        compare(closed.open, "");
+        verify(closed.docked);
+        // Without the keyboard, too.
+        compare(Logic.tap(Logic.view("panel", true, false, "panel")).open, "");
     }
 
     function test_docking_reserves_the_width_and_undocking_gives_it_back() {

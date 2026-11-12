@@ -2,9 +2,12 @@
 takes, a risk, and the commands the OS already ships; never a shell, never a
 command the model writes.
 
-Risks: "read" runs at once; "change" is reversible, and runs once the person
-allowed its group, or applied it on its card; "confirm" asks on its card every
-time: it is destructive, privileged, or reaches the network.
+Risks: "read" runs at once; "see" looks at the screen, and "change" is
+reversible: each runs once the person allowed its group, or applied it on its
+card; "confirm" asks on its card every time: it is destructive, privileged, or
+reaches the network. An action marked untrusted brings text from elsewhere,
+such as window titles, into the request: changes after it ask on their card
+(assistant).
 
 An action is prepared first: what it would do, for its card, such as which app
 "firefox" is; then run. A change returns how to undo it. What the shell owns,
@@ -19,6 +22,9 @@ import pathlib
 import shutil
 import subprocess
 import time
+import uuid
+
+import skills
 
 HERE = pathlib.Path(__file__).resolve().parent
 TREE = os.environ.get("DESKTOP_SHELL")
@@ -32,7 +38,12 @@ GROUPS = {
     "settings": "Change the volume, brightness, keyboard layout, and Do Not Disturb",
     "connections": "Turn Wi-Fi and Bluetooth on and off",
     "windows": "Open apps, move windows, take screenshots, and lock the screen",
+    "screen": "See the screen: window titles, background apps, and pictures of workspaces",
 }
+# The widest picture of the screen the model gets, in pixels, and how many
+# windows of a workspace that isn't shown it gets pictures of.
+SHOT_WIDTH = 1024
+MOST_WINDOWS = 3
 
 
 class Failed(Exception):
@@ -57,6 +68,9 @@ class Context:
 
     def __init__(self):
         self.shell_pid = None
+        # Whether the model reads pictures, and where pictures for it go.
+        self.sees = False
+        self.shots = pathlib.Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "assistant" / "screen"
 
     def shell(self, function, *args):
         if not self.shell_pid:
@@ -68,22 +82,26 @@ class Context:
 
 class Plan:
     """A prepared action: its title for the card, and what doing it returns:
-    (what the model is told, how to undo it or None)."""
+    (what the model is told, how to undo it or None). Doing it may also leave
+    pictures for the model, and options for the model's later answers."""
 
     def __init__(self, title, do, detail=""):
         self.title = title
         self.detail = detail
         self.do = do
+        self.images = []
+        self.options = {}
 
 
 class Action:
-    def __init__(self, name, description, risk, group, params, prepare):
+    def __init__(self, name, description, risk, group, params, prepare, untrusted=False):
         self.name = name
         self.description = description
         self.risk = risk
         self.group = group
         self.params = params
         self.prepare = prepare
+        self.untrusted = untrusted
 
     def schema(self):
         return {"type": "function", "function": {"name": self.name, "description": self.description, "parameters": {
@@ -121,9 +139,9 @@ class Action:
 ACTIONS = {}
 
 
-def action(description, risk, group=None, **params):
+def action(description, risk, group=None, untrusted=False, **params):
     def register(prepare):
-        ACTIONS[prepare.__name__] = Action(prepare.__name__, description, risk, group, params, prepare)
+        ACTIONS[prepare.__name__] = Action(prepare.__name__, description, risk, group, params, prepare, untrusted)
         return prepare
 
     return register
@@ -228,6 +246,7 @@ def desktop_entries():
             found[app_id] = None if hidden or fields.get("Type") != "Application" or "Name" not in fields else {
                 "name": fields["Name"],
                 "words": [w.casefold() for w in [fields.get("GenericName", ""), *fields.get("Keywords", "").split(";")] if w],
+                "class": fields.get("StartupWMClass", ""),
             }  # fmt: skip
     return {k: v for k, v in found.items() if v}
 
@@ -258,7 +277,7 @@ def list_apps(context):
     return Plan("List the installed apps", lambda: (", ".join(sorted({e["name"] for e in desktop_entries().values()})), None))
 
 
-@action("Search the person's files by name.", "read", query={"type": "string"})
+@action("Search the person's files by name.", "read", untrusted=True, query={"type": "string"})
 def search_files(context, query):
     def do():
         home = pathlib.Path.home()
@@ -273,6 +292,147 @@ def search_files(context, query):
         return ("Found in the home folder: " + "; ".join(found[:20])) if found else f"No file named like {query}.", None
 
     return Plan(f"Search files for “{query}”", do)
+
+
+@action("Read the instructions of a skill, before a request it is for.", "read", name={"type": "string"})
+def use_skill(context, name):
+    found = skills.load()
+    skill = found.get(name.strip().casefold())
+    if not skill:
+        raise Failed(f"No skill is called {name}. Skills: {', '.join(found) or 'none'}.")
+    plan = Plan(f"Use the {skill['name']} skill", lambda: (skill["instructions"], None))
+    if skill["temperature"] is not None:
+        plan.options = {"temperature": skill["temperature"]}
+    return plan
+
+
+# Seeing the screen: what the compositor tells, and pictures for a model that
+# reads them. Pictures go only to the request that took them (assistant).
+
+
+def hyprctl(what):
+    try:
+        return json.loads(run("hyprctl", what, "-j"))
+    except ValueError:
+        raise Failed("The compositor gave no answer.") from None
+
+
+def window_names():
+    """A function from a window's class to its app's name, by the desktop entries."""
+    names = {}
+    for app_id, entry in desktop_entries().items():
+        names[app_id.removesuffix(".desktop").casefold()] = entry["name"]
+        if entry["class"]:
+            names.setdefault(entry["class"].casefold(), entry["name"])
+    return lambda window_class: names.get(window_class.casefold(), window_class or "A window")
+
+
+def windows():
+    """The open windows, on workspaces (not the special ones), as
+    [{"workspace", "app", "title", "id", "width", "focused"}], the most
+    recently focused first."""
+    name = window_names()
+    focused = hyprctl("activewindow").get("address")
+    found = []
+    for client in sorted(hyprctl("clients"), key=lambda c: c.get("focusHistoryID", 0)):
+        if not client.get("mapped", True) or client["workspace"]["id"] <= 0:
+            continue
+        found.append({"workspace": client["workspace"]["id"], "app": name(client.get("class", "")),
+                      "title": client.get("title", "").strip()[:120], "id": client.get("stableId", ""),
+                      "width": client.get("size", [SHOT_WIDTH])[0], "focused": client["address"] == focused})  # fmt: skip
+    return found
+
+
+def label(window):
+    said = window["app"] if not window["title"] or window["title"] == window["app"] else f"{window['app']} “{window['title']}”"
+    return said + (" (focused)" if window["focused"] else "")
+
+
+def count(number, word):
+    return f"{number} {word}" + ("" if number == 1 else "s")
+
+
+def background_apps(context, open_windows):
+    """The apps running without a window that tell of it: with an icon on the
+    bar, or a Flatpak that runs."""
+    found = []
+    try:
+        found += [line.strip() for line in context.shell("backgroundApps").splitlines() if line.strip()]
+    except Failed:
+        pass
+    try:
+        running = run("flatpak", "ps", "--columns=application").split()
+    except Failed:
+        running = []
+    name = window_names()
+    shown = {w["app"] for w in open_windows}
+    found += [name(app) for app in running if name(app) not in shown]
+    return list(dict.fromkeys(found))
+
+
+@action("Tell which windows are open on each workspace, with their titles, which workspace is on the screen, "
+        "and which apps run in the background.", "see", "screen", untrusted=True)  # fmt: skip
+def get_windows(context):
+    def do():
+        monitors = hyprctl("monitors")
+        here = next((m["activeWorkspace"]["id"] for m in monitors if m.get("focused")), None)
+        elsewhere = {m["activeWorkspace"]["id"] for m in monitors if not m.get("focused")}
+        found = windows()
+        lines = [f"{count(len(found), 'window')} open, on {count(len({w['workspace'] for w in found}), 'workspace')}."]
+        for number in sorted({w["workspace"] for w in found} | {here} - {None}):
+            on = [w for w in found if w["workspace"] == number]
+            where = ", on the screen now" if number == here else ", on another screen" if number in elsewhere else ""
+            listed = "; ".join(label(w) for w in on) if on else "none"
+            lines.append(f"Workspace {number}{where}: {count(len(on), 'window')}{': ' + listed if on else ''}.")
+        background = background_apps(context, found)
+        lines.append(f"Running in the background: {', '.join(background) if background else 'nothing that shows it'}.")
+        return "\n".join(lines), None
+
+    return Plan("Check the open windows", do)
+
+
+def scale_for(width):
+    return f"{min(1.0, SHOT_WIDTH / max(width, 1)):.3f}"
+
+
+@action("Look at what a workspace shows, as pictures: 0 for the one on the screen now.", "see", "screen",
+        untrusted=True, workspace={"type": "integer", "minimum": 0, "maximum": 20})  # fmt: skip
+def look_at_screen(context, workspace):
+    if not context.sees:
+        raise Failed("Seeing the screen needs the Screen understanding download, in Settings > Assistant.")
+    monitors = hyprctl("monitors")
+    focused = next((m for m in monitors if m.get("focused")), None)
+    if focused is None:
+        raise Failed("No screen is on.")
+    number = workspace or focused["activeWorkspace"]["id"]
+    shown = next((m for m in monitors if m["activeWorkspace"]["id"] == number), None)
+
+    def shot(*args):
+        context.shots.mkdir(parents=True, exist_ok=True)
+        path = context.shots / f"{uuid.uuid4().hex[:12]}.jpg"
+        run("grim", *args, "-t", "jpeg", "-q", "80", str(path))
+        plan.images.append(str(path))
+
+    def do():
+        on = [w for w in windows() if w["workspace"] == number]
+        listed = "; ".join(label(w) for w in on) or "no windows"
+        if shown:
+            shot("-o", shown["name"], "-s", scale_for(shown["width"] / (shown.get("scale") or 1)))
+            return f"A picture of workspace {number}, as the screen shows it, follows the tool results. On it: {listed}.", None
+        if not on:
+            return f"Workspace {number} has no windows.", None
+        pictured = on[:MOST_WINDOWS]
+        for window in pictured:
+            if not window["id"]:
+                raise Failed("The compositor can't capture single windows.")
+            shot("-T", window["id"], "-s", scale_for(window["width"]))
+        rest = f" {count(len(on) - len(pictured), 'more window')} aren't pictured." if len(on) > len(pictured) else ""
+        return (f"Workspace {number} isn't on the screen. Pictures of its windows, one each, follow the tool results, "
+                f"in this order: {'; '.join(f'{i}. {label(w)}' for i, w in enumerate(pictured, 1))}.{rest}"), None  # fmt: skip
+
+    plan = Plan("Look at the screen" if shown is focused else f"Look at workspace {number}", do,
+                "The pictures go to the model for this request only, and aren't kept.")  # fmt: skip
+    return plan
 
 
 # Changing settings, which can be undone.

@@ -124,12 +124,14 @@ extras as in the installed system, but the person's own here, in
 administrator. Another model can be listed in
 `~/.config/assistant/models.json`, for example
 `{"id": "dev", "name": "Dev", "where": "online", "url": "http://127.0.0.1:8080/v1"}`.
-The assistant's actions run the real commands, so they change the host. The
-host's desktop may keep the Super key for itself, as GNOME does: pressed
-alone, Super then opens the host's overview, its letting go never arrives
-here, and every key after it counts as a shortcut until `make run` starts
-again. So here the right Ctrl key stands in for Super alone: a tap opens the
-assistant, and held, it listens. The assistant's button does the same.
+The model reads pictures of the screen once its Screen understanding extra is
+downloaded, from the next `make run`, which loads it. The assistant's actions
+run the real commands, so they change the host. The host's desktop may keep
+the Super key for itself, as GNOME does: pressed alone, Super then opens the
+host's overview, its letting go never arrives here, and every key after it
+counts as a shortcut until `make run` starts again. So here the right Ctrl
+key stands in for Super alone: a tap opens the assistant, and held, it
+listens. The assistant's button does the same.
 
 Settings > Apps (`apps/app-catalog`, `apps/app-remove`) lists and changes
 the same installation, through Flatpak on the host; without one, it says so.
@@ -152,7 +154,7 @@ listed in its folder's `qmldir`, and a file imports the other folders it uses.
 | `session/`    | The session entry that the login screen starts, the connection agent, and the window button defaults.                    |
 | `portal/`     | The session's portals: the shell's backend, the share picker, and their configuration.                                   |
 | `apps/`       | The helpers of Welcome and Settings > Apps, and the timer that updates the apps.                                         |
-| `assistant/`  | The assistant's service, its actions, the model catalog, and the units that run it and `llama-server` on demand.        |
+| `assistant/`  | The assistant's service, its actions and skills, the model catalog, and the units that run it and `llama-server` on demand. |
 | `downloads/`  | The one queue of downloads and installs, which Settings > Downloads shows, and the unit that resumes it at sign-in.     |
 | `dictation/`  | Dictation: the input method that writes the text, and the live speech recognition engine.                               |
 | `extras/`     | The extras (large optional downloads, such as models) with their hashes, and the helper that installs them.           |
@@ -161,11 +163,11 @@ listed in its folder's `qmldir`, and a file imports the other folders it uses.
 
 ## Not yet implemented
 
-- The assistant has no voice yet, and reads no files, windows, or clipboard
-  beyond what it is given. `make run` needs sherpa-onnx and Parakeet in the
-  development container to dictate (`DICTATION_PYTHON`, `DICTATION_PARAKEET`). The
-  OS image has sherpa-onnx; Parakeet is an extra, downloaded from Welcome or
-  Settings > Assistant (`extras/`).
+- The assistant reads no files' contents and no clipboard. `make run` needs
+  sherpa-onnx and Parakeet in the development container to dictate
+  (`DICTATION_PYTHON`, `DICTATION_PARAKEET`). The OS image has sherpa-onnx;
+  Parakeet is an extra, downloaded from Welcome or Settings > Assistant
+  (`extras/`).
 - Settings has only what works: no first day of the week.
 - Tabs cannot be dragged.
 - Tile sizes last while the workspace keeps its layout, not across sessions.

@@ -10,9 +10,10 @@
 # Usage: extra list | extra install ID | extra remove ID
 #
 # list prints {"writable": bool, "extras": [{"id", "name", "detail", "bytes", "installed",
-# "fits", "credits"}]}, fits false when the computer has less memory than the extra's
-# "memory". Each credit is {"work", "by", "license", "url", and maybe "changes"}: what
-# the extra holds and its license, for Settings > Licenses and the extra's NOTICE.
+# "fits", "welcome", "credits"}]}, fits false when the computer has less memory than the
+# extra's "memory", welcome false for one Welcome doesn't offer. Each credit is {"work",
+# "by", "license", "url", and maybe "changes"}: what the extra holds and its license, for
+# Settings > Licenses and the extra's NOTICE.
 # A download that is no archive keeps its name from the URL, or the name in "as".
 # install and remove print JSON lines: {"step": text, "percent": 0..100}, then
 # {"done": ID} or {"error": text}.
@@ -73,7 +74,7 @@ def listing():
     have = memory()
     say(writable=os.access(PLACE, os.W_OK), extras=[
         {"id": extra["id"], "name": extra["name"], "detail": extra["detail"], "bytes": download_bytes(extra), "installed": installed(extra),
-         "fits": have is None or have >= extra.get("memory", 0), "credits": extra["credits"]}
+         "fits": have is None or have >= extra.get("memory", 0), "welcome": extra.get("welcome", True), "credits": extra["credits"]}
         for extra in catalog()
     ])  # fmt: skip
 

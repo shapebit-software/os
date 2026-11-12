@@ -3,8 +3,7 @@
 // plain text; its actions as cards (AssistantCard.qml). An answer grows as it
 // comes. Messages are listed by id, so a growing answer changes only its own
 // item. As bubbles (AssistantBubbles.qml), each is a card of its own, the
-// older ones dimmed until the person scrolls back, and each can be opened in
-// the panel.
+// older ones dimmed until the person scrolls back.
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
@@ -22,8 +21,6 @@ Column {
     // through them, which shows them all in full.
     property bool bubbles
     property bool scrolled
-    // A bubble's "open in panel".
-    signal opened
     readonly property var shown: messages.filter(m => m.role !== "assistant" || m.text || m.state !== "done").map(m => m.id)
 
     spacing: 12
@@ -59,31 +56,6 @@ Column {
             HoverHandler {
                 id: itemHover
             }
-            // Open in panel, at the bubble's top right.
-            Rectangle {
-                visible: list.bubbles && itemHover.hovered
-                z: 2
-                anchors { right: parent.right; top: parent.top; margins: 3 }
-                width: 22
-                height: 22
-                color: openHover.hovered ? Theme.veil(0.2) : Theme.veil(0.1)
-
-                Icon {
-                    anchors.centerIn: parent
-                    height: 11
-                    color: Theme.inkSoft
-                    strokeWidth: 1.4
-                    strokes: "M2.5 2.5h11v11h-11zM10 2.5v11"
-                }
-                TapHandler {
-                    onTapped: list.opened()
-                }
-                HoverHandler {
-                    id: openHover
-                    cursorShape: Qt.PointingHandCursor
-                }
-            }
-
             // The person's.
             Rectangle {
                 id: bubble

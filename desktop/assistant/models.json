@@ -1,7 +1,7 @@
 [
   {
     "id": "gemma-4-e2b",
-    "name": "Gemma 4 E2B",
+    "name": "Local AI",
     "mark": "G",
     "color": "#3f7a5c",
     "where": "local",

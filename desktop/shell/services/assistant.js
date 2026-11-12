@@ -14,6 +14,9 @@ var holdAfter = 400;
 var longestHold = 60000;
 // How many of the latest bubbles show in full; the ones before are dimmed.
 var fullBubbles = 3;
+// How long after a click outside closed the panel a tap does not open it
+// again, in milliseconds: the click was on the hot corner's assistant button.
+var dismissFor = 500;
 // How long bubbles that came up by themselves stay, in milliseconds.
 var peekFor = 6000;
 // Below this width, in pixels, a screen has no room for a docked panel.
@@ -33,13 +36,10 @@ function view(open, docked, focused, last) {
 }
 
 // A tap on Super, or a click on the assistant's button: opens what was open
-// last, or closes what is open. A docked panel stays; the tap gives it the
-// keyboard, and the next one gives it back.
+// last, or closes what is open, docked or not.
 function tap(now) {
     if (now.open === "")
         return view(now.last === "panel" ? "panel" : "bubbles", now.docked, true, now.last);
-    if (now.open === "panel" && now.docked)
-        return view("panel", true, !now.focused, now.last);
     return view("", now.docked, false, now.last);
 }
 
@@ -53,7 +53,7 @@ function dock(now, docked, narrow) {
     return view(now.open, docked && !narrow, now.focused, now.last);
 }
 
-// The panel's hide button, Escape, or a click outside the bubbles.
+// Escape, or a click outside the panel over the windows.
 function hide(now) {
     return view("", now.docked, false, now.open === "" ? now.last : now.open);
 }

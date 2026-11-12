@@ -1,7 +1,8 @@
 """The assistant's three ways to show: a tap on Super opens its bubbles and closes
-them; its panel lies over the windows, and docked it reserves its width, so a
-window retiles beside it and takes the room back when the panel hides; a tap
-keeps a docked panel, and brings back what was open last. Super held is no tap:
+them, and a click on a window leaves them; its panel lies over the windows, and
+a click on a window closes it; docked, it reserves its width, so a window
+retiles beside it and takes the room back when the panel hides; a tap closes a
+docked panel too, and brings back what was open last. Super held is no tap:
 it would listen, and says why it cannot, as no model is downloaded here.
 tests/unit covers the rest: the rules (shell/tst_assistant.qml), hearing
 (test_dictate.py), and the requests (test_assistant.py)."""
@@ -33,6 +34,12 @@ def right_edge():
     return window["at"][0] + window["size"][0]
 
 
+def click_window():
+    (window,) = windows()
+    mouse_set(window["at"][0] + 40, window["at"][1] + window["size"][1] // 2)
+    mouse_click()
+
+
 def run(self):
     sut.as_owner("""hyprctl --instance 0 dispatch 'hl.dsp.exec_cmd("nautilus --new-window")'""")
     sut.wait_for(lambda: len(windows()) == 1, 60)
@@ -40,28 +47,33 @@ def run(self):
     alone = right_edge()
     assert mode() == ""
 
-    # A tap: the bubbles, and away again.
+    # A tap: the bubbles, which a click on the window leaves, and away again.
     send_key("super")
     sut.wait_for(lambda: mode() == "bubbles", 15)
     assert right_edge() == alone
+    click_window()
+    wait_still_screen(1)
+    assert mode() == "bubbles"
     send_key("super")
     sut.wait_for(lambda: mode() == "", 15)
 
-    # The panel lies over the windows; docked, they make room for it.
+    # The panel lies over the windows, and a click on the window closes it;
+    # docked, the windows make room for it.
     sut.as_owner(CALL + "panel")
     sut.wait_for(lambda: mode() == "panel", 15)
     wait_still_screen(1)
     assert right_edge() == alone
+    click_window()
+    sut.wait_for(lambda: mode() == "", 15)
+    sut.as_owner(CALL + "panel")
+    sut.wait_for(lambda: mode() == "panel", 15)
     sut.as_owner(CALL + "dock true")
     sut.wait_for(lambda: mode() == "docked", 15)
     sut.wait_for(lambda: right_edge() <= alone - WIDTH, 15)
 
-    # A tap keeps the docked panel; hidden, the window has the room again, and
-    # a tap brings back what was open last.
+    # A tap closes the docked panel too, and the window has the room again; a
+    # tap brings back what was open last.
     send_key("super")
-    wait_still_screen(1)
-    assert mode() == "docked"
-    sut.as_owner(CALL + "hide")
     sut.wait_for(lambda: mode() == "" and right_edge() == alone, 15)
     send_key("super")
     sut.wait_for(lambda: mode() == "docked", 15)

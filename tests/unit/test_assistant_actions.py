@@ -1,5 +1,6 @@
-"""desktop/assistant/actions.py: arguments are checked against each action's
-schema, and apps are found by the names people use."""
+"""desktop/assistant/actions.py and skills.py: arguments are checked against
+each action's schema, apps are found by the names people use, and skills are
+read from their files, the person's over the OS's."""
 
 import pathlib
 import sys
@@ -8,6 +9,7 @@ import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "desktop" / "assistant"))
 import actions  # noqa: E402
+import skills  # noqa: E402
 
 
 def entry(directory, name, app_id, extra=""):
@@ -55,8 +57,42 @@ def test_arguments_are_checked_and_mended_where_plain():
         mute.check({"device": "headphones", "muted": True})
 
 
-def test_every_action_has_a_risk_and_changes_have_a_group():
+def test_every_action_has_a_risk_and_changes_and_looks_have_a_group():
     for action in actions.ACTIONS.values():
-        assert action.risk in ("read", "change", "confirm")
-        assert (action.group in actions.GROUPS) == (action.risk == "change"), action.name
+        assert action.risk in ("read", "see", "change", "confirm")
+        assert (action.group in actions.GROUPS) == (action.risk in ("change", "see")), action.name
+    assert {a.name for a in actions.ACTIONS.values() if a.group == "screen"} == {"get_windows", "look_at_screen"}
+    # What brings text from elsewhere into the request.
+    assert {a.name for a in actions.ACTIONS.values() if a.untrusted} == {"search_files", "get_windows", "look_at_screen"}
     assert {a.name for a in actions.ACTIONS.values() if a.risk == "confirm"} == {"power_off", "restart", "install_app", "remove_app"}
+
+
+def skill(directory, name, body):
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / f"{name}.md").write_text(body)
+
+
+def test_skills_are_read_and_the_persons_replace_the_oses(tmp_path, monkeypatch):
+    monkeypatch.setattr(skills, "VENDOR", tmp_path / "vendor")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    skill(tmp_path / "vendor", "writing", "---\nname: writing\ndescription: Write.\ntemperature: 0.8\n---\nWrite well.\n")
+    skill(tmp_path / "vendor", "plain", "---\nname: plain\ndescription: Plain.\n---\nBe plain.\n")
+    skill(tmp_path / "config" / "assistant" / "skills", "mine", "---\nname: writing\ndescription: My way.\n---\nShort.\n")
+    found = skills.load()
+    assert found["writing"] == {"name": "writing", "description": "My way.", "temperature": None, "instructions": "Short."}
+    assert found["plain"]["instructions"] == "Be plain."
+
+
+def test_a_skill_with_a_wrong_header_is_left_out():
+    for wrong in ("no header", "---\nname: Bad Name\ndescription: x\n---\nx", "---\nname: a\n---\nno description",
+                  "---\nname: a\ndescription: x\ntemperature: hot\n---\nx", "---\nname: a\ndescription: x\ntemperature: 3\n---\nx",
+                  "---\nname: a\ndescription: x\n---\n"):  # fmt: skip
+        assert skills.parse(wrong) is None, wrong
+
+
+def test_the_oses_skills_are_well_formed():
+    shipped = sorted(skills.VENDOR.glob("*.md"))
+    assert shipped
+    for path in shipped:
+        assert skills.parse(path.read_text()) is not None, path
+        assert skills.parse(path.read_text())["name"] == path.stem

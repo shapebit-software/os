@@ -11,10 +11,11 @@
 // listening, a pencil while writing it down, lines while the text waits, red when
 // something is wrong; a click stops, a right click discards, and with nothing
 // under way, brings back the last dictation. The assistant's button opens what was open
-// last, its bubbles or its panel (Assistant.qml), and is lit while either is open on its
-// screen; held, it listens until let go, as Super does. It is filled with the accent and
-// shows sound bars while the assistant listens, and its sparkle turns while the assistant
-// works; a dot says an action waits for the person.
+// last, its bubbles or its panel (Assistant.qml), and closes it; while either is open
+// on its screen, the button is lit and its sparkle filled. Held, it listens until let
+// go, as Super does. It is filled with the accent and shows sound bars while the
+// assistant listens, and its sparkle turns while the assistant works; a dot says an
+// action waits for the person.
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.controls
@@ -128,6 +129,7 @@ BarButton {
             height: button.half ? 14 : button.tile ? 20 : 18
             color: Theme.textOnAccent
             strokes: button.sparkle
+            fills: button.open ? button.sparkle : ""
 
             RotationAnimation on rotation {
                 running: button.working

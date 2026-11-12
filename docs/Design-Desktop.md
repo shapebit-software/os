@@ -201,20 +201,27 @@ nothing:
 
 - **Bubbles**, by the assistant's button: each message is a card of its own.
   The latest three show in full and the older ones are dimmed, until the
-  person scrolls back through them. Below them is the reply line. A bubble,
-  or the reply line, opens the conversation in the panel.
+  person scrolls back through them. Bubbles above the top edge fade into it
+  rather than being cut off. Below them is the reply line, and under it the
+  model that answers, which unfolds the others to choose from, with buttons
+  for a new conversation and to open this one in the panel. A click outside
+  leaves the bubbles open.
 - The **panel**, at the right of the screen over the windows. Pushing the
-  pointer against the middle of the screen's right edge opens it too. Its
-  header starts a new conversation, lists all of them with a search, shows
-  the conversation as bubbles again, docks the panel, and hides it.
+  pointer against the middle of the screen's right edge opens it too. At the
+  left of its header, buttons start a new conversation and list all of them
+  with a search; at the right, they show the conversation as bubbles again
+  and dock the panel. A click on another window, or on a bar off its items,
+  closes it; the bars' buttons, such as the apps' or dictation's, leave it.
+  Conversations belong to no workspace.
 - The panel **docked**: it looks like a tile and reserves its width, so the
   windows retile beside it, but it is outside the tiling and stays on every
   workspace. Its left edge resizes it. A screen narrower than 1024 pixels has
   no room for it, and keeps the panel over the windows.
 
 A tap on Super, or a click on the assistant's button, opens what was open
-last, and closes it again. A docked panel stays: the tap gives it the
-keyboard, and the next one gives the keyboard back to the window.
+last, and closes it again, docked or not. While the bubbles or the panel are
+open, the button is lit and its sparkle filled. Escape hides them, but a
+docked panel stays and gives the keyboard back to the window.
 
 **Voice**: hold Super, or the assistant's button, speak, and let go. What was
 said is the request. Nothing opens while the person speaks: the button shows
@@ -237,7 +244,39 @@ any answer that arrives while the assistant is hidden.
 The assistant sees only what a request tells it: the selected text and the
 focused window's app and title. The reply line shows both before sending,
 each to take off, and the request's bubble says what went along. It does not
-see the clipboard, the screen, or other windows' contents.
+see the clipboard or files' contents. It sees more of the screen only through
+the actions of the **See** risk, below, in two steps:
+
+- **Windows**: which windows are open on each workspace, with their titles,
+  which workspace is on the screen, and which apps run in the background:
+  those with an icon on the bar, and running Flatpaks.
+- **Pictures**: of the workspace on the screen, or of the windows of another
+  workspace, at most three, 1024 pixels wide at most. They go to the model
+  for the request that took them only, and are not kept. Pictures need a
+  model that reads them: for Gemma, its vision projector, the extra
+  **Screen understanding** (1 GB), which Welcome does not offer; Settings >
+  Assistant does.
+
+The model is told what it is and how to act, then facts of the computer: the
+OS's version, the language and region, and the time zone. Each request says
+when it was sent. Neither changes from one request to the next, so a local
+model keeps them processed.
+
+What the model is told beside the person's words, the selected text and
+window titles, and what actions return, such as file names and pictures, is
+information, never a request; the model is told so. A text can still ask the
+model for something, so a change asked in a request that carries any of it
+asks on its card, even in a group the person allowed.
+
+**Skills** are instructions the model reads only when a request needs them,
+so the prompt every request sends stays short: the prompt lists each skill's
+name and description, and the model reads one with an action. A skill can set
+the model's temperature for the rest of the request. The OS has one,
+**writing**, for longer texts: articles, letters, emails, posts, and stories,
+at temperature 0.8, where everything else runs at 0.2 for exact actions. A
+person can add their own, or replace the OS's, as Markdown files in
+`~/.config/assistant/skills`. A model's catalog entry can add to the prompt
+what that model needs told.
 
 A conversation left for half an hour is over: the next request from the
 bubbles or by voice begins a new one. The panel goes on in the conversation
@@ -246,8 +285,10 @@ it shows.
 The assistant acts only through typed actions, never a command it writes.
 Each action shows as a card, and has a risk:
 
-- **Read** (the computer's status, the installed apps, finding files by name)
-  runs at once.
+- **Read** (the computer's status, the installed apps, finding files by name,
+  reading a skill) runs at once.
+- **See** (the open windows, pictures of the screen) asks on its card, as a
+  change does, until the person allows the group **See the screen**.
 - **Change** (volume, brightness, keyboard layout, Do Not Disturb, Wi-Fi,
   Bluetooth, opening apps, moving windows, screenshots, locking) asks on its
   card: once, always for that group, or not at all. Settings > Assistant shows

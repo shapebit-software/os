@@ -4,6 +4,7 @@ AppsButton AppsButton.qml
 AppsPanel AppsPanel.qml
 AssistantCard AssistantCard.qml
 AssistantBubbles AssistantBubbles.qml
+AssistantButton AssistantButton.qml
 AssistantGet AssistantGet.qml
 AssistantMessages AssistantMessages.qml
 AssistantDock AssistantDock.qml

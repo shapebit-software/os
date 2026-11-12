@@ -104,7 +104,7 @@ PanelWindow {
     }
 
     function offer() {
-        offered = Extras.writable ? Extras.missing : [];
+        offered = Extras.writable ? Extras.missing.filter(e => e.welcome !== false) : [];
         // On, unless the computer has too little memory for one.
         keptExtras = offered.filter(e => e.fits !== false).map(e => e.id);
     }

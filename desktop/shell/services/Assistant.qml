@@ -8,8 +8,9 @@
 // until let go, and what was said is the request: the button shows the
 // listening and the thinking, and the answer comes up as a bubble.
 // A request tells the model the selected text and the focused window's
-// application and title, as the reply line shows, and nothing else of the
-// screen.
+// application and title, as the reply line shows; more of the screen only
+// through the actions of the "screen" group, which ask on their card until
+// the person allows the group.
 // assistant/assistant does the work in a user service of its own, so hiding
 // the shell, or restarting it, stops nothing; this talks to it over its
 // socket, shows what it says, and does the actions that are the shell's,
@@ -21,6 +22,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Services.SystemTray
 import "assistant.js" as Logic
 
 Singleton {
@@ -104,18 +106,13 @@ Singleton {
         socket.flush();
     }
 
-    function workspaceName(): string {
-        const workspace = Hyprland.focusedMonitor?.activeWorkspace;
-        return workspace ? String(workspace.name ?? workspace.id) : "";
-    }
-
     // A new request: in the open conversation, or a new one, with what the
     // reply line shows of where the person is.
     function send(text: string) {
         text = text.trim();
         if (!text)
             return;
-        request({ op: "send", id: current(), text, workspace: workspaceName(), context });
+        request({ op: "send", id: current(), text, context });
         context = ({});
     }
 
@@ -163,9 +160,11 @@ Singleton {
         }
     }
 
-    // A tap on Super, or a click on the assistant's button.
+    // A tap on Super, or a click on the assistant's button. The click that
+    // closed the panel, on the hot corner's button outside it, is no tap of
+    // its own.
     function tap(screen: string, show: var) {
-        if (Lock.locked)
+        if (Lock.locked || view.open === "" && Date.now() - dismissedAt < Logic.dismissFor)
             return;
         const next = Logic.tap(view);
         if (next.open !== "" && view.open === "")
@@ -191,6 +190,21 @@ Singleton {
 
     function hide() {
         apply(Logic.hide(view), panelOn, null);
+    }
+
+    // A click outside the panel over the windows and the bars.
+    property real dismissedAt
+    function dismiss() {
+        dismissedAt = Date.now();
+        hide();
+    }
+
+    // A click on a bar off its items: closes the panel over the windows, not
+    // the docked one.
+    function clickedOff() {
+        const screen = Quickshell.screens.find(s => s.name === panelOn);
+        if (view.open === "panel" && !Logic.reserves(view, (screen?.width ?? 0) < Logic.narrowBelow))
+            hide();
     }
 
     // The bubbles come up by themselves for an answer, and go again.
@@ -313,7 +327,7 @@ Singleton {
 
     // What was said, as a request.
     function sendSpoken(text: string) {
-        request({ op: "send", id: current(), text, workspace: workspaceName(), context, spoken: true });
+        request({ op: "send", id: current(), text, context, spoken: true });
         context = ({});
     }
 
@@ -642,10 +656,12 @@ Singleton {
     property bool modelWanted
     Process {
         running: assistant.llama !== "" && assistant.modelWanted && assistant.ready && assistant.model?.where === "local"
-        command: ["sh", "-c", 'rm -f "$3"; LD_LIBRARY_PATH=$(dirname "$1") exec setpriv --pdeathsig TERM "$1" --model "$2" --host "$3" '
+        command: ["sh", "-c", 'rm -f "$3"; vision=; [ -f "$4" ] && vision=--mmproj; '
+            + 'LD_LIBRARY_PATH=$(dirname "$1") exec setpriv --pdeathsig TERM "$1" --model "$2" --host "$3" ${vision:+"$vision" "$4"} '
             + "--jinja --reasoning off --ctx-size 8192 --parallel 1 --no-webui", "llama", assistant.llama,
             `${Quickshell.env("EXTRAS_DIR")}/${assistant.model?.extra}/model.gguf`,
-            `${Quickshell.env("XDG_RUNTIME_DIR")}/language-model-${assistant.model?.extra}.sock`]
+            `${Quickshell.env("XDG_RUNTIME_DIR")}/language-model-${assistant.model?.extra}.sock`,
+            `${Quickshell.env("EXTRAS_DIR")}/${assistant.model?.extra}-vision/mmproj.gguf`]
     }
 
     // A model downloaded, or removed, changes what is ready.
@@ -762,6 +778,11 @@ Singleton {
 
         function lock(): void {
             Lock.lock();
+        }
+
+        // The applications with an icon on the bar, one name a line.
+        function backgroundApps(): string {
+            return SystemTray.items.values.map(i => i.title || i.tooltipTitle || i.id).filter(n => n).join("\n");
         }
     }
 }

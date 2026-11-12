@@ -81,8 +81,9 @@ PanelWindow {
         color: Theme.barFill
     }
 
-    // A click on the bar but off its items closes the open panel; panels
-    // stay open for clicks on the bars otherwise (Popout.qml).
+    // A click on the bar but off its items closes the open panel, and the
+    // assistant's over the windows; they stay open for clicks on the bars
+    // otherwise (Popout.qml, AssistantDock.qml).
     TapHandler {
         onTapped: point => {
             for (const zone of zones.children) {
@@ -90,7 +91,10 @@ PanelWindow {
                 if (zone.childAt?.(at.x, at.y))
                     return;
             }
-            Shell.close();
+            // The assistant's bubbles stay (AssistantBubbles.qml).
+            if (Shell.panel !== "assistant")
+                Shell.close();
+            Assistant.clickedOff();
         }
     }
 

@@ -1,8 +1,8 @@
 // An action of the assistant among its messages, as in the demo: what it is,
 // and below, what can be done with it. A proposed one waits: Apply does it
 // once, Always allow does it and lets the assistant do the like from then on
-// (only changes, never what asks every time), Don't refuses. A change done
-// in this session can be undone.
+// (only changes and looks at the screen, never what asks every time), Don't
+// refuses. A change done in this session can be undone.
 import QtQuick
 import qs.services
 
@@ -15,7 +15,7 @@ Rectangle {
     readonly property string heading: ({
         proposed: message.risk === "confirm" ? "Confirm" : "Proposed action",
         running: "Working",
-        done: message.risk === "read" ? "Checked" : "Applied",
+        done: message.risk === "read" || message.risk === "see" ? "Checked" : "Applied",
         failed: "Failed",
         declined: "Not done",
         cancelled: "Stopped",
@@ -53,7 +53,7 @@ Rectangle {
                 width: parent.width - 20
                 visible: text !== ""
                 text: card.phase === "failed" ? card.message.error ?? ""
-                    : card.phase === "done" && card.message.risk !== "read" ? "" : card.message.detail ?? ""
+                    : card.phase === "done" && card.message.risk === "change" ? "" : card.message.detail ?? ""
                 color: card.phase === "failed" ? Theme.danger : Theme.inkFaint
                 wrapMode: Text.Wrap
                 font { family: Theme.mono; pixelSize: 11 }
@@ -79,7 +79,7 @@ Rectangle {
                 onActivated: Assistant.answer(card.message.id, "apply")
             }
             CardButton {
-                visible: card.message.risk === "change"
+                visible: card.message.risk === "change" || card.message.risk === "see"
                 text: "Always allow"
                 tip: Assistant.groups[card.message.group] ?? ""
                 onActivated: Assistant.answer(card.message.id, "always")

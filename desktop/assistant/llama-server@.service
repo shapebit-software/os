@@ -2,7 +2,10 @@
 # language-model@%i.service needs it. It listens before the model is loaded,
 # and answers 503 until then, which the assistant waits out. The prompt
 # cache needs one request at a time (--parallel 1); thinking is off, for
-# answers in a second or two; the context is bounded, for its memory.
+# answers in a second or two; the context is bounded, for its memory. The
+# model reads pictures once its vision projector, the extra %i-vision, is
+# downloaded; sh adds it here, as llama-server has no option that
+# loads a file only if present. ($$ is a $ that systemd passes on.)
 [Unit]
 Description=Language model %i, running
 StopWhenUnneeded=yes
@@ -10,7 +13,8 @@ ConditionPathExists=/var/lib/extras/%i/model.gguf
 
 [Service]
 ExecStartPre=-/usr/bin/rm -f %t/llama-server-%i.sock
-ExecStart=/usr/libexec/llama/llama-server --model /var/lib/extras/%i/model.gguf --host %t/llama-server-%i.sock \
+ExecStart=/bin/sh -c 'vision=/var/lib/extras/%i-vision/mmproj.gguf; [ -f "$$vision" ] && set -- "$$@" --mmproj "$$vision"; exec "$$@"' sh \
+    /usr/libexec/llama/llama-server --model /var/lib/extras/%i/model.gguf --host %t/llama-server-%i.sock \
     --jinja --reasoning off --ctx-size 8192 --parallel 1 --no-webui
 ExecStartPost=/bin/sh -c 'until [ -S "$1" ]; do sleep 0.2; done' sh %t/llama-server-%i.sock
 TimeoutStartSec=60

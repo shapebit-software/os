@@ -2,7 +2,7 @@
 // on: below a bar at the top, above one at the bottom, beside one on a side,
 // centered on the button as far as the screen allows. The window covers the
 // screen; only the panel takes input. Escape or a click outside the panel and
-// the bars closes it.
+// the bars closes it, unless it stays.
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
@@ -36,6 +36,9 @@ PanelWindow {
     // Whether the panel takes the keyboard, and closes on a click outside;
     // not while it only shows something that came by itself.
     property bool grab: true
+    // Whether the panel stays on a click outside, and gives up only the
+    // keyboard; a click on it takes the keyboard again.
+    property bool stays
     readonly property rect anchor: Shell.anchor
     readonly property string edge: Shell.edge
 
@@ -56,7 +59,10 @@ PanelWindow {
     HyprlandFocusGrab {
         active: popout.visible && popout.grab
         windows: [popout, ...Shell.bars]
-        onCleared: popout.dismissed()
+        onCleared: {
+            if (!popout.stays)
+                popout.dismissed();
+        }
     }
 
     Item {

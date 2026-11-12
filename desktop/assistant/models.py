@@ -14,7 +14,12 @@ An entry: {"id", "name", "mark": one letter, "color": "#rrggbb",
 "where": "local" or "online", "extra": the extra that holds model.gguf (local),
 "url": the API's base, such as https://api.example.com/v1 (online),
 "model": the name the API knows it by, "key": true if it needs an API key,
-"options": what else every request sends, such as {"temperature": 0.2}}.
+"options": what else every request sends, such as {"temperature": 0.2},
+"prompt": what the model needs told beyond the assistant's own prompt,
+"vision": true if it reads pictures (online)}.
+
+A local model reads pictures once the extra of its vision projector, its own
+extra's id with "-vision", holds mmproj.gguf; llama-server@.service loads it.
 """
 
 import http.client
@@ -73,12 +78,19 @@ def ready(entry):
     return bool(entry.get("url"))
 
 
+def sees(entry):
+    """Whether the model reads pictures."""
+    if entry.get("where") == "local":
+        return (EXTRAS / f"{entry['extra']}-vision" / "mmproj.gguf").is_file()
+    return entry.get("vision") is True
+
+
 def describe(entry):
     """What the shell shows of a model."""
     return {
         "id": entry["id"], "name": entry.get("name", entry["id"]), "mark": entry.get("mark", entry.get("name", "?")[:1]),
         "color": entry.get("color", "#6b6f80"), "where": entry.get("where", "online"), "extra": entry.get("extra"),
-        "ready": ready(entry),
+        "ready": ready(entry), "sees": sees(entry),
     }  # fmt: skip
 
 
@@ -202,10 +214,11 @@ class Chat:
                 self.connection.close()
             time.sleep(0.5)
 
-    def run(self, messages, tools, on_text, on_status=lambda status: None):
+    def run(self, messages, tools, on_text, on_status=lambda status: None, options=None):
         """Streams the answer: its text to on_text as it comes; returns the whole
-        text and the tool calls, each {"id", "name", "arguments": text}."""
-        body = {"messages": messages, "stream": True, **self.entry.get("options", {})}
+        text and the tool calls, each {"id", "name", "arguments": text}. options
+        go over the model's own, for this request."""
+        body = {"messages": messages, "stream": True, **self.entry.get("options", {}), **(options or {})}
         if self.entry.get("model"):
             body["model"] = self.entry["model"]
         if tools:
