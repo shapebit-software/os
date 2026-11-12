@@ -10,6 +10,11 @@ share := $(DESTDIR)$(PREFIX)/share
 # own folder; here, the image's source of it.
 colors := $(abspath $(CURDIR)/../image/rootfs/usr/lib64/qt6/qml)
 
+# What development adds for the assistant, in the repository's build folder:
+# its models, downloaded in `make run` (EXTRAS_DIR), and its model server and
+# speech engine, which `make dev-assistant` puts there (../scripts/dev-assistant.sh).
+dev := $(abspath $(CURDIR)/../build/dev)
+
 # The host's system bus, which the development container shares here: the
 # shell needs it for the network and Bluetooth.
 host_bus := /run/host/run/dbus/system_bus_socket
@@ -30,9 +35,15 @@ lint: ## Lint the shell
 
 # The host session's desktop name is not this one's; Hyprland sets its own.
 # The fonts include the OS image's (fonts.conf). The desktop has a session
-# bus of its own, with its portals and the Portal Tester (dev/run).
+# bus of its own, with its portals and the Portal Tester (dev/run). The
+# extras, the assistant's and dictation's models, are the person's own here,
+# so Settings > Assistant downloads them without an administrator.
 run: ## Run the desktop in a window, inside the current Wayland session
+	mkdir -p $(dev)/extras
 	env -u XDG_CURRENT_DESKTOP DESKTOP_SHELL=$(CURDIR)/shell QML_IMPORT_PATH=$(colors) FONTCONFIG_FILE=$(CURDIR)/fonts.conf \
+	EXTRAS_DIR=$(dev)/extras DICTATION_PARAKEET=$(dev)/extras/parakeet \
+	$(if $(wildcard $(dev)/llama/llama-server),ASSISTANT_LLAMA=$(dev)/llama/llama-server) \
+	$(if $(wildcard $(dev)/python),PYTHONPATH=$(dev)/python) \
 	$(if $(wildcard $(host_bus)),DBUS_SYSTEM_BUS_ADDRESS=unix:path=$(host_bus)) \
 	dev/run
 

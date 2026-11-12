@@ -98,6 +98,8 @@ Singleton {
     function request(fields: var) {
         if (!socket?.connected)
             return;
+        if (fields.op === "send" || fields.op === "warm")
+            modelWanted = true;
         socket.write(JSON.stringify(fields) + "\n");
         socket.flush();
     }
@@ -613,10 +615,26 @@ Singleton {
         }
     }
 
-    // In development only: the assistant from the source tree.
+    // In development only: the assistant from the source tree. It ends with
+    // the shell, however the shell ends, so the next one never meets it.
     Process {
         id: server
-        command: [`${assistant.tree}/../assistant/assistant`, "serve"]
+        command: ["setpriv", "--pdeathsig", "TERM", `${assistant.tree}/../assistant/assistant`, "serve"]
+    }
+
+    // In development only: the model's server, which systemd starts on
+    // demand in the installed system (assistant/language-model@.socket). Here
+    // it starts with the first request, where the assistant looks for it
+    // (assistant/models.py), and ends with the shell. `make dev-assistant`
+    // provides it (ASSISTANT_LLAMA).
+    readonly property string llama: tree ? Quickshell.env("ASSISTANT_LLAMA") ?? "" : ""
+    property bool modelWanted
+    Process {
+        running: assistant.llama !== "" && assistant.modelWanted && assistant.ready && assistant.model?.where === "local"
+        command: ["sh", "-c", 'rm -f "$3"; LD_LIBRARY_PATH=$(dirname "$1") exec setpriv --pdeathsig TERM "$1" --model "$2" --host "$3" '
+            + "--jinja --reasoning off --ctx-size 8192 --parallel 1 --no-webui", "llama", assistant.llama,
+            `${Quickshell.env("EXTRAS_DIR")}/${assistant.model?.extra}/model.gguf`,
+            `${Quickshell.env("XDG_RUNTIME_DIR")}/language-model-${assistant.model?.extra}.sock`]
     }
 
     // A model downloaded, or removed, changes what is ready.

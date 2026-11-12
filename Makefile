@@ -4,6 +4,8 @@
 # Installing to a disk needs a root-capable engine: rootful Podman or Docker.
 ENGINE         ?= sudo podman
 IMAGE          ?= localhost/shapebit-os:dev
+# How the development container of the desktop and installer is entered.
+DEV_ENTER      ?= DBX_CONTAINER_MANAGER=docker distrobox enter shapebit-dev
 FEDORA_VERSION ?= 45
 # The assistant's language model server, pinned: llama.cpp's release and its
 # source's SHA-256.
@@ -86,13 +88,13 @@ INSTALLER_SOURCES     ?= $(BUILD)/installer-sources.tar
 SOURCES_PREVIOUS      ?=
 SOURCES_CACHE         ?=
 
-export OPENQA_DISK_SIZE INSTALLER_REF IMAGE_REVISION IMAGE_ARCHIVE NEXT_ARCHIVE NEXT2_ARCHIVE FLOW UPDATE_ARCHIVE OPENQA_DISTRI OPENQA_IMAGE RESULTS VENV TEST_SSH_PORT DISK_FORMAT ENGINE IMAGE FEDORA_VERSION IMAGE_VERSION BUILD DISK DISK_SIZE INSTALLER_IMAGE MEDIUM MEDIUM_SIZE SSH_PORT SSH_KEY OWNER_NAME OWNER_PASSWORD RECOVERY_KEY LOCALE KEYBOARD_LAYOUT TIME_ZONE KEYS_DIR SIGNING_KEY BOOT_TIMEOUT REGISTRY_PORT UPDATE_REF DEV_UPDATE_REF
+export DEV_ENTER OPENQA_DISK_SIZE INSTALLER_REF IMAGE_REVISION IMAGE_ARCHIVE NEXT_ARCHIVE NEXT2_ARCHIVE FLOW UPDATE_ARCHIVE OPENQA_DISTRI OPENQA_IMAGE RESULTS VENV TEST_SSH_PORT DISK_FORMAT ENGINE IMAGE FEDORA_VERSION IMAGE_VERSION BUILD DISK DISK_SIZE INSTALLER_IMAGE MEDIUM MEDIUM_SIZE SSH_PORT SSH_KEY OWNER_NAME OWNER_PASSWORD RECOVERY_KEY LOCALE KEYBOARD_LAYOUT TIME_ZONE KEYS_DIR SIGNING_KEY BOOT_TIMEOUT REGISTRY_PORT UPDATE_REF DEV_UPDATE_REF
 
 # Checks that run on this host leave no bytecode in the tree that tmt copies.
 export PYTHONDONTWRITEBYTECODE := 1
 
 .DEFAULT_GOAL := help
-.PHONY: dev release-key help colors image static-checks lint validate test-unit test-image publish installer sources installer-sources pull-installer disk vm installer-vm ssh test test-plan update-builds test-update test-release test-guest clean
+.PHONY: dev dev-assistant release-key help colors image static-checks lint validate test-unit test-image publish installer sources installer-sources pull-installer disk vm installer-vm ssh test test-plan update-builds test-update test-release test-guest clean
 
 help: ## List targets
 	@awk -F ':.*## ' '/^[a-z-]+:.*## / { printf "  %-12s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -101,7 +103,10 @@ KEYS := $(KEYS_DIR)/$(SIGNING_KEY)-secureboot.key $(KEYS_DIR)/$(SIGNING_KEY)-sec
         $(KEYS_DIR)/$(SIGNING_KEY)-pcr.key
 
 dev: ## Enter the development container of the desktop and installer
-	DBX_CONTAINER_MANAGER=docker distrobox enter shapebit-dev
+	$(DEV_ENTER)
+
+dev-assistant: ## Give `make run` the assistant's model server and speech engine, from the built image
+	scripts/dev-assistant.sh
 
 image: $(KEYS) ## Build the container image with its signed UKI
 	scripts/image.sh image/Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \

@@ -91,7 +91,7 @@ def start_worker():
     if os.environ.get("DOWNLOADS_NO_WORKER"):
         return
     worker = [sys.executable, str(Path(__file__).resolve()), "run"]
-    keep = [f"--setenv={name}={os.environ[name]}" for name in ("DESKTOP_SHELL", "XDG_STATE_HOME") if name in os.environ]
+    keep = [f"--setenv={name}={os.environ[name]}" for name in ("DESKTOP_SHELL", "XDG_STATE_HOME", "EXTRAS_DIR") if name in os.environ]
     try:
         started = subprocess.run(["systemd-run", "--user", "--collect", "--quiet", "--description=Downloads", *keep, *worker],
                                  stdin=subprocess.DEVNULL, capture_output=True).returncode == 0  # fmt: skip
