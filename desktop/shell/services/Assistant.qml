@@ -243,6 +243,10 @@ Singleton {
             hold.restart();
         else
             hold.stop();
+        if (keyState === "listening")
+            longest.restart();
+        else
+            longest.stop();
         if (next.action === "tap")
             tap(Shortcuts.focused, null);
         else if (next.action === "listen")
@@ -488,6 +492,13 @@ Singleton {
         id: hold
         interval: Logic.holdAfter
         onTriggered: assistant.key("held")
+    }
+
+    // Super never let go: the microphone does not stay open.
+    Timer {
+        id: longest
+        interval: Logic.longestHold
+        onTriggered: assistant.key("long")
     }
 
     // Bubbles that came up by themselves go again, unless one waits for the

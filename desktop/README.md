@@ -125,8 +125,11 @@ administrator. Another model can be listed in
 `~/.config/assistant/models.json`, for example
 `{"id": "dev", "name": "Dev", "where": "online", "url": "http://127.0.0.1:8080/v1"}`.
 The assistant's actions run the real commands, so they change the host. The
-host's desktop may keep the Super key for itself; the assistant's button does
-the same, a click for a tap and held to speak.
+host's desktop may keep the Super key for itself, as GNOME does: pressed
+alone, Super then opens the host's overview, its letting go never arrives
+here, and every key after it counts as a shortcut until `make run` starts
+again. So here the right Ctrl key stands in for Super alone: a tap opens the
+assistant, and held, it listens. The assistant's button does the same.
 
 Settings > Apps (`apps/app-catalog`, `apps/app-remove`) lists and changes
 the same installation, through Flatpak on the host; without one, it says so.

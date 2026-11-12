@@ -8,6 +8,10 @@
 // How long Super is held alone, in milliseconds, before it listens; let go
 // sooner, it is a tap.
 var holdAfter = 400;
+// How long it listens at most, in milliseconds: a key whose letting go never
+// comes, as when something else takes the keyboard, must not leave the
+// microphone open.
+var longestHold = 60000;
 // How many of the latest bubbles show in full; the ones before are dimmed.
 var fullBubbles = 3;
 // How long bubbles that came up by themselves stay, in milliseconds.
@@ -62,7 +66,7 @@ function reserves(now, narrow) {
 // The Super key. `state` is "idle", "pressed" (down alone, not yet held), or
 // "listening". `event` is "down" (Super pressed with no other key down),
 // "other" (any other key or button while Super is down), "held" (holdAfter
-// has passed), or "up". Returns { state, action }, the action one of "",
+// has passed), "long" (longestHold has passed), or "up". Returns { state, action }, the action one of "",
 // "tap", "listen", "send" (the speech is the request), or "cancel" (the
 // speech is discarded: the key began a shortcut).
 function key(state, event) {
@@ -78,7 +82,7 @@ function key(state, event) {
     if (state === "listening") {
         if (event === "up")
             return { state: "idle", action: "send" };
-        if (event === "other")
+        if (event === "other" || event === "long")
             return { state: "idle", action: "cancel" };
     }
     return { state: state, action: "" };

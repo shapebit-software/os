@@ -226,8 +226,8 @@ any answer that arrives while the assistant is hidden.
 - Super counts as held after 0.4 seconds alone. Any other key in that time
   makes it a shortcut, and a key pressed while the assistant listens discards
   what was said.
-- The microphone opens only while the key or button is held, never on the
-  lock screen or at a password prompt. The recording goes when the request
+- The microphone opens only while the key or button is held, for a minute at
+  most, and never on the lock screen or at a password prompt. The recording goes when the request
   is made; the words stay, as the request in the conversation.
 - Speech is written down by the dictation model, so voice needs that
   [extra](#extras) too. [Dictation](#dictation) is separate: its words go

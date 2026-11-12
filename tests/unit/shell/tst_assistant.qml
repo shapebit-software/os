@@ -104,6 +104,13 @@ TestCase {
         compare(keys(["down", "held", "other", "up"]), ["listen", "cancel"]);
     }
 
+    function test_a_key_never_let_go_stops_listening_and_discards() {
+        // As when something else takes the keyboard while Super is down.
+        compare(keys(["down", "held", "long"]), ["listen", "cancel"]);
+        // Its letting go, should it come after all, is no tap.
+        compare(keys(["down", "held", "long", "up"]), ["listen", "cancel"]);
+    }
+
     function test_a_late_timer_after_a_shortcut_does_not_listen() {
         compare(keys(["down", "other", "held", "up"]), []);
     }

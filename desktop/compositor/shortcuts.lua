@@ -39,6 +39,10 @@ end
 list[#list + 1] = "Super_L|Assistant: tap to open, or hold while you speak"
 local down, alone, switching = {}, false, false
 local supers = { [133] = true, [134] = true }
+-- In development (make run), the right Ctrl key stands in for Super alone:
+-- the host's desktop may keep Super for itself, and then never passes on its
+-- letting go.
+if os.getenv("DESKTOP_SHELL") then supers[105] = true end
 local alts = { [64] = true, [108] = true }
 
 hl.on("input.keyboard.key", function(code, _, state)
