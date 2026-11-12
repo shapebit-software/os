@@ -27,7 +27,7 @@ PanelWindow {
             return;
         }
         if (panel === "dictation") {
-            Dictation.toggle();
+            Dictation.toggle(false);
             return;
         }
         // The assistant: what was open last, its bubbles here or its panel.

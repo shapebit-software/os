@@ -224,7 +224,7 @@ def test_words_agree_ignoring_case_and_punctuation():
 
 def test_without_parakeet_it_fails_before_it_listens(hear):
     hearing = hear(parakeet=False)
-    assert hearing.wait_for("failed")["retry"] is False
+    assert hearing.wait_for("failed")
     assert hearing.ended() == 1
     assert hearing.file("recording") is None, "no microphone for this"
     assert hearing.left_behind == []
@@ -316,8 +316,8 @@ def test_stopping_voice_mode_delivers_what_is_left(hear):
 
 
 def test_voice_mode_ends_when_its_engine_fails_and_keeps_no_recording(hear):
-    hearing = hear("--converse", "--retry", engine="#!/bin/bash\nexit 3\n", env=VOICE_MODE)
-    assert hearing.wait_for("failed")["retry"] is False
+    hearing = hear("--converse", engine="#!/bin/bash\nexit 3\n", env=VOICE_MODE)
+    assert hearing.wait_for("failed")
     assert hearing.ended() == 1
     assert hearing.left_behind == []
 
@@ -365,8 +365,8 @@ def test_discarding_stops_a_hung_engine(hear):
 
 
 def test_recorder_failure_is_reported(hear):
-    hearing = hear("--retry", recorder=RECORDER_FAILS)
-    assert hearing.wait_for("failed")["retry"] is False
+    hearing = hear(recorder=RECORDER_FAILS)
+    assert hearing.wait_for("failed")
     assert hearing.ended() == 1
     assert hearing.left_behind == []
 
@@ -387,32 +387,11 @@ def test_a_hung_engine_goes_over_the_recording_again_with_no_draft(hear):
     assert [m["state"] for m in hearing.heard].count("draft") == 1
 
 
-def test_an_engine_that_fails_again_ends_without_retry(hear):
+def test_an_engine_that_fails_again_fails(hear):
     hearing = hear(fails=2, said="Lost.\n")
     hearing.say()
-    assert hearing.wait_for("failed")["retry"] is False
-    assert hearing.ended() == 1
-    assert hearing.left_behind == []
-
-
-def test_with_retry_the_audio_stays_to_try_again(hear):
-    hearing = hear("--retry", fails=2, said="Hello\n")
-    hearing.say()
-    assert hearing.wait_for("failed")["retry"] is True
-    assert hearing.process.poll() is None
-    hearing.do("retry")
-    assert hearing.wait_for("done")["text"] == "Hello"
-    assert (hearing.fakes / "engine-audio").read_bytes().startswith(LOUD)
-    assert hearing.ended() == 0
-    assert hearing.left_behind == []
-
-
-def test_a_failure_kept_to_retry_can_be_discarded(hear):
-    hearing = hear("--retry", fails=2, said="Hello\n")
-    hearing.say()
     hearing.wait_for("failed")
-    hearing.do("discard")
-    assert hearing.ended() == 130
+    assert hearing.ended() == 1
     assert hearing.left_behind == []
 
 

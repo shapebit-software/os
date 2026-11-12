@@ -12,11 +12,10 @@
 #
 # Audio stays in the runtime directory, and it is gone at the end.
 #
-# Usage: hear [--retry | --converse]
+# Usage: hear [--converse]
 #
 # By default it hears until "stop", and ends with {"state": "done", "text": ...}, or
-# with "nothing", or "failed". With --retry, a recording that could not be written
-# down is kept, and "failed" waits for "retry" or "discard".
+# with "nothing", or "failed".
 #
 # --converse is the assistant's voice mode: it hears on, and each time the person
 # stops speaking for a moment, what they said goes out as {"state": "heard",
@@ -28,14 +27,14 @@
 # recording is kept: should the live engine fail, it ends with "failed", as going
 # over the recording again would say what was heard once more.
 #
-# In, {"do": ...}: "stop", "retry", "discard". The end of the input discards, as do
-# SIGINT and SIGTERM.
+# In, {"do": ...}: "stop", "discard". The end of the input discards, as do SIGINT
+# and SIGTERM.
 #
 # Out: {"state": "listening", "level": 0..1, "quiet": bool, "idle": bool};
 # {"state": "draft", "text": ..., "tail": ...}, the words so far and those that may
 # still change; {"state": "writing"}; {"state": "heard", "text": ...};
-# {"state": "failed", "retry": bool}; and at the end, {"state": "done", "text": ...}
-# or {"state": "nothing"}.
+# and at the end, {"state": "done", "text": ...}, {"state": "nothing"}, or
+# {"state": "failed"}.
 import array
 import json
 import math
@@ -81,8 +80,7 @@ def clean(said):
 
 
 class Hearing:
-    def __init__(self, retry=False, converse=False):
-        self.retry = retry and not converse
+    def __init__(self, converse=False):
         self.converse = converse
         self.work = pathlib.Path(tempfile.mkdtemp(dir=os.environ["XDG_RUNTIME_DIR"], prefix="hearing-"))
         self.selector = selectors.DefaultSelector()
@@ -167,15 +165,13 @@ class Hearing:
                 self.finish(130)
             elif what == "stop" and self.state == "listening":
                 self.stop_listening()
-            elif what == "retry" and self.state == "failed":
-                self.write_down()
 
     # Listening -----------------------------------------------------------
 
     def listen(self):
         if not PARAKEET.is_dir():
             # Offered only with it; it may have been removed since.
-            self.cannot_listen()
+            self.failed()
         # As the engine reads it: 16 kHz mono 16-bit samples, with no header.
         self.audio = open(self.audio_path, "wb")
         # What is under way ends with this, so the microphone never stays open.
@@ -214,7 +210,7 @@ class Hearing:
         self.recorder = None
         self.audio.close()
         if not self.stopping or self.converse and not self.engine:
-            self.cannot_listen()
+            self.failed()
         elif not self.heard:
             # Given nothing but silence, a model can still invent words.
             if self.engine:
@@ -224,10 +220,6 @@ class Hearing:
             self.end_engine_input()
         else:
             self.write_down()
-
-    def cannot_listen(self):
-        self.emit(state="failed", retry=False)
-        self.finish(1)
 
     def report_level(self):
         now = time.monotonic()
@@ -386,11 +378,8 @@ class Hearing:
             self.failed()
 
     def failed(self):
-        """With --retry, the recording stays, to try again."""
-        self.state = "failed"
-        self.emit(state="failed", retry=self.retry)
-        if not self.retry:
-            self.finish(1)
+        self.emit(state="failed")
+        self.finish(1)
 
     def written(self, said):
         if said:
@@ -416,7 +405,7 @@ class Hearing:
 
 
 def main():
-    Hearing("--retry" in sys.argv[1:], "--converse" in sys.argv[1:]).run()
+    Hearing("--converse" in sys.argv[1:]).run()
 
 
 if __name__ == "__main__":

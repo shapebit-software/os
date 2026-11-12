@@ -208,9 +208,12 @@ end
 bind("SUPER + N", "Notifications", shell("notifications"))
 bind("SUPER + I", "Settings", shell("settings"))
 bind("SUPER + L", "Lock", shell("lock"))
--- A tap starts and stops dictation; held, it listens until let go.
+-- A tap starts and stops dictation; held, it listens until let go. With Shift,
+-- the words are only copied.
 bind("SUPER + D", "Dictate", shell("dictate"))
 hl.bind("SUPER + D", shell("dictate-release"), { release = true })
+bind("SUPER + SHIFT + D", "Dictate, only to copy", shell("dictate-copy"))
+hl.bind("SUPER + SHIFT + D", shell("dictate-release"), { release = true })
 bind("SUPER + A", "Apps", shell("apps"))
 bind("CTRL + ALT + Delete", "System menu", shell("system"))
 bind("SUPER + code:61", "Keyboard shortcuts", shell("help"))

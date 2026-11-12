@@ -70,7 +70,10 @@ Singleton {
                 Settings.open(focused, Settings.section);
             break;
         case "dictate":
-            Dictation.press();
+            Dictation.press(false);
+            break;
+        case "dictate-copy":
+            Dictation.press(true);
             break;
         case "dictate-release":
             Dictation.release();

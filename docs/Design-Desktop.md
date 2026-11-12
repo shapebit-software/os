@@ -126,10 +126,17 @@ the computer, live while the person speaks, in any of 25 languages. Its model
 is an [extra](#extras): the image ships no speech model, so dictation works
 once the extra is downloaded, and until then its button leads to the download.
 
-- Text goes straight into the text field only if the same field still has
-  the focus when the text is ready, and goes in as text, not keys, so it
-  can't trigger shortcuts. Otherwise it waits in a card, to insert, copy,
-  type, add to, or discard.
+- The words show as they come, in the text field where they would go, as a
+  draft that is not yet in it, or else the last few by the button; the button's
+  bars follow the voice, and a wave runs through them while the last words are
+  written down. When they are ready, they go into the text
+  field only if the same field still has the focus, as text, not keys, so
+  they can't trigger shortcuts.
+  They are copied as well, so they are never lost. A right click on the
+  button, or Super+Shift+D, only copies. Briefly, the button shows where
+  they went, a check or a clipboard; the app's own undo takes an insert
+  back. No card, no other choices to make.
+- Dictation inside an application's own field, when it comes, only inserts.
 - Password fields never get dictated text.
 - An open microphone is always visible on the bar. Audio stays on the
   computer and goes when the dictation ends. Locking the screen discards

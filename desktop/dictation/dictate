@@ -1,32 +1,31 @@
 #!/usr/bin/python3
-# Dictation, which the shell runs for one dictation (shell/services/Dictation.qml)
-# and talks to over its standard input and output, one JSON line at a time. It
-# delivers what was said only where it is sure of the place; otherwise the text
-# waits for the person to say where. All the deciding is here; the shell only
-# shows it. Hearing and writing it down is dictation/hear's, which this runs for
-# each recording and passes on what it says while it listens.
+# Dictation: hears what the person says (dictation/hear) and puts it into the text
+# field that has the focus, but only if the same field still has it when the text
+# is ready, so that it never lands somewhere the person did not mean. Run for one
+# dictation, it talks over its standard input and output, one JSON line at a time.
 #
 # It is the Wayland input method for as long as it runs, for two things that
 # nothing else offers: applications tell an input method when a text field has
 # the focus and what kind it is, and text committed to a field cannot press
-# shortcuts, as typed keys can. Should another input method be running, it does
-# without. Applications under XWayland never tell, so they are "unknown".
+# shortcuts, as typed keys can. Password fields never get the text. Should another
+# input method be running, it does without, and inserts nothing.
 #
-# The text is gone at the end.
+# Usage: dictate [--copy | --only-copy]
+# --copy also copies the text, so that it is never lost: the bar's dictation does,
+# while dictation for an application's own field only inserts. --only-copy never
+# inserts. Without either, text with no field to go to is only in "done".
 #
-# Usage: dictate [--held] (--held starts with no recording, to be given text with
-# "hold").
+# While the person speaks, the words so far show in the field that has the focus,
+# as a draft that is not yet in it (an input method's preedit), where the field
+# allows it and the words may go there; otherwise only the shell shows them.
 #
-# From the shell, {"do": ...}: "stop"; "text", with "text", for what the person
-# edited; "insert"; "type", for keys, when the person asks; "copy"; "add", to keep
-# talking; "retry"; "hold", with "text"; "discard". The end of the input discards,
-# as do SIGINT and SIGTERM.
+# From the shell, {"do": ...}: "stop"; "discard", which ends it. The end
+# of the input discards, as do SIGINT and SIGTERM.
 #
-# To the shell: hear's "listening", "draft", and "writing", as it says them;
-# {"state": "waiting", "text": ..., "where": ..., "app": ...}; {"state": "failed"};
-# and at the end, {"state": "done", "text": ...} or {"state": "nothing"}.
-# "where": "field", a text field; "password", where text is refused; "none", a
-# window with no field; "unknown", a window that does not tell; "nowindow".
+# To the shell: hear's "listening" and "writing", as it says them; its "draft",
+# with "inline": true while the field shows it; and
+# at the end, {"state": "done", "text": ..., "inserted": bool, "copied": bool,
+# "app": ...}; {"state": "nothing"}; or {"state": "failed"}.
 import json
 import os
 import pathlib
@@ -36,11 +35,8 @@ import socket
 import struct
 import subprocess
 import sys
-import time
 
 HEAR = os.environ.get("DICTATION_HEAR", str(pathlib.Path(__file__).with_name("hear")))
-# How long "insert" waits for the field, after the shell gives the focus back.
-FIELD_WAIT = 0.6
 
 # zwp_text_input_v3's purposes and hints that mean a secret.
 PURPOSE_PASSWORD, PURPOSE_PIN = 8, 9
@@ -145,10 +141,22 @@ class InputMethod:
     def secret(self):
         return self.active and (self.purpose in (PURPOSE_PASSWORD, PURPOSE_PIN) or bool(self.hint & HINT_SENSITIVE))
 
+    def spaced(self, text):
+        """With the space the field needs before it."""
+        last = self.before
+        return " " + text if last and not last.isspace() and last not in NO_SPACE_AFTER else text
+
     def commit(self, text):
-        if self.before and not self.before.isspace() and self.before not in NO_SPACE_AFTER:
-            text = " " + text
-        self.send(METHOD, 0, string(text))
+        """With the space it may need; it takes the place of the draft, as a commit
+        with no draft of its own leaves none."""
+        self.send(METHOD, 0, string(self.spaced(text)))
+        self.send(METHOD, 3, struct.pack("<I", self.commits))
+
+    def draft(self, text):
+        """Shown in the field, where it would go, and not yet in it; "" takes it away."""
+        text = self.spaced(text) if text else ""
+        end = len(text.encode())
+        self.send(METHOD, 1, string(text) + struct.pack("<ii", end, end))
         self.send(METHOD, 3, struct.pack("<I", self.commits))
 
 
@@ -168,18 +176,18 @@ def clean(said):
 
 
 class Dictation:
-    def __init__(self, held):
+    def __init__(self, copy, only_copy):
+        self.copy = copy or only_copy
+        self.only_copy = only_copy
         self.selector = selectors.DefaultSelector()
         self.method = InputMethod()
         self.input = b""
-        self.state = None
-        self.text = ""
-        self.hearing = None
+        self.state = "listening"
         self.from_hearing = b""
-        self.was_sent = None
-        self.insert_by = None
         self.target = None
-        self.last_refresh = 0
+        # The draft: as hear said it, and the field that shows it, if one does.
+        self.draft = None
+        self.shown = None
 
         wake_read, wake_write = os.pipe()
         os.set_blocking(wake_write, False)
@@ -190,16 +198,22 @@ class Dictation:
         self.selector.register(sys.stdin.fileno(), selectors.EVENT_READ, self.commanded)
         if self.method.socket:
             self.selector.register(self.method.socket, selectors.EVENT_READ, self.compositor)
-        if not held:
-            self.listen()
+        # What is under way ends with this, so the microphone never stays open.
+        self.hearing = subprocess.Popen(
+            ["setpriv", "--pdeathsig", "TERM", HEAR],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+        self.selector.register(self.hearing.stdout, selectors.EVENT_READ, self.heard)
 
     def emit(self, **message):
         print(json.dumps(message, ensure_ascii=False), flush=True)
 
     def finish(self, code):
-        if self.hearing and self.hearing.poll() is None:
+        self.hide_draft()
+        if self.hearing.poll() is None:
             self.hearing.terminate()
-            self.hearing.wait()
+        self.hearing.wait()
         sys.exit(code)
 
     # Commands ------------------------------------------------------------
@@ -215,48 +229,15 @@ class Dictation:
         self.input += data
         *lines, self.input = self.input.split(b"\n")
         for line in lines:
-            self.command(json.loads(line))
-
-    def command(self, message):
-        what = message["do"]
-        if what == "discard":
-            self.finish(130)
-        elif what == "stop" and self.state == "listening":
-            # Where the words were meant to go is where the focus was at the stop.
-            self.target = self.place()
-            self.to_hearing("stop")
-        elif what == "add" and self.state == "waiting":
-            self.listen()
-        elif what == "retry" and self.state == "failed":
-            self.to_hearing("retry")
-        elif what == "hold":
-            self.text = message["text"]
-            self.wait_for_person()
-        elif self.state == "waiting":
-            if what == "text":
-                self.text = clean(message["text"])
-            elif what == "insert":
-                self.insert_by = time.monotonic() + FIELD_WAIT
-            elif what == "type":
-                self.type_keys()
-            elif what == "copy":
-                self.copy()
+            what = json.loads(line)["do"]
+            if what == "discard":
+                self.finish(130)
+            elif what == "stop" and self.state == "listening":
+                # Where the words were meant to go is where the focus was at the stop.
+                self.target = self.place()
+                self.to_hearing("stop")
 
     # Hearing -------------------------------------------------------------
-
-    def listen(self):
-        self.state = "listening"
-        self.target = None
-        self.from_hearing = b""
-        # What is under way ends with this, so the microphone never stays open.
-        self.hearing = subprocess.Popen(
-            ["setpriv", "--pdeathsig", "TERM", HEAR, "--retry"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-        )
-        # Bound to this one: a new one may begin before the last one's end is read.
-        self.selector.register(self.hearing.stdout, selectors.EVENT_READ,
-                               lambda source, hearing=self.hearing: self.heard(hearing, source))
 
     def to_hearing(self, what):
         try:
@@ -265,12 +246,14 @@ class Dictation:
         except OSError:
             pass
 
-    def heard(self, hearing, source):
+    def heard(self, source):
         data = os.read(source.fileno(), 65536)
         if not data:
-            self.hearing_ended(hearing)
-            return
-        if hearing is not self.hearing:
+            # Ended with no words: it could not listen, or write them down.
+            self.selector.unregister(source)
+            if self.state in ("listening", "writing"):
+                self.emit(state="failed")
+                self.finish(1)
             return
         self.from_hearing += data
         *lines, self.from_hearing = self.from_hearing.split(b"\n")
@@ -280,43 +263,41 @@ class Dictation:
             if state == "writing" and self.target is None:
                 # It stopped by itself, after a long silence.
                 self.target = self.place()
-            if state in ("listening", "draft", "writing"):
-                if state != "draft":
-                    self.state = state
+            if state == "draft":
+                self.draft = message
+                self.place_draft(changed=True)
+            elif state in ("listening", "writing"):
+                self.state = state
                 self.emit(**message)
-            elif state == "failed" and message["retry"]:
-                # The recording stays, to try again.
-                self.state = "failed"
-                self.emit(state="failed")
             elif state in ("done", "nothing"):
                 self.written(clean(message.get("text", "")))
 
-    def hearing_ended(self, hearing):
-        """Ended with no text: it could not listen. What was said before is still
-        there; with nothing, it has failed."""
-        self.selector.unregister(hearing.stdout)
-        hearing.stdout.close()
-        hearing.wait()
-        if hearing is not self.hearing:
-            return
-        self.hearing = None
-        if self.state in ("listening", "writing", "failed"):
-            if self.text:
-                self.wait_for_person()
-            else:
-                self.emit(state="failed")
-                self.finish(1)
+    # The draft -----------------------------------------------------------
 
-    def written(self, said):
-        had_text = bool(self.text)
-        self.text = f"{self.text} {said}".strip()
-        if not self.text:
-            self.emit(state="nothing")
-            self.finish(0)
-        if not had_text and self.place() == self.target and self.deliverable():
-            self.method.commit(self.text)
-            self.done()
-        self.wait_for_person()
+    def place_draft(self, changed=False):
+        """In the field that has the focus, if the words may go there; moved along
+        with the focus, and gone from a field that may no longer get them."""
+        if not self.draft:
+            return
+        method = self.method
+        # After the stop, only the field that had the focus then may get them.
+        may = (not self.only_copy and method.active and not method.secret
+               and (self.state == "listening" or self.state == "writing" and method.activations == self.target[1]))
+        field = method.activations if may else None
+        if field == self.shown and not changed:
+            return
+        if field is not None:
+            method.draft(" ".join(part for part in (self.draft["text"], self.draft["tail"]) if part))
+        else:
+            self.hide_draft()
+        self.shown = field
+        self.emit(**self.draft, inline=field is not None)
+
+    def hide_draft(self):
+        # A field that lost the focus has dropped it already.
+        if self.shown is not None and self.method.active and self.method.activations == self.shown:
+            self.method.draft("")
+        self.shown = None
 
     # Delivering ----------------------------------------------------------
 
@@ -324,48 +305,20 @@ class Dictation:
         """The focused window and field, to tell if the person has moved."""
         return focused_window().get("address"), self.method.activations
 
-    def deliverable(self):
-        return self.method.active and not self.method.secret
-
-    def where(self):
-        window = focused_window()
-        if self.method.secret:
-            return "password", window
-        if self.method.active:
-            return "field", window
-        if not window:
-            return "nowindow", window
-        if window.get("xwayland") or not self.method.available:
-            return "unknown", window
-        return "none", window
-
-    def wait_for_person(self):
-        self.state = "waiting"
-        self.was_sent = None
-        self.refresh()
-
-    def refresh(self):
-        self.last_refresh = time.monotonic()
-        where, window = self.where()
-        report = dict(state="waiting", text=self.text, where=where, app=window.get("class", ""))
-        if report != self.was_sent:
-            self.was_sent = report
-            self.emit(**report)
-
-    def type_keys(self):
-        where, _ = self.where()
-        if where in ("password", "nowindow"):
-            self.refresh()
-            return
-        subprocess.run(["wtype", "-"], input=self.text.encode(), check=False)
-        self.done()
-
-    def copy(self):
-        subprocess.run(["wl-copy"], input=self.text.encode(), check=False)
-        self.done()
-
-    def done(self):
-        self.emit(state="done", text=self.text)
+    def written(self, text):
+        if not text:
+            self.emit(state="nothing")
+            self.finish(0)
+        app = focused_window().get("class", "")
+        inserted = False
+        if not self.only_copy and self.place() == self.target and self.method.active and not self.method.secret:
+            # It takes the place of the draft.
+            self.method.commit(text)
+            self.shown = None
+            inserted = True
+        if self.copy:
+            subprocess.run(["wl-copy"], input=text.encode(), check=False)
+        self.emit(state="done", text=text, inserted=inserted, copied=self.copy, app=app)
         self.finish(0)
 
     # The loop ------------------------------------------------------------
@@ -375,31 +328,17 @@ class Dictation:
             self.selector.unregister(source)
             source.close()
             self.method.socket = None
-        if self.state == "waiting":
-            self.refresh()
-
-    def tick(self):
-        if self.state != "waiting":
-            return
-        if self.insert_by is not None:
-            if self.deliverable():
-                self.method.commit(self.text)
-                self.done()
-            elif time.monotonic() >= self.insert_by:
-                self.insert_by = None
-        # Hyprland's focus has no event here; XWayland's windows say nothing else.
-        if time.monotonic() - self.last_refresh >= 1:
-            self.refresh()
+        self.place_draft()
 
     def run(self):
         while True:
-            for key, _ in self.selector.select(0.05):
+            for key, _ in self.selector.select():
                 key.data(key.fileobj)
-            self.tick()
 
 
 def main():
-    Dictation("--held" in sys.argv[1:]).run()
+    arguments = sys.argv[1:]
+    Dictation("--copy" in arguments, "--only-copy" in arguments).run()
 
 
 if __name__ == "__main__":

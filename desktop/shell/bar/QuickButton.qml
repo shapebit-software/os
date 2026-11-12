@@ -7,10 +7,12 @@
 // and a click on it stops the recording. While the screen is shared
 // (SharePicker.qml), it is filled with the accent and shows a screen, and
 // says with which applications. While dictating (Dictation.qml), the dictation
-// button is filled with the accent and its icon says the state: sound bars while
-// listening, a pencil while writing it down, lines while the text waits, red when
-// something is wrong; a click stops, a right click discards, and with nothing
-// under way, brings back the last dictation. The assistant's button opens what was open
+// button is filled with the accent and its icon says the state: sound bars that
+// follow the voice while listening, a wave running through them while writing it
+// down, red when something is wrong, and then briefly where the words went, a
+// check or a clipboard, which pops in; a click stops, a right click discards, or
+// with nothing under way, starts a dictation that only copies. It has no tooltip
+// of its own, only what the person must know, such as a missing microphone. The assistant's button opens what was open
 // last, its bubbles or its panel (Assistant.qml), and closes it; while either is open
 // on its screen, the button is lit and its sparkle filled. Held, it listens until let
 // go, as Super does; a right click starts voice mode, or ends it, as a double tap on
@@ -23,6 +25,7 @@
 // action waits for the person.
 pragma ComponentBehavior: Bound
 import QtQuick
+import Quickshell.Hyprland
 import qs.controls
 import qs.services
 
@@ -41,8 +44,8 @@ BarButton {
     readonly property bool dictate: kind === "dictation"
     readonly property bool red: kind === "capture" && Capture.recording
     readonly property bool shared: kind === "capture" && SharePicker.sharing
-    readonly property bool dictating: dictate && (Dictation.listening || Dictation.writing || Dictation.waiting)
-    readonly property bool hearing: dictate && Dictation.listening && !Dictation.quiet
+    readonly property bool dictating: dictate && (Dictation.active || Dictation.result !== null)
+    readonly property bool hearing: dictate && (Dictation.listening && !Dictation.quiet || Dictation.writing)
     readonly property bool wrong: dictate && (Dictation.state === "failed" || Dictation.notice.startsWith("No m") || Dictation.notice.startsWith("Mic"))
 
     readonly property string sparkle: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z"
@@ -72,7 +75,7 @@ BarButton {
         if (assistant)
             Assistant.tap(screenName, () => bar.open("assistant", button));
         else if (dictate)
-            Dictation.toggle();
+            Dictation.toggle(false);
         else if (Capture.recording)
             Capture.stop();
         else
@@ -109,7 +112,7 @@ BarButton {
         target: button
         edge: button.bar.edge
         hovered: button.visible && (button.assistant ? Assistant.notice !== "" : button.dictate && Dictation.telling
-            || button.hovered && (button.red || button.shared || button.dictate))
+            || button.hovered && (button.red || button.shared))
         text: button.assistant ? Assistant.notice
             : button.red ? `Recording ${Capture.elapsed} · click to stop`
             : button.dictate ? Dictation.status
@@ -200,11 +203,39 @@ BarButton {
         }
     }
     Icon {
+        id: icon
+
         visible: !button.assistant && !button.red && !button.hearing
         height: button.half ? 14 : 18
         color: Theme.textBright
         strokeWidth: 1.5
         strokes: button.dictate ? Dictation.icon : button.shared ? button.screen : button.frame
+    }
+
+    // Where the dictated words went pops in.
+    NumberAnimation {
+        id: pop
+
+        target: icon
+        property: "scale"
+        from: 0.4
+        to: 1
+        duration: 260
+        easing.type: Easing.OutBack
+    }
+    Connections {
+        target: button.dictate ? Dictation : null
+
+        function onResultChanged() {
+            if (Dictation.result)
+                pop.restart();
+        }
+
+        // The words show above this button, on the screen in use.
+        function onActiveChanged() {
+            if (Dictation.active && button.visible && button.screenName === Hyprland.focusedMonitor?.name)
+                Dictation.at = button.bar.place(button);
+        }
     }
 
     // The assistant's sparkle, which turns while it works, and its dot.

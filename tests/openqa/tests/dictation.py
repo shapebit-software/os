@@ -1,6 +1,7 @@
 """The dictation button says when Parakeet is not downloaded, and when there is no
 microphone. With both, it listens and shows it; a right click discards, and a click
-stops. So does its shortcut, tapped or held. The microphone here is silent, so
+stops. So does its shortcut, tapped or held. A right click, or Super+Shift+D, starts
+one that only copies. The microphone here is silent, so
 nothing is ever written down: an empty folder stands in for Parakeet, which is too
 large to download here, and tests/unit covers where the text goes."""
 
@@ -61,6 +62,12 @@ def run(self):
     mouse_click("right")
     sut.wait_for(lambda: state() == "idle", 15)
 
+    # A right click with nothing under way dictates only to copy.
+    mouse_click("right")
+    sut.wait_for(lambda: state() == "listening", 15)
+    mouse_click("right")
+    sut.wait_for(lambda: state() == "idle", 15)
+
     mouse_click()
     sut.wait_for(lambda: state() == "listening", 15)
     wait_still_screen(2, 5)
@@ -75,6 +82,12 @@ def run(self):
     send_key("super-d")
     sut.wait_for(lambda: state() == "listening", 15)
     send_key("super-d")
+    sut.wait_for(lambda: state() != "listening", 15)
+    sut.wait_for(lambda: state() == "idle", 120)
+
+    send_key("super-shift-d")
+    sut.wait_for(lambda: state() == "listening", 15)
+    send_key("super-shift-d")
     sut.wait_for(lambda: state() != "listening", 15)
     sut.wait_for(lambda: state() == "idle", 120)
 

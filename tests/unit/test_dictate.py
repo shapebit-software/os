@@ -1,5 +1,5 @@
-"""desktop/dictation/dictate, with a made-up compositor, window, keyboard, clipboard,
-and dictation/hear, which tests/unit/test_hear.py covers. Every path says where the
+"""desktop/dictation/dictate, with a made-up compositor, window, clipboard, and
+dictation/hear, which tests/unit/test_hear.py covers. Every path says where the
 text goes, and that nothing goes anywhere else."""
 
 import json
@@ -18,9 +18,9 @@ import pytest
 DICTATE = pathlib.Path(__file__).parents[2] / "desktop" / "dictation" / "dictate"
 
 # As dictation/hear: listens until "stop", then says "said" as the words, or nothing.
-# Files in FAKES make it fail before it listens ("cannot-hear"), say a draft
-# ("draft"), stop by itself ("gives-up"), wait for "go" before the words
-# ("waits"), or fail, to retry, that many times ("fails").
+# Files in FAKES make it fail before it listens ("cannot-hear") or after the stop
+# ("fails"), say a draft ("draft"), stop by itself ("gives-up", once "give-up" is
+# there), or wait for "go" before the words ("waits").
 HEAR = """#!/usr/bin/python3
 import json, os, pathlib, sys, time
 fakes = pathlib.Path(os.environ["FAKES"])
@@ -33,7 +33,7 @@ with open(fakes / "hear-runs", "a") as runs:
     runs.write(" ".join(sys.argv[1:]) + "\\n")
 (fakes / "hear-pid").write_text(str(os.getpid()))
 if (fakes / "cannot-hear").exists():
-    say(state="failed", retry=False)
+    say(state="failed")
     sys.exit(1)
 say(state="listening", level=1, quiet=False, idle=False)
 if mark("draft"):
@@ -42,11 +42,9 @@ def write_down():
     say(state="writing")
     while (fakes / "waits").exists() and not (fakes / "go").exists():
         time.sleep(0.02)
-    fails = int(mark("fails", "0"))
-    if fails:
-        (fakes / "fails").write_text(str(fails - 1))
-        say(state="failed", retry=True)
-        return
+    if (fakes / "fails").exists():
+        say(state="failed")
+        sys.exit(1)
     said = mark("said")
     if said:
         say(state="done", text=said)
@@ -54,18 +52,16 @@ def write_down():
         say(state="nothing")
     sys.exit(0)
 if (fakes / "gives-up").exists():
+    while not (fakes / "give-up").exists():
+        time.sleep(0.02)
     write_down()
 for line in sys.stdin:
     what = json.loads(line)["do"]
     if what == "discard":
         sys.exit(130)
-    if what in ("stop", "retry"):
+    if what == "stop":
         write_down()
 sys.exit(130)
-"""
-KEYBOARD = """#!/bin/bash
-echo "$*" >"$FAKES/wtype-args"
-cat >"$FAKES/typed"
 """
 CLIPBOARD = '#!/bin/bash\ncat >"$FAKES/copied"\n'
 WINDOW = """#!/bin/bash
@@ -83,11 +79,18 @@ def wl_string(text):
 
 
 class Compositor:
-    """As much of a compositor as an input method sees."""
+    """As much of a compositor, and of the application with the field, as an input
+    method sees. A field that tells its text tells it again after each change.
+    "draft" is what the field shows of the input method's draft, and "drafts"
+    each one it showed."""
 
     def __init__(self, path, available=True):
         self.available = available
         self.commits = []
+        self.draft = ""
+        self.drafts = []
+        self.before = ""
+        self.tells = True
         self.method_bound = threading.Event()
         self.server = socket.socket(socket.AF_UNIX)
         self.server.bind(str(path))
@@ -103,6 +106,7 @@ class Compositor:
         self.client, _ = self.server.accept()
         buffer = b""
         pending = None
+        draft = None
         while True:
             try:
                 data = self.client.recv(65536)
@@ -127,25 +131,42 @@ class Compositor:
                 elif target == METHOD and opcode == 0:
                     size = struct.unpack_from("<I", payload)[0]
                     pending = payload[4 : 3 + size].decode()
+                elif target == METHOD and opcode == 1:
+                    size = struct.unpack_from("<I", payload)[0]
+                    draft = payload[4 : 3 + size].decode()
                 elif target == METHOD and opcode == 3:
-                    self.commits.append(pending)
+                    # A commit with no draft of its own leaves none.
+                    if (draft or "") != self.draft:
+                        self.draft = draft or ""
+                        self.drafts.append(self.draft)
+                    if pending is not None:
+                        self.commits.append(pending)
+                        self.before += pending
+                    pending = draft = None
+                    self.told()
 
-    def focus_field(self, before="", purpose=0, hint=0, selected=False):
+    def told(self):
+        if self.tells:
+            cursor = len(self.before.encode())
+            self.event(METHOD, 2, wl_string(self.before) + struct.pack("<II", cursor, cursor))
+            self.event(METHOD, 5)
+
+    def focus_field(self, before="", purpose=0, hint=0, selected=False, tells=True):
         self.method_bound.wait(5)
+        # A field just focused shows no draft.
+        self.before, self.tells, self.draft = before, tells, ""
         cursor = len(before.encode())
         self.event(METHOD, 0)
-        self.event(METHOD, 2, wl_string(before) + struct.pack("<II", cursor, 0 if selected else cursor))
+        if tells:
+            self.event(METHOD, 2, wl_string(before) + struct.pack("<II", cursor, 0 if selected else cursor))
         self.event(METHOD, 4, struct.pack("<II", hint, purpose))
         self.event(METHOD, 5)
 
-    def leave_field(self):
-        self.event(METHOD, 1)
-        self.event(METHOD, 5)
 
 
 class Dictation:
-    def __init__(self, tmp_path, said="", window=BROWSER, compositor=True, available=True, held=False, draft="",
-                 waits=False, fails=0, hears=True, gives_up=False, real_hear=False):  # fmt: skip
+    def __init__(self, tmp_path, *args, said="", window=BROWSER, compositor=True, available=True, draft="",
+                 waits=False, fails=False, hears=True, gives_up=False, real_hear=False, env=None):  # fmt: skip
         self.fakes = tmp_path / "fakes"
         self.runtime = tmp_path / "runtime"
         self.fakes.mkdir()
@@ -153,11 +174,10 @@ class Dictation:
         self.said(said)
         self.window(window)
         (self.fakes / "draft").write_text(draft)
-        (self.fakes / "fails").write_text(str(fails))
-        for name, present in (("waits", waits), ("cannot-hear", not hears), ("gives-up", gives_up)):
+        for name, present in (("waits", waits), ("cannot-hear", not hears), ("gives-up", gives_up), ("fails", fails)):
             if present:
                 (self.fakes / name).touch()
-        for name, script in (("hear", HEAR), ("wtype", KEYBOARD), ("wl-copy", CLIPBOARD), ("hyprctl", WINDOW)):
+        for name, script in (("hear", HEAR), ("wl-copy", CLIPBOARD), ("hyprctl", WINDOW)):
             path = self.fakes / name
             path.write_text(script)
             path.chmod(0o755)
@@ -173,7 +193,7 @@ class Dictation:
             hearing = {"DICTATION_ENGINE": str(self.fakes / "dictate-engine"), "DICTATION_PARAKEET": str(self.fakes)}
         self.compositor = Compositor(self.runtime / "test", available) if compositor else None
         self.process = subprocess.Popen(
-            [DICTATE, *(["--held"] if held else [])],
+            [DICTATE, *args],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             text=True,
@@ -184,6 +204,7 @@ class Dictation:
                 "XDG_RUNTIME_DIR": str(self.runtime),
                 "WAYLAND_DISPLAY": "test" if compositor else "none",
                 **hearing,
+                **(env or {}),
             },
         )
         self.lines = queue.Queue()
@@ -202,8 +223,8 @@ class Dictation:
     def window(self, window):
         (self.fakes / "window").write_text(json.dumps(window))
 
-    def do(self, what, **more):
-        self.process.stdin.write(json.dumps({"do": what, **more}) + "\n")
+    def do(self, what):
+        self.process.stdin.write(json.dumps({"do": what}) + "\n")
         self.process.stdin.flush()
 
     def wait_for(self, state, **matching):
@@ -215,9 +236,6 @@ class Dictation:
                 raise AssertionError(f"no {state} {matching}; heard {self.heard[-5:]}") from None
             self.heard.append(message)
             if message["state"] == state and all(message.get(k) == v for k, v in matching.items()):
-                if state == "done":
-                    self.process.wait(10)
-                    self.compositor and self.compositor.thread.join(5)
                 return message
 
     def say(self):
@@ -240,6 +258,10 @@ class Dictation:
         return path.read_text() if path.exists() else None
 
     @property
+    def copied(self):
+        return self.file("copied")
+
+    @property
     def hearing_gone(self):
         try:
             os.kill(int(self.file("hear-pid")), 0)
@@ -251,17 +273,21 @@ class Dictation:
     def inserted(self):
         return self.compositor.commits if self.compositor else []
 
-    @property
-    def typed(self):
-        return self.file("typed")
+
+def eventually(check):
+    """The compositor's side comes a moment after what dictate says."""
+    deadline = time.monotonic() + 5
+    while not check():
+        assert time.monotonic() < deadline
+        time.sleep(0.02)
 
 
 @pytest.fixture
 def dictate(tmp_path):
     started = []
 
-    def start(**kwargs):
-        started.append(Dictation(tmp_path, **kwargs))
+    def start(*args, **kwargs):
+        started.append(Dictation(tmp_path, *args, **kwargs))
         return started[-1]
 
     yield start
@@ -270,24 +296,44 @@ def dictate(tmp_path):
         dictation.process.wait()
 
 
-# A field that stays: straight in, with no card -----------------------------
+# A field that stays: straight in ---------------------------------------------
 
 
-def test_text_goes_straight_into_the_field(dictate):
-    dictation = dictate(said="Dzień dobry, wszystkim.")
+def test_text_goes_straight_into_the_field_and_is_copied(dictate):
+    dictation = dictate("--copy", said="Dzień dobry, wszystkim.")
     dictation.compositor.focus_field()
     dictation.say()
-    assert dictation.wait_for("done")["text"] == "Dzień dobry, wszystkim."
+    message = dictation.wait_for("done")
+    assert (message["text"], message["inserted"], message["copied"], message["app"]) == (
+        "Dzień dobry, wszystkim.", True, True, "firefox")
     assert dictation.ended() == 0
     assert dictation.inserted == ["Dzień dobry, wszystkim."]
-    assert dictation.typed is None, "keys could press shortcuts"
+    assert dictation.copied == "Dzień dobry, wszystkim."
 
 
-def test_it_hears_keeping_a_failure_to_retry(dictate):
+def test_it_hears_with_hear(dictate):
     dictation = dictate()
     dictation.say()
     dictation.wait_for("nothing")
-    assert dictation.file("hear-runs") == "--retry\n"
+    assert dictation.file("hear-runs") == "\n"
+
+
+def test_without_copy_it_only_inserts(dictate):
+    dictation = dictate(said="Hello")
+    dictation.compositor.focus_field()
+    dictation.say()
+    assert dictation.wait_for("done", inserted=True, copied=False)
+    assert dictation.copied is None
+
+
+def test_only_copy_never_inserts(dictate):
+    dictation = dictate("--only-copy", said="Hello")
+    dictation.compositor.focus_field()
+    dictation.say()
+    assert dictation.wait_for("done", inserted=False, copied=True)
+    assert dictation.ended() == 0
+    assert dictation.inserted == []
+    assert dictation.copied == "Hello"
 
 
 def test_control_characters_and_line_ends_never_pass(dictate):
@@ -313,7 +359,7 @@ def test_a_space_goes_where_the_field_needs_one(dictate, before, selected, expec
     dictation = dictate(said="there")
     dictation.compositor.focus_field(before=before, selected=selected)
     dictation.say()
-    dictation.wait_for("done")
+    assert dictation.wait_for("done")["text"] == "there"
     assert dictation.inserted == [expected]
 
 
@@ -325,250 +371,188 @@ def test_moving_to_a_field_before_the_stop_is_where_it_goes(dictate):
     dictation.compositor.focus_field()
     time.sleep(0.2)
     dictation.do("stop")
-    dictation.wait_for("done")
+    assert dictation.wait_for("done")["app"] == "chat"
     assert dictation.inserted == ["Hello"]
 
 
 def test_where_it_stopped_by_itself_is_where_it_goes(dictate):
     dictation = dictate(said="Hello", gives_up=True)
     dictation.compositor.focus_field()
-    dictation.wait_for("done")
+    time.sleep(0.2)
+    (dictation.fakes / "give-up").touch()
+    dictation.wait_for("done", inserted=True)
     assert dictation.inserted == ["Hello"]
 
 
-# Moved while it was written down: it waits, so it lands in nothing new ------
+# Moved while it was written down, or no field: only copied -------------------
 
 
-def test_another_window_while_writing_waits(dictate):
-    dictation = dictate(waits=True, said="Private")
+def test_another_window_while_writing_gets_nothing(dictate):
+    dictation = dictate("--copy", waits=True, said="Private")
     dictation.compositor.focus_field()
     dictation.writing()
     dictation.window(OTHER)
     dictation.compositor.focus_field()
     time.sleep(0.2)
     dictation.go()
-    message = dictation.wait_for("waiting", where="field")
-    assert message["app"] == "chat"
+    assert dictation.wait_for("done", inserted=False, copied=True)
     assert dictation.inserted == []
+    assert dictation.copied == "Private"
 
 
-def test_another_field_in_the_same_window_while_writing_waits(dictate):
-    dictation = dictate(waits=True, said="Private")
+def test_another_field_in_the_same_window_while_writing_gets_nothing(dictate):
+    dictation = dictate("--copy", waits=True, said="Private")
     dictation.compositor.focus_field()
     dictation.writing()
     dictation.compositor.focus_field()
     time.sleep(0.2)
     dictation.go()
-    dictation.wait_for("waiting", where="field")
+    dictation.wait_for("done", inserted=False)
     assert dictation.inserted == []
 
 
-def test_a_field_that_appears_only_after_the_stop_waits(dictate):
-    dictation = dictate(waits=True, said="Hello")
+def test_a_field_that_appears_only_after_the_stop_gets_nothing(dictate):
+    dictation = dictate("--copy", waits=True, said="Hello")
     dictation.writing()
     dictation.compositor.focus_field()
     time.sleep(0.2)
     dictation.go()
-    dictation.wait_for("waiting", where="field")
+    dictation.wait_for("done", inserted=False)
     assert dictation.inserted == []
 
 
 def test_a_window_left_after_the_stop_gets_nothing(dictate):
-    dictation = dictate(waits=True, said="Tajne.")
+    dictation = dictate("--copy", waits=True, said="Tajne.")
     dictation.compositor.focus_field()
     dictation.writing()
     dictation.window(OTHER)
     dictation.go()
-    assert dictation.wait_for("waiting")["text"] == "Tajne."
+    dictation.wait_for("done", inserted=False)
     assert dictation.inserted == []
 
 
-# No place for it: it waits, and nothing is typed ----------------------------
+def test_with_no_field_it_is_copied(dictate):
+    dictation = dictate("--copy", said="Hello")
+    dictation.say()
+    message = dictation.wait_for("done")
+    assert (message["inserted"], message["copied"], message["app"]) == (False, True, "firefox")
+    assert dictation.ended() == 0
+    assert dictation.copied == "Hello"
 
 
-def test_a_window_with_no_field_waits(dictate):
+def test_with_no_field_and_no_copy_the_text_is_only_in_the_answer(dictate):
     dictation = dictate(said="Hello")
     dictation.say()
-    message = dictation.wait_for("waiting")
-    assert (message["where"], message["app"], message["text"]) == ("none", "firefox", "Hello")
-    assert dictation.typed is None and dictation.inserted == []
+    assert dictation.wait_for("done", inserted=False, copied=False)["text"] == "Hello"
+    assert dictation.copied is None
 
 
-def test_no_window_waits_and_keys_are_refused(dictate):
-    dictation = dictate(said="Hello", window={})
+@pytest.mark.parametrize(
+    "conditions",
+    [
+        {"window": {"address": "0xc", "class": "old", "xwayland": True}},
+        {"compositor": False},
+        {"available": False},
+    ],
+    ids=["xwayland", "no compositor", "another input method"],
+)
+def test_where_fields_are_not_told_nothing_is_inserted(dictate, conditions):
+    dictation = dictate("--copy", said="Hello", **conditions)
     dictation.say()
-    assert dictation.wait_for("waiting")["where"] == "nowindow"
-    dictation.do("type")
-    time.sleep(0.3)
-    assert dictation.typed is None
-    assert dictation.process.poll() is None
-
-
-def test_xwayland_never_tells_so_it_is_unknown(dictate):
-    dictation = dictate(said="Hello", window={"address": "0xc", "class": "old", "xwayland": True})
-    dictation.say()
-    assert dictation.wait_for("waiting")["where"] == "unknown"
-    assert dictation.typed is None
-
-
-def test_without_a_compositor_it_is_unknown(dictate):
-    dictation = dictate(said="Hello", compositor=False)
-    dictation.say()
-    assert dictation.wait_for("waiting")["where"] == "unknown"
-
-
-def test_with_another_input_method_running_it_is_unknown(dictate):
-    dictation = dictate(said="Hello", available=False)
-    dictation.say()
-    assert dictation.wait_for("waiting")["where"] == "unknown"
-
-
-# Passwords: never ------------------------------------------------------------
+    dictation.wait_for("done", inserted=False, copied=True)
+    assert dictation.inserted == []
 
 
 @pytest.mark.parametrize("purpose, hint", [(8, 0), (9, 0), (0, 0x40)])
-def test_a_secret_field_refuses_both_ways_in(dictate, purpose, hint):
-    dictation = dictate(said="Hello")
+def test_a_secret_field_never_gets_it(dictate, purpose, hint):
+    dictation = dictate("--copy", said="Hello")
     dictation.compositor.focus_field(purpose=purpose, hint=hint)
     dictation.say()
-    assert dictation.wait_for("waiting")["where"] == "password"
-    dictation.do("insert")
-    dictation.do("type")
-    time.sleep(0.9)
-    assert dictation.inserted == [] and dictation.typed is None
-    assert dictation.process.poll() is None
-
-
-# What the person chooses ------------------------------------------------------
-
-
-def test_a_field_clicked_while_waiting_takes_it_when_asked_and_not_before(dictate):
-    dictation = dictate(said="Hello")
-    dictation.say()
-    dictation.wait_for("waiting", where="none")
-    dictation.compositor.focus_field()
-    dictation.wait_for("waiting", where="field")
+    dictation.wait_for("done", inserted=False, copied=True)
     assert dictation.inserted == []
-    dictation.do("insert")
-    assert dictation.wait_for("done")["text"] == "Hello"
-    assert dictation.inserted == ["Hello"]
-
-
-def test_insert_waits_for_the_field_to_come_back(dictate):
-    # The shell gives the focus back from the card just before.
-    dictation = dictate(said="Hello")
-    dictation.say()
-    dictation.wait_for("waiting", where="none")
-    dictation.do("insert")
-    time.sleep(0.1)
-    dictation.compositor.focus_field()
-    dictation.wait_for("done")
-    assert dictation.inserted == ["Hello"]
-
-
-def test_insert_with_no_field_keeps_the_text_waiting(dictate):
-    dictation = dictate(said="Hello")
-    dictation.say()
-    dictation.wait_for("waiting")
-    dictation.do("insert")
-    time.sleep(0.9)
-    assert dictation.process.poll() is None and dictation.inserted == []
-    dictation.do("copy")
-    dictation.wait_for("done")
-    assert dictation.file("copied") == "Hello"
-
-
-def test_type_uses_keys_on_standard_input_so_it_is_never_an_option(dictate):
-    dictation = dictate(said="--help")
-    dictation.say()
-    dictation.wait_for("waiting")
-    dictation.do("type")
-    assert dictation.wait_for("done")["text"] == "--help"
-    assert dictation.file("wtype-args").strip() == "-"
-    assert dictation.typed == "--help"
-
-
-def test_edited_text_is_what_is_delivered(dictate):
-    dictation = dictate(said="Helo")
-    dictation.say()
-    dictation.wait_for("waiting")
-    dictation.do("text", text="Hello\n")
-    dictation.do("copy")
-    assert dictation.wait_for("done")["text"] == "Hello"
-    assert dictation.file("copied") == "Hello"
-
-
-def test_keep_talking_joins_the_text(dictate):
-    dictation = dictate(said="One.")
-    dictation.say()
-    dictation.wait_for("waiting", text="One.")
-    dictation.said("Two.")
-    dictation.do("add")
-    dictation.say()
-    dictation.wait_for("waiting", text="One. Two.")
-
-
-def test_keep_talking_never_delivers_by_itself(dictate):
-    dictation = dictate(said="One.")
-    dictation.say()
-    dictation.wait_for("waiting")
-    dictation.compositor.focus_field()
-    dictation.do("add")
-    dictation.say()
-    dictation.wait_for("waiting", text="One. One.")
-    assert dictation.inserted == []
-
-
-def test_silence_in_keep_talking_keeps_the_text(dictate):
-    dictation = dictate(said="One.")
-    dictation.say()
-    dictation.wait_for("waiting")
-    dictation.said("")
-    dictation.do("add")
-    dictation.say()
-    dictation.wait_for("waiting", text="One.")
-
-
-def test_held_text_comes_back_to_be_delivered(dictate):
-    dictation = dictate(held=True)
-    dictation.do("hold", text="From before")
-    dictation.wait_for("waiting", text="From before")
-    assert dictation.file("hear-runs") is None, "no microphone for this"
-    dictation.compositor.focus_field()
-    dictation.do("insert")
-    dictation.wait_for("done")
-    assert dictation.inserted == ["From before"]
-
-
-def test_held_text_stays_when_it_cannot_hear(dictate):
-    dictation = dictate(held=True, hears=False)
-    dictation.do("hold", text="From before")
-    dictation.wait_for("waiting", text="From before")
-    dictation.do("add")
-    dictation.wait_for("waiting", text="From before")
-    dictation.do("copy")
-    assert dictation.wait_for("done")["text"] == "From before"
 
 
 # While it listens ---------------------------------------------------------------
 
 
-def test_what_hear_says_while_listening_goes_to_the_shell_and_nowhere_else(dictate):
-    dictation = dictate(said="Dzień dobry.", draft="Dzień")
+def test_what_hear_says_while_listening_goes_to_the_shell_and_is_not_inserted(dictate):
+    dictation = dictate("--copy", said="Dzień dobry.", draft="Dzień")
     dictation.compositor.focus_field()
     assert dictation.wait_for("listening")["level"] == 1
-    assert dictation.wait_for("draft")["text"] == "Dzień"
+    assert dictation.wait_for("draft", inline=True)["text"] == "Dzień"
     assert dictation.inserted == []
-    assert dictation.typed is None
+    assert dictation.copied is None
+
+
+def test_the_draft_shows_in_the_field_where_it_would_go_then_the_text_takes_its_place(dictate):
+    dictation = dictate("--copy", said="świat", draft="świ")
+    dictation.compositor.focus_field(before="Witaj")
+    dictation.wait_for("draft", inline=True)
+    eventually(lambda: dictation.compositor.draft == " świ")
+    dictation.do("stop")
+    dictation.wait_for("done", inserted=True)
+    assert dictation.inserted == [" świat"]
+    assert dictation.compositor.draft == ""
+
+
+def test_the_draft_follows_the_focus_while_listening(dictate):
+    dictation = dictate("--copy", said="Hello", draft="Hel")
+    dictation.wait_for("draft", inline=False)
+    assert dictation.compositor.drafts == []
+    dictation.compositor.focus_field()
+    dictation.wait_for("draft", inline=True)
+    eventually(lambda: dictation.compositor.draft == "Hel")
+
+
+@pytest.mark.parametrize(
+    "args, field",
+    [(["--only-copy"], {}), (["--copy"], {"purpose": 8})],
+    ids=["only copy", "password"],
+)
+def test_no_draft_where_the_words_may_not_go(dictate, args, field):
+    dictation = dictate(*args, said="Hello", draft="Hel")
+    dictation.compositor.focus_field(**field)
+    dictation.wait_for("listening")
+    time.sleep(0.3)
+    assert dictation.wait_for("draft")["inline"] is False
+    assert dictation.compositor.drafts == []
+
+
+def test_after_the_stop_another_field_shows_no_draft_and_the_last_one_drops_it(dictate):
+    dictation = dictate("--copy", waits=True, said="Private", draft="Priv")
+    dictation.compositor.focus_field()
+    dictation.wait_for("draft", inline=True)
+    dictation.do("stop")
+    dictation.wait_for("writing")
+    dictation.window(OTHER)
+    dictation.compositor.focus_field()
+    dictation.wait_for("draft", inline=False)
+    assert dictation.compositor.draft == ""
+    dictation.go()
+    dictation.wait_for("done", inserted=False)
+    assert dictation.compositor.drafts == ["Priv"]
+
+
+def test_a_draft_not_inserted_is_taken_away(dictate):
+    dictation = dictate("--copy", waits=True, said="Private", draft="Priv")
+    dictation.compositor.focus_field()
+    dictation.wait_for("draft", inline=True)
+    dictation.do("stop")
+    dictation.wait_for("writing")
+    dictation.window(OTHER)
+    dictation.go()
+    dictation.wait_for("done", inserted=False)
+    eventually(lambda: dictation.compositor.drafts == ["Priv", ""])
 
 
 def test_nothing_said_delivers_nothing_and_says_so(dictate):
-    dictation = dictate()
+    dictation = dictate("--copy")
     dictation.compositor.focus_field()
     dictation.say()
     dictation.wait_for("nothing")
     assert dictation.ended() == 0
     assert dictation.inserted == []
+    assert dictation.copied is None
 
 
 # The way out --------------------------------------------------------------------
@@ -585,70 +569,53 @@ def test_nothing_said_delivers_nothing_and_says_so(dictate):
     ids=["asked", "the shell ended", "interrupted", "terminated"],
 )
 def test_every_way_of_discarding_ends_hearing_and_delivers_nothing(dictate, discard):
-    dictation = dictate(said="Secret")
+    dictation = dictate("--copy", said="Secret")
     dictation.compositor.focus_field()
     dictation.wait_for("listening")
     discard(dictation)
     assert dictation.ended() == 130
     assert dictation.hearing_gone
     assert dictation.inserted == []
+    assert dictation.copied is None
+
+
+def test_discarding_takes_the_draft_away(dictate):
+    dictation = dictate("--copy", said="Secret", draft="Sec")
+    dictation.compositor.focus_field()
+    dictation.wait_for("draft", inline=True)
+    dictation.do("discard")
+    assert dictation.ended() == 130
+    eventually(lambda: dictation.compositor.drafts == ["Sec", ""])
+    assert dictation.inserted == []
 
 
 def test_discarding_while_writing_it_down_delivers_nothing(dictate):
-    dictation = dictate(waits=True, said="Secret")
+    dictation = dictate("--copy", waits=True, said="Secret")
     dictation.compositor.focus_field()
     dictation.writing()
     dictation.do("discard")
     assert dictation.ended() == 130
     assert dictation.hearing_gone
     assert dictation.inserted == []
-
-
-def test_discarding_a_waiting_text_ends(dictate):
-    dictation = dictate(said="Secret")
-    dictation.say()
-    dictation.wait_for("waiting")
-    dictation.do("discard")
-    assert dictation.ended() == 130
+    assert dictation.copied is None
 
 
 # Failing ------------------------------------------------------------------------
 
 
 def test_when_it_cannot_hear_it_fails(dictate):
-    dictation = dictate(hears=False)
+    dictation = dictate("--copy", hears=False)
     dictation.wait_for("failed")
     assert dictation.ended() == 1
 
 
-def test_when_it_cannot_hear_text_that_is_waiting_stays(dictate):
-    dictation = dictate(said="One.")
-    dictation.say()
-    dictation.wait_for("waiting")
-    (dictation.fakes / "cannot-hear").touch()
-    dictation.do("add")
-    dictation.wait_for("waiting", text="One.")
-
-
-def test_a_failure_can_be_tried_again(dictate):
-    dictation = dictate(fails=1, said="Hello")
+def test_when_it_cannot_write_it_down_it_fails(dictate):
+    dictation = dictate("--copy", fails=True, said="Lost")
     dictation.compositor.focus_field()
     dictation.say()
     dictation.wait_for("failed")
-    assert dictation.process.poll() is None
-    dictation.do("retry")
-    assert dictation.wait_for("done")["text"] == "Hello"
-    assert dictation.inserted == ["Hello"]
-
-
-def test_a_failure_can_be_discarded(dictate):
-    dictation = dictate(fails=1, said="Hello")
-    dictation.say()
-    dictation.wait_for("failed")
-    dictation.do("discard")
-    assert dictation.ended() == 130
-    assert dictation.hearing_gone
-
+    assert dictation.ended() == 1
+    assert dictation.inserted == []
 
 
 # With the real hear ---------------------------------------------------------------

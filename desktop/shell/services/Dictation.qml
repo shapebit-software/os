@@ -1,12 +1,14 @@
 // Dictation, from the quick actions and Super+D: a click starts listening,
-// another stops, and what was said goes into the text field that has the focus.
-// Its button shows the state (bar/QuickButton.qml). When it is not sure of the
-// place, the text waits in a card to be told where (bar/DictationOverlay.qml).
-// dictation/dictate decides all that; this starts it
-// and shows what it says. It understands Parakeet's 25 languages, any of them,
-// once Parakeet is downloaded (Extras.qml); until then, the button leads there.
-// Everything runs on the computer, and locking the screen discards everything,
-// the last dictation too.
+// another stops, and what was said goes into the text field that has the focus,
+// and to the clipboard. A right click, or Super+Shift+D, only copies. Its button
+// shows the state (bar/QuickButton.qml), and then, briefly, where the words went:
+// a check when inserted, or a clipboard. The words show as they come, in the text
+// field where they would go, or else their last few by the button
+// (bar/DictationOverlay.qml).
+// dictation/dictate decides where they go; this starts it and shows what it
+// says. It understands Parakeet's 25 languages, any of them, once Parakeet is
+// downloaded (Extras.qml); until then, the button leads there. Everything runs
+// on the computer, and locking the screen discards what is under way.
 pragma Singleton
 import QtQuick
 import Quickshell
@@ -15,14 +17,13 @@ import Quickshell.Io
 Singleton {
     id: dictation
 
-    // "idle", "listening", "writing", "waiting" (a card), or "failed" (a card
-    // when there is audio to try again, otherwise only a message).
+    // "idle", "listening", "writing", or "failed", shown for a moment.
     property string state: "idle"
     readonly property bool listening: state === "listening"
     readonly property bool writing: state === "writing"
-    readonly property bool waiting: state === "waiting"
-    readonly property bool retryable: state === "failed" && process.running
-    readonly property bool active: state !== "idle" && state !== "failed" || retryable
+    readonly property bool active: listening || writing
+    // This dictation only copies.
+    property bool onlyCopy
 
     // Listening: the microphone's level, 0 to 1, whether it seems not to hear,
     // whether the person seems gone, and how long so far, in seconds.
@@ -30,19 +31,20 @@ Singleton {
     property bool quiet
     property bool idle
     property int seconds
-    // While the person speaks: the words so far, and those that may still change.
-    // Only the overlay shows them; they go nowhere until the stop.
+    // While the person speaks: the words so far, and those that may still change,
+    // and whether the text field shows them, as a draft that is not yet in it.
     property string draft
     property string draftTail
-    // Waiting: the text; where it would go, as the helper says; and the app.
-    property string text
-    property string where: "none"
-    property string app
-    // The app's name, for people.
-    readonly property string appName: {
-        const entry = app ? DesktopEntries.heuristicLookup(app) : null;
-        return entry?.name ?? app ?? "";
-    }
+    property bool draftInline
+    // The words, for the shell to show when no text field does
+    // (DictationOverlay.qml), above the button, which tells where it is as
+    // dictation starts: { screen, rect, edge, depth } (ShellBar.place()); null
+    // with no button.
+    readonly property bool preview: draft + draftTail !== "" && !draftInline
+    readonly property string words: [draft, draftTail].filter(part => part).join(" ")
+    property var at: null
+    // Where the last words went, briefly: { text, inserted, copied, app }.
+    property var result: null
     // A short message of its own: "Needs a download", "No microphone",
     // "Microphone is muted", or "Didn't catch anything"; shown for a moment.
     property string notice
@@ -58,23 +60,24 @@ Singleton {
         if (notice)
             return notice;
         if (state === "failed")
-            return retryable ? "It could not be written down" : "Dictation failed";
+            return "It could not be written down";
+        if (result?.inserted)
+            return "Inserted";
+        if (result?.copied)
+            return "Copied";
         if (writing)
             return "Writing it down";
-        if (waiting)
-            return "Click to keep talking";
         if (listening) {
-            const said = quiet ? "Can't hear you" : idle ? "Still listening" : "Dictating";
+            const said = quiet ? "Can't hear you" : idle ? "Still listening" : onlyCopy ? "Dictating to copy" : "Dictating";
             const time = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
             return `${said} ${time} · click to stop`;
         }
         if (!available)
             return "Dictation needs a download";
-        return last ? "Dictate into this app · right click for the last one" : "Dictate into this app";
+        return "Dictate into this app · right click to only copy";
     }
     // Something the person should see without pointing at the button.
-    readonly property bool telling: notice !== "" || quiet && listening || idle && listening
-        || state === "failed" && !retryable
+    readonly property bool telling: notice !== "" || quiet && listening || idle && listening || state === "failed"
     readonly property string icon: {
         if (notice === "Needs a download")
             return "M8 2v8.4M4.6 7l3.4 3.4L11.4 7M2.6 13.4h10.8";
@@ -82,17 +85,13 @@ Singleton {
             return "M5.6 4.2a2.4 2.4 0 0 1 4.8 0v3.2a2.4 2.4 0 0 1-4.8 0zM3.4 7.6a4.6 4.6 0 0 0 9.2 0M8 12.2v2M2.5 2.5l11 11";
         if (state === "failed")
             return "M8 3v6.5M8 12.5v.5";
-        if (writing)
-            return "M3 13l1-3.5 7-7 2.5 2.5-7 7zM9.8 3.7l2.5 2.5";
-        if (waiting)
-            return "M2.5 4.5h11M2.5 8h11M2.5 11.5h7";
+        // A check, or a clipboard.
+        if (result?.inserted)
+            return "M3 8.5l3.2 3.2L13 4.8";
+        if (result?.copied)
+            return "M5.5 3.5h-1a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-1M6 2.5h4v2H6z";
         return "M2 7v2M5 5v6M8 2.5v11M11 5v6M14 7v2";
     }
-    // The person is using the card with the keyboard or editing its text; the
-    // card then has the focus, so the helper's "where" waits until it is back.
-    property bool cardFocused
-    // Text that was delivered, or copied, that can be brought back.
-    property string last
 
     // Parakeet, which writes it down, is downloaded (extras/extras.json).
     readonly property bool available: Extras.list.some(e => e.id === "parakeet" && e.installed)
@@ -108,29 +107,33 @@ Singleton {
         process.write(JSON.stringify(message) + "\n");
     }
 
-    function start(held: bool) {
+    // A dictation that waits for the last one to end.
+    property var next: null
+
+    function start(copyOnly: bool) {
+        if (process.running) {
+            next = copyOnly;
+            send({ do: "discard" });
+            return;
+        }
         notice = "";
-        text = "";
+        result = null;
         draft = draftTail = "";
         seconds = 0;
-        cardFocused = false;
+        onlyCopy = copyOnly;
+        at = null;
+        state = "listening";
         const sounds = `DICTATION_SOUNDS=${Settings.dictationSounds ? "1" : ""}`;
-        process.command = ["env", sounds, helper(), ...(held ? ["--held"] : [])];
+        process.command = ["env", sounds, helper(), copyOnly ? "--only-copy" : "--copy"];
         process.running = true;
     }
 
-    // The click: start, stop, or keep talking into a card.
-    function toggle() {
+    // The click: start, or stop; with copyOnly, the right click's.
+    function toggle(copyOnly: bool) {
         if (writing)
             return;
         if (listening) {
             send({ do: "stop" });
-        } else if (waiting) {
-            cardFocused = false;
-            seconds = 0;
-            send({ do: "add" });
-        } else if (retryable) {
-            send({ do: "discard" });
         } else if (!available) {
             state = "idle";
             if (notice === "Needs a download") {
@@ -153,58 +156,34 @@ Singleton {
         } else {
             if (Audio.input.audio?.muted)
                 Audio.input.audio.muted = false;
-            start(false);
+            start(copyOnly ?? false);
         }
     }
 
-    // The right click: discard what is under way, or else bring back the last.
+    // The right click: discard what is under way, or else dictate only to copy.
     function secondary() {
-        if (process.running)
+        if (active)
             cancel();
-        else if (last)
-            recall();
+        else
+            toggle(true);
     }
 
     function cancel() {
-        if (process.running)
+        if (active)
             send({ do: "discard" });
         notice = "";
     }
 
-    function recall() {
-        start(true);
-        send({ do: "hold", text: last });
-    }
-
-    // The shortcut: pressed, it starts or stops, or goes to a waiting card;
-    // let go after being held, it stops.
+    // The shortcut: pressed, it starts or stops; let go after being held, it stops.
     property real pressedAt
-    function press() {
-        if (waiting || retryable) {
-            cardFocused = true;
-            return;
-        }
+    function press(copyOnly: bool) {
         pressedAt = listening ? 0 : Date.now();
-        toggle();
+        toggle(copyOnly);
     }
     function release() {
         if (pressedAt && Date.now() - pressedAt > 400 && listening)
-            toggle();
+            toggle(false);
         pressedAt = 0;
-    }
-
-    function setText(edited: string) {
-        text = edited;
-        send({ do: "text", text: edited });
-    }
-
-    // The focus goes back to the application first, and with it the field.
-    function deliver(what: string) {
-        const wasFocused = cardFocused;
-        cardFocused = false;
-        afterFocus.what = what;
-        afterFocus.interval = wasFocused ? 150 : 1;
-        afterFocus.restart();
     }
 
     function heard(line: string) {
@@ -219,24 +198,15 @@ Singleton {
         case "draft":
             draft = message.text;
             draftTail = message.tail;
+            draftInline = message.inline;
             break;
         case "writing":
             state = "writing";
             break;
-        case "waiting":
-            draft = draftTail = "";
-            text = message.text;
-            if (!cardFocused) {
-                where = message.where;
-                app = message.app;
-            }
-            state = "waiting";
-            break;
-        case "failed":
-            state = "failed";
-            break;
         case "done":
-            last = message.text;
+            draft = draftTail = "";
+            result = message;
+            state = "idle";
             break;
         case "nothing":
             notice = "Didn't catch anything";
@@ -248,7 +218,11 @@ Singleton {
         target: "dictation"
 
         function toggle(): void {
-            dictation.toggle();
+            dictation.toggle(false);
+        }
+
+        function copy(): void {
+            dictation.toggle(true);
         }
 
         function cancel(): void {
@@ -256,14 +230,14 @@ Singleton {
         }
 
         function press(): void {
-            dictation.press();
+            dictation.press(false);
         }
 
         function release(): void {
             dictation.release();
         }
 
-        // "listening", "writing", "waiting", "failed", or "idle".
+        // "listening", "writing", "failed", or "idle".
         function state(): string {
             return dictation.state;
         }
@@ -273,9 +247,10 @@ Singleton {
             return [dictation.draft, dictation.draftTail].filter(part => part).join(" ");
         }
 
-        // What Waiting would deliver, and to where.
-        function where(): string {
-            return dictation.waiting ? dictation.where : "";
+        // Where the last words went: "inserted", "copied", or "".
+        function result(): string {
+            const result = dictation.result;
+            return !result ? "" : result.inserted ? "inserted" : result.copied ? "copied" : "";
         }
 
         function notice(): string {
@@ -284,10 +259,6 @@ Singleton {
 
         function available(): bool {
             return dictation.available;
-        }
-
-        function deliver(what: string): void {
-            dictation.deliver(what);
         }
     }
 
@@ -300,18 +271,15 @@ Singleton {
         }
         // Quickshell does not declare the status's type to tooling.
         onExited: exitCode => { // qmllint disable signal-handler-parameters
-            dictation.cardFocused = false;
             dictation.draft = dictation.draftTail = "";
-            dictation.state = exitCode !== 0 && exitCode !== 130 ? "failed" : "idle";
+            if (dictation.active)
+                dictation.state = exitCode !== 0 && exitCode !== 130 ? "failed" : "idle";
+            if (dictation.next !== null) {
+                const copyOnly = dictation.next;
+                dictation.next = null;
+                dictation.start(copyOnly);
+            }
         }
-    }
-
-    Timer {
-        id: afterFocus
-
-        property string what
-
-        onTriggered: dictation.send({ do: what })
     }
 
     Timer {
@@ -321,15 +289,21 @@ Singleton {
         onTriggered: dictation.seconds++
     }
 
-    // Messages and a failure with nothing to try again go by themselves.
+    // Messages, a failure, and where the words went go by themselves.
     Timer {
-        running: dictation.notice !== "" || dictation.state === "failed" && !dictation.retryable
+        running: dictation.notice !== "" || dictation.state === "failed"
         interval: 4000
         onTriggered: {
             dictation.notice = "";
             if (dictation.state === "failed")
                 dictation.state = "idle";
         }
+    }
+    // Where the words went is a glance.
+    Timer {
+        running: dictation.result !== null
+        interval: 1200
+        onTriggered: dictation.result = null
     }
 
     Connections {
@@ -338,7 +312,7 @@ Singleton {
         function onLockedChanged() {
             if (Lock.locked) {
                 dictation.cancel();
-                dictation.last = "";
+                dictation.result = null;
             }
         }
     }
