@@ -4,13 +4,14 @@ and booting would change the file.
 
 Usage: provenance.py digest IMAGE_TAR                 print an image's digest
        provenance.py label IMAGE_TAR KEY              print one of an image's labels
-       provenance.py medium IMAGE_TAR MEDIUM OUT      record a new medium
+       provenance.py medium IMAGE_TAR MEDIUM REVISION OUT   record a new medium
        provenance.py sources RECORD TAR               add the medium's sources to its record
-       provenance.py field RECORD KEY                 print one value of a record
+       provenance.py field RECORD KEY [DEFAULT]       print one value of a record
 
 A medium's record names the system it installs: its version, which is also the
-installer's, and its image digest; and the SHA-256 of the medium and of its
-sources, which the download server checks.
+installer's, and its image digest; the commit the installer was built from,
+which its screens show; and the SHA-256 of the medium and of its sources, which
+the download server checks.
 """
 
 import hashlib
@@ -66,10 +67,11 @@ def main(command, *args):
     elif command == "label":
         print(label(*args))
     elif command == "medium":
-        archive, medium, out = args
+        archive, medium, revision, out = args
         record = {
             "version": label(archive, "org.opencontainers.image.version"),
             "image_digest": image_digest(archive),
+            "revision": revision,
             "medium_sha256": sha256(medium),
         }
         pathlib.Path(out).write_text(json.dumps(record, indent=2) + "\n")
@@ -78,8 +80,10 @@ def main(command, *args):
         values = json.loads(pathlib.Path(record).read_text()) | {"sources_sha256": sha256(tar)}
         pathlib.Path(record).write_text(json.dumps(values, indent=2) + "\n")
     elif command == "field":
-        record, key = args
-        print(json.loads(pathlib.Path(record).read_text())[key])
+        # A default for a key that older records lack.
+        record, key, *default = args
+        values = json.loads(pathlib.Path(record).read_text())
+        print(values.get(key, *default) if default else values[key])
     else:
         sys.exit(__doc__)
 

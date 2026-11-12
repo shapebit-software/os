@@ -7,7 +7,7 @@
 # image, which ships every tool used.
 # Usage: medium.sh (called by `make installer`).
 set -euo pipefail
-: "${ENGINE:?}" "${INSTALLER_IMAGE:?}" "${BUILD:?}" "${MEDIUM:?}" "${MEDIUM_SIZE:?}"
+: "${ENGINE:?}" "${INSTALLER_IMAGE:?}" "${BUILD:?}" "${MEDIUM:?}" "${MEDIUM_SIZE:?}" "${IMAGE_REVISION:?}"
 cd "$(dirname "$0")/.."
 
 archive=$BUILD/installer.tar
@@ -82,4 +82,5 @@ for mountpoint in "$target/boot" "$target"; do
 done
 INSTALL
 
-python3 scripts/provenance.py medium "$BUILD/image.tar" "$MEDIUM" "$MEDIUM.json"
+# IMAGE_REVISION is the tree's commit, whose installer the medium shows.
+python3 scripts/provenance.py medium "$BUILD/image.tar" "$MEDIUM" "$IMAGE_REVISION" "$MEDIUM.json"

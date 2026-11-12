@@ -54,6 +54,36 @@ def test_owner_password_can_be_typed_and_is_new_for_each_run(tmp_path):
     assert first != second
 
 
+def needle(directory, name, tag, image):
+    directory.mkdir(exist_ok=True)
+    (directory / f"{name}.json").write_text(json.dumps({"tags": [tag]}))
+    (directory / f"{name}.png").write_bytes(image)
+
+
+def test_needles_add_an_older_commits_look_under_the_same_tag(tmp_path):
+    needle(tmp_path / "tree", "login-screen", "login-screen", b"violet")
+    needle(tmp_path / "3794e90", "login-screen", "login-screen", b"plum")
+    run.needles(tmp_path / "tree", tmp_path / "out", tmp_path / "3794e90")
+    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == [
+        "login-screen-3794e90.json", "login-screen-3794e90.png", "login-screen.json", "login-screen.png"]
+    assert (tmp_path / "out" / "login-screen-3794e90.png").read_bytes() == b"plum"
+    assert json.loads((tmp_path / "out" / "login-screen-3794e90.json").read_text())["tags"] == ["login-screen"]
+
+
+def test_needles_skip_what_did_not_change_and_keep_what_went(tmp_path):
+    needle(tmp_path / "tree", "boot-splash", "boot-splash", b"same")
+    needle(tmp_path / "old", "boot-splash", "boot-splash", b"same")
+    needle(tmp_path / "old", "installer-welcome", "installer-welcome", b"old")
+    run.needles(tmp_path / "tree", tmp_path / "out", tmp_path / "old")
+    assert sorted(p.stem for p in (tmp_path / "out").glob("*.png")) == ["boot-splash", "installer-welcome-old"]
+
+
+def test_needles_without_older_commits_are_the_trees(tmp_path):
+    needle(tmp_path / "tree", "boot-splash", "boot-splash", b"same")
+    run.needles(tmp_path / "tree", tmp_path / "out")
+    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == ["boot-splash.json", "boot-splash.png"]
+
+
 def results(tmp_path, *outcomes):
     for number, outcome in enumerate(outcomes):
         (tmp_path / f"result-{number}.json").write_text(json.dumps({"result": outcome}))

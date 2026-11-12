@@ -181,8 +181,12 @@ jobs:
         run: |
           make pull-installer
           skopeo copy -q --preserve-digests "docker://$CANDIDATES:$VERSION" oci-archive:build/image.tar
+      # Stable's screens may look as they did at its commit: the test takes its
+      # needles too.
       - name: Update to the candidate and test its desktop with openQA
-        run: make test-release FLOW=update UPDATE_ARCHIVE=build/image.tar
+        run: |
+          stable=$(skopeo inspect "docker://$REPOSITORY:stable" --format '{{index .Labels "org.opencontainers.image.revision"}}')
+          make test-release FLOW=update UPDATE_ARCHIVE=build/image.tar STABLE_REVISION="${stable#<no value>}"
       - name: Keep the test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

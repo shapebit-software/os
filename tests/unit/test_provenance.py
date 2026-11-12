@@ -80,15 +80,26 @@ def test_label_reads_the_images_config(tmp_path):
     assert provenance.label(image, "org.opencontainers.image.version") == "202611051112"
 
 
-def test_a_medium_records_the_version_and_digest_of_its_system(tmp_path):
+def test_a_medium_records_its_system_and_its_own_commit(tmp_path):
     image = labelled(tmp_path, {"org.opencontainers.image.version": "202611051112"})
     (tmp_path / "medium").write_bytes(b"medium")
-    provenance.main("medium", str(image), str(tmp_path / "medium"), str(tmp_path / "record.json"))
+    provenance.main("medium", str(image), str(tmp_path / "medium"), "3794e90", str(tmp_path / "record.json"))
     assert json.loads((tmp_path / "record.json").read_text()) == {
         "version": "202611051112",
         "image_digest": "sha256:man",
+        "revision": "3794e90",
         "medium_sha256": hashlib.sha256(b"medium").hexdigest(),
     }
+
+
+def test_a_field_older_records_lack_gives_its_default(tmp_path, capsys):
+    record = tmp_path / "record.json"
+    record.write_text(json.dumps({"version": "1"}))
+    provenance.main("field", str(record), "revision", "")
+    provenance.main("field", str(record), "version", "")
+    assert capsys.readouterr().out == "\n1\n"
+    with pytest.raises(KeyError):
+        provenance.main("field", str(record), "revision")
 
 
 def test_sources_add_their_sha256_to_the_record(tmp_path):

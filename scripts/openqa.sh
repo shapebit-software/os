@@ -5,7 +5,10 @@
 # target disk and the TPM are new. Results stay in RESULTS/<time>-release; a
 # test that fails keeps its screenshots, and the medium's checksum is verified
 # before anything starts. FLOW=update also updates the installed system to
-# UPDATE_ARCHIVE's build, which the machine gets as an OCI layout.
+# UPDATE_ARCHIVE's build, which the machine gets as an OCI layout. It installs
+# with an earlier installer and release, whose screens may look as they did:
+# the needles of their commits, the record's revision and STABLE_REVISION, that
+# differ go along (tests/openqa/run.py needles).
 # Usage: openqa.sh (called by `make test-release`).
 set -euo pipefail
 : "${ENGINE:?}" "${MEDIUM:?}" "${RESULTS:?}" "${SSH_KEY:?}" "${OWNER_NAME:?}" "${OPENQA_IMAGE:?}" "${OPENQA_DISTRI:?}" "${OPENQA_DISK_SIZE:?}" "${MEDIUM_SIZE:?}" "${FLOW:?}" "${FEDORA_VERSION:?}"
@@ -25,7 +28,7 @@ mkdir "$run/pool"
 
 $ENGINE build -q --build-arg FEDORA_VERSION="$FEDORA_VERSION" -t "$OPENQA_IMAGE" -f tests/openqa/Containerfile tests/openqa >/dev/null
 # ENGINE is unquoted on purpose: it may be a command with arguments, e.g. "sudo podman".
-update_digest= candidate=()
+update_digest= candidate=() older=()
 if [[ $FLOW == update ]]; then
   : "${UPDATE_ARCHIVE:?}"
   update_digest=$(python3 scripts/provenance.py digest "$UPDATE_ARCHIVE")
@@ -36,12 +39,24 @@ if [[ $FLOW == update ]]; then
     -v "$(realpath "$UPDATE_ARCHIVE"):/image.tar:ro,z" -v "$run/pool/candidate:/candidate:z" \
     "$OPENQA_IMAGE" copy -q --preserve-digests oci-archive:/image.tar oci:/candidate
   candidate=(-v "$run/pool/candidate:/candidate:ro,z")
+
+  # A medium recorded before records had the revision has none.
+  for revision in "$(python3 scripts/provenance.py field "$record" revision '')" "${STABLE_REVISION:-}"; do
+    directory=$run/pool/older/${revision:0:7}
+    [[ -n $revision && ! -d $directory ]] || continue
+    # A shallow checkout, as CI's, lacks the commit.
+    git cat-file -e "$revision^{commit}" 2>/dev/null || git fetch -q --depth=1 origin "$revision"
+    mkdir -p "$directory"
+    git archive "$revision:$OPENQA_DISTRI/needles" | tar -x -C "$directory"
+    older+=("$directory")
+  done
 fi
+python3 tests/openqa/run.py needles "$OPENQA_DISTRI/needles" "$run/pool/needles" "${older[@]}"
 python3 tests/openqa/run.py vars "$record" "$SSH_KEY.pub" "$OWNER_NAME" "$MEDIUM_SIZE" "$OPENQA_DISK_SIZE" \
   "$FLOW" "$update_digest" "$run/pool/vars.json"
 
 $ENGINE run --rm --device /dev/kvm -w /pool \
-  -v "$(realpath "$OPENQA_DISTRI"):/distri:ro,z" \
+  -v "$(realpath "$OPENQA_DISTRI"):/distri:ro,z" -v "$run/pool/needles:/distri/needles:ro,z" \
   -v "$(realpath "$MEDIUM"):/medium/installer.img:ro,z" \
   -v "$(realpath "$SSH_KEY"):/ssh/key:ro,z" \
   -v "$run/pool:/pool:z" "${candidate[@]}" \
@@ -51,7 +66,7 @@ $ENGINE run --rm --device /dev/kvm -w /pool \
 # The container wrote as root; the results are the caller's, and the machine's
 # disks and the candidate are not results.
 $ENGINE run --rm -v "$run/pool:/pool:z" --entrypoint sh "$OPENQA_IMAGE" -c \
-  "rm -rf /pool/raid /pool/tpm1 /pool/qemuscreenshot /pool/candidate; chown -R $(id -u):$(id -g) /pool"
+  "rm -rf /pool/raid /pool/tpm1 /pool/qemuscreenshot /pool/candidate /pool/older /pool/needles; chown -R $(id -u):$(id -g) /pool"
 
 python3 tests/openqa/run.py check "$run/pool/testresults" || outcome=failed
 finish_run
