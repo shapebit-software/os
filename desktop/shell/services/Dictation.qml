@@ -35,8 +35,8 @@ Singleton {
     property string draftTail
     // Where the last words went, briefly: { text, inserted, copied, app }.
     property var result: null
-    // A short message of its own: "Needs a download", "No microphone",
-    // "Microphone is muted", or "Didn't catch anything"; shown for a moment.
+    // A short message of its own: "Needs a download", "No microphone", or
+    // "Microphone is muted"; shown for a moment. Hearing nothing ends quietly.
     property string notice
     // What is going on, for the button's tooltip and icon, and for the pill
     // where there is no button.
@@ -206,9 +206,6 @@ Singleton {
             draft = draftTail = "";
             result = message;
             state = "idle";
-            break;
-        case "nothing":
-            notice = "Didn't catch anything";
             break;
         }
     }
