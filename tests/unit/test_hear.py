@@ -2,6 +2,8 @@
 ends with the words, or with nothing, and leaves no audio behind."""
 
 import contextlib
+import importlib.machinery
+import importlib.util
 import json
 import os
 import pathlib
@@ -327,6 +329,50 @@ def test_a_room_that_is_never_quiet_still_ends_requests_and_voice_mode(hear):
     # No speech for a minute, here 1.5 s, ends it, noise or not.
     hearing.wait_for("nothing")
     assert hearing.ended() == 0
+
+
+@pytest.mark.parametrize(
+    ("said", "ends"),
+    [
+        ("Turn the volume down.", "finished"),
+        ("Jaka jest pogoda?", "finished"),
+        ("Gdzie on jest?", "finished"),
+        ("Wyślę ci adres i", "leading"),
+        # A full stop where the engine cut a phrase short is no end.
+        ("Wyślę ci adres i.", "leading"),
+        ("Open the files and", "leading"),
+        ("Spotkajmy się jutro,", "leading"),
+        ("Yyy", "leading"),
+        ("Open files", ""),
+        ("", ""),
+    ],
+)
+def test_how_the_words_end_tells_whether_the_person_is_done(said, ends):
+    loader = importlib.machinery.SourceFileLoader("hear", str(HEAR))
+    spec = importlib.util.spec_from_loader("hear", loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    assert module.ending(said) == ends
+
+
+def test_voice_mode_waits_longer_after_words_that_lead_on(hear):
+    # The pause is 0.4 s here: 0.2 s after a sentence's end, 0.8 s after "and".
+    hearing = hear("--converse", engine=LIVE_ENGINE, env={**VOICE_MODE, "DICTATION_TURN_PAUSE": "0.4"})
+    hearing.recording()
+    (hearing.fakes / "phrases").write_text("Send it to Anna and\n")
+    hearing.wait_for("draft", text="Send it to Anna and")
+    # Quiet from now on.
+    (hearing.fakes / "sound").write_bytes(QUIET_SOUND)
+    time.sleep(0.5)
+    assert not any(m["state"] == "heard" for m in hearing.heard), "after 'and', 0.5 s is not enough"
+    assert hearing.wait_for("heard")["text"] == "Send it to Anna and"
+    (hearing.fakes / "sound").write_bytes(LOUD)
+    (hearing.fakes / "phrases").write_text("Send it to Anna and\nWhat time is it?\n")
+    hearing.wait_for("draft", text="What time is it?")
+    (hearing.fakes / "sound").write_bytes(QUIET_SOUND)
+    began = time.monotonic()
+    assert hearing.wait_for("heard")["text"] == "What time is it?"
+    assert time.monotonic() - began < 0.4, "a finished question goes sooner than the plain pause"
 
 
 def test_voice_mode_makes_no_request_while_a_phrase_goes_on(hear):

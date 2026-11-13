@@ -292,7 +292,10 @@ button on the bars), with text only: the answer, until the person speaks again, 
 that waits, as one row. What the person says is never shown, as in
 dictation; the button's face shows that it hears. Until there is any,
 the pill is not there. Each time the person pauses, about a second, what they said
-is a request, and it goes on listening. "Stop" said, a tap on Super, a right
+is a request, and it goes on listening. How the words end changes the pause:
+half as long after a finished sentence, twice as long after words that lead
+on, such as "and", "że", "żeby", or a comma, so that it does not cut in while
+the person thinks. "Stop" said, a tap on Super, a right
 click on the button, or the lock screen ends it at once, and drops what was
 still being said; a minute without a sound ends it too. Its requests are a conversation of their own, which
 the service keeps in memory only: it is never listed or saved, and is

@@ -24,7 +24,9 @@
 # "text": ...}, a request of its own. The engine, which tells speech from noise,
 # says when they stopped: its phrase is out and no other has begun; then a quiet
 # moment (DICTATION_TURN_PAUSE) ends it, or, where it is never quiet, as with a
-# fan, a longer wait (DICTATION_TURN_LONGEST). It ends with "stop", which delivers
+# fan, a longer wait (DICTATION_TURN_LONGEST). How the words end changes the
+# moment (ending): half as long after a finished sentence, twice as long after
+# words that lead on, such as "and" or "że", or a comma. It ends with "stop", which delivers
 # what is left as "done", or after a minute without speech, with "nothing". No
 # recording is kept: should the live engine fail, it ends with "failed", as going
 # over the recording again would say what was heard once more.
@@ -69,6 +71,15 @@ GIVE_UP = float(os.environ.get("DICTATION_GIVE_UP", 120))
 # the mode.
 TURN_PAUSE = float(os.environ.get("DICTATION_TURN_PAUSE", 1.2))
 TURN_LONGEST = float(os.environ.get("DICTATION_TURN_LONGEST", 2.5))
+# Words after which the person is not done, in Polish and English: those that
+# join or lead on, and the sounds of thinking.
+LEADING = {
+    "i", "a", "ale", "że", "żeby", "bo", "lub", "albo", "oraz", "czy", "który", "która", "które", "którego", "gdy",
+    "kiedy", "jeśli", "jeżeli", "aby", "więc", "ani", "niż", "jak", "w", "we", "z", "ze", "na", "do", "o", "od", "dla",
+    "po", "przez", "za", "przy", "u", "pod", "nad", "mój", "moja", "moje", "twój", "yyy", "eee", "hmm", "znaczy",
+    "and", "or", "but", "so", "because", "that", "which", "who", "the", "an", "to", "of", "in", "on", "at", "for",
+    "with", "from", "if", "when", "my", "your", "um", "uh", "er",
+}  # fmt: skip
 CONVERSE_QUIET = float(os.environ.get("DICTATION_CONVERSE_QUIET", 60))
 # What counts as sound, of the largest sample's 32768.
 SOUND_PEAK = 600
@@ -86,6 +97,19 @@ def clean(said):
     said = "".join(c if c.isprintable() else " " for c in said)
     said = " ".join(said.split())
     return said if any(c.isalnum() for c in said) else ""
+
+
+def ending(said):
+    """How the words end: "finished" (a sentence's end), "leading" (words that
+    lead on, or a comma), or "" (no telling)."""
+    words = said.split()
+    if not words:
+        return ""
+    if words[-1].lower().strip(".,;:!?…\"'”“„()-–—") in LEADING:
+        return "leading"
+    if said.rstrip().endswith((",", ";", ":", "-", "–", "—", "…")):
+        return "leading"
+    return "finished" if said.rstrip().endswith((".", "?", "!")) else ""
 
 
 class Hearing:
@@ -254,12 +278,19 @@ class Hearing:
             since_phrase = now - self.last_final
             if now - self.last_speech >= CONVERSE_QUIET:
                 self.stop_listening()
-            elif self.phrases and not self.in_phrase and (silent >= TURN_PAUSE or since_phrase >= TURN_LONGEST):
+            elif self.phrases and not self.in_phrase and self.turn_over(silent, since_phrase):
                 # The person stopped: what they said is a request, and listening goes on.
                 self.emit(state="heard", text=" ".join(self.phrases))
                 self.phrases = []
         elif silent >= GIVE_UP:
             self.stop_listening()
+
+    def turn_over(self, silent, since_phrase):
+        """Whether the person is done, after this long quiet and this long since
+        the last phrase: sooner after a finished sentence, later after words that
+        lead on."""
+        scale = {"finished": 0.5, "leading": 2}.get(ending(" ".join(self.phrases)), 1)
+        return silent >= TURN_PAUSE * scale or since_phrase >= TURN_LONGEST * scale
 
     def stop_listening(self):
         self.stopping = True
