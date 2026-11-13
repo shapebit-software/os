@@ -199,6 +199,21 @@ def test_control_characters_never_pass(hear):
     assert all(c.isprintable() for c in hearing.wait_for("done")["text"])
 
 
+@pytest.mark.parametrize("said", [".\n", " ?\n...\n", "\u2026\n"])
+def test_marks_with_no_word_are_nothing(hear, said):
+    # Noise can come out as a mark, which would be copied as if it were words.
+    hearing = hear(said=said)
+    hearing.say()
+    hearing.wait_for("nothing")
+    assert hearing.ended() == 0
+
+
+def test_marks_after_words_are_left_out(hear):
+    hearing = hear(said="Hello.\n.\n")
+    hearing.say()
+    assert hearing.wait_for("done")["text"] == "Hello."
+
+
 def test_the_engine_hears_the_recording_with_the_models(hear):
     hearing = hear(said="Tak.\n")
     hearing.say()

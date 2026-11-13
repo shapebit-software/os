@@ -2,9 +2,8 @@
 // another stops, and what was said goes into the text field that has the focus,
 // and to the clipboard. A right click, or Super+Shift+D, only copies. Its button
 // shows the state (bar/QuickButton.qml), and then, briefly, where the words went:
-// a check when inserted, or a clipboard. The words show as they come, in the text
-// field where they would go, or else their last few by the button
-// (bar/DictationOverlay.qml).
+// a check when inserted, or a clipboard. The words show as they come only in the
+// text field where they would go (dictation/dictate); the shell shows none.
 // dictation/dictate decides where they go; this starts it and shows what it
 // says. It understands Parakeet's 25 languages, any of them, once Parakeet is
 // downloaded (Extras.qml); until then, the button leads there. Everything runs
@@ -32,17 +31,9 @@ Singleton {
     property bool idle
     property int seconds
     // While the person speaks: the words so far, and those that may still change,
-    // and whether the text field shows them, as a draft that is not yet in it.
+    // for tests to read.
     property string draft
     property string draftTail
-    property bool draftInline
-    // The words, for the shell to show when no text field does
-    // (DictationOverlay.qml), above the button, which tells where it is as
-    // dictation starts: { screen, rect, edge, depth } (ShellBar.place()); null
-    // with no button.
-    readonly property bool preview: draft + draftTail !== "" && !draftInline
-    readonly property string words: [draft, draftTail].filter(part => part).join(" ")
-    property var at: null
     // Where the last words went, briefly: { text, inserted, copied, app }.
     property var result: null
     // A short message of its own: "Needs a download", "No microphone",
@@ -121,7 +112,6 @@ Singleton {
         draft = draftTail = "";
         seconds = 0;
         onlyCopy = copyOnly;
-        at = null;
         state = "listening";
         const sounds = `DICTATION_SOUNDS=${Settings.dictationSounds ? "1" : ""}`;
         process.command = ["env", sounds, helper(), copyOnly ? "--only-copy" : "--copy"];
@@ -198,7 +188,6 @@ Singleton {
         case "draft":
             draft = message.text;
             draftTail = message.tail;
-            draftInline = message.inline;
             break;
         case "writing":
             state = "writing";

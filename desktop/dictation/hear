@@ -74,9 +74,11 @@ ENGINE_WAIT = float(os.environ.get("DICTATION_ENGINE_WAIT", 30))
 
 
 def clean(said):
-    """One line of text, for a field or a terminal: no control characters pass."""
+    """One line of text, for a field or a terminal: no control characters pass.
+    With no letter or digit, it is nothing: a model makes "." or "Mm" of noise."""
     said = "".join(c if c.isprintable() else " " for c in said)
-    return " ".join(said.split())
+    said = " ".join(said.split())
+    return said if any(c.isalnum() for c in said) else ""
 
 
 class Hearing:

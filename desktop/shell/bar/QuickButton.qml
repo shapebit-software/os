@@ -8,8 +8,8 @@
 // (SharePicker.qml), it is filled with the accent and shows a screen, and
 // says with which applications. While dictating (Dictation.qml), the dictation
 // button is filled with the accent and its icon says the state: sound bars that
-// follow the voice while listening, a wave running through them while writing it
-// down, red when something is wrong, and then briefly where the words went, a
+// follow the voice while listening, a turning arc while it writes the words down,
+// as the assistant's while it thinks, red when something is wrong, and then briefly where the words went, a
 // check or a clipboard, which pops in; a click stops, a right click discards, or
 // with nothing under way, starts a dictation that only copies. It has no tooltip
 // of its own, only what the person must know, such as a missing microphone. The assistant's button opens what was open
@@ -25,7 +25,6 @@
 // action waits for the person.
 pragma ComponentBehavior: Bound
 import QtQuick
-import Quickshell.Hyprland
 import qs.controls
 import qs.services
 
@@ -45,7 +44,7 @@ BarButton {
     readonly property bool red: kind === "capture" && Capture.recording
     readonly property bool shared: kind === "capture" && SharePicker.sharing
     readonly property bool dictating: dictate && (Dictation.active || Dictation.result !== null)
-    readonly property bool hearing: dictate && (Dictation.listening && !Dictation.quiet || Dictation.writing)
+    readonly property bool hearing: dictate && Dictation.listening && !Dictation.quiet
     readonly property bool wrong: dictate && (Dictation.state === "failed" || Dictation.notice.startsWith("No m") || Dictation.notice.startsWith("Mic"))
 
     readonly property string sparkle: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z"
@@ -185,10 +184,10 @@ BarButton {
             }
         }
     }
-    // Voice mode thinks: a turning arc.
+    // Voice mode thinks, or dictation writes the words down: a turning arc.
     Icon {
         id: arc
-        visible: button.voiceState === "thinking"
+        visible: button.voiceState === "thinking" || button.dictate && Dictation.writing
         height: button.half ? 14 : 18
         color: Theme.textOnAccent
         strokeWidth: 1.8
@@ -205,7 +204,7 @@ BarButton {
     Icon {
         id: icon
 
-        visible: !button.assistant && !button.red && !button.hearing
+        visible: !button.assistant && !button.red && !button.hearing && !(button.dictate && Dictation.writing)
         height: button.half ? 14 : 18
         color: Theme.textBright
         strokeWidth: 1.5
@@ -229,12 +228,6 @@ BarButton {
         function onResultChanged() {
             if (Dictation.result)
                 pop.restart();
-        }
-
-        // The words show above this button, on the screen in use.
-        function onActiveChanged() {
-            if (Dictation.active && button.visible && button.screenName === Hyprland.focusedMonitor?.name)
-                Dictation.at = button.bar.place(button);
         }
     }
 

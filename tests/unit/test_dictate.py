@@ -236,10 +236,17 @@ class Dictation:
                 raise AssertionError(f"no {state} {matching}; heard {self.heard[-5:]}") from None
             self.heard.append(message)
             if message["state"] == state and all(message.get(k) == v for k, v in matching.items()):
+                if state == "done":
+                    # The compositor has all that dictate sent once it is gone.
+                    self.process.wait(10)
+                    self.compositor and self.compositor.thread.join(5)
                 return message
 
     def say(self):
         self.wait_for("listening")
+        # What the compositor said before, such as a field focused, reaches
+        # dictate first, as it would while the person speaks.
+        time.sleep(0.1)
         self.do("stop")
 
     def writing(self):
@@ -294,6 +301,9 @@ def dictate(tmp_path):
     for dictation in started:
         dictation.process.kill()
         dictation.process.wait()
+        if dictation.compositor:
+            for end in (dictation.compositor.client, dictation.compositor.server):
+                end and end.close()
 
 
 # A field that stays: straight in ---------------------------------------------

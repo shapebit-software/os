@@ -126,10 +126,9 @@ the computer, live while the person speaks, in any of 25 languages. Its model
 is an [extra](#extras): the image ships no speech model, so dictation works
 once the extra is downloaded, and until then its button leads to the download.
 
-- The words show as they come, in the text field where they would go, as a
-  draft that is not yet in it, or else the last few by the button; the button's
-  bars follow the voice, and a wave runs through them while the last words are
-  written down. When they are ready, they go into the text
+- The words show as they come in the text field where they would go, as a
+  draft that is not yet in it, and nowhere else; the button's bars follow the
+  voice, and an arc turns on it while the last words are written down. When they are ready, they go into the text
   field only if the same field still has the focus, as text, not keys, so
   they can't trigger shortcuts.
   They are copied as well, so they are never lost. A right click on the
