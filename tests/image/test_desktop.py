@@ -67,10 +67,22 @@ def test_apps_shows_no_session_tools(host):
     assert host.file("/usr/bin/uuctl").exists
 
 
-@pytest.mark.parametrize("helper", ["dictate", "hear"])
+@pytest.mark.parametrize("helper", ["dictate", "hear", "speak"])
 def test_dictation_helpers_are_installed(host, sh, helper):
     assert host.file(f"/usr/libexec/desktop/{helper}").mode & 0o111
     sh(f"python3 -c 'import ast; ast.parse(open(\"/usr/libexec/desktop/{helper}\").read())'")
+
+
+def test_the_assistant_has_its_sound_when_it_hears_a_request(host):
+    # shell/services/Assistant.qml plays it with pw-play.
+    assert host.file("/usr/share/sounds/freedesktop/stereo/message.oga").size > 0
+    assert host.exists("pw-play")
+
+
+def test_spoken_answers_have_their_phonemes_but_no_voice(sh, host):
+    # dictation/speak: espeak-ng for the phonemes; the voices are an extra.
+    assert sh("espeak-ng -q --ipa -v pl 'tak'").strip() == "tˈak"
+    assert not host.file("/var/lib/extras/voices").exists
 
 
 def test_dictation_has_its_runtime_but_no_speech_model(sh, host):

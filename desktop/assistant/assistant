@@ -182,6 +182,12 @@ def prompt(entry):
     return "\n\n".join(parts)
 
 
+# After what the person said in voice mode, where the answer is said aloud: on
+# their message, as the system prompt stays the same for the local model's cache.
+SPOKEN = ("\n\n(I said this aloud, and your answer is read aloud to me: answer in one or two short "
+          "sentences of plain speech, with no lists, headings, tables, links, code, or emoji.)")
+
+
 def context_text(message):
     """What the model reads after the person's words: the context the request
     tells, in the person's voice, as it is in their message. Not when it was
@@ -726,7 +732,8 @@ class Assistant:
         cards = {m["call"]: m for m in listed if m["role"] == "action"}
         for message in listed[max(0, end - CONTEXT):end]:
             if message["role"] == "user":
-                messages.append({"role": "user", "content": message["text"] + context_text(message)})
+                spoken = SPOKEN if conversation.get("ephemeral") and message.get("spoken") else ""
+                messages.append({"role": "user", "content": message["text"] + context_text(message) + spoken})
             elif message["role"] == "assistant":
                 calls = [cards[c] for c in message.get("calls", []) if c in cards]
                 if not message.get("text") and not calls:

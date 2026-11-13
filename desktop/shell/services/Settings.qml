@@ -61,6 +61,10 @@ Singleton {
     // little after sign-in, kept; or "used", with the first recording, and
     // freed after speechModelMinutes unused (dictation/dictate-engine reads both).
     property alias speechModel: adapter.speechModel
+    // Whether voice mode says its answers aloud (Assistant.qml, dictation/speak).
+    property alias assistantSpeaks: adapter.assistantSpeaks
+    // Whether a soft sound says a spoken request was taken (Assistant.qml).
+    property alias assistantSounds: adapter.assistantSounds
     property alias speechModelMinutes: adapter.speechModelMinutes
     // Whether an application may share what was picked again without asking.
     property alias shareRemember: adapter.shareRemember
@@ -280,6 +284,8 @@ Singleton {
             property bool dictationButton: true
             property bool dictationSounds: false
             property string speechModel: "used"
+            property bool assistantSpeaks: true
+            property bool assistantSounds: true
             property int speechModelMinutes: 10
             property bool shareRemember: false
             property bool welcomed: false

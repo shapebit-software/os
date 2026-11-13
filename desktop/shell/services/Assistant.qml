@@ -95,12 +95,14 @@ Singleton {
     // the conversations rather than showing one.
     property bool panelFocused
     property bool listing
-    // Whether the bubbles came up by themselves, for an answer; they then
-    // take no keyboard and go again (peek).
-    property bool peeking
+    // An answer, or an action, that came while the assistant was hidden: it
+    // shows in the pill by the button (VoicePill.qml), as voice mode's answers
+    // do, and goes again by itself, unless it waits for the person or the
+    // pointer is on it; a click on it opens the bubbles.
+    property var note: null
     property bool peekHovered
     // What is open, as assistant.js holds it.
-    readonly property var view: Logic.view(panelOn !== "" ? "panel" : Shell.panel === "assistant" && !peeking ? "bubbles" : "",
+    readonly property var view: Logic.view(panelOn !== "" ? "panel" : Shell.panel === "assistant" ? "bubbles" : "",
         Settings.assistantDocked, panelFocused, Settings.assistantLast)
 
     // The Super key, "idle", "pressed", or "listening" (assistant.js), and
@@ -113,8 +115,8 @@ Singleton {
     // makes what was said a request (dictation/hear --converse), in a
     // conversation of its own that the service keeps in memory only and
     // forgets at the end. Its pill shows by the assistant's button
-    // (VoicePill.qml): at voiceAt, { screen, rect, edge, depth } as the bar
-    // tells it, or with no rect in a corner of the screen. With what voice
+    // (VoicePill.qml), as notes do: at pillAt, { screen, rect, edge, depth }
+    // as the bar tells it, or with no rect in a corner of the screen. With what voice
     // mode said and did; what is being said only tells that the person speaks.
     property bool conversing
     // The words said so far, phrase by phrase, until they are a request; and
@@ -122,7 +124,7 @@ Singleton {
     // that the person speaks before any word is written down.
     property string draft
     property bool speech
-    property var voiceAt: null
+    property var pillAt: null
     property string voiceConversation
     property var voiceMessages: []
     // A request just said, until its message comes back; and a word for the
@@ -131,17 +133,26 @@ Singleton {
     property string voiceNotice
     readonly property var voiceWaiting: voiceMessages.find(m => m.role === "action" && m.state === "proposed") ?? null
     readonly property var voiceLast: voiceMessages.length ? voiceMessages[voiceMessages.length - 1] : null
-    // Voice mode's state, for its button and pill: "speaking" (words being
-    // said), "waiting" (an action waits for the person), "thinking" (a
-    // request under way), "listening", or "" with voice mode off.
+    // Voice mode says its answers aloud (dictation/speak), with Settings >
+    // Assistant's "Speak answers" and the voices downloaded; while it does,
+    // it does not hear, so that it never takes its own voice for a request.
+    readonly property bool canTalk: Settings.assistantSpeaks && Extras.list.some(e => e.id === "voices" && e.installed)
+    property bool talking
+    // How much of each answer has gone to be said, by its message's id.
+    property var toldUpTo: ({})
+    // Voice mode's state, for its button and pill: "talking" (it says its
+    // answer), "speaking" (words being said), "waiting" (an action waits for
+    // the person), "thinking" (a request under way), "listening", or "" with
+    // voice mode off.
     readonly property string voiceState: !conversing ? ""
+        : talking ? "talking"
         : speech || draft !== "" ? "speaking"
         : voiceWaiting ? "waiting"
         : voiceSent || voiceLast && (voiceLast.role === "user" || voiceLast.state === "running"
             || ["thinking", "starting", "answering"].includes(voiceLast.state)) ? "thinking"
         : "listening"
     // Asks the assistant's button on a screen where it is, for the pill.
-    signal voiceAsked(screen: string)
+    signal pillAsked(screen: string)
     property real level
     property string notice
     // What the next request tells of where the person is, { selection, app,
@@ -200,7 +211,7 @@ Singleton {
         Settings.assistantDocked = next.docked;
         Settings.assistantLast = next.last;
         panelFocused = next.open === "panel" && next.focused;
-        peeking = false;
+        note = null;
         if (next.open === "panel") {
             if (Shell.panel === "assistant")
                 Shell.close();
@@ -269,25 +280,35 @@ Singleton {
             hide();
     }
 
-    // The bubbles come up by themselves for an answer, and go again.
-    function peek() {
+    // An answer that came while hidden shows in the pill, by the button on
+    // the screen the person is on, and goes again.
+    function peek(message: var) {
         const screen = Shortcuts.focused;
-        if (!screen)
+        if (!screen || conversing)
             return;
-        peeking = true;
-        Shell.request("assistant", screen);
-        if (Shell.isOpen("assistant", screen))
-            peekTimer.restart();
-        else
-            peeking = false;
+        if (!note) {
+            pillAt = null;
+            pillAsked(screen);
+            if (!pillAt)
+                pillAt = { screen, rect: null };
+        }
+        note = message;
+        peekTimer.restart();
     }
 
-    // The person takes up the bubbles that came up.
-    function keepPeek() {
-        if (!peeking)
-            return;
-        peeking = false;
+    // A click on the note: the bubbles, with the whole conversation.
+    function openNote() {
+        const screen = pillAt?.screen ?? Shortcuts.focused;
+        note = null;
+        pillAt = null;
         Settings.assistantLast = "bubbles";
+        tap(screen, null);
+    }
+
+    function dropNote() {
+        note = null;
+        if (!conversing)
+            pillAt = null;
     }
 
     // Where the person is: the selected text, and the focused window.
@@ -325,7 +346,9 @@ Singleton {
             longest.stop();
         if (keyState === "tapped")
             doubleTap.restart();
-        if (next.action === "tap" && conversing)
+        if (next.action === "tap" && talking)
+            silence();
+        else if (next.action === "tap" && conversing)
             endConversation();
         else if (next.action === "tap")
             tap(Shortcuts.focused, null);
@@ -358,11 +381,12 @@ Singleton {
         notice = cannotHear().trim();
         if (cannotHear() !== "")
             return;
-        voiceAt = at;
-        if (!voiceAt)
-            voiceAsked(screen);
-        if (!voiceAt)
-            voiceAt = { screen, rect: null };
+        note = null;
+        pillAt = at;
+        if (!pillAt)
+            pillAsked(screen);
+        if (!pillAt)
+            pillAt = { screen, rect: null };
         request({ op: "warm" });
         level = 0;
         draft = "";
@@ -372,12 +396,20 @@ Singleton {
         request({ op: "begin-voice" });
         voice = "listening";
         conversing = true;
+        talking = false;
+        toldUpTo = {};
+        speaker.running = canTalk;
+        // Otherwise it would answer only in writing, with no word why.
+        if (Settings.assistantSpeaks && !canTalk)
+            say("Answers are said aloud once Spoken answers is downloaded, in Settings > Assistant");
         listener.command = [helper(), "--converse"];
         listener.running = true;
     }
 
     function toggleConversation(screen: string, at: var) {
-        if (conversing)
+        if (talking)
+            silence();
+        else if (conversing)
             endConversation();
         else
             converse(screen, at);
@@ -394,15 +426,41 @@ Singleton {
         voiceOff();
     }
 
+    // The answer so far, said sentence by sentence as it comes; the rest, and
+    // its end, once it is done.
+    function tell(message: var) {
+        if (!speaker.running || message.role !== "assistant")
+            return;
+        const from = toldUpTo[message.id] ?? 0;
+        if (from < 0)
+            return;
+        const text = message.text ?? "";
+        const done = !["thinking", "starting", "answering"].includes(message.state);
+        const upTo = done ? text.length : Logic.sentencesEnd(text, from);
+        if (upTo > from)
+            speaker.write(JSON.stringify({ say: text.slice(from, upTo) }) + "\n");
+        if (done)
+            speaker.write(JSON.stringify({ end: true }) + "\n");
+        toldUpTo[message.id] = done ? -1 : upTo;
+    }
+
+    // Stops saying the answer, and hears again: voice mode goes on.
+    function silence() {
+        if (speaker.running)
+            speaker.write(JSON.stringify({ do: "stop" }) + "\n");
+    }
+
     function voiceOff() {
         if (voiceConversation)
             request({ op: "forget", id: voiceConversation });
         conversing = false;
         draft = "";
         speech = false;
+        speaker.running = false;
+        talking = false;
         voiceConversation = "";
         voiceMessages = [];
-        voiceAt = null;
+        pillAt = null;
         voiceSent = false;
         voiceNotice = "";
         if (voice === "listening")
@@ -427,12 +485,29 @@ Singleton {
         if (choice === "apply" && waiting.risk !== "change") {
             say(`${waiting.title} needs a click: yes can't be said to it`);
         } else if (choice) {
+            gotIt();
             request({ op: "answer", card: waiting.id, choice, spoken: true });
         } else {
             if (waiting)
                 say(`First “${waiting.title}”: yes or no`);
+            gotIt();
             voiceSent = true;
             request({ op: "send", id: voiceConversation || null, text, context: ({}), spoken: true, ephemeral: true });
+        }
+    }
+
+    // A soft sound the moment a spoken request is taken, with Settings >
+    // Assistant's "Sound when it hears you", so the person knows it heard
+    // before the answer comes: the sound theme's short "message", at half
+    // its loudness.
+    // In voice mode, it does not hear the sound, as it does not hear itself.
+    function gotIt() {
+        if (!Settings.assistantSounds)
+            return;
+        Quickshell.execDetached(["pw-play", "--volume", "0.5", "/usr/share/sounds/freedesktop/stereo/message.oga"]);
+        if (conversing && listener.running && !talking) {
+            listener.write(JSON.stringify({ do: "pause" }) + "\n");
+            gotItEnds.restart();
         }
     }
 
@@ -513,6 +588,7 @@ Singleton {
 
     // What was said, as a request.
     function sendSpoken(text: string) {
+        gotIt();
         request({ op: "send", id: current(), text, context, spoken: true });
         context = ({});
     }
@@ -646,10 +722,13 @@ Singleton {
         listing = on;
     }
 
-    // A message came or changed: the bubbles come up for an answer.
+    // A message came or changed: an answer shows in the pill. The note
+    // follows its message, as an action that waited is done.
     function arrived(message: var) {
         if (!Lock.locked && Logic.peeks(view, Shell.panel !== "", message))
-            peek();
+            peek(message);
+        else if (note?.id === message.id)
+            note = message;
     }
 
     function receive(line: string) {
@@ -694,6 +773,7 @@ Singleton {
                 else
                     said.push(event.message);
                 voiceMessages = said;
+                tell(event.message);
             }
             if (conversation?.id === event.conversation) {
                 const list = conversation.messages.slice();
@@ -771,6 +851,16 @@ Singleton {
         chatgpt = event.chatgpt ?? null;
     }
 
+    // The sound is 0.3 s long: then voice mode hears again, unless it talks.
+    Timer {
+        id: gotItEnds
+        interval: 400
+        onTriggered: {
+            if (assistant.conversing && listener.running && !assistant.talking)
+                listener.write(JSON.stringify({ do: "resume" }) + "\n");
+        }
+    }
+
     Timer {
         id: voiceNoticeEnds
         interval: 4000
@@ -798,21 +888,19 @@ Singleton {
         onTriggered: assistant.key("long")
     }
 
-    // Bubbles that came up by themselves go again, unless one waits for the
-    // person or the pointer is on them.
+    // A note goes again, unless it waits for the person or the pointer is
+    // on it.
     Timer {
         id: peekTimer
         interval: Logic.peekFor
         onTriggered: {
-            if (!assistant.peeking)
+            if (!assistant.note)
                 return;
             if (!Logic.peekEnds(assistant.attention, assistant.peekHovered)) {
                 restart();
                 return;
             }
-            assistant.peeking = false;
-            if (Shell.panel === "assistant")
-                Shell.close();
+            assistant.dropNote();
         }
     }
 
@@ -823,13 +911,13 @@ Singleton {
         onTriggered: assistant.notice = ""
     }
 
-    // The bubbles closed some other way, such as by another panel.
+    // The assistant opened some other way: the note is in it.
     Connections {
         target: Shell
 
         function onPanelChanged() {
-            if (Shell.panel !== "assistant")
-                assistant.peeking = false;
+            if (Shell.panel === "assistant")
+                assistant.dropNote();
         }
     }
 
@@ -847,6 +935,38 @@ Singleton {
             if (assistant.voice !== "" && !selection.running)
                 assistant.voice = "";
             assistant.voiceOff();
+        }
+    }
+
+    // Says voice mode's answers aloud (dictation/speak), from when voice mode
+    // begins, so its voices are loaded by the first answer.
+    Process {
+        id: speaker
+
+        command: [assistant.tree ? `${assistant.tree}/../dictation/speak` : "/usr/libexec/desktop/speak",
+            `${Quickshell.env("EXTRAS_DIR") || "/var/lib/extras"}/voices`]
+        stdinEnabled: true
+        stdout: SplitParser {
+            onRead: line => {
+                let message;
+                try {
+                    message = JSON.parse(line);
+                } catch (e) {
+                    return;
+                }
+                const talking = message.state === "speaking";
+                if (talking === assistant.talking || !assistant.conversing)
+                    return;
+                assistant.talking = talking;
+                if (listener.running)
+                    listener.write(JSON.stringify({ do: talking ? "pause" : "resume" }) + "\n");
+            }
+        }
+        // Quickshell does not declare the status's type to tooling.
+        onExited: exitCode => { // qmllint disable signal-handler-parameters
+            if (assistant.talking && listener.running)
+                listener.write(JSON.stringify({ do: "resume" }) + "\n");
+            assistant.talking = false;
         }
     }
 
@@ -974,7 +1094,7 @@ Singleton {
                 // The panel comes back with the unlock; nothing is heard.
                 assistant.endListening(false);
                 assistant.keyState = "idle";
-                assistant.peeking = false;
+                assistant.dropNote();
                 assistant.listing = false;
             }
         }
@@ -1006,11 +1126,8 @@ Singleton {
             assistant.hide();
         }
 
-        // "", "bubbles", "panel", or "docked"; with ":peek" for bubbles that
-        // came up by themselves.
+        // "", "bubbles", "panel", or "docked".
         function mode(): string {
-            if (assistant.peeking)
-                return "bubbles:peek";
             return assistant.view.open === "panel" && assistant.view.docked ? "docked" : assistant.view.open;
         }
 

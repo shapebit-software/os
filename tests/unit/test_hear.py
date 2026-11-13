@@ -64,8 +64,11 @@ import json, os, pathlib, sys, threading, time
 fakes = pathlib.Path(os.environ["FAKES"])
 ended = threading.Event()
 def drain():
-    while sys.stdin.buffer.read(65536):
-        pass
+    # How much audio came, for tests to read.
+    count = 0
+    while data := sys.stdin.buffer.read1(65536):
+        count += len(data)
+        (fakes / "engine-bytes").write_text(str(count))
     ended.set()
 threading.Thread(target=drain, daemon=True).start()
 told = 0
@@ -337,6 +340,23 @@ def test_voice_mode_makes_no_request_while_a_phrase_goes_on(hear):
     assert not any(m["state"] == "heard" for m in hearing.heard)
     (hearing.fakes / "phrases").write_text("Turn the volume\n<speech>\ndown.\n")
     assert hearing.wait_for("heard")["text"] == "Turn the volume down."
+
+
+def test_voice_mode_hears_nothing_while_the_assistant_speaks(hear):
+    hearing = hear("--converse", engine=LIVE_ENGINE, env=VOICE_MODE)
+    hearing.recording()
+    hearing.do("pause")
+    time.sleep(0.3)
+    given = hearing.file("engine-bytes")
+    # Its own voice, loud as it is, goes nowhere; and a minute, here 1.5 s, of
+    # the assistant speaking does not end voice mode.
+    time.sleep(2.2)
+    assert hearing.process.poll() is None
+    assert hearing.file("engine-bytes") == given
+    hearing.do("resume")
+    (hearing.fakes / "phrases").write_text("Thanks.\n")
+    (hearing.fakes / "sound").write_bytes(QUIET_SOUND)
+    assert hearing.wait_for("heard")["text"] == "Thanks."
 
 
 def test_stopping_voice_mode_delivers_what_is_left(hear):

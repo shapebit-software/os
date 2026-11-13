@@ -1,29 +1,37 @@
-// Voice mode's pill (Assistant.qml), only while voice mode is on: beside the
-// assistant's button, off its bar, as a panel opens (Popout.qml), on the
-// screen voice mode began on; with no button on the bars, in the bottom right
-// corner. Text only, one line: the answer, until the person speaks again, or a
-// word when what they said did nothing. What they say is never shown, as in
-// dictation: the button's face shows that it listens, hears and thinks. Until
-// there is a line, it is not there. An action that waits is
-// one row: to say yes or no to, or, for what yes can't be said to, to click.
-// The button tells the state too (QuickButton.qml). Nothing here is kept: the
-// conversation behind it is forgotten when voice mode ends. It takes no
-// keyboard, so the application keeps it.
+// The assistant's pill (Assistant.qml): beside its button, off its bar, as a
+// panel opens (Popout.qml), with an arrow to it; with no button on the bars,
+// in the bottom right corner. It takes no keyboard, so the application keeps
+// it. Two things show in it:
+// - Voice mode, while it is on, on the screen it began on: the answer, until
+//   the person speaks again, or a word when what they said did nothing. What
+//   they say is never shown, as in dictation: the button's face shows that it
+//   listens, hears and thinks. An action that waits is one row: to say yes or
+//   no to, or, for what yes can't be said to, to click. Nothing is kept: the
+//   conversation behind it is forgotten when voice mode ends.
+// - A note (Assistant.note): an answer, or an action, that came while the
+//   assistant was hidden, as the bubbles would show it; an action that waits
+//   has its buttons. It goes by itself after a few seconds, unless it waits or
+//   the pointer is on it; a click on it opens the bubbles.
+// Until there is a line, it is not there.
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import qs.controls
 import qs.services
+import "../services/assistant.js" as Logic
 
 PanelWindow {
     id: pill
 
     required property ShellScreen modelData
 
-    readonly property var at: Assistant.voiceAt
-    readonly property var waiting: Assistant.voiceWaiting
-    readonly property var last: Assistant.voiceLast
+    readonly property var at: Assistant.pillAt
+    readonly property bool voice: Assistant.conversing
+    readonly property var note: Assistant.note
+    readonly property var waiting: voice ? Assistant.voiceWaiting
+        : note?.role === "action" && note.state === "proposed" ? note : null
+    readonly property var last: voice ? Assistant.voiceLast : note
     readonly property string phase: Assistant.voiceState
     // The one line, and how it shows: "answer", "notice", "error", or none.
     // The state is the button's to show (QuickButton.qml).
@@ -40,12 +48,14 @@ PanelWindow {
             return { kind: "answer", text: last.text };
         if (last?.role === "action" && last.state === "failed")
             return { kind: "error", text: last.error ?? `${last.title} failed.` };
+        if (!voice && last?.role === "action" && last.state === "done")
+            return { kind: "notice", text: `${last.title}: done` };
         return { kind: "", text: "" };
     }
     readonly property real margin: Theme.gap
 
     screen: modelData
-    visible: Assistant.conversing && (at?.screen ?? "") === modelData.name && (line.text !== "" || waiting !== null)
+    visible: (voice || note !== null) && (at?.screen ?? "") === modelData.name && (line.text !== "" || waiting !== null)
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "voice"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
@@ -102,24 +112,46 @@ PanelWindow {
             : edge === "Bottom" ? pill.height - depth - pill.margin - height
             : edge === "" ? pill.height - height - pill.margin - fromBottom
             : clamp(anchor.y + anchor.height / 2, height, pill.height)
-        padding: 9
+        padding: 10
+        opacity: pill.visible ? 1 : 0
+
+        Behavior on opacity { NumberAnimation { duration: 160 } }
+
+        // A note stays while the pointer is on it.
+        HoverHandler {
+            enabled: !pill.voice
+            onHoveredChanged: Assistant.peekHovered = hovered
+        }
 
         Column {
-            width: 280
+            width: 320
             spacing: 6
 
             Text {
                 visible: text !== ""
                 width: parent.width
-                text: pill.line.text
+                text: markdown || pill.line.text
                 color: pill.line.kind === "error" ? Theme.danger
                     : pill.line.kind === "answer" ? Theme.ink
                     : pill.line.kind === "notice" ? Theme.inkSoft : Theme.inkFaint
                 wrapMode: Text.Wrap
-                maximumLineCount: pill.line.kind === "answer" ? 4 : 2
+                maximumLineCount: pill.line.kind === "answer" ? 5 : 2
                 elide: Text.ElideRight
-                textFormat: Text.PlainText
-                font { family: Theme.font; pixelSize: 12 }
+                // An answer as the bubbles show it, without its formatting marks.
+                readonly property string markdown: pill.line.kind === "answer" ? Logic.markdown(pill.line.text, Theme.accent) : ""
+                textFormat: markdown ? Text.MarkdownText : Text.PlainText
+                lineHeight: 1.15
+                font { family: Theme.font; pixelSize: 14 }
+
+                // A note's words open the bubbles; an action's buttons are apart.
+                TapHandler {
+                    enabled: !pill.voice
+                    onTapped: Assistant.openNote()
+                }
+                HoverHandler {
+                    enabled: !pill.voice
+                    cursorShape: Qt.PointingHandCursor
+                }
             }
             // An action that waits.
             Row {
@@ -129,15 +161,16 @@ PanelWindow {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - (pill.waiting?.risk === "change" ? 0 : buttons.width + 6)
-                    text: pill.waiting?.risk === "change" ? `${pill.waiting?.title ?? ""}? Say yes or no.` : `${pill.waiting?.title ?? ""}?`
+                    readonly property bool spoken: pill.voice && pill.waiting?.risk === "change"
+                    width: parent.width - (spoken ? 0 : buttons.width + 6)
+                    text: spoken ? `${pill.waiting?.title ?? ""}? Say yes or no.` : `${pill.waiting?.title ?? ""}?`
                     color: Theme.ink
                     elide: Text.ElideRight
                     font { family: Theme.font; pixelSize: 12; weight: Font.Medium }
                 }
                 Row {
                     id: buttons
-                    visible: pill.waiting?.risk !== "change"
+                    visible: !pill.voice || pill.waiting?.risk !== "change"
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 4
 
@@ -152,6 +185,36 @@ PanelWindow {
                     }
                 }
             }
+        }
+    }
+    // An arrow from the pill to the assistant's button, as a popover has
+    // (Popout.qml), so that the answer is plainly the face's.
+    Item {
+        readonly property string edge: frame.edge
+        readonly property real centerX: edge === "Left" ? frame.x - 3.5
+            : edge === "Right" ? frame.x + frame.width + 3.5
+            : Math.max(frame.x + 12, Math.min(frame.x + frame.width - 12, frame.anchor.x + frame.anchor.width / 2))
+        readonly property real centerY: edge === "Top" ? frame.y - 3.5
+            : edge === "Bottom" ? frame.y + frame.height + 3.5
+            : Math.max(frame.y + 12, Math.min(frame.y + frame.height - 12, frame.anchor.y + frame.anchor.height / 2))
+
+        visible: frame.placed
+        opacity: frame.opacity
+        x: centerX - width / 2
+        y: centerY - height / 2
+        width: 18
+        height: 9
+        rotation: ({ "Bottom": 0, "Top": 180, "Left": 90, "Right": -90 })[edge] ?? 0
+        clip: true
+
+        Rectangle {
+            x: 9 - width / 2
+            y: -width / 2
+            width: 12.7
+            height: 12.7
+            rotation: 45
+            color: parent.edge === "Top" ? Theme.popoverTop : Theme.popoverBottom
+            border.color: Theme.popoverRing
         }
     }
 }

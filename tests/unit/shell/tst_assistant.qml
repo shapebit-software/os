@@ -266,4 +266,17 @@ TestCase {
         for (const request of ["Stop the music.", "Stop Wi-Fi", "What is a bus stop?"])
             verify(!Logic.stopsListening(request), request);
     }
+
+    function test_an_answer_is_said_by_whole_sentences_as_it_comes() {
+        // A sentence goes once its end and the space after it are there.
+        compare(Logic.sentencesEnd("The battery is at 76", 0), 0);
+        compare(Logic.sentencesEnd("The battery is at 76%. It is", 0), 23);
+        compare(Logic.sentencesEnd("The battery is at 76%. It is charging.", 23), 23);
+        compare(Logic.sentencesEnd("The battery is at 76%. It is charging. ", 23), 39);
+        // Not a decimal point, nor a version; but a line's end, and a quote's.
+        compare(Logic.sentencesEnd("It is 3.5 GB", 0), 0);
+        compare(Logic.sentencesEnd("Done\nNext", 0), 5);
+        compare(Logic.sentencesEnd("He said \"yes.\" Then", 0), 15);
+        compare(Logic.sentencesEnd("Gotowe! Coś jeszcze?", 0), 8);
+    }
 }

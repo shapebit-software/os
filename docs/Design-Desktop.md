@@ -260,9 +260,13 @@ docked panel stays and gives the keyboard back to the window.
 **Voice**: hold Super, or the assistant's button, speak, and let go. What was
 said is the request. Nothing opens while the person speaks: the eyes of the button's face
 grow with the voice while the assistant listens, and narrow and read from
-side to side while it works. The answer comes up as a bubble and goes again after a few
-seconds, unless it waits for the person. Bubbles come up the same way for
-any answer that arrives while the assistant is hidden.
+side to side while it works. The answer shows in the pill by the button,
+with an arrow to it, as voice mode's do, and goes again after a few seconds,
+unless it waits for the person or the pointer is on it. Any answer, or
+action, that arrives while the assistant is hidden shows the same way; the
+bubbles never open by themselves. A click on the pill's words opens the
+bubbles, with the whole conversation; an action that waits has its buttons
+in the pill.
 
 - Super counts as held after 0.4 seconds alone. Any other key in that time
   makes it a shortcut, and a key pressed while the assistant listens discards
@@ -299,8 +303,28 @@ it") applies a change, and "no" ("nie", "cancel") declines any action. What
 asks every time, looking at the screen, and the web need a click to go ahead,
 as a video or someone near can say "yes" too; the pill says so, and has
 buttons for them.
-"Always allow" is never said. Answers are not spoken yet. Dictation into the
-reply line is dictation's own button, as into any field.
+"Always allow" is never said. Dictation into the reply line is dictation's
+own button, as into any field.
+
+**Spoken answers**: voice mode says its answers aloud, sentence by sentence
+as they are written, so it begins before the answer is whole; the pill, with
+an arrow to the button, shows the same words. It is on by default, and
+Settings > Assistant's **Speak answers** turns it off. A request said in voice
+mode asks for an answer of one or two short sentences of plain speech.
+
+- The moment a spoken request is taken, held or in voice mode, a soft sound
+  says so, before the answer comes: the sound theme's short "message", at
+  half loudness. Settings > Assistant's **Sound when it hears you** turns it
+  off.
+- While it talks, the face's eyes hop in turn, and it does not listen, so it
+  never takes its own voice for a request; it listens again once it is done.
+- A right click on the button, or a tap on Super, silences it at once, and
+  voice mode goes on; again, and voice mode ends.
+- It speaks Polish or English, whichever each sentence is, with Piper voices
+  that are an [extra](#extras), Spoken answers (about 130 MB): darkman for
+  Polish, Cori Samuel's voice for English. espeak-ng, in the image, turns the
+  words into the sounds the voices read.
+- They load when voice mode starts, in under two seconds, and go when it ends.
 
 The assistant sees only what a request tells it: the selected text and the
 focused window's app and title. The reply line shows both before sending,
@@ -415,8 +439,9 @@ dictation and voice reuse one loaded model.
 
 Settings > Assistant has, in order: **Models** (every model, the one in use,
 adding and removing online ones), the extras (Gemma 4 E2B, Screen
-understanding, and Dictation, which voice needs), when the local model loads,
-when the speech model loads and how long it stays,
+understanding, Dictation, which voice needs, and Spoken answers), when the
+local model loads, **Speak answers**, when the speech model loads and how
+long it stays,
 **Skills and tools** (each skill to read, the person's own to add, change, or
 delete, and each action with whether it runs at once or asks), **Permissions**
 (the groups allowed without asking, and the activity log), and where the panel

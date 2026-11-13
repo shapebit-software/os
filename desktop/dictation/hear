@@ -29,8 +29,9 @@
 # recording is kept: should the live engine fail, it ends with "failed", as going
 # over the recording again would say what was heard once more.
 #
-# In, {"do": ...}: "stop", "discard". The end of the input discards, as do SIGINT
-# and SIGTERM.
+# In, {"do": ...}: "stop", "discard"; in voice mode also "pause", while the
+# assistant speaks (dictation/speak), so that it does not hear itself, and
+# "resume". The end of the input discards, as do SIGINT and SIGTERM.
 #
 # Out: {"state": "listening", "level": 0..1, "quiet": bool, "idle": bool};
 # {"state": "speaking"}, a phrase has begun; {"state": "draft", "text": ...,
@@ -111,6 +112,7 @@ class Hearing:
         # begun since, and when it last heard speech at all.
         self.last_final = self.last_speech = time.monotonic()
         self.in_phrase = False
+        self.paused = False
 
         wake_read, wake_write = os.pipe()
         os.set_blocking(wake_write, False)
@@ -173,6 +175,12 @@ class Hearing:
                 self.finish(130)
             elif what == "stop" and self.state == "listening":
                 self.stop_listening()
+            elif what == "pause" and self.converse:
+                self.paused = True
+            elif what == "resume" and self.converse and self.paused:
+                # A minute without speech counts from now.
+                self.paused = False
+                self.last_sound = self.last_speech = time.monotonic()
 
     # Listening -----------------------------------------------------------
 
@@ -198,6 +206,8 @@ class Hearing:
         data = os.read(source.fileno(), 8192)
         if not data:
             self.recorded()
+            return
+        if self.paused:
             return
         if not self.converse:
             self.audio.write(data)
@@ -230,6 +240,8 @@ class Hearing:
             self.write_down()
 
     def report_level(self):
+        if self.paused:
+            return
         now = time.monotonic()
         if now - self.last_level < 0.08:
             return

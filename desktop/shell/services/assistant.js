@@ -236,6 +236,19 @@ function spokenAnswer(said) {
 }
 
 // Whether what was said in voice mode ends it.
+// Where the whole sentences end in an answer being written, from `from` on: after
+// the last ".", "!", "?", "…", ":" or ";" that a space follows, or a line's end;
+// `from` with none. Voice mode says an answer sentence by sentence as it comes.
+function sentencesEnd(text, from) {
+    var end = from;
+    var pattern = /[.!?…:;]["')\]]*\s|\n/g;
+    pattern.lastIndex = from;
+    var found;
+    while ((found = pattern.exec(text)) !== null)
+        end = found.index + found[0].length;
+    return end;
+}
+
 var stopWords = ["stop", "stop listening", "that's all", "thats all", "that is all", "goodbye",
                  "koniec", "wystarczy", "przestań słuchać", "stop słuchania", "dziękuję to wszystko"];
 function stopsListening(said) {

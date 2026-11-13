@@ -15,6 +15,8 @@
 # "by", "license", "url", and maybe "changes"}: what the extra holds and its license, for
 # Settings > Licenses and the extra's NOTICE.
 # A download that is no archive keeps its name from the URL, or the name in "as".
+# An extra with "prepare": "piper" holds Piper voices, NAME.onnx with NAME.onnx.json:
+# each gets what sherpa-onnx reads them with (prepare_piper).
 # install and remove print JSON lines: {"step": text, "percent": 0..100}, then
 # {"done": ID} or {"error": text}.
 import fcntl
@@ -131,6 +133,45 @@ def unpack(archive, names, into):
         raise Failed("The download is missing files.")
 
 
+def varint(number):
+    out = b""
+    while True:
+        low, number = number & 0x7F, number >> 7
+        out += bytes([low | 0x80 if number else low])
+        if not number:
+            return out
+
+
+def prepare_piper(model):
+    """What sherpa-onnx (dictation/speak) needs of a Piper voice, which Piper's own
+    files lack: NAME.tokens, its phonemes and their numbers, and in the model, the
+    metadata sherpa-onnx's own conversion adds. The metadata is appended, as an ONNX
+    file is protobuf, where a field may come after the rest: no ONNX library is
+    needed. sherpa-onnx reads one character as one phoneme, so each of Piper 1.5's
+    vowel clusters, such as "aɪ", stands as a private character, U+E000 on, in their
+    order in the voice's "vowel_clusters"; dictation/speak writes them so."""
+    config = json.loads(model.with_suffix(".onnx.json").read_text(encoding="utf-8"))
+    clusters = ["".join(pair) for pair in config.get("vowel_clusters", [])]
+    tokens = []
+    for phoneme, ids in config["phoneme_id_map"].items():
+        if len(phoneme) == 1:
+            tokens.append(f"{phoneme} {ids[0]}\n")
+        elif phoneme in clusters:
+            tokens.append(f"{chr(0xE000 + clusters.index(phoneme))} {ids[0]}\n")
+    model.with_suffix(".tokens").write_text("".join(tokens), encoding="utf-8")
+    metadata = {"model_type": "vits", "comment": "piper", "language": config["language"]["name_english"],
+                "voice": config["espeak"]["voice"], "has_espeak": "1", "n_speakers": str(config["num_speakers"]),
+                "sample_rate": str(config["audio"]["sample_rate"])}  # fmt: skip
+
+    def field(tag, data):
+        return bytes([tag]) + varint(len(data)) + data
+
+    # ModelProto's metadata_props (14), each a key (1) and a value (2).
+    with open(model, "ab") as file:
+        for key, value in metadata.items():
+            file.write(field(0x72, field(0x0A, key.encode()) + field(0x12, value.encode())))
+
+
 def install(extra):
     final = PLACE / extra["id"]
     if final.is_dir():
@@ -157,6 +198,9 @@ def install(extra):
             # Moved, not copied: a model is gigabytes. A failure after this
             # downloads it again.
             os.rename(path, ready / item.get("as", pathlib.PurePosixPath(item["url"]).name))
+    if extra.get("prepare") == "piper":
+        for model in ready.glob("*.onnx"):
+            prepare_piper(model)
     (ready / "NOTICE").write_text(notice(extra), encoding="utf-8")
     # Readable by everyone; the directory is the group's, so these stay safe from others.
     for path in [ready, *ready.iterdir()]:

@@ -293,6 +293,50 @@ def test_live_dictation_finds_what_its_extra_installs():
     assert '"/var/lib/extras/parakeet"' in (ROOT / "desktop" / "dictation" / "hear").read_text()
 
 
+def test_a_piper_voice_is_prepared_for_sherpa_onnx(extras):
+    # Piper's own files: the model, and its config with the phonemes' numbers.
+    config = {"language": {"name_english": "Polish"}, "espeak": {"voice": "pl"}, "num_speakers": 1,
+              "audio": {"sample_rate": 22050}, "vowel_clusters": [["a", "ɪ"], ["o", "ʊ"]],
+              "phoneme_id_map": {"_": [0], "a": [14], "ɪ": [74], "aɪ": [161], "oʊ": [165], "xy": [200]}}  # fmt: skip
+    model = b"\x08\x07onnx-model"
+    raw = json.dumps(config).encode()
+    extras.server.files = {"/pl.onnx": model, "/pl.onnx.json": raw}
+    extras.catalog.write_text(json.dumps([{
+        "id": "voices", "name": "Voices", "detail": "For tests", "unpacked": 1000, "prepare": "piper",
+        "credits": [{"work": "A voice", "by": "someone", "license": "CC0", "url": "https://example.com/voice"}],
+        "downloads": [{"url": extras.server.url(path), "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+                      for path, data in extras.server.files.items()],
+    }]))  # fmt: skip
+    assert extras.run("install", "voices")[0] == 0
+    place = extras.place / "voices"
+    # One character each: a vowel cluster as a private one, in the config's order;
+    # other symbols of more than one character are left out.
+    assert (place / "pl.tokens").read_text() == "_ 0\na 14\nɪ 74\n\ue000 161\n\ue001 165\n"
+    # The model, untouched, then sherpa-onnx's metadata as ONNX's metadata_props.
+    prepared = (place / "pl.onnx").read_bytes()
+    assert prepared.startswith(model)
+    entries, at = {}, len(model)
+    while at < len(prepared):
+        assert prepared[at] == 0x72
+        size = prepared[at + 1]
+        entry = prepared[at + 2 : at + 2 + size]
+        key = entry[2 : 2 + entry[1]]
+        value = entry[2 + entry[1] + 2 :]
+        entries[key.decode()] = value.decode()
+        at += 2 + size
+    assert entries == {"model_type": "vits", "comment": "piper", "language": "Polish", "voice": "pl", "has_espeak": "1",
+                       "n_speakers": "1", "sample_rate": "22050"}  # fmt: skip
+
+
+def test_voices_are_what_speak_reads():
+    entries = json.loads((ROOT / "desktop" / "extras" / "extras.json").read_text())
+    voices = next(extra for extra in entries if extra["id"] == "voices")
+    assert voices["prepare"] == "piper"
+    names = {item["as"] for item in voices["downloads"]}
+    assert names == {"pl.onnx", "pl.onnx.json", "en.onnx", "en.onnx.json"}
+    assert '|| "/var/lib/extras"}/voices`' in (ROOT / "desktop" / "shell" / "services" / "Assistant.qml").read_text()
+
+
 def test_a_download_can_be_named(extras):
     catalog = json.loads(extras.catalog.read_text())
     catalog[0]["downloads"][1]["as"] = "model.gguf"

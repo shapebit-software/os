@@ -779,7 +779,12 @@ def test_voice_mode_talks_in_a_conversation_that_is_never_kept_or_listed(setup):
     setup.client.send(op="answer", card=setup.client.card("proposed")["id"], choice="apply", spoken=True)
     setup.client.card("done")
     setup.client.done()
-    assert [m["content"] for m in setup.model.requests[1]["messages"] if m["role"] == "user"] == ["How is the weather", "Volume 30"]
+    # Answered to be said aloud: short and plain, as the person's message asks,
+    # while the system prompt, which the local model keeps processed, stays.
+    spoken = [m["content"] for m in setup.model.requests[1]["messages"] if m["role"] == "user"]
+    assert [m.split("\n\n(I said this aloud")[0] for m in spoken] == ["How is the weather", "Volume 30"]
+    assert all("one or two short sentences" in m for m in spoken)
+    assert setup.model.requests[1]["messages"][0] == setup.model.requests[0]["messages"][0]
     assert setup.client.ask("search", query="")["ids"] == []
     assert not list((setup.tmp / "data" / "assistant" / "conversations").glob("*.json"))
     # What was done is in the activity log all the same.

@@ -6,9 +6,8 @@
 // elsewhere leaves them, and only takes the keyboard away. Below the reply
 // line are the model that answers, which unfolds the others to choose from,
 // and buttons for a new conversation and to open this one in the panel
-// (AssistantDock.qml). For an answer that comes while the assistant is
-// hidden, as after a spoken request, they come up by themselves, without the
-// reply line or the keyboard, and go again; a click on them keeps them. Until
+// (AssistantDock.qml). An answer that comes while the assistant is hidden
+// shows in the pill by the button instead (VoicePill.qml). Until
 // the model is on this computer, they offer to download it (AssistantGet.qml).
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -19,36 +18,21 @@ import qs.services
 Popout {
     id: panel
 
-    readonly property bool peek: Assistant.peeking
     readonly property real wide: Math.min(380, width - 40)
     // The models are unfolded, to choose one.
     property bool choosing
 
     name: "assistant"
-    grab: !peek
     stays: true
-    arrow: !peek
     onVisibleChanged: {
         choosing = false;
-        if (visible && !peek)
-            reply.focusInput();
-    }
-    onPeekChanged: {
-        if (visible && !peek)
+        if (visible)
             reply.focusInput();
     }
 
     Column {
         width: panel.wide
         spacing: 6
-
-        HoverHandler {
-            onHoveredChanged: Assistant.peekHovered = hovered
-        }
-        TapHandler {
-            enabled: panel.peek
-            onTapped: Assistant.keepPeek()
-        }
 
         Flickable {
             id: scroller
@@ -58,7 +42,7 @@ Popout {
 
             visible: Assistant.messages.length > 0
             width: parent.width
-            height: Math.min(contentHeight, panel.height * (panel.peek ? 0.3 : 0.5))
+            height: Math.min(contentHeight, panel.height * 0.5)
             contentHeight: messages.height
             clip: true
             boundsBehavior: Flickable.StopAtBounds
@@ -99,7 +83,6 @@ Popout {
         }
 
         PopoverFrame {
-            visible: !panel.peek
             width: parent.width
             padding: 10
 

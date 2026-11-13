@@ -22,6 +22,12 @@ xdg-user-dirs
 # Skip silence (capture/skip-silence), on the ffmpeg libraries that wf-recorder
 # already brings; Opus and VP9, as no H.264 is shipped.
 ffmpeg-free
+# The phonemes of the assistant's spoken answers (dictation/speak): sherpa-onnx 2
+# reads Piper voices only from phonemes, and nothing else in the image makes them.
+espeak-ng
+# The sound theme: the assistant's soft sound when it takes a spoken request
+# (shell/services/Assistant.qml). Other packages bring it now; it is named so it stays.
+sound-theme-freedesktop
 # The clipboard, kept after the application it came from closes (shell/services/Clipboard.qml).
 clipman
 wl-clipboard

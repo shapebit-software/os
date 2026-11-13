@@ -1,0 +1,182 @@
+#!/usr/bin/python3
+# Says the assistant's answers aloud in voice mode (shell/services/Assistant.qml),
+# sentence by sentence as they come, so it begins before the answer is all written.
+# Piper voices, downloaded as the extra "voices" (extras/extra), one per language;
+# espeak-ng turns the words into the phonemes they read, which sherpa-onnx 2 no
+# longer does itself; pw-play plays them. Each sentence is said in Polish or English,
+# whichever its words are, and otherwise in the language said last.
+#
+# Usage: speak VOICES (the extra's folder: NAME.onnx, NAME.onnx.json, NAME.tokens)
+#
+# In, one JSON line each: {"say": text}, said after what is already waiting;
+# {"end": true}, the answer is all there; {"do": "stop"}, silent at once, with what
+# waits dropped. The end of the input ends it.
+# Out: {"state": "speaking"} when sound begins; {"state": "quiet"} once an answer
+# is all said and heard, after "end", or at once after "stop".
+import json
+import os
+import pathlib
+import queue
+import re
+import subprocess
+import sys
+import threading
+
+THREADS = 2
+POLISH_LETTERS = re.compile("[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]")
+POLISH = {"jest", "nie", "się", "że", "jak", "co", "czy", "tak", "na", "mam", "są", "już", "teraz", "proszę", "w", "z"}
+ENGLISH = {"the", "is", "are", "and", "you", "it", "of", "in", "on", "yes", "your", "what", "this", "that", "a"}
+END = object()
+
+
+def say(**message):
+    print(json.dumps(message), flush=True)
+
+
+def plain(text):
+    """As it is said: no links, and none of the marks of formatting."""
+    text = re.sub(r"https?://\S+", "", text)
+    text = re.sub(r"[*_#`>|~]+", " ", text)
+    return " ".join(text.split())
+
+
+def language(text, last):
+    words = re.findall(r"\w+", text.lower())
+    polish = sum(w in POLISH for w in words) + 3 * len(POLISH_LETTERS.findall(text))
+    english = sum(w in ENGLISH for w in words)
+    return "pl" if polish > english else "en" if english > polish else last
+
+
+class Voice:
+    def __init__(self, model):
+        import sherpa_onnx
+
+        self.sherpa = sherpa_onnx
+        config = json.loads(model.with_suffix(".onnx.json").read_text(encoding="utf-8"))
+        self.espeak = config["espeak"]["voice"]
+        self.rate = config["audio"]["sample_rate"]
+        self.clusters = ["".join(pair) for pair in config.get("vowel_clusters", [])]
+        self.tts = sherpa_onnx.OfflineTts(sherpa_onnx.OfflineTtsConfig(
+            model=sherpa_onnx.OfflineTtsModelConfig(
+                vits=sherpa_onnx.OfflineTtsVitsModelConfig(model=str(model), tokens=str(model.with_suffix(".tokens"))),
+                num_threads=THREADS)))  # fmt: skip
+
+    def audio(self, text):
+        """16-bit samples of the text said, or b"" for none."""
+        import numpy
+
+        phonemes = subprocess.run(["espeak-ng", "-q", "--ipa", "-v", self.espeak, "--stdin"], input=text,
+                                  capture_output=True, text=True).stdout  # fmt: skip
+        lines = [" ".join(line.split()) for line in phonemes.splitlines() if line.strip()]
+        # As extras/extra wrote the voice's tokens: each vowel cluster one character.
+        for number, cluster in enumerate(self.clusters):
+            lines = [line.replace(cluster, chr(0xE000 + number)) for line in lines]
+        if not lines:
+            return b""
+        config = self.sherpa.GenerationConfig()
+        config.phoneme_codepoints = [[ord(c) for c in line] for line in lines]
+        config.sid = 0
+        samples = numpy.array(self.tts.generate(text, config).samples, dtype=numpy.float32)
+        return (numpy.clip(samples, -1, 1) * 32767).astype(numpy.int16).tobytes()
+
+
+class Speaking:
+    def __init__(self, voices):
+        sys.path.insert(0, os.environ.get("DICTATION_PYTHON", "/usr/lib64/dictation"))
+        self.voices = {model.stem: Voice(model) for model in sorted(voices.glob("*.onnx"))}
+        self.last = "en" if "en" in self.voices else next(iter(self.voices))
+        self.waiting = queue.Queue()
+        self.lock = threading.Lock()
+        # Raised by each stop, so that what was being made by then is dropped.
+        self.round = 0
+        # The player being written to, and one playing out the end of an answer.
+        self.player = None
+        self.draining = None
+        threading.Thread(target=self.work, daemon=True).start()
+
+    def stop(self):
+        """Silent at once: nothing here waits for sound while it holds the lock."""
+        with self.lock:
+            self.round += 1
+            while not self.waiting.empty():
+                self.waiting.get_nowait()
+            players, self.player, self.draining = [self.player, self.draining], None, None
+        for player in filter(None, players):
+            player.terminate()
+            player.wait()
+        say(state="quiet")
+
+    def play(self, rate, audio, round_):
+        with self.lock:
+            if round_ != self.round:
+                return
+            if not self.player:
+                # It goes with this, so that nothing goes on talking.
+                self.player = subprocess.Popen(["setpriv", "--pdeathsig", "TERM", "pw-play", "--raw", "--rate", str(rate),
+                                                "--channels", "1", "--format", "s16", "-"], stdin=subprocess.PIPE)  # fmt: skip
+                say(state="speaking")
+            player = self.player
+        # Written as it plays, which takes as long as the sentence: a stop ends
+        # the player, and the rest is not written.
+        try:
+            player.stdin.write(audio)
+            player.stdin.flush()
+        except (OSError, ValueError):
+            pass
+
+    def ended(self, round_):
+        """The answer is all given: once it is played out, quiet."""
+        with self.lock:
+            if round_ != self.round:
+                return
+            player, self.player, self.draining = self.player, None, self.player
+        if player:
+            try:
+                player.stdin.close()
+            except OSError:
+                pass
+            player.wait()
+        with self.lock:
+            if round_ != self.round:
+                return
+            self.draining = None
+        say(state="quiet")
+
+    def work(self):
+        while True:
+            item, round_ = self.waiting.get()
+            if item is END:
+                self.ended(round_)
+                continue
+            text = plain(item)
+            if not text:
+                continue
+            chosen = language(text, self.last)
+            self.last = chosen if chosen in self.voices else self.last
+            voice = self.voices[self.last]
+            audio = voice.audio(text)
+            if audio:
+                # Every voice speaks at 22,050 Hz, so one player says them all.
+                self.play(voice.rate, audio, round_)
+
+    def run(self):
+        for line in sys.stdin:
+            message = json.loads(line)
+            if message.get("do") == "stop":
+                self.stop()
+            elif "say" in message:
+                self.waiting.put((message["say"], self.round))
+            elif message.get("end"):
+                self.waiting.put((END, self.round))
+        self.stop()
+
+
+def main():
+    voices = pathlib.Path(sys.argv[1])
+    if not any(voices.glob("*.onnx")):
+        sys.exit(f"speak: no voices in {voices}")
+    Speaking(voices).run()
+
+
+if __name__ == "__main__":
+    main()

@@ -48,6 +48,53 @@
     ]
   },
   {
+    "id": "voices",
+    "name": "Spoken answers",
+    "detail": "The assistant says its answers aloud in voice mode, on this computer. Polish and English.",
+    "unpacked": 126454896,
+    "prepare": "piper",
+    "credits": [
+      {
+        "work": "Piper voice pl_PL darkman (medium)",
+        "by": "the Open Home Foundation",
+        "license": "CC0",
+        "url": "https://huggingface.co/rhasspy/piper-voices/tree/main/pl/pl_PL/darkman/medium"
+      },
+      {
+        "work": "Piper voice en_GB cori (medium), the voice of Cori Samuel",
+        "by": "the Open Home Foundation, on the Hi-Fi Multi-Speaker English TTS Dataset by NVIDIA",
+        "license": "CC BY 4.0",
+        "url": "https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_GB/cori/medium"
+      }
+    ],
+    "downloads": [
+      {
+        "url": "https://huggingface.co/rhasspy/piper-voices/resolve/2f358b6a560e3a913ebf509b2f3344f20b367f94/pl/pl_PL/darkman/medium/pl_PL-darkman-medium.onnx",
+        "sha256": "cf757ee307e3a7c23d5d8f69934deab51683d01c1c6be376d3e13146020f1530",
+        "bytes": 63221984,
+        "as": "pl.onnx"
+      },
+      {
+        "url": "https://huggingface.co/rhasspy/piper-voices/resolve/2f358b6a560e3a913ebf509b2f3344f20b367f94/pl/pl_PL/darkman/medium/pl_PL-darkman-medium.onnx.json",
+        "sha256": "0d98a67829a1b7ffbce7faacf4ea7bb7a7ce2ebc1598ad0289c0f6c1f352dbd0",
+        "bytes": 5457,
+        "as": "pl.onnx.json"
+      },
+      {
+        "url": "https://huggingface.co/rhasspy/piper-voices/resolve/2f358b6a560e3a913ebf509b2f3344f20b367f94/en/en_GB/cori/medium/en_GB-cori-medium.onnx",
+        "sha256": "2e0a55e140de672aa19b182602b407607bd2e6c35fc6020c0b1516053c02e995",
+        "bytes": 63221984,
+        "as": "en.onnx"
+      },
+      {
+        "url": "https://huggingface.co/rhasspy/piper-voices/resolve/2f358b6a560e3a913ebf509b2f3344f20b367f94/en/en_GB/cori/medium/en_GB-cori-medium.onnx.json",
+        "sha256": "f89b01c5e483c75ce9085ff89c79446c1a95a1cb4a362f629dac3b5a4b5dde75",
+        "bytes": 5471,
+        "as": "en.onnx.json"
+      }
+    ]
+  },
+  {
     "id": "gemma-4-e2b",
     "name": "Gemma 4 E2B",
     "detail": "The assistant's model on this computer, by Google: it answers questions and changes settings when you ask, and nothing you type leaves the computer, unless you let it look things up on the web. Polish, English, and many more languages.",
