@@ -202,9 +202,10 @@ release-key: ## Generate the release keys once, in KEYS_DIR outside build/; stor
 clean: ## Remove build outputs
 	rm -rf $(BUILD)
 
-# The tools that run the tests, on this host.
-$(VENV)/.done: tests/requirements.txt tests/requirements-host.txt
-	python3 -m venv $(VENV)
+# The tools that run the tests, on this host. Use Fedora's runtime packages,
+# including NumPy, which the desktop's unit tests also import.
+$(VENV)/.done: Makefile tests/requirements.txt tests/requirements-host.txt
+	python3 -m venv --system-site-packages $(VENV)
 	$(VENV)/bin/pip install -q -r tests/requirements-host.txt
 	touch $@
 
