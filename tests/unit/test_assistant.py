@@ -491,7 +491,7 @@ def test_a_local_model_is_waited_for_while_it_loads(tmp_path):
         model.close()
 
 
-def test_warming_starts_a_local_model_before_the_request(tmp_path):
+def test_warming_has_a_local_model_read_the_prompt_before_the_request(tmp_path):
     path = tmp_path / "model.sock"
     model = Model(unix=path)
     (tmp_path / "extras" / "gemma").mkdir(parents=True)
@@ -500,10 +500,22 @@ def test_warming_starts_a_local_model_before_the_request(tmp_path):
     try:
         made.client.send(op="warm")
         deadline = time.monotonic() + 10
-        while not model.gets and time.monotonic() < deadline:
+        while not model.requests and time.monotonic() < deadline:
             time.sleep(0.05)
-        assert model.gets == ["/health"]
-        assert model.requests == [], "nothing is asked of it yet"
+        # It reads the system prompt and the tools now, which take a small
+        # computer half a minute, and answers no more than a token.
+        primed = model.requests[0]
+        assert primed["max_tokens"] == 1
+        assert primed["messages"][0]["role"] == "system" and primed["tools"]
+        # Not again while it keeps them; the request begins as the warm-up did.
+        made.client.send(op="warm")
+        model.replies.append({"text": ["Hello."]})
+        made.client.send(op="send", id=None, text="hello")
+        assert made.client.done()["text"] == "Hello."
+        assert len(model.requests) == 2
+        asked = model.requests[1]
+        assert (asked["messages"][0], asked["tools"]) == (primed["messages"][0], primed["tools"])
+        assert "max_tokens" not in asked or asked["max_tokens"] != 1
     finally:
         made.stop()
         model.close()
@@ -514,7 +526,7 @@ def test_warming_a_model_that_is_not_there_does_nothing(setup):
     setup.model.replies.append({"text": ["Still here."]})
     setup.client.send(op="send", id=None, text="hello")
     assert setup.client.done()["text"] == "Still here."
-    assert setup.model.gets == []
+    assert len(setup.model.requests) == 1
 
 
 def test_the_model_is_told_the_computer_and_its_skills(tmp_path):

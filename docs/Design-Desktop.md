@@ -424,7 +424,13 @@ understanding:
 - **After sign-in**, the default: it loads half a minute after the session
   starts, so it answers at once from then on, and stays loaded.
 - **When used**: it loads with the first request, which then waits some
-  seconds, and frees its memory after ten minutes without one.
+  seconds, and frees its memory after ten minutes without one. Pressing
+  Super, or starting voice mode, already starts it.
+
+Once loaded, it reads its instructions and the tools at once, before any
+request: they are about 1,500 tokens, which take a small computer half a
+minute to read. It keeps them read, so a request reads only what is new,
+and the first word of an answer comes in one to two seconds.
 
 The speech model, Parakeet, which dictation and voice share, loads the same
 two ways, set apart in Settings > Assistant, and holds about 1.1 GB:

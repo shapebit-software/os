@@ -163,20 +163,6 @@ def local_socket(entry):
     return path
 
 
-def warm(entry):
-    """Has a local model start loading, so that it is there for the request
-    that follows: any request at its socket starts its server."""
-    if entry.get("where") != "local" or not ready(entry):
-        return
-    try:
-        connection = _UnixConnection(local_socket(entry), 10)
-        connection.request("GET", "/health")
-        connection.getresponse().read()
-        connection.close()
-    except (OSError, http.client.HTTPException, subprocess.SubprocessError):
-        pass
-
-
 class Chat:
     """One streamed request; stop() from another thread ends it at once."""
 

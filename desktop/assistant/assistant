@@ -19,7 +19,8 @@
 #   begin-voice             a new ephemeral conversation, for voice mode; answers
 #                           "voice" {conversation}
 #   forget {id}             an ephemeral conversation, gone
-#   warm                    has the model start loading, for the request that follows
+#   warm                    has the model start loading, and read the system prompt and
+#                           the tools (prime), for the request that follows
 #   stop                    ends the request under way; the queue goes on
 #   answer {card, choice, spoken}   choice "apply", "always", or "decline", on a
 #                           proposed action; spoken, said in voice mode: then only
@@ -89,6 +90,8 @@ SYSTEM = (
     "knowledge, in the language of the person's latest message unless they ask for another. Keep answers short, but do "
     "in full what is asked: to translate, shorten, explain, or rewrite something is about your last answer, unless the "
     "person says what; do it on the whole of it, without asking what they mean. If you are not sure of a fact, say so.\n\n"
+    "What you know, such as facts, definitions, and how things work, answer yourself, at once: tools are for this "
+    "computer, and for the web when the person asks or you don't know.\n\n"
     "To change something on the computer, use the provided tools, and only when the person asks for that action. If an "
     "action has no tool, or the request is unclear, say so briefly or ask. After a tool, say in one short sentence what "
     "happened, as its result says: if it was not done, say that it was not done.\n\n"
@@ -107,6 +110,9 @@ RESTORE = 60
 # How long after the service starts, in seconds, a model kept ready loads:
 # not with the rest of the session, which starts faster without it.
 READY_AFTER = float(os.environ.get("ASSISTANT_READY_AFTER", 30))
+# A local model keeps what it read for this long, in seconds, after its last
+# request: its server stops after ten minutes without one (language-model@.service).
+PRIMED_FOR = 9 * 60
 
 
 def home(variable, fallback):
@@ -216,6 +222,9 @@ class Assistant:
         self.queue = []  # (conversation id, user message id)
         self.current = None  # (conversation id, models.Chat or None)
         self.stopping = False
+        # What a local model last read before the conversation, and when:
+        # ((model id, system prompt, tools), time.monotonic()).
+        self.primed = None
         self.locked = False
         self.status = "idle"
         # The request under way: whether it carries text from elsewhere, and
@@ -348,6 +357,33 @@ class Assistant:
                 subprocess.run(["systemctl", "--user", verb, "--no-block", *map(unit, extras)], capture_output=True, timeout=30)
             except (OSError, subprocess.TimeoutExpired):
                 pass
+        if keep:
+            self.prime()
+
+    def before_conversation(self, entry):
+        """What every request to a model begins with: the system prompt and the tools."""
+        return entry["id"], prompt(entry), json.dumps(actions.tools(), sort_keys=True)
+
+    def prime(self):
+        """Has a local model load, and read the system prompt and the tools, which
+        take it half a minute on a small computer, before the person's request.
+        It keeps them read, so a request reads only what is new: one token of
+        answer is asked for, and nothing is kept of it. Not again while what it
+        read is still there, nor while a request runs, which reads them itself."""
+        with self.lock:
+            entry = self.model_entry()
+            if entry is None or entry.get("where") != "local" or not models.ready(entry) or self.current is not None:
+                return
+            before = self.before_conversation(entry)
+            if self.primed and self.primed[0] == before and time.monotonic() - self.primed[1] < PRIMED_FOR:
+                return
+            self.primed = (before, time.monotonic())
+        messages = [{"role": "system", "content": before[1]}, {"role": "user", "content": "Hi"}]
+        try:
+            models.Chat(entry).run(messages, actions.tools(), lambda piece: None, options={"max_tokens": 1})
+        except (models.Cancelled, models.Unavailable):
+            with self.lock:
+                self.primed = None
 
     def status_fields(self):
         entry = self.model_entry()
@@ -441,9 +477,7 @@ class Assistant:
                 self.locked = bool(request.get("locked"))
                 self.changed.notify_all()
             elif op == "warm":
-                entry = self.model_entry()
-                if entry is not None:
-                    threading.Thread(target=models.warm, args=(entry,), daemon=True).start()
+                threading.Thread(target=self.prime, daemon=True).start()
             elif op == "models":
                 self.vision_changed()
                 self.emit("settings", **self.settings_fields())
@@ -805,6 +839,9 @@ class Assistant:
 
             try:
                 said, calls = chat.run(messages, actions.tools(), text, status, self.options)
+                if entry.get("where") == "local":
+                    with self.lock:
+                        self.primed = (self.before_conversation(entry), time.monotonic())
             except models.Cancelled:
                 with self.lock:
                     self.finish(conversation, reply, state="stopped")
