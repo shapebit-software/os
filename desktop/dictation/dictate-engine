@@ -23,7 +23,14 @@
 # It reads the setting as it waits, so a change counts at once. It ends by itself,
 # as only it knows when it is unused.
 #
-# Out: {"speech": true}, a phrase has begun; {"final": ...}, a phrase, written down.
+# With the models comes Smart Turn (smart-turn.onnx), which hears from the voice
+# whether the person is done, as a sentence ends rather than pauses, and needs
+# Fedora's ONNX Runtime (packages). At each phrase's end, it judges the last 8
+# seconds, half a second past the speech, where it is surest; without either, it
+# does not judge, and hear goes by the words alone.
+#
+# Out: {"speech": true}, a phrase has begun; {"final": ..., "turn": 0..1}, a phrase,
+# written down, with how likely the person is done, when Smart Turn judges.
 # It ends when the input ends and the last phrase is out. Through the service, a
 # last {"end": true} says the recording was written down to its end; --connect
 # passes on all but that, and fails without it.
@@ -45,6 +52,9 @@ WINDOW = 512
 PAUSE = 0.5
 LONGEST_PHRASE = 15
 # The service checks the setting this often, in seconds, as it waits.
+# Smart Turn's features: Whisper's log-mel, of the last 8 s.
+TURN_SECONDS = 8
+N_FFT, HOP, MELS = 400, 160, 80
 CHECK_EVERY = float(os.environ.get("DICTATION_CHECK_EVERY", 30))
 SETTINGS = pathlib.Path(os.environ.get("XDG_CONFIG_HOME") or pathlib.Path.home() / ".config") / "desktop/settings.json"
 
@@ -73,10 +83,67 @@ def load(models):
         config.num_threads = 1
         return sherpa_onnx.VoiceActivityDetector(config, buffer_size_in_seconds=LONGEST_PHRASE * 4)
 
-    return recognizer, detector
+    return recognizer, detector, turn_judge(models)
 
 
-def recording(recognizer, detector, source, say, gone=lambda: False):
+def mel_filters():
+    """Whisper's 80 mel filters over 0 to 8 kHz, Slaney's scale and areas, as
+    transformers' WhisperFeatureExtractor makes them: (201, 80)."""
+    import numpy
+
+    def to_mel(hz):
+        hz = numpy.asarray(hz, dtype=numpy.float64)
+        return numpy.where(hz >= 1000, 15 + numpy.log(numpy.maximum(hz, 1e-10) / 1000) / (numpy.log(6.4) / 27), 3 * hz / 200)
+
+    def to_hz(mel):
+        mel = numpy.asarray(mel, dtype=numpy.float64)
+        return numpy.where(mel >= 15, 1000 * numpy.exp((numpy.log(6.4) / 27) * (mel - 15)), 200 * mel / 3)
+
+    bins = numpy.linspace(0, RATE // 2, N_FFT // 2 + 1)
+    points = to_hz(numpy.linspace(to_mel(0), to_mel(RATE / 2), MELS + 2))
+    widths = numpy.diff(points)
+    slopes = points[None, :] - bins[:, None]
+    filters = numpy.maximum(0, numpy.minimum(-slopes[:, :-2] / widths[:-1], slopes[:, 2:] / widths[1:]))
+    return filters * (2 / (points[2 : MELS + 2] - points[:MELS]))[None, :]
+
+
+def turn_features(samples, filters):
+    """Smart Turn's input, as its own code makes it with WhisperFeatureExtractor
+    (chunk_length=8, do_normalize=True): the last 8 s, zero-mean and of unit
+    variance, silence after, as log-mel features, (1, 80, 800)."""
+    import numpy
+
+    samples = numpy.asarray(samples, dtype=numpy.float32)[-RATE * TURN_SECONDS :]
+    audio = numpy.zeros(RATE * TURN_SECONDS, dtype=numpy.float32)
+    audio[: len(samples)] = (samples - samples.mean()) / numpy.sqrt(samples.var() + 1e-7)
+    padded = numpy.pad(audio, N_FFT // 2, mode="reflect")
+    frames = numpy.lib.stride_tricks.sliding_window_view(padded, N_FFT)[::HOP]
+    window = 0.5 - 0.5 * numpy.cos(2 * numpy.pi * numpy.arange(N_FFT) / N_FFT)
+    mel = (numpy.abs(numpy.fft.rfft(frames * window, axis=1)) ** 2)[:-1] @ filters
+    log = numpy.log10(numpy.maximum(mel, 1e-10))
+    log = numpy.maximum(log, log.max() - 8)
+    return ((log + 4) / 4).T[None].astype(numpy.float32)
+
+
+def turn_judge(models):
+    """How likely the person is done, from the audio so far, or None where Smart
+    Turn or ONNX Runtime is not there."""
+    path = pathlib.Path(models) / "smart-turn.onnx"
+    if not path.is_file():
+        return None
+    try:
+        import onnxruntime
+    except ImportError:
+        return None
+    options = onnxruntime.SessionOptions()
+    options.inter_op_num_threads = 1
+    options.intra_op_num_threads = THREADS
+    session = onnxruntime.InferenceSession(str(path), options, providers=["CPUExecutionProvider"])
+    filters = mel_filters()
+    return lambda samples: float(session.run(None, {"input_features": turn_features(samples, filters)})[0].reshape(-1)[0])
+
+
+def recording(recognizer, detector, turn, source, say, gone=lambda: False):
     """Writes down one recording, read from the file descriptor source until it
     ends, and says what it heard with say(**message). Returns False, with the last
     phrase not written down, when the caller is gone()."""
@@ -107,6 +174,9 @@ def recording(recognizer, detector, source, say, gone=lambda: False):
     # The audio since the last cut, and where that cut was in the whole recording.
     heard = numpy.zeros(0, dtype=numpy.float32)
     cut = 0
+    # The last seconds, for Smart Turn, and how much came in all.
+    recent = numpy.zeros(0, dtype=numpy.float32)
+    total = 0
     speaking = False
     ended = False
 
@@ -115,7 +185,17 @@ def recording(recognizer, detector, source, say, gone=lambda: False):
         text = write_down(heard[:until])
         heard = heard[until:]
         cut += until
-        if text:
+        if not text:
+            return
+        if turn is None:
+            say(final=text)
+            return
+        # Half a second past the speech: the cut is a quarter past it.
+        end = min(total, cut + int(PAUSE / 2 * RATE))
+        judged = recent[: max(0, len(recent) - (total - end))]
+        if len(judged):
+            say(final=text, turn=round(turn(judged), 3))
+        else:
             say(final=text)
 
     def phrases():
@@ -139,6 +219,8 @@ def recording(recognizer, detector, source, say, gone=lambda: False):
             audio = numpy.frombuffer(pending[:whole], dtype=numpy.int16).astype(numpy.float32) / 32768
             pending = pending[whole:]
             heard = numpy.concatenate((heard, audio))
+            recent = numpy.concatenate((recent, audio))[-RATE * (TURN_SECONDS + 2) :]
+            total += len(audio)
             for start in range(0, len(audio), WINDOW):
                 detector.accept_waveform(audio[start : start + WINDOW])
         phrases()
@@ -176,7 +258,7 @@ def serve(models):
     if os.environ.get("LISTEN_FDS") != "1":
         sys.exit("dictate-engine --serve: needs the socket from systemd (speech-model.socket)")
     listener = socket.socket(fileno=3)
-    recognizer, detector = load(models)
+    recognizer, detector, turn = load(models)
     last = time.monotonic()
     while True:
         keep = kept_for()
@@ -201,7 +283,7 @@ def serve(models):
                 return bool(poller.poll(0))
 
             try:
-                if recording(recognizer, detector, connection.fileno(), say, gone):
+                if recording(recognizer, detector, turn, connection.fileno(), say, gone):
                     say(end=True)
             except OSError:
                 # Gone while it was said: the next recording.
@@ -250,8 +332,8 @@ def main():
         def say(**message):
             print(json.dumps(message, ensure_ascii=False), flush=True)
 
-        recognizer, detector = load(sys.argv[1])
-        recording(recognizer, detector, 0, say)
+        recognizer, detector, turn = load(sys.argv[1])
+        recording(recognizer, detector, turn, 0, say)
 
 
 if __name__ == "__main__":

@@ -78,7 +78,9 @@ while True:
     path = fakes / "phrases"
     lines = path.read_text().splitlines() if path.exists() else []
     for line in lines[told:]:
-        print(json.dumps({"speech": True} if line == "<speech>" else {"final": line}), flush=True)
+        # "words|0.9": a phrase with Smart Turn's judgement.
+        words, _, turn = line.partition("|")
+        print(json.dumps({"speech": True} if line == "<speech>" else {"final": words, **({"turn": float(turn)} if turn else {})}), flush=True)
     # Rewriting the file empties it for a moment: only ever go on.
     told = max(told, len(lines))
     if ended.is_set():
@@ -373,6 +375,44 @@ def test_voice_mode_waits_longer_after_words_that_lead_on(hear):
     began = time.monotonic()
     assert hearing.wait_for("heard")["text"] == "What time is it?"
     assert time.monotonic() - began < 0.4, "a finished question goes sooner than the plain pause"
+
+
+@pytest.mark.parametrize(
+    ("ends", "turn", "scale"),
+    [
+        # Without Smart Turn, the words alone.
+        ("finished", None, 0.5),
+        ("", None, 1),
+        ("leading", None, 2),
+        # The voice says done.
+        ("finished", 0.9, 0.3),
+        ("", 0.9, 0.5),
+        ("leading", 0.9, 1),
+        # The voice says not done, whatever full stop the engine put.
+        ("finished", 0.1, 1),
+        ("", 0.1, 1.5),
+        ("leading", 0.1, 2),
+    ],
+)
+def test_the_voice_decides_and_words_that_lead_on_only_add_to_the_wait(ends, turn, scale):
+    loader = importlib.machinery.SourceFileLoader("hear", str(HEAR))
+    spec = importlib.util.spec_from_loader("hear", loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    assert module.pause_scale(ends, turn) == scale
+
+
+def test_voice_mode_waits_while_the_voice_says_the_person_is_not_done(hear):
+    # The pause is 0.4 s here: a full stop alone would make it 0.2 s, but the
+    # voice says not done, which keeps it at 0.4 s.
+    hearing = hear("--converse", engine=LIVE_ENGINE, env={**VOICE_MODE, "DICTATION_TURN_PAUSE": "0.4"})
+    hearing.recording()
+    (hearing.fakes / "phrases").write_text("Wyślę ci adres.|0.05\n")
+    hearing.wait_for("draft", text="Wyślę ci adres.")
+    (hearing.fakes / "sound").write_bytes(QUIET_SOUND)
+    time.sleep(0.25)
+    assert not any(m["state"] == "heard" for m in hearing.heard)
+    assert hearing.wait_for("heard")["text"] == "Wyślę ci adres."
 
 
 def test_voice_mode_makes_no_request_while_a_phrase_goes_on(hear):

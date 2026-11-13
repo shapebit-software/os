@@ -66,14 +66,41 @@ class VoiceActivityDetector:
 """
 
 
+# Smart Turn's runtime: the features must be Whisper's, 80 by 800; how likely the
+# person is done follows the loudest feature, so loud and quiet differ.
+ONNXRUNTIME = """
+import os, pathlib
+import numpy
+fakes = pathlib.Path(os.environ["FAKES"])
+
+class SessionOptions:
+    pass
+
+class InferenceSession:
+    def __init__(self, path, options=None, providers=None):
+        with open(fakes / "turn-loads", "a") as loads:
+            loads.write(path + "\\n")
+    def run(self, outputs, inputs):
+        features = inputs["input_features"]
+        assert features.shape == (1, 80, 800), features.shape
+        return [1 / (1 + numpy.exp(-features.max().reshape(1, 1)))]
+"""
+
+
 class Service:
-    def __init__(self, tmp_path, settings):
+    def __init__(self, tmp_path, settings, turn=False):
         self.fakes = tmp_path / "fakes"
         self.python = tmp_path / "python" / "sherpa_onnx"
         self.config = tmp_path / "config"
         for folder in (self.fakes, self.python, self.config / "desktop"):
             folder.mkdir(parents=True)
         (self.python / "__init__.py").write_text(SHERPA)
+        (self.python.parent / "onnxruntime").mkdir()
+        (self.python.parent / "onnxruntime" / "__init__.py").write_text(ONNXRUNTIME)
+        self.models = tmp_path / "models"
+        self.models.mkdir()
+        if turn:
+            (self.models / "smart-turn.onnx").write_bytes(b"model")
         (self.config / "desktop" / "settings.json").write_text(json.dumps(settings))
         self.socket = tmp_path / "speech-model.sock"
         own = {"FAKES": str(self.fakes), "DICTATION_PYTHON": str(self.python.parent),
@@ -82,7 +109,7 @@ class Service:
         # As systemd passes it; only the variables named go on.
         passed = [f"--setenv={name}" for name in ("PATH", *own)]
         self.process = subprocess.Popen(
-            ["systemd-socket-activate", "--listen", str(self.socket), *passed, ENGINE, "--serve", "/models"],
+            ["systemd-socket-activate", "--listen", str(self.socket), *passed, ENGINE, "--serve", str(self.models)],
             env=self.env, stderr=subprocess.DEVNULL,
         )
         deadline = time.monotonic() + 10
@@ -105,8 +132,8 @@ class Service:
 def service(tmp_path):
     started = []
 
-    def start(settings):
-        started.append(Service(tmp_path, settings))
+    def start(settings, turn=False):
+        started.append(Service(tmp_path, settings, turn))
         return started[-1]
 
     yield start
@@ -131,6 +158,44 @@ def test_a_phrase_begun_is_said_once_and_written_down_only_when_it_ends(service)
     loud = b"\0\x50" * 16384
     done = model.connect(SECOND + loud + loud)
     assert [json.loads(line) for line in done.stdout.splitlines()] == [{"speech": True}, {"final": "49152 samples"}]
+
+
+def test_with_smart_turn_each_phrase_says_how_likely_the_person_is_done(service):
+    model = service({}, turn=True)
+    done = model.connect(SECOND)
+    said = [json.loads(line) for line in done.stdout.splitlines()]
+    assert len(said) == 1 and said[0]["final"] == "16384 samples"
+    assert 0 < said[0]["turn"] < 1
+    # Loaded with the service, once.
+    model.connect(SECOND)
+    assert len((model.fakes / "turn-loads").read_text().splitlines()) == 1
+
+
+def test_without_smart_turn_phrases_come_unjudged(service):
+    model = service({})
+    said = [json.loads(line) for line in model.connect(SECOND).stdout.splitlines()]
+    assert said == [{"final": "16384 samples"}]
+
+
+def test_smart_turn_hears_the_features_whisper_makes():
+    # Against transformers' WhisperFeatureExtractor(chunk_length=8), as Smart
+    # Turn's own code uses it, for 1.5 s of two tones: the same numbers.
+    import importlib.machinery
+    import importlib.util
+
+    import numpy
+
+    loader = importlib.machinery.SourceFileLoader("engine", str(ENGINE))
+    spec = importlib.util.spec_from_loader("engine", loader)
+    engine = importlib.util.module_from_spec(spec)
+    loader.exec_module(engine)
+    t = numpy.arange(int(16000 * 1.5)) / 16000
+    tones = (0.5 * numpy.sin(2 * numpy.pi * 440 * t) + 0.2 * numpy.sin(2 * numpy.pi * 2500 * t)).astype(numpy.float32)
+    got = engine.turn_features(tones, engine.mel_filters())
+    assert got.shape == (1, 80, 800)
+    expected = {(0, 0): 1.20636, (10, 5): 1.5584, (40, 50): -0.35214, (79, 99): -0.35214, (20, 400): -0.35214}
+    assert {k: round(float(got[0, k[0], k[1]]), 5) for k in expected} == expected
+    assert round(float(got.mean()), 5) == -0.31416
 
 
 def test_unused_for_the_minutes_set_it_ends_and_frees_the_memory(service):

@@ -287,7 +287,8 @@ def test_live_dictation_finds_what_its_extra_installs():
     names = {pathlib.PurePosixPath(name).name for item in parakeet["downloads"] for name in item.get("files", [])}
     names |= {pathlib.PurePosixPath(item["url"]).name for item in parakeet["downloads"] if "files" not in item}
     engine = (ROOT / "desktop" / "dictation" / "dictate-engine").read_text()
-    for name in ("encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt", "silero_vad_v5.onnx"):
+    names |= {item["as"] for item in parakeet["downloads"] if "as" in item}
+    for name in ("encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt", "silero_vad_v5.onnx", "smart-turn.onnx"):
         assert name in names
         assert name in engine
     assert '"/var/lib/extras/parakeet"' in (ROOT / "desktop" / "dictation" / "hear").read_text()

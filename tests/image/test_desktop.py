@@ -89,7 +89,7 @@ def test_dictation_has_its_runtime_but_no_speech_model(sh, host):
     # The engine gets as far as loading Parakeet only with sherpa-onnx and NumPy
     # (Fedora's) in place. Speech models are extras, downloaded when the person
     # chooses.
-    sh("PYTHONPATH=/usr/lib64/dictation python3 -c 'import numpy, sherpa_onnx'")
+    sh("PYTHONPATH=/usr/lib64/dictation python3 -c 'import numpy, sherpa_onnx, onnxruntime'")
     assert host.file("/usr/libexec/desktop/dictate-engine").mode & 0o111
     for path in ("/usr/share/parakeet", "/usr/share/whisper", "/usr/bin/whisper-cli"):
         assert not host.file(path).exists

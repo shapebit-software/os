@@ -24,9 +24,10 @@
 # "text": ...}, a request of its own. The engine, which tells speech from noise,
 # says when they stopped: its phrase is out and no other has begun; then a quiet
 # moment (DICTATION_TURN_PAUSE) ends it, or, where it is never quiet, as with a
-# fan, a longer wait (DICTATION_TURN_LONGEST). How the words end changes the
-# moment (ending): half as long after a finished sentence, twice as long after
-# words that lead on, such as "and" or "że", or a comma. It ends with "stop", which delivers
+# fan, a longer wait (DICTATION_TURN_LONGEST). How the person sounds, and how the
+# words end, change the moment (pause_scale): the engine's Smart Turn hears from
+# the voice whether they are done, and words that lead on, such as "and" or "że",
+# or a comma, say they are not, whatever the voice. It ends with "stop", which delivers
 # what is left as "done", or after a minute without speech, with "nothing". No
 # recording is kept: should the live engine fail, it ends with "failed", as going
 # over the recording again would say what was heard once more.
@@ -112,6 +113,18 @@ def ending(said):
     return "finished" if said.rstrip().endswith((".", "?", "!")) else ""
 
 
+def pause_scale(ends, turn):
+    """How much of the usual pause to wait before the person counts as done:
+    by Smart Turn's turn, 0 to 1, when it judged, and by how the words end.
+    The voice decides; words that lead on only ever make it wait longer, as
+    the engine puts a full stop on unfinished speech too."""
+    if turn is None:
+        return {"finished": 0.5, "leading": 2}.get(ends, 1)
+    if turn >= 0.5:
+        return {"finished": 0.3, "leading": 1}.get(ends, 0.5)
+    return {"leading": 2}.get(ends, 1.5) if ends != "finished" else 1
+
+
 class Hearing:
     def __init__(self, converse=False):
         self.converse = converse
@@ -137,6 +150,9 @@ class Hearing:
         self.last_final = self.last_speech = time.monotonic()
         self.in_phrase = False
         self.paused = False
+        # How likely the person is done, as the engine's Smart Turn heard the
+        # last phrase, or None where it does not judge.
+        self.turn = None
 
         wake_read, wake_write = os.pipe()
         os.set_blocking(wake_write, False)
@@ -289,7 +305,7 @@ class Hearing:
         """Whether the person is done, after this long quiet and this long since
         the last phrase: sooner after a finished sentence, later after words that
         lead on."""
-        scale = {"finished": 0.5, "leading": 2}.get(ending(" ".join(self.phrases)), 1)
+        scale = pause_scale(ending(" ".join(self.phrases)), self.turn)
         return silent >= TURN_PAUSE * scale or since_phrase >= TURN_LONGEST * scale
 
     def stop_listening(self):
@@ -388,6 +404,7 @@ class Hearing:
             # draft to show.
             if "final" in message:
                 self.last_final = self.last_speech
+                self.turn = message.get("turn")
                 if clean(message["final"]):
                     self.phrases.append(clean(message["final"]))
                 if not self.rerun:

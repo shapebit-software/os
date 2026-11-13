@@ -25,6 +25,9 @@ ffmpeg-free
 # The phonemes of the assistant's spoken answers (dictation/speak): sherpa-onnx 2
 # reads Piper voices only from phonemes, and nothing else in the image makes them.
 espeak-ng
+# ONNX Runtime for Smart Turn, which hears when the person is done speaking in
+# voice mode (dictation/dictate-engine); sherpa-onnx's own has no Python interface.
+python3-onnxruntime
 # The sound theme: the assistant's soft sound when it takes a spoken request
 # (shell/services/Assistant.qml). Other packages bring it now; it is named so it stays.
 sound-theme-freedesktop
