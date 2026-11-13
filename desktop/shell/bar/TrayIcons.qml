@@ -83,29 +83,33 @@ Item {
             width: tray.place
             height: tray.place
 
-            // Stacked, a card behind the icon, which covers the one below.
+            // Stacked, a white card with round corners behind the icon,
+            // which covers the one before it.
             Rectangle {
+                id: card
                 anchors.fill: parent
                 visible: Tray.stacked
-                radius: Theme.rounded ? 2.5 : 0
-                color: Theme.night
-                border.color: Theme.sheen(0.22)
+                radius: 6
+                color: Theme.sheen(1)
+                border.color: Theme.popoverRing
             }
             Rectangle {
                 anchors.fill: parent
                 visible: tray.open
-                color: icon.current ? Theme.sheen(0.12) : Theme.shade(1)
-                opacity: icon.current ? 1 : iconHover.hovered ? 0.14 : 0
+                radius: card.radius
+                color: Tray.stacked ? Theme.veil(icon.current ? 0.16 : 0.1)
+                    : icon.current ? Theme.sheen(0.12) : Theme.shade(1)
+                opacity: icon.current ? 1 : iconHover.hovered ? (Tray.stacked ? 1 : 0.14) : 0
             }
             IconImage {
                 anchors.centerIn: parent
-                implicitSize: 18
+                implicitSize: Tray.stacked ? 16 : 18
                 source: icon.name ? Quickshell.iconPath(icon.name, "application-x-executable") : icon.modelData.icon
                 layer.enabled: Logic.symbolic(icon.modelData.icon)
                 layer.effect: MultiEffect {
-                    brightness: 1
+                    brightness: Tray.stacked ? 0 : 1
                     colorization: 1
-                    colorizationColor: Theme.text
+                    colorizationColor: Tray.stacked ? Theme.ink : Theme.text
                 }
             }
             Rectangle {
