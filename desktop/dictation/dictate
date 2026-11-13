@@ -15,7 +15,7 @@
 # while dictation for an application's own field only inserts. --only-copy never
 # inserts. Without either, text with no field to go to is only in "done".
 #
-# While the person speaks, the words so far show in the field that has the focus,
+# While the person speaks, the words so far, phrase by phrase, show in the field that has the focus,
 # as a draft that is not yet in it (an input method's preedit), where the field
 # allows it and the words may go there; otherwise only the shell shows them.
 #

@@ -1,10 +1,10 @@
 // Voice mode's pill (Assistant.qml), only while voice mode is on: beside the
 // assistant's button, off its bar, as a panel opens (Popout.qml), on the
 // screen voice mode began on; with no button on the bars, in the bottom right
-// corner. Text only, one line that each step replaces: the person's words as
-// they speak, and until the answer; then the answer, until they speak again;
-// or a word when what they said did nothing. Until there is any, it is not
-// there: the button shows that it listens. An action that waits is
+// corner. Text only, one line: the answer, until the person speaks again, or a
+// word when what they said did nothing. What they say is never shown, as in
+// dictation: the button's face shows that it listens, hears and thinks. Until
+// there is a line, it is not there. An action that waits is
 // one row: to say yes or no to, or, for what yes can't be said to, to click.
 // The button tells the state too (QuickButton.qml). Nothing here is kept: the
 // conversation behind it is forgotten when voice mode ends. It takes no
@@ -25,16 +25,15 @@ PanelWindow {
     readonly property var waiting: Assistant.voiceWaiting
     readonly property var last: Assistant.voiceLast
     readonly property string phase: Assistant.voiceState
-    // The one line, and how it shows: "said" (the person's words, as they
-    // speak, and until the answer), "answer", "notice", "error", or none. The
-    // state is the button's to show (QuickButton.qml).
+    // The one line, and how it shows: "answer", "notice", "error", or none.
+    // The state is the button's to show (QuickButton.qml).
     readonly property var line: {
         if (phase === "speaking")
-            return { kind: "said", text: Assistant.draft };
+            return { kind: "", text: "" };
         if (Assistant.voiceNotice)
             return { kind: "notice", text: Assistant.voiceNotice };
         if (phase === "thinking")
-            return { kind: "said", text: Assistant.voiceHeard };
+            return { kind: "", text: "" };
         if (last?.role === "assistant" && last.state === "failed")
             return { kind: "error", text: last.error ?? "It failed." };
         if (last?.role === "assistant" && last.text)
@@ -120,7 +119,7 @@ PanelWindow {
                 maximumLineCount: pill.line.kind === "answer" ? 4 : 2
                 elide: Text.ElideRight
                 textFormat: Text.PlainText
-                font { family: Theme.font; pixelSize: 12; italic: pill.line.kind === "said" }
+                font { family: Theme.font; pixelSize: 12 }
             }
             // An action that waits.
             Row {

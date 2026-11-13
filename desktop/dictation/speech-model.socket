@@ -1,0 +1,11 @@
+# Where dictation/hear reaches the speech engine (dictate-engine --serve), which
+# starts with the first recording and keeps Parakeet loaded for the next ones.
+[Unit]
+Description=Speech model
+
+[Socket]
+ListenStream=%t/speech-model.sock
+SocketMode=0600
+
+[Install]
+WantedBy=sockets.target

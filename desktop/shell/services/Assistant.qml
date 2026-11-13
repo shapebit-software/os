@@ -28,6 +28,12 @@ import "assistant.js" as Logic
 Singleton {
     id: assistant
 
+    // Its icon: a face, a rounded square with two eyes, as one outline; the
+    // eyes are rings drawn so thick that they show as dots. The button on the
+    // bars draws it itself, to move the eyes (bar/QuickButton.qml).
+    readonly property string face: "M5.5 2.5h5a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3h-5a3 3 0 0 1-3-3v-5a3 3 0 0 1 3-3z"
+    readonly property string icon: face + "M5.6 7.5a.6 .6 0 1 0 1.2 0a.6 .6 0 1 0-1.2 0zM9.2 7.5a.6 .6 0 1 0 1.2 0a.6 .6 0 1 0-1.2 0z"
+
     // In development (make run), the shell starts the assistant itself, on a
     // socket of its own; otherwise systemd starts it on the first connection.
     readonly property string tree: Quickshell.env("DESKTOP_SHELL")
@@ -108,10 +114,14 @@ Singleton {
     // conversation of its own that the service keeps in memory only and
     // forgets at the end. Its pill shows by the assistant's button
     // (VoicePill.qml): at voiceAt, { screen, rect, edge, depth } as the bar
-    // tells it, or with no rect in a corner of the screen. With the words of
-    // what is being said, as they come, and what voice mode said and did.
+    // tells it, or with no rect in a corner of the screen. With what voice
+    // mode said and did; what is being said only tells that the person speaks.
     property bool conversing
+    // The words said so far, phrase by phrase, until they are a request; and
+    // whether a phrase has begun since (dictation/hear), so the button shows
+    // that the person speaks before any word is written down.
     property string draft
+    property bool speech
     property var voiceAt: null
     property string voiceConversation
     property var voiceMessages: []
@@ -119,15 +129,13 @@ Singleton {
     // person when what they said did nothing, such as yes to what needs a click.
     property bool voiceSent
     property string voiceNotice
-    // What the person said last in voice mode, shown until the answer.
-    property string voiceHeard
     readonly property var voiceWaiting: voiceMessages.find(m => m.role === "action" && m.state === "proposed") ?? null
     readonly property var voiceLast: voiceMessages.length ? voiceMessages[voiceMessages.length - 1] : null
     // Voice mode's state, for its button and pill: "speaking" (words being
     // said), "waiting" (an action waits for the person), "thinking" (a
     // request under way), "listening", or "" with voice mode off.
     readonly property string voiceState: !conversing ? ""
-        : draft !== "" ? "speaking"
+        : speech || draft !== "" ? "speaking"
         : voiceWaiting ? "waiting"
         : voiceSent || voiceLast && (voiceLast.role === "user" || voiceLast.state === "running"
             || ["thinking", "starting", "answering"].includes(voiceLast.state)) ? "thinking"
@@ -358,9 +366,9 @@ Singleton {
         request({ op: "warm" });
         level = 0;
         draft = "";
+        speech = false;
         voiceConversation = "";
         voiceMessages = [];
-        voiceHeard = "";
         request({ op: "begin-voice" });
         voice = "listening";
         conversing = true;
@@ -375,11 +383,30 @@ Singleton {
             converse(screen, at);
     }
 
-    // What is left is still said, as the last request; voice mode ends when
-    // the helper does.
+    // At once: what is still being said is dropped, as its answer would never
+    // show, its conversation forgotten. The button and the pill show it ended
+    // before the helper is gone.
     function endConversation() {
-        if (conversing && listener.running)
-            listener.write(JSON.stringify({ do: "stop" }) + "\n");
+        if (!conversing)
+            return;
+        if (listener.running)
+            listener.write(JSON.stringify({ do: "discard" }) + "\n");
+        voiceOff();
+    }
+
+    function voiceOff() {
+        if (voiceConversation)
+            request({ op: "forget", id: voiceConversation });
+        conversing = false;
+        draft = "";
+        speech = false;
+        voiceConversation = "";
+        voiceMessages = [];
+        voiceAt = null;
+        voiceSent = false;
+        voiceNotice = "";
+        if (voice === "listening")
+            voice = "";
     }
 
     // What was said in voice mode: the end of it, an answer to the action
@@ -387,6 +414,7 @@ Singleton {
     // never to what asks every time.
     function spoken(text: string) {
         draft = "";
+        speech = false;
         voiceNotice = "";
         if (!text.trim())
             return;
@@ -394,7 +422,6 @@ Singleton {
             endConversation();
             return;
         }
-        voiceHeard = text.trim();
         const waiting = voiceWaiting;
         const choice = waiting ? Logic.spokenAnswer(text) : "";
         if (choice === "apply" && waiting.risk !== "change") {
@@ -460,7 +487,10 @@ Singleton {
         }
         if (message.state === "listening") {
             level = message.level ?? 0;
+        } else if (message.state === "speaking" && conversing) {
+            speech = true;
         } else if (message.state === "draft" && conversing) {
+            speech = false;
             draft = message.text ?? "";
         } else if (message.state === "heard") {
             spoken(message.text ?? "");
@@ -816,16 +846,7 @@ Singleton {
         onExited: exitCode => { // qmllint disable signal-handler-parameters
             if (assistant.voice !== "" && !selection.running)
                 assistant.voice = "";
-            if (assistant.voiceConversation)
-                assistant.request({ op: "forget", id: assistant.voiceConversation });
-            assistant.conversing = false;
-            assistant.draft = "";
-            assistant.voiceConversation = "";
-            assistant.voiceMessages = [];
-            assistant.voiceAt = null;
-            assistant.voiceSent = false;
-            assistant.voiceNotice = "";
-            assistant.voiceHeard = "";
+            assistant.voiceOff();
         }
     }
 

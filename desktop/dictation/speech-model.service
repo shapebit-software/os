@@ -1,0 +1,10 @@
+# The speech engine, with Parakeet loaded: for dictation and the assistant's voice,
+# one recording at a time. It ends by itself once unused for as long as Settings
+# says, and the shell starts it after sign-in when Settings loads it then.
+[Unit]
+Description=Speech model
+Requires=speech-model.socket
+ConditionPathIsDirectory=/var/lib/extras/parakeet
+
+[Service]
+ExecStart=/usr/libexec/desktop/dictate-engine --serve /var/lib/extras/parakeet

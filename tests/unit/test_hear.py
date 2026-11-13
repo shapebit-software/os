@@ -1,13 +1,13 @@
 """desktop/dictation/hear, with a made-up recorder, engine, and player. Every path
 ends with the words, or with nothing, and leaves no audio behind."""
 
-import importlib.machinery
-import importlib.util
+import contextlib
 import json
 import os
 import pathlib
 import queue
 import signal
+import socket
 import struct
 import subprocess
 import threading
@@ -30,8 +30,8 @@ while True:
 """
 RECORDER_FAILS = "#!/bin/bash\nexit 1\n"
 # As the real one (dictation/dictate-engine): reads the audio to its end, then says
-# each line of "said" as a phrase. Files in FAKES make it say a draft first
-# ("engine-draft"), wait for "go" ("engine-waits"), or hang or fail for that many
+# each line of "said" as a phrase. Files in FAKES make it say a phrase has begun
+# first ("engine-speech"), wait for "go" ("engine-waits"), or hang or fail for that many
 # runs ("engine-hangs", "engine-fails").
 ENGINE = """#!/usr/bin/python3
 import json, os, pathlib, sys, time
@@ -42,7 +42,7 @@ def mark(name, default=""):
 with open(fakes / "engine-runs", "a") as runs:
     runs.write(" ".join(sys.argv[1:]) + "\\n")
 run = len(mark("engine-runs").splitlines())
-sys.stdout.write(mark("engine-draft"))
+sys.stdout.write(mark("engine-speech"))
 sys.stdout.flush()
 (fakes / "engine-audio").write_bytes(sys.stdin.buffer.read())
 (fakes / "engine-writing").touch()
@@ -57,7 +57,8 @@ for line in mark("said").splitlines():
         print(json.dumps({"final": line}), flush=True)
 """
 # Live, as the real one is while the person speaks: each line added to "phrases"
-# comes out as a phrase at once; it ends when the audio does.
+# comes out as a phrase at once, or "<speech>" as a phrase begun; it ends when the
+# audio does.
 LIVE_ENGINE = """#!/usr/bin/python3
 import json, os, pathlib, sys, threading, time
 fakes = pathlib.Path(os.environ["FAKES"])
@@ -72,7 +73,7 @@ while True:
     path = fakes / "phrases"
     lines = path.read_text().splitlines() if path.exists() else []
     for line in lines[told:]:
-        print(json.dumps({"final": line}), flush=True)
+        print(json.dumps({"speech": True} if line == "<speech>" else {"final": line}), flush=True)
     # Rewriting the file empties it for a moment: only ever go on.
     told = max(told, len(lines))
     if ended.is_set():
@@ -84,16 +85,20 @@ VOICE_MODE = {"DICTATION_TURN_PAUSE": "0.3", "DICTATION_CONVERSE_QUIET": "1.5"}
 
 
 class Hearing:
-    def __init__(self, tmp_path, *args, recorder=RECORDER, said="", sound=LOUD, env=None, draft=None, waits=False,
-                 hangs=0, fails=0, parakeet=True, engine=ENGINE):  # fmt: skip
+    def __init__(self, tmp_path, *args, recorder=RECORDER, said="", sound=LOUD, env=None, speech=False, waits=False,
+                 hangs=0, fails=0, parakeet=True, engine=ENGINE, service=False):  # fmt: skip
         self.fakes = tmp_path / "fakes"
         self.runtime = tmp_path / "runtime"
         self.fakes.mkdir()
         self.runtime.mkdir()
+        if service:
+            # speech-model.socket, which only needs to be there.
+            self.service = socket.socket(socket.AF_UNIX)
+            self.service.bind(str(self.runtime / "speech-model.sock"))
         (self.fakes / "said").write_text(said)
         (self.fakes / "sound").write_bytes(sound)
-        if draft:
-            (self.fakes / "engine-draft").write_text(json.dumps(draft) + "\n")
+        if speech:
+            (self.fakes / "engine-speech").write_text(json.dumps({"speech": True}) + "\n")
         if waits:
             (self.fakes / "engine-waits").touch()
         (self.fakes / "engine-hangs").write_text(str(hangs))
@@ -222,19 +227,20 @@ def test_the_engine_hears_the_recording_with_the_models(hear):
     assert (hearing.fakes / "engine-audio").read_bytes().startswith(LOUD)
 
 
-def test_the_draft_is_said_while_listening(hear):
-    hearing = hear(said="Dzień dobry.\n", draft={"draft": "Dzień", "tail": "dobry"})
+def test_with_the_speech_model_service_the_engine_goes_through_it(hear):
+    # The model then stays loaded between recordings (test_speech_model.py).
+    hearing = hear(said="Tak.\n", service=True)
+    hearing.say()
+    assert hearing.wait_for("done")["text"] == "Tak."
+    assert hearing.file("engine-runs") == f"--connect {hearing.runtime / 'speech-model.sock'}\n"
+
+
+def test_a_phrase_begun_is_said_while_listening_and_its_words_when_it_ends(hear):
+    hearing = hear(said="Dzień dobry.\n", speech=True)
+    hearing.wait_for("speaking")
+    hearing.say()
     message = hearing.wait_for("draft")
-    assert (message["text"], message["tail"]) == ("Dzień", "dobry")
-
-
-def test_words_agree_ignoring_case_and_punctuation():
-    loader = importlib.machinery.SourceFileLoader("engine", str(HEAR.with_name("dictate-engine")))
-    spec = importlib.util.spec_from_loader("engine", loader)
-    engine = importlib.util.module_from_spec(spec)
-    loader.exec_module(engine)
-    assert engine.agreed(["Ask", "not,", "what"], ["ask", "not", "when", "what"]) == 2
-    assert engine.agreed([], ["ask"]) == 0
+    assert (message["text"], message["tail"]) == ("Dzień dobry.", "")
 
 
 def test_without_parakeet_it_fails_before_it_listens(hear):
@@ -320,6 +326,19 @@ def test_a_room_that_is_never_quiet_still_ends_requests_and_voice_mode(hear):
     assert hearing.ended() == 0
 
 
+def test_voice_mode_makes_no_request_while_a_phrase_goes_on(hear):
+    hearing = hear("--converse", engine=LIVE_ENGINE, env=VOICE_MODE)
+    hearing.recording()
+    # A phrase, then another begun: quiet as it may be, the person is not done.
+    (hearing.fakes / "phrases").write_text("Turn the volume\n<speech>\n")
+    (hearing.fakes / "sound").write_bytes(QUIET_SOUND)
+    hearing.wait_for("speaking")
+    time.sleep(0.8)
+    assert not any(m["state"] == "heard" for m in hearing.heard)
+    (hearing.fakes / "phrases").write_text("Turn the volume\n<speech>\ndown.\n")
+    assert hearing.wait_for("heard")["text"] == "Turn the volume down."
+
+
 def test_stopping_voice_mode_delivers_what_is_left(hear):
     hearing = hear("--converse", engine=LIVE_ENGINE, env=VOICE_MODE)
     hearing.recording()
@@ -328,6 +347,23 @@ def test_stopping_voice_mode_delivers_what_is_left(hear):
     hearing.do("stop")
     assert hearing.wait_for("done")["text"] == "What time is it"
     assert hearing.ended() == 0
+
+
+def test_ending_voice_mode_mid_phrase_is_at_once_and_delivers_nothing(hear):
+    # As the shell ends it, on a right click or a tap on Super: no wait for the
+    # engine, and no last request whose answer would never show.
+    hearing = hear("--converse", engine=LIVE_ENGINE, env=VOICE_MODE)
+    hearing.recording()
+    (hearing.fakes / "phrases").write_text("Open the\n")
+    hearing.wait_for("draft", text="Open the")
+    hearing.do("discard")
+    assert hearing.process.wait(2) == 130
+    rest = []
+    with contextlib.suppress(queue.Empty):
+        while True:
+            rest.append(hearing.lines.get(timeout=0.5))
+    assert not [m for m in hearing.heard + rest if m["state"] in ("heard", "done")]
+    assert hearing.left_behind == []
 
 
 def test_voice_mode_ends_when_its_engine_fails_and_keeps_no_recording(hear):
@@ -396,10 +432,11 @@ def test_a_failed_engine_goes_over_the_recording_again(hear):
 
 
 def test_a_hung_engine_goes_over_the_recording_again_with_no_draft(hear):
-    hearing = hear(hangs=1, said="Dzień dobry.\n", draft={"draft": "Dzień", "tail": ""})
+    hearing = hear(hangs=1, said="Dzień dobry.\n", speech=True)
     hearing.say()
     assert hearing.wait_for("done")["text"] == "Dzień dobry."
-    assert [m["state"] for m in hearing.heard].count("draft") == 1
+    states = [m["state"] for m in hearing.heard]
+    assert (states.count("speaking"), states.count("draft")) == (1, 0)
 
 
 def test_an_engine_that_fails_again_fails(hear):

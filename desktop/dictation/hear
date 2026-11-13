@@ -5,8 +5,10 @@
 # one JSON line at a time.
 #
 # dictate-engine writes it down with Parakeet, downloaded as an extra (extras/extra),
-# while the person speaks: a draft, only ever shown. Parakeet tells its 25 languages
-# apart by itself. Should the engine fail or fall behind, it goes over the whole
+# while the person speaks: each phrase when they pause, so the words so far come
+# phrase by phrase, a draft only ever shown. Parakeet tells its 25 languages
+# apart by itself. The engine is speech-model.service, which keeps Parakeet loaded
+# between recordings as Settings says. Should the engine fail or fall behind, it goes over the whole
 # recording again at the stop. Without Parakeet, nothing can be written down, so it
 # fails before it listens.
 #
@@ -31,8 +33,9 @@
 # and SIGTERM.
 #
 # Out: {"state": "listening", "level": 0..1, "quiet": bool, "idle": bool};
-# {"state": "draft", "text": ..., "tail": ...}, the words so far and those that may
-# still change; {"state": "writing"}; {"state": "heard", "text": ...};
+# {"state": "speaking"}, a phrase has begun; {"state": "draft", "text": ...,
+# "tail": ""}, the words of the phrases so far, with each that ends;
+# {"state": "writing"}; {"state": "heard", "text": ...};
 # and at the end, {"state": "done", "text": ...}, {"state": "nothing"}, or
 # {"state": "failed"}.
 import array
@@ -51,6 +54,9 @@ import wave
 
 PARAKEET = pathlib.Path(os.environ.get("DICTATION_PARAKEET", "/var/lib/extras/parakeet"))
 ENGINE = os.environ.get("DICTATION_ENGINE", str(pathlib.Path(__file__).with_name("dictate-engine")))
+# The engine kept loaded between recordings (speech-model.socket), where there is
+# one; otherwise, as in development, an engine of its own, loaded for this one.
+SERVICE = pathlib.Path(os.environ["XDG_RUNTIME_DIR"]) / "speech-model.sock"
 SOUNDS = bool(os.environ.get("DICTATION_SOUNDS"))
 # Seconds of silence: until the microphone seems not to hear; after speech,
 # until asking if the person is still there; and until stopping by itself.
@@ -104,7 +110,7 @@ class Hearing:
         # In voice mode: when the engine last finished a phrase, whether one has
         # begun since, and when it last heard speech at all.
         self.last_final = self.last_speech = time.monotonic()
-        self.drafting = False
+        self.in_phrase = False
 
         wake_read, wake_write = os.pipe()
         os.set_blocking(wake_write, False)
@@ -236,7 +242,7 @@ class Hearing:
             since_phrase = now - self.last_final
             if now - self.last_speech >= CONVERSE_QUIET:
                 self.stop_listening()
-            elif self.phrases and not self.drafting and (silent >= TURN_PAUSE or since_phrase >= TURN_LONGEST):
+            elif self.phrases and not self.in_phrase and (silent >= TURN_PAUSE or since_phrase >= TURN_LONGEST):
                 # The person stopped: what they said is a request, and listening goes on.
                 self.emit(state="heard", text=" ".join(self.phrases))
                 self.phrases = []
@@ -261,7 +267,7 @@ class Hearing:
         self.rerun = recording is not None
         try:
             self.engine = subprocess.Popen(
-                ["setpriv", "--pdeathsig", "TERM", ENGINE, str(PARAKEET)],
+                ["setpriv", "--pdeathsig", "TERM", ENGINE, *(["--connect", str(SERVICE)] if SERVICE.is_socket() else [str(PARAKEET)])],
                 stdin=recording or subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
@@ -332,18 +338,19 @@ class Hearing:
         *lines, self.from_engine = self.from_engine.split(b"\n")
         for line in lines:
             message = json.loads(line)
-            # Going over the recording again, there is no draft to show.
-            if "final" in message or "draft" in message:
+            if "final" in message or "speech" in message:
                 self.last_speech = time.monotonic()
-                self.drafting = "draft" in message
+                self.in_phrase = "speech" in message
+            # Going over the recording again, nobody is speaking, and there is no
+            # draft to show.
             if "final" in message:
                 self.last_final = self.last_speech
                 if clean(message["final"]):
                     self.phrases.append(clean(message["final"]))
                 if not self.rerun:
                     self.emit(state="draft", text=" ".join(self.phrases), tail="")
-            elif "draft" in message and not self.rerun:
-                self.emit(state="draft", text=" ".join([*self.phrases, clean(message["draft"])]).strip(), tail=clean(message["tail"]))
+            elif "speech" in message and not self.rerun:
+                self.emit(state="speaking")
 
     def engine_ended(self):
         engine = self.engine

@@ -1,20 +1,38 @@
 #!/usr/bin/python3
-# Live speech recognition for dictation/hear, which runs this for one recording:
-# 16 kHz mono 16-bit audio comes in on the standard input, and JSON lines go out.
-# Silero finds where phrases end, and Parakeet writes each one down when it does. All
-# the audio goes to Parakeet: Silero only says where to cut, as it can take a short
-# phrase for silence, and those words would be lost. While a phrase goes on, Parakeet
-# also goes over what there is so far, for a draft that is only ever shown. Nothing
-# else in the image does this; sherpa-onnx runs both.
+# Live speech recognition for dictation/hear, for one recording at a time: 16 kHz
+# mono 16-bit audio comes in, and JSON lines go out. Silero finds where phrases end,
+# and Parakeet writes each one down when it does. All the audio goes to Parakeet:
+# Silero only says where to cut, as it can take a short phrase for silence, and those
+# words would be lost. Each phrase is written down once, when it ends: going over it
+# again as it goes on, for a draft, would keep the computer busy while the person
+# speaks and could hold up the phrase's end. Nothing else in the image does this;
+# sherpa-onnx runs both.
 #
-# Usage: dictate-engine MODELS (the folder of Parakeet's and Silero's files).
+# Usage:
+#   dictate-engine MODELS             one recording, on the standard input
+#   dictate-engine --serve MODELS     speech-model.service: one recording per
+#                                     connection on the socket systemd passes
+#   dictate-engine --connect SOCKET   one recording, on the standard input, through
+#                                     the service; for hear, as the first does
+# MODELS is the folder of Parakeet's and Silero's files.
 #
-# Out: {"draft": ..., "tail": ...}, the phrase so far, the words that the last two
-# passes agree on and those that may still change; {"final": ...}, a phrase.
-# It ends when the input ends and the last phrase is out.
+# Loading Parakeet takes about two seconds and holds about 1.1 GB, so the service
+# keeps it loaded between recordings: always, with Settings > Assistant's "Load the
+# speech model" at "After sign-in", or else until it has been unused for the minutes
+# chosen there; then it ends, and the socket starts it again with the next recording.
+# It reads the setting as it waits, so a change counts at once. It ends by itself,
+# as only it knows when it is unused.
+#
+# Out: {"speech": true}, a phrase has begun; {"final": ...}, a phrase, written down.
+# It ends when the input ends and the last phrase is out. Through the service, a
+# last {"end": true} says the recording was written down to its end; --connect
+# passes on all but that, and fails without it.
 import json
 import os
+import pathlib
 import queue
+import select
+import socket
 import sys
 import threading
 import time
@@ -26,33 +44,14 @@ WINDOW = 512
 # going over a longer one takes too long on a small computer.
 PAUSE = 0.5
 LONGEST_PHRASE = 15
-# Drafts come this often at most, in seconds, and leave Parakeet idle at least half
-# of the time, so that the fan stays quiet on a long dictation.
-DRAFT_EVERY = 1
+# The service checks the setting this often, in seconds, as it waits.
+CHECK_EVERY = float(os.environ.get("DICTATION_CHECK_EVERY", 30))
+SETTINGS = pathlib.Path(os.environ.get("XDG_CONFIG_HOME") or pathlib.Path.home() / ".config") / "desktop/settings.json"
 
 
-def agreed(before, after):
-    """How many words of after come first in before too, ignoring case and punctuation."""
-
-    def key(word):
-        return "".join(c for c in word.lower() if c.isalnum())
-
-    count = 0
-    for old, new in zip(before, after):
-        if key(old) != key(new):
-            break
-        count += 1
-    return count
-
-
-def say(**message):
-    print(json.dumps(message, ensure_ascii=False), flush=True)
-
-
-def main():
-    models = sys.argv[1]
+def load(models):
+    """Parakeet, and a way to make Silero, which keeps what it heard, for each recording."""
     sys.path.insert(0, os.environ.get("DICTATION_PYTHON", "/usr/lib64/dictation"))
-    import numpy
     import sherpa_onnx
 
     recognizer = sherpa_onnx.OfflineRecognizer.from_transducer(
@@ -63,14 +62,27 @@ def main():
         num_threads=THREADS,
         model_type="nemo_transducer",
     )
-    config = sherpa_onnx.VadModelConfig()
-    config.silero_vad.model = f"{models}/silero_vad_v5.onnx"
-    config.silero_vad.min_silence_duration = PAUSE
-    config.silero_vad.max_speech_duration = LONGEST_PHRASE
-    config.silero_vad.window_size = WINDOW
-    config.sample_rate = RATE
-    config.num_threads = 1
-    detector = sherpa_onnx.VoiceActivityDetector(config, buffer_size_in_seconds=LONGEST_PHRASE * 4)
+
+    def detector():
+        config = sherpa_onnx.VadModelConfig()
+        config.silero_vad.model = f"{models}/silero_vad_v5.onnx"
+        config.silero_vad.min_silence_duration = PAUSE
+        config.silero_vad.max_speech_duration = LONGEST_PHRASE
+        config.silero_vad.window_size = WINDOW
+        config.sample_rate = RATE
+        config.num_threads = 1
+        return sherpa_onnx.VoiceActivityDetector(config, buffer_size_in_seconds=LONGEST_PHRASE * 4)
+
+    return recognizer, detector
+
+
+def recording(recognizer, detector, source, say, gone=lambda: False):
+    """Writes down one recording, read from the file descriptor source until it
+    ends, and says what it heard with say(**message). Returns False, with the last
+    phrase not written down, when the caller is gone()."""
+    import numpy
+
+    detector = detector()
 
     def write_down(samples):
         stream = recognizer.create_stream()
@@ -82,8 +94,11 @@ def main():
     incoming = queue.Queue()
 
     def read():
-        while data := os.read(0, 8192):
-            incoming.put(data)
+        try:
+            while data := os.read(source, 8192):
+                incoming.put(data)
+        except OSError:
+            pass
         incoming.put(None)
 
     threading.Thread(target=read, daemon=True).start()
@@ -92,17 +107,14 @@ def main():
     # The audio since the last cut, and where that cut was in the whole recording.
     heard = numpy.zeros(0, dtype=numpy.float32)
     cut = 0
-    previous = []
-    next_draft = 0
+    speaking = False
     ended = False
 
     def phrase(until):
-        nonlocal heard, cut, previous, next_draft
+        nonlocal heard, cut
         text = write_down(heard[:until])
         heard = heard[until:]
         cut += until
-        previous = []
-        next_draft = 0
         if text:
             say(final=text)
 
@@ -133,19 +145,113 @@ def main():
         # A long time with no phrase may still hold something.
         if not detector.is_speech_detected() and len(heard) >= LONGEST_PHRASE * RATE:
             phrase(len(heard))
-        if not ended and detector.is_speech_detected() and time.monotonic() >= next_draft:
-            began = time.monotonic()
-            words = write_down(heard).split()
-            spent = time.monotonic() - began
-            next_draft = began + max(DRAFT_EVERY, spent * 2)
-            if words:
-                count = agreed(previous, words)
-                say(draft=" ".join(words[:count]), tail=" ".join(words[count:]))
-            previous = words
+        if detector.is_speech_detected() != speaking:
+            speaking = not speaking
+            if speaking:
+                say(speech=True)
+    # Discarded, rather than ended: nobody waits for the rest.
+    if gone():
+        return False
     detector.flush()
     phrases()
     if len(heard):
         phrase(len(heard))
+    return True
+
+
+def kept_for():
+    """How long, in seconds, the service stays unused before it ends, as Settings
+    says; None, for always."""
+    try:
+        settings = json.loads(SETTINGS.read_text())
+    except (OSError, ValueError):
+        settings = {}
+    if settings.get("speechModel") == "ready":
+        return None
+    minutes = settings.get("speechModelMinutes")
+    return 60 * (minutes if isinstance(minutes, (int, float)) and minutes > 0 else 10)
+
+
+def serve(models):
+    if os.environ.get("LISTEN_FDS") != "1":
+        sys.exit("dictate-engine --serve: needs the socket from systemd (speech-model.socket)")
+    listener = socket.socket(fileno=3)
+    recognizer, detector = load(models)
+    last = time.monotonic()
+    while True:
+        keep = kept_for()
+        left = CHECK_EVERY if keep is None else keep - (time.monotonic() - last)
+        if left <= 0:
+            return
+        listener.settimeout(min(left, CHECK_EVERY))
+        try:
+            connection, _ = listener.accept()
+        except TimeoutError:
+            continue
+        with connection:
+            connection.settimeout(None)
+
+            def say(**message):
+                connection.sendall((json.dumps(message, ensure_ascii=False) + "\n").encode())
+
+            def gone():
+                # Closed, rather than only done sending: POLLHUP.
+                poller = select.poll()
+                poller.register(connection, select.POLLHUP)
+                return bool(poller.poll(0))
+
+            try:
+                if recording(recognizer, detector, connection.fileno(), say, gone):
+                    say(end=True)
+            except OSError:
+                # Gone while it was said: the next recording.
+                pass
+        last = time.monotonic()
+
+
+def connect(path):
+    """The recording on the standard input, through the service, and what it says
+    on the standard output; fails unless it says it is done."""
+    server = socket.socket(socket.AF_UNIX)
+    try:
+        server.connect(path)
+    except OSError:
+        sys.exit(1)
+
+    def send():
+        try:
+            while data := os.read(0, 65536):
+                server.sendall(data)
+            server.shutdown(socket.SHUT_WR)
+        except OSError:
+            pass
+
+    threading.Thread(target=send, daemon=True).start()
+    done = False
+    try:
+        for line in server.makefile("rb"):
+            if json.loads(line).get("end"):
+                done = True
+                break
+            sys.stdout.buffer.write(line)
+            sys.stdout.flush()
+    except OSError:
+        pass
+    sys.exit(0 if done else 1)
+
+
+def main():
+    if sys.argv[1] == "--serve":
+        serve(sys.argv[2])
+    elif sys.argv[1] == "--connect":
+        connect(sys.argv[2])
+    else:
+
+        def say(**message):
+            print(json.dumps(message, ensure_ascii=False), flush=True)
+
+        recognizer, detector = load(sys.argv[1])
+        recording(recognizer, detector, 0, say)
 
 
 if __name__ == "__main__":

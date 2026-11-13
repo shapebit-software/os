@@ -90,7 +90,7 @@ PanelWindow {
 
         Repeater {
             model: [
-                { panel: "assistant", right: 13, bottom: 96, strokes: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z" },
+                { panel: "assistant", right: 13, bottom: 96, strokes: Assistant.icon },
                 ...(!Settings.hiddenItems.includes("dictation") ? [{ panel: "dictation", right: 65, bottom: 65, strokes: "M2 7v2M5 5v6M8 2.5v11M11 5v6M14 7v2" }] : []),
                 { panel: "capture", right: 96, bottom: 13, strokes: "M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3M5.8 8a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0-4.4 0z" },
             ]

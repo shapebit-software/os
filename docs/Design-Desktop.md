@@ -135,8 +135,10 @@ the computer, live while the person speaks, in any of 25 languages. Its model
 is an [extra](#extras): the image ships no speech model, so dictation works
 once the extra is downloaded, and until then its button leads to the download.
 
-- The words show as they come in the text field where they would go, as a
-  draft that is not yet in it, and nowhere else; the button's bars follow the
+- The words show phrase by phrase, each when the person pauses, in the text
+  field where they would go, as a draft that is not yet in it, and nowhere
+  else. Each phrase is written down once, so nothing keeps the computer busy
+  while the person speaks; the button's bars follow the
   voice, and an arc turns on it while the last words are written down. When they are ready, they go into the text
   field only if the same field still has the focus, as text, not keys, so
   they can't trigger shortcuts.
@@ -252,13 +254,13 @@ nothing:
 
 A tap on Super, or a click on the assistant's button, opens what was open
 last, and closes it again, docked or not. While the bubbles or the panel are
-open, the button is lit and its sparkle filled. Escape hides them, but a
+open, the button is lit and its face filled. Escape hides them, but a
 docked panel stays and gives the keyboard back to the window.
 
 **Voice**: hold Super, or the assistant's button, speak, and let go. What was
-said is the request. Nothing opens while the person speaks: the button shows
-sound bars while the assistant listens, and its sparkle turns while the
-assistant works. The answer comes up as a bubble and goes again after a few
+said is the request. Nothing opens while the person speaks: the eyes of the button's face
+grow with the voice while the assistant listens, and narrow and read from
+side to side while it works. The answer comes up as a bubble and goes again after a few
 seconds, unless it waits for the person. Bubbles come up the same way for
 any answer that arrives while the assistant is hidden.
 
@@ -275,20 +277,20 @@ any answer that arrives while the assistant is hidden.
 
 **Voice mode** is apart from the conversations: a double tap on Super, or a
 right click on the assistant's button, starts it, and either again ends it.
-The button stays filled while it is on, and its icon tells the state: rings
-going out from a dot while it listens, bars that follow the voice while the
-person speaks, a turning arc while it thinks, and the sparkle with a dot while
-an action waits. The bar's microphone, in any case: while any application
+The button stays filled while it is on, and its face tells the state by its
+eyes: they blink now and then while it listens, grow with the voice while the
+person speaks, glance up to one side and the other while it thinks, and a dot
+shows while an action waits. The bar's microphone, in any case: while any application
 records from it, it fills from below as loud as it hears, measured only then,
 and nothing kept. Nothing opens but a small
 pill beside the button, off its bar (or in the bottom right corner with no
-button on the bars), with text only, one line that each step replaces: the
-person's words as they speak, and until the answer; then the answer, until
-they speak again; and an action that waits, as one row. Until there is any,
+button on the bars), with text only: the answer, until the person speaks again, and an action
+that waits, as one row. What the person says is never shown, as in
+dictation; the button's face shows that it hears. Until there is any,
 the pill is not there. Each time the person pauses, about a second, what they said
-is a request, and it goes on listening. "Stop" said, a tap on Super, the lock
-screen, or a minute without a sound ends it, and what was still being said
-goes as a last request. Its requests are a conversation of their own, which
+is a request, and it goes on listening. "Stop" said, a tap on Super, a right
+click on the button, or the lock screen ends it at once, and drops what was
+still being said; a minute without a sound ends it too. Its requests are a conversation of their own, which
 the service keeps in memory only: it is never listed or saved, and is
 forgotten when voice mode ends; the activity log still notes what was done.
 Nothing is recorded: should speech stop being written down, voice mode ends.
@@ -400,9 +402,21 @@ understanding:
 - **When used**: it loads with the first request, which then waits some
   seconds, and frees its memory after ten minutes without one.
 
+The speech model, Parakeet, which dictation and voice share, loads the same
+two ways, set apart in Settings > Assistant, and holds about 1.1 GB:
+
+- **When used**, the default: it loads with the first recording, about two
+  seconds that the first words wait for, and stays loaded for the next ones
+  until unused for 5, 10 (the default), or 20 minutes, or an hour.
+- **After sign-in**: it loads with the session and stays.
+
+It runs as a user service of its own (dictation/speech-model.service), so
+dictation and voice reuse one loaded model.
+
 Settings > Assistant has, in order: **Models** (every model, the one in use,
 adding and removing online ones), the extras (Gemma 4 E2B, Screen
 understanding, and Dictation, which voice needs), when the local model loads,
+when the speech model loads and how long it stays,
 **Skills and tools** (each skill to read, the person's own to add, change, or
 delete, and each action with whether it runs at once or asks), **Permissions**
 (the groups allowed without asking, and the activity log), and where the panel

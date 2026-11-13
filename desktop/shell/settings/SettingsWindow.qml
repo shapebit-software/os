@@ -81,7 +81,7 @@ PanelWindow {
         ] },
         // The models and the downloads of the one on this computer, how it
         // loads, what it can do, and what it may do unasked; then where it shows.
-        { id: "assistant", name: "Assistant", icon: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z", rows: [
+        { id: "assistant", name: "Assistant", icon: Assistant.icon, rows: [
             { label: "Models", detail: "Gemma on this computer, and online ones: ChatGPT, Claude, and Gemini",
               value: Assistant.model?.name ?? "None", open: () => page = "assistant-models" },
             ...assistantExtras.map(e => ({ label: e.name, detail: e.detail, kind: "extra", extra: e })),
@@ -91,6 +91,17 @@ PanelWindow {
                   : `Shortly after sign-in, to answer at once; it keeps about ${modelMemory} of memory in use`,
               options: ["After sign-in", "When used"], selected: Assistant.loading === "used" ? "When used" : "After sign-in",
               select: o => Assistant.setLoading(o === "When used" ? "used" : "ready") }] : []),
+            ...(Dictation.available ? [{ label: "Load the speech model", kind: "choice",
+              detail: Settings.speechModel === "ready"
+                  ? "For dictation and voice: shortly after sign-in, to hear at once; it keeps about 1.1 GB of memory in use"
+                  : "For dictation and voice: when first used, which takes about two seconds; it frees about 1.1 GB of memory once unused",
+              options: ["After sign-in", "When used"], selected: Settings.speechModel === "ready" ? "After sign-in" : "When used",
+              select: o => Settings.speechModel = o === "When used" ? "used" : "ready" }] : []),
+            ...(Dictation.available && Settings.speechModel === "used" ? [{ label: "Free the speech model", kind: "choice",
+              detail: "After this long without dictation or voice",
+              options: ["5 min", "10 min", "20 min", "1 hour"],
+              selected: Settings.speechModelMinutes === 60 ? "1 hour" : `${Settings.speechModelMinutes} min`,
+              select: o => Settings.speechModelMinutes = o === "1 hour" ? 60 : parseInt(o) }] : []),
             { label: "Skills and tools", detail: "What the assistant knows how to do, and skills of your own",
               value: `${Assistant.skills.length} ${Assistant.skills.length === 1 ? "skill" : "skills"} · ${Assistant.tools.length} tools`,
               open: () => page = "assistant-skills" },

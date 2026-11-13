@@ -57,6 +57,11 @@ Singleton {
     property alias captureSkipSilence: adapter.captureSkipSilence
     // Whether dictation plays its soft sounds.
     property alias dictationSounds: adapter.dictationSounds
+    // When the speech model, for dictation and voice, is loaded: "ready", a
+    // little after sign-in, kept; or "used", with the first recording, and
+    // freed after speechModelMinutes unused (dictation/dictate-engine reads both).
+    property alias speechModel: adapter.speechModel
+    property alias speechModelMinutes: adapter.speechModelMinutes
     // Whether an application may share what was picked again without asking.
     property alias shareRemember: adapter.shareRemember
     // One of Colors.accents, or "Custom" for `accentHue`.
@@ -274,6 +279,8 @@ Singleton {
             // were separate items up to date (placeNewItems).
             property bool dictationButton: true
             property bool dictationSounds: false
+            property string speechModel: "used"
+            property int speechModelMinutes: 10
             property bool shareRemember: false
             property bool welcomed: false
             property bool setupPending: false

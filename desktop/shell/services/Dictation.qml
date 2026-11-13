@@ -2,7 +2,7 @@
 // another stops, and what was said goes into the text field that has the focus,
 // and to the clipboard. A right click, or Super+Shift+D, only copies. Its button
 // shows the state (bar/QuickButton.qml), and then, briefly, where the words went:
-// a check when inserted, or a clipboard. The words show as they come only in the
+// a check when inserted, or a clipboard. The words show phrase by phrase only in the
 // text field where they would go (dictation/dictate); the shell shows none.
 // dictation/dictate decides where they go; this starts it and shows what it
 // says. It understands Parakeet's 25 languages, any of them, once Parakeet is
@@ -30,8 +30,7 @@ Singleton {
     property bool quiet
     property bool idle
     property int seconds
-    // While the person speaks: the words so far, and those that may still change,
-    // for tests to read.
+    // While the person speaks: the words of the phrases so far, for tests to read.
     property string draft
     property string draftTail
     // Where the last words went, briefly: { text, inserted, copied, app }.
@@ -86,6 +85,17 @@ Singleton {
 
     // Parakeet, which writes it down, is downloaded (extras/extras.json).
     readonly property bool available: Extras.list.some(e => e.id === "parakeet" && e.installed)
+
+    // With Settings > Assistant's "Load the speech model" at "After sign-in",
+    // the speech model loads now, rather than with the first recording, and
+    // stays (dictation/speech-model.service). In development, hear loads its own.
+    readonly property bool keepLoaded: available && Settings.speechModel === "ready" && !Quickshell.env("DESKTOP_SHELL")
+    onKeepLoadedChanged: load()
+    Component.onCompleted: load()
+    function load() {
+        if (keepLoaded)
+            Quickshell.execDetached(["systemctl", "--user", "start", "--no-block", "speech-model.service"]);
+    }
 
     // The helper: the source tree's in development (make run), otherwise the
     // installed one.

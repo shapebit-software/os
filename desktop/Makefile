@@ -67,6 +67,8 @@ install: ## Install into DESTDIR
 	  assistant/llama-server@.service
 	install -d $(DESTDIR)$(PREFIX)/lib/systemd/user/sockets.target.wants
 	ln -sf ../assistant.socket $(DESTDIR)$(PREFIX)/lib/systemd/user/sockets.target.wants/assistant.socket
+	install -Dm644 -t $(DESTDIR)$(PREFIX)/lib/systemd/user dictation/speech-model.socket dictation/speech-model.service
+	ln -sf ../speech-model.socket $(DESTDIR)$(PREFIX)/lib/systemd/user/sockets.target.wants/speech-model.socket
 	install -Dm644 -t $(DESTDIR)$(PREFIX)/lib/systemd/user apps/app-update.service apps/app-update.timer downloads/downloads.service
 	install -d $(DESTDIR)$(PREFIX)/lib/systemd/user/timers.target.wants
 	ln -sf ../app-update.timer $(DESTDIR)$(PREFIX)/lib/systemd/user/timers.target.wants/app-update.timer

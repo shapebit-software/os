@@ -189,7 +189,8 @@ def test_session_keeps_copied_text(session):
 
 
 @pytest.mark.parametrize(
-    "unit", ["pipewire.service", "wireplumber.service", "pipewire-pulse.socket", "app-update.timer", "assistant.socket"]
+    "unit", ["pipewire.service", "wireplumber.service", "pipewire-pulse.socket", "app-update.timer", "assistant.socket",
+             "speech-model.socket"]
 )
 def test_session_unit_is_active(session, unit):
     assert wait_until(lambda: session.unit_active(unit))

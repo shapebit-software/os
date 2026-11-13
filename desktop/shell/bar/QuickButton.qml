@@ -10,20 +10,19 @@
 // says with which applications. While dictating (Dictation.qml), the dictation
 // button is filled with the accent and its icon says the state: sound bars that
 // follow the voice while listening, a turning arc while it writes the words down,
-// as the assistant's while it thinks, red when something is wrong, and then briefly where the words went, a
+// red when something is wrong, and then briefly where the words went, a
 // check or a clipboard, which pops in; a click stops, a right click discards, or
 // with nothing under way, starts a dictation that only copies. It has no tooltip
 // of its own, only what the person must know, such as a missing microphone. The assistant's button opens what was open
 // last, its bubbles or its panel (Assistant.qml), and closes it; while either is open
-// on its screen, the button is lit and its sparkle filled. Held, it listens until let
+// on its screen, the button is lit and its face filled. Held, it listens until let
 // go, as Super does; a right click starts voice mode, or ends it, as a double tap on
 // Super does: its pill shows beside the button (VoicePill.qml). In voice mode the
-// button stays filled, so the open microphone is never out of sight, and its icon
-// tells the state: rings going out from a dot while it listens, bars that follow the
-// voice while the person speaks, a turning arc while it thinks, and the sparkle with a dot while
-// an action waits. It is filled with the accent and shows sound bars while the
-// assistant listens, and its sparkle turns while the assistant works; a dot says an
-// action waits for the person.
+// button stays filled, so the open microphone is never out of sight. Its face tells
+// the state by its eyes: they blink now and then while voice mode listens, grow with
+// the voice while the person speaks, held or in voice mode, glance up to one side and
+// the other while voice mode thinks, and narrow and read from side to side while the
+// assistant works; a dot says an action waits for the person.
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.controls
@@ -50,7 +49,6 @@ BarButton {
     readonly property bool hearing: dictate && Dictation.listening && !Dictation.quiet
     readonly property bool wrong: dictate && (Dictation.state === "failed" || Dictation.notice.startsWith("No m") || Dictation.notice.startsWith("Mic"))
 
-    readonly property string sparkle: "M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5z"
     readonly property string frame: "M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3"
         + "M5.8 8a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0-4.4 0z"
     readonly property string screen: "M2 2.5h12v8H2zM5.5 13.5h5M8 10.5v3M8 8.5v-4M6.25 6.25 8 4.5l1.75 1.75"
@@ -128,70 +126,10 @@ BarButton {
         // Narrow enough on a half-size button that it keeps its size.
         spacing: button.half ? 1 : 2
     }
-    // The assistant listens: what the microphone hears; in voice mode, flat
-    // until the person speaks, so a noisy room doesn't look like speech.
-    DictationBars {
-        visible: button.listening
-        size: button.half ? 12 : 16
-        spacing: button.half ? 1 : 2
-        listening: true
-        writing: false
-        level: Assistant.level
-    }
-    // Voice mode listens: a dot, with rings going out from it, as from a
-    // pebble in water, one after the other.
-    Item {
-        id: ripple
-
-        readonly property real size: button.half ? 14 : 18
-
-        visible: button.voiceState === "listening"
-        width: size
-        height: size
-
-        Rectangle {
-            anchors.centerIn: parent
-            width: ripple.size / 4
-            height: width
-            radius: width / 2
-            color: Theme.textOnAccent
-        }
-        Repeater {
-            model: 2
-
-            Rectangle {
-                id: ring
-
-                required property int index
-
-                anchors.centerIn: parent
-                width: ripple.size
-                height: width
-                radius: width / 2
-                color: "transparent"
-                border.color: Theme.textOnAccent
-                border.width: 1.5
-                scale: 0.3
-                opacity: 0
-
-                SequentialAnimation {
-                    running: ripple.visible
-                    loops: Animation.Infinite
-
-                    PauseAnimation { duration: ring.index * 800 }
-                    ParallelAnimation {
-                        NumberAnimation { target: ring; property: "scale"; from: 0.3; to: 1; duration: 1600; easing.type: Easing.OutCubic }
-                        NumberAnimation { target: ring; property: "opacity"; from: 0.9; to: 0; duration: 1600; easing.type: Easing.InQuad }
-                    }
-                    PauseAnimation { duration: (1 - ring.index) * 800 }
-                }
-            }
-        }
-    }
-    // Voice mode thinks, or dictation writes the words down: a turning arc.
+    // Dictation writes the words down: a turning arc.
     Icon {
         id: arc
-        visible: button.voiceState === "thinking" || button.dictate && Dictation.writing
+        visible: button.dictate && Dictation.writing
         height: button.half ? 14 : 18
         color: Theme.textOnAccent
         strokeWidth: 1.8
@@ -235,33 +173,86 @@ BarButton {
         }
     }
 
-    // The assistant's sparkle, which turns while it works, and its dot.
+    // The assistant's face (Assistant.icon), whose eyes tell what it does, and
+    // its dot. Open, the face is filled and its eyes are holes in it.
     Item {
-        visible: button.assistant && !button.listening && ["", "waiting"].includes(button.voiceState)
-        width: sparkle.width
-        height: sparkle.height
+        visible: button.assistant
+        width: face.width
+        height: face.height
 
         Icon {
-            id: sparkle
+            id: face
+
+            // What the eyes do: "read" while it works, "hear" while the person
+            // speaks, "think" and "blink" in voice mode, or "".
+            readonly property string mode: button.working ? "read"
+                : button.listening ? "hear"
+                : button.voiceState === "thinking" ? "think"
+                : button.voiceState === "listening" ? "blink" : ""
+            // Where the eyes look, and how open they are: narrowed or grown,
+            // and the lids, for a blink.
+            property real look
+            property real lookUp
+            property real squint: mode === "read" ? 0.6 : mode === "hear" ? 1 + 0.6 * Assistant.level : 1
+            property real lids: 1
+            readonly property string eyes: [6.2, 9.8].map(x => {
+                const rx = button.open ? 1 : 1.3, ry = rx * squint * lids;
+                return `M${x + look - rx} ${7.5 + lookUp}a${rx} ${ry} 0 1 0 ${2 * rx} 0a${rx} ${ry} 0 1 0 ${-2 * rx} 0z`;
+            }).join("")
+
+            function rest() {
+                look = 0;
+                lookUp = 0;
+                lids = 1;
+            }
+
             height: button.half ? 14 : button.tile ? 20 : 18
             color: Theme.textOnAccent
-            strokes: button.sparkle
-            fills: button.open ? button.sparkle : ""
+            strokes: Assistant.face
+            fills: button.open ? Assistant.face + eyes : eyes
 
-            RotationAnimation on rotation {
-                running: button.working
+            Behavior on squint { NumberAnimation { duration: 120 } }
+            // Read: from left to right, a moment, and back.
+            SequentialAnimation {
+                running: face.mode === "read"
                 loops: Animation.Infinite
-                from: 0
-                to: 360
-                duration: 1600
-                onRunningChanged: if (!running) sparkle.rotation = 0
+                onRunningChanged: if (!running) face.rest()
+                NumberAnimation { target: face; property: "look"; to: 1.2; duration: 1080; easing.type: Easing.InOutSine }
+                PauseAnimation { duration: 150 }
+                NumberAnimation { target: face; property: "look"; to: -1.2; duration: 270; easing.type: Easing.OutSine }
             }
-            SequentialAnimation on opacity {
-                running: button.working
+            // Think: up to one side, then the other, back, and a blink.
+            SequentialAnimation {
+                running: face.mode === "think"
                 loops: Animation.Infinite
-                onRunningChanged: if (!running) sparkle.opacity = 1
-                NumberAnimation { to: 0.45; duration: 800; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 1; duration: 800; easing.type: Easing.InOutSine }
+                onRunningChanged: if (!running) face.rest()
+                PauseAnimation { duration: 320 }
+                ParallelAnimation {
+                    NumberAnimation { target: face; property: "look"; to: 1.1; duration: 380; easing.type: Easing.InOutSine }
+                    NumberAnimation { target: face; property: "lookUp"; to: -1.2; duration: 380; easing.type: Easing.InOutSine }
+                }
+                PauseAnimation { duration: 770 }
+                NumberAnimation { target: face; property: "look"; to: -1.1; duration: 380; easing.type: Easing.InOutSine }
+                PauseAnimation { duration: 640 }
+                ParallelAnimation {
+                    NumberAnimation { target: face; property: "look"; to: 0; duration: 380; easing.type: Easing.InOutSine }
+                    NumberAnimation { target: face; property: "lookUp"; to: 0; duration: 380; easing.type: Easing.InOutSine }
+                }
+                PauseAnimation { duration: 170 }
+                NumberAnimation { target: face; property: "lids"; to: 0.1; duration: 70 }
+                NumberAnimation { target: face; property: "lids"; to: 1; duration: 90 }
+            }
+            // Blink: twice, now and then, as one does while listening.
+            SequentialAnimation {
+                running: face.mode === "blink"
+                loops: Animation.Infinite
+                onRunningChanged: if (!running) face.rest()
+                PauseAnimation { duration: 2030 }
+                NumberAnimation { target: face; property: "lids"; to: 0.1; duration: 100 }
+                NumberAnimation { target: face; property: "lids"; to: 1; duration: 100 }
+                NumberAnimation { target: face; property: "lids"; to: 0.1; duration: 100 }
+                NumberAnimation { target: face; property: "lids"; to: 1; duration: 100 }
+                PauseAnimation { duration: 170 }
             }
         }
         Rectangle {

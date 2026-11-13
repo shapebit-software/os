@@ -139,6 +139,14 @@ def test_assistant_is_installed_and_starts_with_its_socket(host, sh):
     assert host.file(f"{units}/sockets.target.wants/assistant.socket").linked_to == f"{units}/assistant.socket"
 
 
+def test_speech_model_starts_with_its_socket(host):
+    units = "/usr/lib/systemd/user"
+    for unit in ("speech-model.socket", "speech-model.service"):
+        assert host.file(f"{units}/{unit}").size > 0
+    assert host.file(f"{units}/sockets.target.wants/speech-model.socket").linked_to == f"{units}/speech-model.socket"
+    assert "dictate-engine --serve" in host.file(f"{units}/speech-model.service").content_string
+
+
 def test_assistant_model_is_an_extra_not_in_the_image(host, sh):
     models = json.loads(host.file("/usr/share/desktop/assistant/models.json").content_string)
     local = [m["extra"] for m in models if m["where"] == "local"]
