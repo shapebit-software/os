@@ -1,21 +1,21 @@
 // The capture overlay (Capture.qml) over one screen, dimmed, with a panel at
-// the bottom center in the popovers' light glass, in one row of icons: what
-// to capture (a screenshot, a screen recording, the voice, or the camera),
-// where the kind chosen is the capture button, red for a recording; for the
-// first two, what to pick (a selection, a window, or the screen); and the
-// options of the kind chosen: for screenshots, Edit, which opens them for
-// markup before they are saved (Settings.captureMarkup); for screen
-// recordings, the timer, its seconds in a badge, Mic, which records the
-// microphone (Settings.captureMicrophone), and Camera bubble
-// (Settings.captureBubble); for the voice, Skip silence
+// the bottom in the popovers' light glass, in one row of icons: for screenshots
+// and screen recordings, what to pick (a selection, a window, or the screen);
+// what to capture (a screenshot, a screen recording, the voice, or the camera),
+// which stays in the middle of the screen, the kind chosen being the capture
+// button, red for a recording; and the options of the kind chosen: for
+// screenshots, Edit, which opens them for markup before they are saved
+// (Settings.captureMarkup); for screen recordings, the timer, its seconds in a
+// badge, Mic, which records the microphone (Settings.captureMicrophone), and
+// Camera bubble (Settings.captureBubble); for the voice, Skip silence
 // (Settings.captureSkipSilence); for the camera, the timer, Camera bubble,
-// which shows it round, Mic (Settings.cameraMicrophone), and Skip silence. Cancel sits on the panel's
-// corner. Until something is picked, the middle of the screen says what to
-// do; for the voice, it shows a microphone, and for the camera, the camera,
-// mirrored. A drag draws the selection, which shows its size in pixels, moves
-// when dragged from inside, resizes from its corners, and is kept for next
-// time; in Window, a click picks the window under the pointer. A second click
-// on the kind chosen, or Enter, captures; Escape cancels.
+// which shows it round, Mic (Settings.cameraMicrophone), and Skip silence.
+// Cancel sits on the panel's corner. Until something is picked, the middle of
+// the screen says what to do; for the voice, it shows a microphone, and for the
+// camera, the camera, mirrored. A drag draws the selection, which shows its
+// size in pixels, moves when dragged from inside, resizes from its corners, and
+// is kept for next time; in Window, a click picks the window under the pointer.
+// A second click on the kind chosen, or Enter, captures; Escape cancels.
 //
 // The camera shows in a window of its own, out of the overlay, which the
 // person can drag: round in the corner over a screen recording, where the
@@ -437,27 +437,17 @@ Scope {
                 text: "No camera found"
             }
         }
-        // The panel, one row at the bottom center: what to capture, the one
-        // chosen being the capture button; what to pick; and the kind's
-        // options. When sharing, what to pick, Share, and Remember. Cancel
-        // sits on its corner.
+        // The panel, one row at the bottom: what to pick, if anything; what
+        // to capture, the one chosen being the capture button, in the middle
+        // of the screen; and the kind's options. When sharing, what to pick,
+        // Share, and Remember, in the middle. Cancel sits on its corner.
         Bar {
             id: selectPanel
 
             visible: !window.marking
-
-            // What to capture; while an application asks for a screenshot,
-            // only that.
-            Repeater {
-                model: overlay.sharing ? [] : overlay.kinds
-
-                Kind {}
-            }
-
-            // Before what to pick, when there is anything to pick.
-            Divider {
-                visible: !overlay.sharing && window.picks
-            }
+            // The kinds stay in the middle of the screen, whatever is on
+            // either side of them.
+            pivot: overlay.sharing ? null : kindsRow
 
             // What to pick: the chosen one raised in white.
             Choice {
@@ -482,9 +472,24 @@ Scope {
                 onActivated: window.pickWhat("Screen")
             }
 
-            // Before Share, as the kinds are not there.
             Divider {
-                visible: overlay.sharing
+                visible: window.picks
+            }
+
+            // What to capture; while an application asks for a screenshot,
+            // only that.
+            Row {
+                id: kindsRow
+
+                visible: !overlay.sharing
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 4
+
+                Repeater {
+                    model: overlay.kinds
+
+                    Kind {}
+                }
             }
 
             // Share, muted until there is something to share.
@@ -885,8 +890,13 @@ Scope {
 
         default property alias items: barRow.data
         readonly property real padding: 6
+        // An item in the bar that stays in the middle of the screen, or none
+        // for the whole bar; the bar stays on the screen.
+        property Item pivot
 
-        anchors.horizontalCenter: parent.horizontalCenter
+        x: Math.max(Theme.gap, Math.min(parent.width - width - Theme.gap, pivot
+            ? parent.width / 2 - padding - pivot.x - pivot.width / 2
+            : (parent.width - width) / 2))
         y: parent.height - height - (Settings.dock === "Bottom" ? Theme.gap : 28)
         width: barRow.width + 2 * padding
         height: barRow.height + 2 * padding
