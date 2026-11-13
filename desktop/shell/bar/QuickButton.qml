@@ -4,7 +4,8 @@
 // size, two to a slot (Shell.qml).
 //
 // While recording, the capture button is red with the recording's length,
-// and a click on it stops the recording. While the screen is shared
+// and a click on it stops the recording; then, while Skip silence cuts the
+// recording, it says so when hovered. While the screen is shared
 // (SharePicker.qml), it is filled with the accent and shows a screen, and
 // says with which applications. While dictating (Dictation.qml), the dictation
 // button is filled with the accent and its icon says the state: sound bars that
@@ -43,6 +44,8 @@ BarButton {
     readonly property bool dictate: kind === "dictation"
     readonly property bool red: kind === "capture" && Capture.recording
     readonly property bool shared: kind === "capture" && SharePicker.sharing
+    // Skip silence cutting the recording that ended.
+    readonly property bool cutting: kind === "capture" && Capture.cutting
     readonly property bool dictating: dictate && (Dictation.active || Dictation.result !== null)
     readonly property bool hearing: dictate && Dictation.listening && !Dictation.quiet
     readonly property bool wrong: dictate && (Dictation.state === "failed" || Dictation.notice.startsWith("No m") || Dictation.notice.startsWith("Mic"))
@@ -111,9 +114,10 @@ BarButton {
         target: button
         edge: button.bar.edge
         hovered: button.visible && (button.assistant ? Assistant.notice !== "" : button.dictate && Dictation.telling
-            || button.hovered && (button.red || button.shared))
+            || button.hovered && (button.red || button.shared || button.cutting))
         text: button.assistant ? Assistant.notice
             : button.red ? `Recording ${Capture.elapsed} · click to stop`
+            : button.cutting ? "Skipping the recording's silences"
             : button.dictate ? Dictation.status
             : SharePicker.viewers.length ? `Sharing the screen with ${SharePicker.viewers.join(", ")}`
             : "Sharing the screen"

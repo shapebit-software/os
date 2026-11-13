@@ -112,11 +112,20 @@ screen only the sound, media, and brightness keys work.
   the current workspace; dragged onto a map, it opens there.
 - The **quick actions** sit on a bar or open from a hot corner: the
   assistant, capturing, and dictation.
-- **Capturing** opens one overlay for screenshots and recordings, of a
-  selection, a window, or the screen. Screenshots are saved at once, or first
-  open for markup; recordings can have a timer and the microphone. When an
-  app shares the screen, the same overlay asks what to share, and the capture
-  button shows while anything is shared.
+- **Capturing** opens one overlay for screenshots, screen recordings, voice
+  recordings, and camera recordings, in one row: the kind chosen is the
+  capture button, red for a recording, and a second click captures.
+  Screenshots and screen recordings are of a selection, a window, or the
+  screen. Screenshots are saved at once, or first open for markup; screen
+  recordings can have a timer, the microphone, and the camera in a round
+  bubble that the person drags where they want it. Voice recordings go to
+  Music/Recordings; camera recordings, shown mirrored while they record, to
+  Videos/Camera, with a timer, the microphone, and the bubble, which shows
+  the camera round while it records. Both can **Skip silence**: once the
+  recording ends, every quiet stretch shrinks to a short pause, so the file
+  is smaller and holds the speech. The camera is on only while it shows or
+  records. When an app shares the screen, the same overlay asks what to
+  share, and the capture button shows while anything is shared.
 
 ### Dictation
 

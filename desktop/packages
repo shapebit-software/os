@@ -18,6 +18,10 @@ grim
 slurp
 wf-recorder
 xdg-user-dirs
+# Voice and camera recordings (shell/services/Capture.qml, capture/camera) and
+# Skip silence (capture/skip-silence), on the ffmpeg libraries that wf-recorder
+# already brings; Opus and VP9, as no H.264 is shipped.
+ffmpeg-free
 # The clipboard, kept after the application it came from closes (shell/services/Clipboard.qml).
 clipman
 wl-clipboard

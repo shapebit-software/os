@@ -16,7 +16,8 @@ and they update and roll back with the system. Each owns its tasks:
   outside a sandbox.
 - **Diagnostics**: processes and resources. Not built yet.
 
-Screenshots and screen recording belong to the shell, not to an app.
+Screenshots and recordings of the screen, the voice, and the camera belong to
+the shell, not to an app.
 
 ## Recommended Apps
 

@@ -15,7 +15,7 @@ PORTAL_DIR = "/usr/share/xdg-desktop-portal/portals"
     [
         "start-hyprland", "hyprland-dialog", "qs", "grim", "slurp", "wf-recorder", "xdg-user-dir", "wl-copy", "wl-paste",
         "pipewire", "wireplumber", "pipewire-pulse", "upower", "hypridle", "brightnessctl", "clipman",
-        "secret-tool", "flatpak", "distrobox", "pw-record", "pw-play", "wtype", "setpriv",
+        "secret-tool", "flatpak", "distrobox", "pw-record", "pw-play", "wtype", "setpriv", "ffmpeg", "ffprobe",
     ],
 )  # fmt: skip
 def test_desktop_command_is_installed(host, command):
@@ -33,6 +33,8 @@ def test_desktop_command_is_installed(host, command):
         "/usr/libexec/desktop/app-catalog",
         "/usr/libexec/desktop/app-remove",
         "/usr/libexec/desktop/downloads",
+        "/usr/libexec/desktop/camera",
+        "/usr/libexec/desktop/skip-silence",
     ],
 )
 def test_desktop_helper_is_python(host, path):
@@ -252,3 +254,11 @@ def test_applications_show_no_window_buttons(sh):
 
 def test_monospace_font_is_installed(sh):
     assert "JetBrains Mono" in sh("fc-list : family").splitlines()
+
+
+def test_capture_has_its_encoders_and_devices(sh):
+    # Voice and camera recordings, and Skip silence, need Opus and VP9 from
+    # Fedora's ffmpeg, which has no H.264 (capture/camera).
+    encoders = sh("ffmpeg -hide_banner -encoders")
+    assert "libopus" in encoders and "libvpx-vp9" in encoders
+    assert "pulse" in sh("ffmpeg -hide_banner -devices") and "v4l2" in sh("ffmpeg -hide_banner -devices")

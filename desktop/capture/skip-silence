@@ -1,0 +1,155 @@
+#!/usr/bin/python3
+# Shortens every quiet stretch of a recording to a short pause, so that what is
+# left is the speech and the file is smaller: Skip silence, for voice and camera
+# recordings (shell/services/Capture.qml). What is quiet is measured from the
+# recording itself, as microphones and rooms differ: how loud it is at its
+# quietest (the noise) and at its loudest (the voice), every 20 ms of its sound,
+# which ffmpeg decodes. ffmpeg then cuts the silences out (trim and concat),
+# encoding the rest again in the recording's own format, and the cut file takes
+# the recording's place. A recording without a long enough silence, or without
+# a voice louder than its noise, stays as it is, as does one whose cutting fails.
+#
+# Usage: skip-silence FILE
+#
+# SKIP_SILENCE_SHORTEST is the shortest silence that is cut, and
+# SKIP_SILENCE_PAUSE the pause left in its place, in seconds.
+import os
+import pathlib
+import subprocess
+import sys
+import tempfile
+
+import numpy
+
+SHORTEST = float(os.environ.get("SKIP_SILENCE_SHORTEST", 0.8))
+PAUSE = float(os.environ.get("SKIP_SILENCE_PAUSE", 0.4))
+RATE = 16000
+FRAME = 0.02
+# The voice must be this much louder than the noise (dB) for any of it to be
+# silence; and silence is under the noise plus this share of the difference.
+CONTRAST = 10
+SHARE = 0.3
+# Shorter pieces of speech than this are left out: a click or a breath.
+PIECE = 0.05
+
+
+def levels(samples: numpy.ndarray) -> numpy.ndarray:
+    """How loud each frame is, in dB, smoothed over five frames so that a click
+    does not break a silence."""
+    n = int(RATE * FRAME)
+    frames = samples[: len(samples) // n * n].reshape(-1, n).astype(numpy.float64) / 32768
+    loud = 20 * numpy.log10(numpy.sqrt((frames**2).mean(axis=1)) + 1e-9)
+    if len(loud) < 5:
+        return loud
+    padded = numpy.pad(loud, 2, mode="edge")
+    return numpy.median(numpy.lib.stride_tricks.sliding_window_view(padded, 5), axis=1)
+
+
+def silences(loud: numpy.ndarray, shortest: float = SHORTEST) -> list[tuple[float, float]]:
+    """The silences, as (start, end) in seconds: runs of frames quieter than
+    the threshold between the noise (10th percentile, but not under -70 dB)
+    and the voice (95th), at least `shortest` long."""
+    if not len(loud):
+        return []
+    noise = max(float(numpy.percentile(loud, 10)), -70.0)
+    voice = float(numpy.percentile(loud, 95))
+    if voice - noise < CONTRAST:
+        return []
+    quiet = numpy.concatenate(([False], loud < noise + SHARE * (voice - noise), [False]))
+    edges = numpy.flatnonzero(numpy.diff(quiet.astype(numpy.int8)))
+    return [(start * FRAME, end * FRAME) for start, end in zip(edges[::2], edges[1::2])
+            if (end - start) * FRAME >= shortest]
+
+
+def kept(found: list[tuple[float, float]], length: float, pause: float = PAUSE) -> list[tuple[float, float]]:
+    """The pieces of the recording to keep: all but the silences, each of which
+    leaves half the pause on both sides, or the whole pause at the start and
+    the end of the recording."""
+    cuts = []
+    for start, end in found:
+        start = start + pause / 2 if start > 0 else 0.0
+        end = end - pause / 2 if end < length else length
+        if end - start > 0:
+            cuts.append((start, end))
+    pieces, at = [], 0.0
+    for start, end in cuts:
+        if start - at >= PIECE:
+            pieces.append((at, start))
+        at = max(at, end)
+    if length - at >= PIECE:
+        pieces.append((at, length))
+    return pieces
+
+
+def graph(pieces: list[tuple[float, float]], video: bool) -> str:
+    """The filter graph that joins the pieces, video and sound together, into
+    the outputs [v] and [a]."""
+    n = len(pieces)
+    lines = [f"[0:a]asplit={n}" + "".join(f"[a{i}]" for i in range(n))]
+    if video:
+        lines.append(f"[0:v]split={n}" + "".join(f"[v{i}]" for i in range(n)))
+    joined = ""
+    for i, (start, end) in enumerate(pieces):
+        lines.append(f"[a{i}]atrim={start:.3f}:{end:.3f},asetpts=PTS-STARTPTS[a{i}t]")
+        if video:
+            lines.append(f"[v{i}]trim={start:.3f}:{end:.3f},setpts=PTS-STARTPTS[v{i}t]")
+        joined += (f"[v{i}t]" if video else "") + f"[a{i}t]"
+    lines.append(f"{joined}concat=n={n}:v={int(video)}:a=1" + ("[v][a]" if video else "[a]"))
+    return ";\n".join(lines)
+
+
+def encoding(video: bool) -> list[str]:
+    """How the cut recording is encoded: as it was recorded, VP9 and Opus for
+    the camera (capture/camera), and Opus alone, in mono, for the voice
+    (Capture.qml)."""
+    if video:
+        return ["-map", "[v]", "-map", "[a]", "-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8",
+                "-row-mt", "1", "-crf", "30", "-b:v", "2M", "-c:a", "libopus", "-b:a", "96k"]
+    return ["-map", "[a]", "-c:a", "libopus", "-ac", "1", "-b:a", "32k"]
+
+
+def main() -> int:
+    if len(sys.argv) != 2:
+        print("Usage: skip-silence FILE", file=sys.stderr)
+        return 2
+    recording = pathlib.Path(sys.argv[1])
+    streams = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "stream=codec_type", "-of", "csv=p=0", str(recording)],
+        capture_output=True, text=True, check=False)
+    if streams.returncode != 0:
+        print(streams.stderr, file=sys.stderr)
+        return 1
+    kinds = streams.stdout.split()
+    if "audio" not in kinds:
+        return 0
+    sound = subprocess.run(
+        ["ffmpeg", "-nostdin", "-loglevel", "error", "-i", str(recording), "-vn", "-ac", "1", "-ar", str(RATE),
+         "-f", "s16le", "-"],
+        capture_output=True, check=False)
+    if sound.returncode != 0:
+        print(sound.stderr.decode(errors="replace"), file=sys.stderr)
+        return 1
+    samples = numpy.frombuffer(sound.stdout, dtype=numpy.int16)
+    length = len(samples) / RATE
+    pieces = kept(silences(levels(samples)), length)
+    if not pieces or pieces == [(0.0, length)]:
+        return 0
+    # Hidden next to the recording until done, so it is never half a file.
+    video = "video" in kinds
+    cut = recording.with_name(f".{recording.stem}.cut{recording.suffix}")
+    with tempfile.NamedTemporaryFile("w", suffix=".graph") as script:
+        script.write(graph(pieces, video))
+        script.flush()
+        done = subprocess.run(
+            ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", str(recording),
+             "-/filter_complex", script.name, *encoding(video), str(cut)],
+            check=False)
+    if done.returncode != 0:
+        cut.unlink(missing_ok=True)
+        return 1
+    os.replace(cut, recording)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

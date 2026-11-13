@@ -1,13 +1,20 @@
-// Screenshots and screen recordings, through the capture overlay
-// (CaptureOverlay.qml): the person picks an area they draw, a window, or a
-// whole screen, then captures it; after the timer, if set, a recording
-// starts, or the screenshot is saved to Pictures/Screenshots, or, with
-// Settings.captureMarkup, first opens for markup, then is saved or copied.
-// Recordings go to Videos/Recordings. Applications ask for screenshots through the
-// portal (Portal.qml): the overlay then takes a screenshot only, and the
+// Screenshots and recordings of the screen, the voice, and the camera,
+// through the capture overlay (CaptureOverlay.qml). For screenshots and screen
+// recordings the person picks an area they draw, a window, or a whole screen,
+// then captures it; after the timer, if set, a recording starts, or the
+// screenshot is saved to Pictures/Screenshots, or, with Settings.captureMarkup,
+// first opens for markup, then is saved or copied. Screen recordings go to
+// Videos/Recordings, with the camera in a bubble if Settings.captureBubble;
+// voice recordings, Opus from the default microphone, to Music/Recordings; and
+// camera recordings, VP9 and Opus in WebM, to Videos/Camera (capture/camera,
+// which also writes what the camera sees for the overlay to show). With
+// Settings.captureSkipSilence, voice and camera recordings lose their silences
+// once they end (capture/skip-silence). Applications ask for screenshots
+// through the portal (Portal.qml): the overlay then takes a screenshot only, and the
 // application gets the file. Applications sharing the screen ask what to
 // share the same way (SharePicker.qml), also while recording.
 pragma Singleton
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
@@ -16,10 +23,16 @@ import Quickshell.Io
 Singleton {
     id: capture
 
-    // Recording ends at once for the person; wf-recorder may still be
-    // finishing the file, and nothing else starts until it has.
-    readonly property bool recording: recorder.running && !stopping
+    // Recording ends at once for the person; the recorder may still be
+    // finishing the file, and Skip silence cutting it, and nothing else starts
+    // until they have.
+    readonly property bool recording: (recorder.running || camcorder.running) && !stopping
+    readonly property bool busy: recorder.running || camcorder.running || starting || cutter.running
+    readonly property bool cutting: cutter.running
     property bool stopping
+    // A camera recording, until the camera's view has let go of the camera,
+    // which only one program can read at a time.
+    property bool starting
     property date startedAt
     // The recording's length so far, as m:ss.
     property string elapsed: "0:00"
@@ -28,11 +41,36 @@ Singleton {
     // during the timer, "markup" with the screenshot, or none.
     property ShellScreen screen: null
     property string stage
-    // What to pick: "Area", "Window", or "Screen"; whether to record; and
-    // the timer for recordings, in seconds, 0 for none.
+    // What to capture: "Shot", a screenshot; "Screen", a screen recording;
+    // "Voice"; or "Camera". Only the first two pick a part of the screen.
+    property string kind: "Shot"
+    readonly property bool record: kind !== "Shot"
+    readonly property bool picks: kind === "Shot" || kind === "Screen"
+    // What to pick: "Area", "Window", or "Screen"; and the timer for screen
+    // and camera recordings, in seconds, 0 for none.
     property string mode: "Area"
-    property bool record
     property int delay
+    // The recording going on or last made: its kind, its file, and whether
+    // Skip silence cuts it when it ends.
+    property string recordingKind
+    property string file
+    property bool skipping
+
+    // Whether there is a camera, looked for each time the overlay opens; it
+    // is on only while it shows or records.
+    property bool hasCamera
+    // Where the camera shows outside the overlay: during a camera recording
+    // and its timer, "bubble", round, with Settings.captureBubble, otherwise
+    // "preview"; "bubble" too over a screen recording, and while picking for
+    // one; or "".
+    readonly property string cameraWindow: camcorder.running || starting || stage === "wait" && kind === "Camera"
+        ? (Settings.captureBubble ? "bubble" : "preview")
+        : Settings.captureBubble && hasCamera && (kind === "Screen" && stage !== "" && stage !== "markup"
+            || recordingKind === "Screen" && recorder.running) ? "bubble" : ""
+    // Whether the camera shows, in the overlay or outside it; and the picture
+    // of it that capture/camera writes, 25 times a second.
+    readonly property bool cameraShown: cameraWindow !== "" || stage === "select" && kind === "Camera"
+    readonly property string cameraPicture: `${runtime}/camera.jpg`
     // The seconds left on the timer.
     property int countdown
     // The picked area, in the screen's coordinates; the last one drawn
@@ -51,11 +89,13 @@ Singleton {
     readonly property string runtime: `${Quickshell.env("XDG_RUNTIME_DIR")}/desktop`
     property string pictures: `${Quickshell.env("HOME")}/Pictures`
     property string videos: `${Quickshell.env("HOME")}/Videos`
+    property string music: `${Quickshell.env("HOME")}/Music`
 
     function begin(screen: ShellScreen) {
-        if (stage || recorder.running && !SharePicker.asking)
+        if (stage || busy && !SharePicker.asking)
             return;
         Hyprland.refreshToplevels();
+        finder.running = true;
         capture.screen = screen;
         stage = "select";
     }
@@ -64,7 +104,7 @@ Singleton {
         capture.area = area;
         if (mode === "Area")
             lastArea = area;
-        countdown = record ? delay : 0;
+        countdown = kind === "Screen" || kind === "Camera" ? delay : 0;
         stage = "wait";
         // The overlay leaves the screen before the capture, also with no timer.
         timer.interval = countdown ? 1000 : 150;
@@ -78,15 +118,34 @@ Singleton {
     }
 
     function shoot() {
-        if (record) {
+        if (kind === "Screen") {
             // Frames come steadily, not only when the screen changes, so the
             // recording ends as soon as it is stopped, and plays evenly.
             // With Settings.captureMicrophone, the default microphone too.
-            recorder.command = ["sh", "-c", 'mkdir -p "$1" && exec wf-recorder --no-damage $3 -g "$2" -f "$1/Recording $(date \'+%F %H-%M-%S\').mp4"',
-                "sh", `${videos}/Recordings`, geometry(), Settings.captureMicrophone ? "--audio" : ""];
-            startedAt = new Date();
-            elapsed = "0:00";
+            started(`${videos}/Recordings/Recording ${stamp()}.mp4`, false);
+            recorder.command = ["sh", "-c", 'mkdir -p "${1%/*}" && exec wf-recorder --no-damage $3 -g "$2" -f "$1"',
+                "sh", file, geometry(), Settings.captureMicrophone ? "--audio" : ""];
             recorder.running = true;
+            close();
+            return;
+        }
+        if (kind === "Voice") {
+            // Speech in mono Opus at 32 kb/s: small, and clear.
+            started(`${music}/Recordings/Voice ${stamp()}.opus`, Settings.captureSkipSilence);
+            recorder.command = ["sh", "-c", 'mkdir -p "${1%/*}" && exec ffmpeg -nostdin -loglevel error -f pulse -i default -ac 1 -c:a libopus -b:a 32k "$1"',
+                "sh", file];
+            recorder.running = true;
+            close();
+            return;
+        }
+        if (kind === "Camera") {
+            // The camera records once its view has let go of it.
+            started(`${videos}/Camera/Video ${stamp()}.webm`, Settings.captureSkipSilence && Settings.cameraMicrophone);
+            camcorder.command = [helper("camera"), cameraPicture, "--record", file]
+                .concat(Settings.cameraMicrophone ? ["--microphone"] : []);
+            starting = true;
+            if (!viewer.running)
+                film();
             close();
             return;
         }
@@ -97,16 +156,51 @@ Singleton {
             return;
         }
         // A new file each time, so the overlay does not show a cached one.
-        const file = `${runtime}/capture-${Date.now()}.png`;
+        const still = `${runtime}/capture-${Date.now()}.png`;
         grim.command = ["sh", "-c", 'mkdir -p "$4" && rm -f "$1"/capture-*.png && grim -o "$2" "$3" && echo "$3"',
-            "sh", runtime, screen.name, file, `${pictures}/Screenshots`];
-        grim.file = file;
+            "sh", runtime, screen.name, still, `${pictures}/Screenshots`];
+        grim.file = still;
         grim.running = true;
+    }
+
+    function started(path: string, skip: bool) {
+        file = path;
+        recordingKind = kind;
+        skipping = skip;
+        startedAt = new Date();
+        elapsed = "0:00";
+    }
+
+    // The date and time in file names.
+    function stamp(): string {
+        return Qt.formatDateTime(new Date(), "yyyy-MM-dd HH-mm-ss");
     }
 
     // Where a screenshot is saved: Pictures/Screenshots, by date and time.
     function screenshotPath(): string {
-        return `${pictures}/Screenshots/Screenshot ${Qt.formatDateTime(new Date(), "yyyy-MM-dd HH-mm-ss")}.png`;
+        return `${pictures}/Screenshots/Screenshot ${stamp()}.png`;
+    }
+
+    function film() {
+        starting = false;
+        camcorder.running = true;
+    }
+
+    // A recording has ended, its file written; Skip silence cuts it if set.
+    function ended() {
+        stopping = false;
+        if (!skipping)
+            return;
+        skipping = false;
+        cutter.command = [helper("skip-silence"), file];
+        cutter.running = true;
+    }
+
+    // A helper: the source tree's in development (make run), otherwise the
+    // installed one.
+    function helper(name: string): string {
+        const tree = Quickshell.env("DESKTOP_SHELL");
+        return tree ? `${tree}/../capture/${name}` : `/usr/libexec/desktop/${name}`;
     }
 
     // The screenshot is saved, with markup or without.
@@ -139,7 +233,8 @@ Singleton {
 
     function stop() {
         stopping = true;
-        recorder.signal(2); // SIGINT: wf-recorder finishes the file.
+        // SIGINT: wf-recorder and ffmpeg finish the file.
+        (camcorder.running ? camcorder : recorder).signal(2);
     }
 
     function ask(socket: Socket, question: var) {
@@ -150,7 +245,7 @@ Singleton {
         }
         request = question;
         asker = socket;
-        record = false;
+        kind = "Shot";
         begin(screen);
     }
 
@@ -217,26 +312,66 @@ Singleton {
         }
     }
 
+    // Screen and voice recordings.
     Process {
         id: recorder
 
         onRunningChanged: {
             if (!running)
-                capture.stopping = false;
+                capture.ended();
         }
     }
 
-    // The person's Pictures and Videos (xdg-user-dirs).
+    // Skip silence, after a voice or camera recording.
     Process {
-        command: ["sh", "-c", "xdg-user-dir PICTURES; xdg-user-dir VIDEOS"]
+        id: cutter
+    }
+
+    // The camera, shown while it is not recorded; once it has let go of the
+    // camera, a camera recording starts.
+    Process {
+        id: viewer
+
+        command: [capture.helper("camera"), capture.cameraPicture]
+        running: capture.cameraShown && !capture.starting && !camcorder.running
+        onRunningChanged: {
+            if (!running && capture.starting)
+                capture.film();
+        }
+    }
+
+    // A camera recording, shown as it is recorded.
+    Process {
+        id: camcorder
+
+        onRunningChanged: {
+            if (!running)
+                capture.ended();
+        }
+    }
+
+    // Whether there is a camera.
+    Process {
+        id: finder
+
+        command: [capture.helper("camera"), "--find"]
+        running: true
+        onExited: code => capture.hasCamera = code === 0 // qmllint disable signal-handler-parameters
+    }
+
+    // The person's Pictures, Videos, and Music (xdg-user-dirs).
+    Process {
+        command: ["sh", "-c", "xdg-user-dir PICTURES; xdg-user-dir VIDEOS; xdg-user-dir MUSIC"]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
-                const [pictures, videos] = text.split("\n");
+                const [pictures, videos, music] = text.split("\n");
                 if (pictures)
                     capture.pictures = pictures;
                 if (videos)
                     capture.videos = videos;
+                if (music)
+                    capture.music = music;
             }
         }
     }

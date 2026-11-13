@@ -114,9 +114,10 @@ Singleton {
         }
     }
 
-    // Print opens the capture overlay as it was last; with Alt, on the
+    // Print opens the capture overlay for a screenshot; with Alt, on the
     // focused window; with Super, on the whole screen; with Shift, for a
-    // recording, or stops the one going on.
+    // recording of the kind last chosen, the screen to begin with, or stops
+    // the one going on.
     function capture(name: string) {
         if (name === "capture-record" && Capture.recording) {
             Capture.stop();
@@ -124,7 +125,10 @@ Singleton {
         }
         if (Capture.stage)
             return;
-        Capture.record = name === "capture-record";
+        if (name !== "capture-record")
+            Capture.kind = "Shot";
+        else if (!Capture.record)
+            Capture.kind = "Screen";
         if (name === "capture-window")
             Capture.mode = "Window";
         else if (name === "capture-screen")

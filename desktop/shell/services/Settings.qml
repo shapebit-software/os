@@ -47,8 +47,14 @@ Singleton {
 
     // Whether a screenshot opens for markup before it is saved (CaptureOverlay.qml).
     property alias captureMarkup: adapter.captureMarkup
-    // Whether recordings take sound from the microphone.
+    // Whether screen recordings take sound from the microphone.
     property alias captureMicrophone: adapter.captureMicrophone
+    // Whether screen recordings show the camera in a bubble.
+    property alias captureBubble: adapter.captureBubble
+    // Whether camera recordings take sound from the microphone.
+    property alias cameraMicrophone: adapter.cameraMicrophone
+    // Whether voice and camera recordings skip their silences (capture/skip-silence).
+    property alias captureSkipSilence: adapter.captureSkipSilence
     // Whether dictation plays its soft sounds.
     property alias dictationSounds: adapter.dictationSounds
     // Whether an application may share what was picked again without asking.
@@ -261,6 +267,9 @@ Singleton {
             property string primary: ""
             property bool captureMarkup: false
             property bool captureMicrophone: false
+            property bool captureBubble: false
+            property bool cameraMicrophone: true
+            property bool captureSkipSilence: false
             // Read only to bring settings saved before the quick actions
             // were separate items up to date (placeNewItems).
             property bool dictationButton: true

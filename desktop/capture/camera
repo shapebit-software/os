@@ -1,0 +1,102 @@
+#!/usr/bin/python3
+# The camera for Capture (shell/services/Capture.qml): it shows it, and records
+# it. ffmpeg reads the first camera, in Motion-JPEG at its largest size up to
+# 1080p (or uncompressed, up to 480p, where it has no Motion-JPEG), and writes
+# what it sees as a small picture, PREVIEW, 25 times a second, each picture
+# whole before it replaces the last, which the shell shows. With --record, it
+# also records it to FILE, VP9 in WebM, with the default microphone in Opus if
+# --microphone. SIGINT or SIGTERM ends it; the recording is finished first.
+# Only one program can read a camera at a time, so it is read only while the
+# shell shows or records it.
+#
+# Usage: camera --find
+#        camera PREVIEW [--record FILE [--microphone]]
+#
+# --find prints the camera's device, or fails when there is none.
+import glob
+import os
+import re
+import subprocess
+import sys
+
+# How skip-silence (capture/skip-silence) encodes camera recordings again too.
+VIDEO = ["-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8", "-row-mt", "1",
+         "-crf", "30", "-b:v", "2M"]
+AUDIO = ["-c:a", "libopus", "-b:a", "96k"]
+
+
+def formats(log: str) -> dict[str, list[tuple[int, int]]]:
+    """The formats that ffmpeg lists for a camera (-list_formats all), each
+    with its sizes: "mjpeg" for Motion-JPEG, otherwise the uncompressed one's
+    name."""
+    found = {}
+    for kind, name, sizes in re.findall(r"(Compressed|Raw)\s*:\s*(\S+)\s*:[^:]*:\s*(.*)", log):
+        found[name] = [(int(w), int(h)) for w, h in re.findall(r"(\d+)x(\d+)", sizes)]
+    return found
+
+
+def choose(found: dict[str, list[tuple[int, int]]]) -> tuple[str, tuple[int, int]] | None:
+    """The format and size to read: Motion-JPEG at its largest up to 1080p;
+    otherwise uncompressed, whose larger sizes are slow, up to 480p."""
+    for name, tallest in [("mjpeg", 1080)] + [(n, 480) for n in found if n != "mjpeg"]:
+        sizes = [s for s in found.get(name, []) if s[1] <= tallest]
+        if sizes:
+            return name, max(sizes, key=lambda s: s[0] * s[1])
+    return None
+
+
+def find() -> tuple[str, str, tuple[int, int]] | None:
+    """The first device that is a camera, with its format and size."""
+    for device in sorted(glob.glob("/dev/video*"), key=lambda d: int(re.sub(r"\D", "", d) or 0)):
+        log = subprocess.run(["ffmpeg", "-hide_banner", "-f", "v4l2", "-list_formats", "all", "-i", device],
+                             capture_output=True, text=True, check=False).stderr
+        chosen = choose(formats(log))
+        if chosen:
+            return device, *chosen
+    return None
+
+
+def command(device: str, name: str, size: tuple[int, int], preview: str, record: str | None = None,
+            microphone: bool = False) -> list[str]:
+    """ffmpeg's command: the preview, and the recording if asked for."""
+    args = ["ffmpeg", "-nostdin", "-loglevel", "error", "-f", "v4l2", "-input_format", name,
+            "-video_size", f"{size[0]}x{size[1]}", "-framerate", "30", "-thread_queue_size", "512", "-i", device]
+    if record and microphone:
+        args += ["-f", "pulse", "-thread_queue_size", "512", "-i", "default"]
+    if record:
+        args += ["-filter_complex", "[0:v]split[r][p];[p]fps=25,scale=-2:240[v]",
+                 "-map", "[r]", *VIDEO, *(["-map", "1:a", *AUDIO] if microphone else []), record]
+    else:
+        args += ["-filter_complex", "[0:v]fps=25,scale=-2:240[v]"]
+    return args + ["-map", "[v]", "-c:v", "mjpeg", "-q:v", "5", "-f", "image2", "-update", "1",
+                   "-atomic_writing", "1", preview]
+
+
+def main(argv: list[str]) -> int:
+    if argv == ["--find"]:
+        found = find()
+        if found:
+            print(found[0])
+        return 0 if found else 1
+    if len(argv) not in (1, 3, 4) or argv[0].startswith("-") or len(argv) > 1 and argv[1] != "--record" \
+            or len(argv) == 4 and argv[3] != "--microphone":
+        print("Usage: camera --find | camera PREVIEW [--record FILE [--microphone]]", file=sys.stderr)
+        return 2
+    found = find()
+    if not found:
+        print("No camera", file=sys.stderr)
+        return 1
+    preview = argv[0]
+    record = argv[2] if len(argv) > 2 else None
+    # No picture from before, which the shell would show as if it were now.
+    try:
+        os.unlink(preview)
+    except FileNotFoundError:
+        pass
+    if record:
+        os.makedirs(os.path.dirname(record) or ".", exist_ok=True)
+    os.execvp("ffmpeg", command(*found, preview, record, "--microphone" in argv))
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

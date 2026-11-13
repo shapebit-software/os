@@ -48,10 +48,10 @@ Moving a window past the last workspace makes a new one, up to eight.
 
 | Shortcut | Action |
 |---|---|
-| Print | Take a screenshot or a recording |
+| Print | Take a screenshot, or record the screen, the voice, or the camera |
 | Alt+Print | Capture the focused window |
 | Super+Print | Capture the screen |
-| Shift+Print | Start a recording, or stop one |
+| Shift+Print | Start a recording, of the kind last chosen, or stop one |
 
 ## Media keys
 
