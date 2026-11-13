@@ -10,7 +10,7 @@
 # shortcuts, as typed keys can. Password fields never get the text. Should another
 # input method be running, it does without, and inserts nothing.
 #
-# Usage: dictate [--copy | --only-copy]
+# Usage: dictate [--copy | --only-copy] | dictate --tidy
 # --copy also copies the text, so that it is never lost: the bar's dictation does,
 # while dictation for an application's own field only inserts. --only-copy never
 # inserts. Without either, text with no field to go to is only in "done".
@@ -26,6 +26,16 @@
 # with "inline": true while the field shows it; and
 # at the end, {"state": "done", "text": ..., "inserted": bool, "copied": bool,
 # "app": ...}; {"state": "nothing"}; or {"state": "failed"}.
+#
+# --tidy puts a tidied version (shell/services/Dictation.qml) in the place of what
+# dictation inserted last, only where the field with the focus still ends, at the
+# cursor, with that text: not a secret field, nor one that moved on. In, first
+# {"text": ...}, what was inserted; then {"draft": ...}, the tidied text so far,
+# shown as a draft in its place, the inserted text gone; {"done": ...}, the tidied
+# text, which goes in; or {"restore": true}, the inserted text back. Out:
+# {"state": "ready"}, it is there to tidy; {"state": "gone"}, it is not, and the
+# field is left as it was; {"state": "moved"}, the focus left the field while the
+# draft showed; {"state": "tidied"}.
 import json
 import re
 import os
@@ -74,6 +84,8 @@ class InputMethod:
         self.active = False
         self.purpose = self.hint = 0
         self.before = ""
+        # All the text before the cursor, as the field tells it, or None.
+        self.told_before = None
         self.pending = {}
         display = os.environ.get("WAYLAND_DISPLAY", "wayland-0")
         try:
@@ -119,7 +131,7 @@ class InputMethod:
 
     def event(self, opcode, payload):
         if opcode == 0:  # activate
-            self.pending = {"active": True, "purpose": 0, "hint": 0, "before": ""}
+            self.pending = {"active": True, "purpose": 0, "hint": 0, "before": "", "told_before": None}
             self.activations += 1
         elif opcode == 1:  # deactivate
             self.pending["active"] = False
@@ -128,6 +140,7 @@ class InputMethod:
             cursor, anchor = struct.unpack_from("<II", payload, offset)
             # A selection is replaced, so what comes before it does not count.
             self.pending["before"] = text[:cursor].decode(errors="ignore")[-1:] if cursor == anchor else ""
+            self.pending["told_before"] = text[:cursor].decode(errors="ignore") if cursor == anchor else None
         elif opcode == 4:  # content_type
             self.pending["hint"], self.pending["purpose"] = struct.unpack("<II", payload)
         elif opcode == 5:  # done
@@ -151,6 +164,18 @@ class InputMethod:
         """With the space it may need; it takes the place of the draft, as a commit
         with no draft of its own leaves none."""
         self.send(METHOD, 0, string(self.spaced(text)))
+        self.send(METHOD, 3, struct.pack("<I", self.commits))
+
+    def replace(self, length, text, draft=False):
+        """The `length` bytes before the cursor, then `text` in their place: in
+        the field, or shown there as a draft; what was shown is gone either way."""
+        if length:
+            self.send(METHOD, 2, struct.pack("<II", length, 0))
+        if draft:
+            end = len(text.encode())
+            self.send(METHOD, 1, string(text) + struct.pack("<ii", end, end))
+        else:
+            self.send(METHOD, 0, string(text))
         self.send(METHOD, 3, struct.pack("<I", self.commits))
 
     def draft(self, text):
@@ -360,8 +385,114 @@ class Dictation:
                 key.data(key.fileobj)
 
 
+class Tidying:
+    """dictate --tidy: the tidied text in the place of what dictation inserted."""
+
+    # How long, in seconds, the field may take to tell its text.
+    WAIT = 2
+
+    def __init__(self):
+        self.method = InputMethod()
+        self.input = b""
+        # What was inserted, from the first line; the field it is in, by its
+        # focus; and whether the inserted text is gone from it.
+        self.original = None
+        self.field = None
+        self.taken = False
+        self.selector = selectors.DefaultSelector()
+        wake_read, wake_write = os.pipe()
+        os.set_blocking(wake_write, False)
+        signal.set_wakeup_fd(wake_write)
+        for number in (signal.SIGINT, signal.SIGTERM):
+            signal.signal(number, lambda *_: None)
+        self.selector.register(wake_read, selectors.EVENT_READ, lambda source: self.restore(130))
+        self.selector.register(sys.stdin.fileno(), selectors.EVENT_READ, self.commanded)
+        if self.method.socket:
+            self.selector.register(self.method.socket, selectors.EVENT_READ, self.compositor)
+
+    def emit(self, state):
+        print(json.dumps({"state": state}), flush=True)
+
+    def end(self, state, code):
+        if state:
+            self.emit(state)
+        sys.exit(code)
+
+    def restore(self, code):
+        """The inserted text back, if it went, and no draft left."""
+        if self.taken and self.here():
+            self.method.replace(0, self.original)
+        self.end("", code)
+
+    def here(self):
+        return self.method.active and self.method.activations == self.field
+
+    def check(self):
+        """Once the text and the field's are known: ready, or gone."""
+        if self.field is not None or self.original is None or not self.method.commits:
+            return
+        before = self.method.told_before
+        if self.method.active and not self.method.secret and before is not None and before.endswith(self.original):
+            self.field = self.method.activations
+            self.emit("ready")
+        else:
+            self.end("gone", 0)
+
+    def compositor(self, source):
+        if not self.method.read():
+            self.end("moved" if self.taken else "gone", 1)
+        if self.field is None:
+            self.check()
+        elif self.taken and not self.here():
+            # The draft went with the focus; the inserted text is gone from there.
+            self.end("moved", 1)
+
+    def commanded(self, source):
+        data = os.read(source, 65536)
+        if not data:
+            self.restore(130)
+        self.input += data
+        *lines, self.input = self.input.split(b"\n")
+        for line in lines:
+            message = json.loads(line)
+            if self.original is None:
+                self.original = message["text"]
+                self.check()
+                continue
+            if message.get("restore"):
+                self.restore(0)
+            if self.field is None:
+                continue
+            if not self.here():
+                self.end("moved" if self.taken else "gone", 1)
+            # The first time, the inserted text goes; a draft takes the place
+            # of the last one.
+            length = 0 if self.taken else len(self.original.encode())
+            self.taken = True
+            if "done" in message:
+                self.method.replace(length, clean(message["done"]))
+                self.end("tidied", 0)
+            elif "draft" in message:
+                self.method.replace(length, clean(message["draft"]), draft=True)
+
+    def run(self):
+        if not self.method.socket:
+            self.end("gone", 0)
+        waited = 0.0
+        while True:
+            events = self.selector.select(0.1)
+            for key, _ in events:
+                key.data(key.fileobj)
+            if self.field is None and self.original is not None and not events:
+                waited += 0.1
+                if waited >= self.WAIT:
+                    self.end("gone", 0)
+
+
 def main():
     arguments = sys.argv[1:]
+    if "--tidy" in arguments:
+        Tidying().run()
     Dictation("--copy" in arguments, "--only-copy" in arguments).run()
 
 

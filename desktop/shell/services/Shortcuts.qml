@@ -78,6 +78,9 @@ Singleton {
         case "dictate-release":
             Dictation.release();
             break;
+        case "tidy":
+            Dictation.tidy();
+            break;
         // Super alone: a tap opens the assistant, held it listens
         // (Assistant.qml).
         case "super-down":

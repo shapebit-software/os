@@ -109,6 +109,7 @@ class Compositor:
         buffer = b""
         pending = None
         draft = None
+        deleted = 0
         while True:
             try:
                 data = self.client.recv(65536)
@@ -136,15 +137,22 @@ class Compositor:
                 elif target == METHOD and opcode == 1:
                     size = struct.unpack_from("<I", payload)[0]
                     draft = payload[4 : 3 + size].decode()
+                elif target == METHOD and opcode == 2:
+                    deleted = struct.unpack_from("<II", payload)[0]
                 elif target == METHOD and opcode == 3:
                     # A commit with no draft of its own leaves none.
                     if (draft or "") != self.draft:
                         self.draft = draft or ""
                         self.drafts.append(self.draft)
+                    if deleted:
+                        # Bytes before the cursor, as the protocol counts them.
+                        text = self.before.encode()
+                        self.before = text[: len(text) - deleted].decode()
                     if pending is not None:
                         self.commits.append(pending)
                         self.before += pending
                     pending = draft = None
+                    deleted = 0
                     self.told()
 
     def told(self):
@@ -670,3 +678,80 @@ def test_said_punctuation_goes_into_the_field_as_marks(dictate):
     dictation = dictate("--copy", said="Do jutra przecinek Anno kropka")
     dictation.say()
     assert dictation.wait_for("done")["text"] == "Do jutra, Anno."
+
+
+# Tidy up -------------------------------------------------------------------------
+
+
+@pytest.fixture
+def tidying(tmp_path):
+    started = []
+
+    def start(dictated, before, **field):
+        made = Dictation(tmp_path, "--tidy")
+        made.compositor.focus_field(before=before, **field)
+        made.process.stdin.write(json.dumps({"text": dictated}) + "\n")
+        made.process.stdin.flush()
+        started.append(made)
+        return made
+
+    yield start
+    for made in started:
+        made.process.kill()
+        made.process.wait()
+
+
+def send(made, **message):
+    made.process.stdin.write(json.dumps(message) + "\n")
+    made.process.stdin.flush()
+
+
+def test_tidy_up_shows_the_tidied_text_in_the_place_of_the_dictated_and_puts_it_in(tidying):
+    made = tidying("cześć marku dzięki", "Notatka: cześć marku dzięki")
+    made.wait_for("ready")
+    send(made, draft="Cześć Marku,")
+    # The dictated text is gone, and the tidied text so far shows as a draft.
+    eventually(lambda: (made.compositor.before, made.compositor.draft) == ("Notatka: ", "Cześć Marku,"))
+    send(made, done="Cześć Marku, dzięki!")
+    made.wait_for("tidied")
+    assert (made.compositor.before, made.compositor.draft) == ("Notatka: Cześć Marku, dzięki!", "")
+    assert made.process.wait(5) == 0
+
+
+def test_tidy_up_leaves_a_field_that_no_longer_ends_with_the_dictated_text(tidying):
+    made = tidying("cześć marku", "cześć marku, and then I typed more")
+    made.wait_for("gone")
+    assert made.compositor.before == "cześć marku, and then I typed more"
+    assert made.compositor.commits == []
+
+
+def test_tidy_up_never_touches_a_secret_field(tidying):
+    made = tidying("hunter two", "hunter two", purpose=8)
+    made.wait_for("gone")
+    assert made.compositor.commits == []
+
+
+def test_a_tidy_up_that_failed_puts_the_dictated_text_back(tidying):
+    made = tidying("do jutra", "do jutra")
+    made.wait_for("ready")
+    send(made, draft="Do")
+    eventually(lambda: made.compositor.before == "")
+    send(made, restore=True)
+    eventually(lambda: (made.compositor.before, made.compositor.draft) == ("do jutra", ""))
+    assert made.process.wait(5) == 0
+
+
+def test_tidy_up_says_when_the_focus_left_the_field_while_the_draft_showed(tidying):
+    made = tidying("do jutra", "do jutra")
+    made.wait_for("ready")
+    send(made, draft="Do jutra.")
+    eventually(lambda: made.compositor.draft == "Do jutra.")
+    made.compositor.focus_field(before="another field")
+    made.wait_for("moved")
+
+
+def test_tidy_up_with_no_field_to_tell_its_text_does_nothing(tmp_path):
+    made = Dictation(tmp_path, "--tidy")
+    send(made, text="do jutra")
+    made.wait_for("gone")
+    assert made.process.wait(5) == 0

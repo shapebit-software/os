@@ -214,6 +214,8 @@ bind("SUPER + D", "Dictate", shell("dictate"))
 hl.bind("SUPER + D", shell("dictate-release"), { release = true })
 bind("SUPER + SHIFT + D", "Dictate, only to copy", shell("dictate-copy"))
 hl.bind("SUPER + SHIFT + D", shell("dictate-release"), { release = true })
+-- Tidy up what was dictated last, in its place, with the assistant's model.
+bind("SUPER + T", "Tidy up dictation", shell("tidy"))
 bind("SUPER + A", "Apps", shell("apps"))
 bind("CTRL + ALT + Delete", "System menu", shell("system"))
 bind("SUPER + code:61", "Keyboard shortcuts", shell("help"))

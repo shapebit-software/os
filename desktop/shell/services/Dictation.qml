@@ -35,6 +35,19 @@ Singleton {
     property string draftTail
     // Where the last words went, briefly: { text, inserted, copied, app }.
     property var result: null
+    // Tidy up: the text dictation inserted last, which may be tidied by the
+    // assistant's model, local or online, in its place (dictate --tidy), while
+    // the field still ends with it; offered by its pill (bar/TidyPill.qml) for a
+    // few seconds after, and by Super+T until the next dictation. tidying is
+    // "", "asking" (the model), or "writing" (into the field); tidyNotice, how
+    // it ended, for a moment.
+    property string lastInserted
+    property bool tidyOffered
+    property string tidying
+    property string tidyNotice
+    // Where the pill is, as for the assistant's (QuickButton.qml).
+    property var pillAt: null
+    signal pillAsked(screen: string)
     // A short message of its own: "Needs a download", "No microphone", or
     // "Microphone is muted"; shown for a moment. Hearing nothing ends quietly.
     property string notice
@@ -119,6 +132,8 @@ Singleton {
         }
         notice = "";
         result = null;
+        lastInserted = "";
+        tidyOffered = false;
         draft = draftTail = "";
         seconds = 0;
         onlyCopy = copyOnly;
@@ -206,8 +221,85 @@ Singleton {
             draft = draftTail = "";
             result = message;
             state = "idle";
+            if (message.inserted) {
+                lastInserted = message.text;
+                offerTidy();
+            }
             break;
         }
+    }
+
+    // The pill by the dictation button, or in the corner without one.
+    function offerTidy() {
+        pillAt = null;
+        pillAsked(Shortcuts.focused);
+        if (!pillAt)
+            pillAt = { screen: Shortcuts.focused, rect: null };
+        tidyOffered = true;
+        tidyOffer.restart();
+    }
+
+    // The tidied text in the place of the last dictated, as it is written.
+    property string tidyId
+    property string tidied
+    property bool tidyDone
+    property bool tidyThere
+    function tidy() {
+        if (tidying !== "")
+            return;
+        if (!lastInserted) {
+            tidyNotice = "Nothing dictated to tidy up";
+            return;
+        }
+        if (!pillAt)
+            offerTidy();
+        tidyOffered = false;
+        tidyNotice = "";
+        tidied = "";
+        tidyDone = false;
+        tidyThere = false;
+        tidyId = `${Date.now()}`;
+        tidying = "asking";
+        tidier.command = [helper(), "--tidy"];
+        tidier.running = true;
+        tidier.write(JSON.stringify({ text: lastInserted }) + "\n");
+        Assistant.tidy(tidyId, lastInserted);
+    }
+
+    function tidyEnded(notice: string) {
+        tidying = "";
+        tidyNotice = notice;
+    }
+
+    // What the model wrote, to the field while it holds the dictated text,
+    // or else, once whole, to the clipboard.
+    Connections {
+        target: Assistant
+
+        function onTidied(event: var) {
+            if (event.id !== dictation.tidyId || dictation.tidying === "")
+                return;
+            if (event.error) {
+                if (dictation.tidier.running)
+                    dictation.tidier.write(JSON.stringify({ restore: true }) + "\n");
+                dictation.tidyEnded(event.error);
+                return;
+            }
+            dictation.tidied = event.text;
+            dictation.tidyDone = event.done ?? false;
+            if (dictation.tidyThere && dictation.tidier.running) {
+                dictation.tidying = "writing";
+                dictation.tidier.write(JSON.stringify(event.done ? { done: event.text } : { draft: event.text }) + "\n");
+            }
+            if (event.done && !dictation.tidier.running)
+                dictation.copyTidied();
+        }
+    }
+
+    function copyTidied() {
+        Quickshell.execDetached(["wl-copy", "--", tidied]);
+        lastInserted = "";
+        tidyEnded("Tidied and copied: the text was no longer where it was dictated");
     }
 
     IpcHandler {
@@ -253,6 +345,15 @@ Singleton {
             return dictation.notice;
         }
 
+        function tidy(): void {
+            dictation.tidy();
+        }
+
+        // "", "asking", or "writing".
+        function tidying(): string {
+            return dictation.tidying;
+        }
+
         function available(): bool {
             return dictation.available;
         }
@@ -276,6 +377,51 @@ Singleton {
                 dictation.start(copyOnly);
             }
         }
+    }
+
+    // dictate --tidy: "ready", the dictated text is where it was; "gone", it
+    // is not; "moved", the focus left it while the draft showed; "tidied".
+    property alias tidier: tidier
+    Process {
+        id: tidier
+
+        stdinEnabled: true
+        stdout: SplitParser {
+            onRead: line => {
+                const state = JSON.parse(line).state;
+                if (state === "ready") {
+                    dictation.tidyThere = true;
+                    if (dictation.tidied) {
+                        dictation.tidying = "writing";
+                        tidier.write(JSON.stringify(dictation.tidyDone ? { done: dictation.tidied } : { draft: dictation.tidied }) + "\n");
+                    }
+                } else if (state === "tidied") {
+                    dictation.lastInserted = dictation.tidied;
+                    dictation.tidyEnded("Tidied up");
+                }
+            }
+        }
+        // Quickshell does not declare the status's type to tooling.
+        onExited: exitCode => { // qmllint disable signal-handler-parameters
+            dictation.tidyThere = false;
+            // Gone or moved: what the model writes goes to the clipboard, now
+            // if it is whole, or else once it is.
+            if (dictation.tidying !== "" && dictation.tidyDone)
+                dictation.copyTidied();
+            else if (dictation.tidying !== "")
+                dictation.tidying = "asking";
+        }
+    }
+    // Offered for a while after a dictation.
+    Timer {
+        id: tidyOffer
+        interval: 8000
+        onTriggered: dictation.tidyOffered = false
+    }
+    Timer {
+        running: dictation.tidyNotice !== ""
+        interval: 4000
+        onTriggered: dictation.tidyNotice = ""
     }
 
     Timer {

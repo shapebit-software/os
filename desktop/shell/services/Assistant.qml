@@ -153,6 +153,16 @@ Singleton {
         : "listening"
     // Asks the assistant's button on a screen where it is, for the pill.
     signal pillAsked(screen: string)
+    // Dictated text tidied up by the model (dictation's Tidy up, Dictation.qml):
+    // { id, text, done } as it is written, or { id, error }.
+    signal tidied(event: var)
+
+    function tidy(id: string, text: string) {
+        if (socket?.connected)
+            request({ op: "tidy", id, text });
+        else
+            tidied({ id, error: "The assistant isn't running." });
+    }
     property real level
     property string notice
     // What the next request tells of where the person is, { selection, app,
@@ -749,6 +759,9 @@ Singleton {
                 open(conversation.id);
             else if (conversations.length && Logic.continues(conversations[0].updated, Date.now() / 1000))
                 open(conversations[0].id);
+            break;
+        case "tidy":
+            tidied(event);
             break;
         case "voice":
             if (conversing)

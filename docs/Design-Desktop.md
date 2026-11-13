@@ -156,6 +156,17 @@ once the extra is downloaded, and until then its button leads to the download.
   "question mark", "exclamation mark", "colon", "semicolon". At the very
   start, as in "kropka nad i", it stays a word; "period" always does, and no
   word makes a new line, as dictation never inserts one.
+- **Tidy up**: for a few seconds after dictated text goes into a field, a
+  pill by the dictation button offers to tidy it up, as Super+T does until
+  the next dictation. The assistant's model, on this computer or online,
+  whichever is chosen, fixes its punctuation, capitals, sentence breaks, and
+  words heard wrong, keeping its words, meaning, and language, and never
+  doing what it says. The tidied text takes its place as it is written, as a
+  draft, then goes in; only while the field still ends, at the cursor, with
+  what was dictated, and never in a password field. Otherwise, or should the
+  focus move meanwhile, the tidied text is copied, and the pill says so. A
+  paragraph takes 2 to 8 seconds on a small computer with the local model,
+  as it begins as every request does, and the model keeps that read.
 - Dictation inside an application's own field, when it comes, only inserts.
 - Password fields never get dictated text.
 - An open microphone is always visible on the bar. Audio stays on the

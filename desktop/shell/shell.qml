@@ -95,6 +95,11 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
 
+        TidyPill {}
+    }
+    Variants {
+        model: Quickshell.screens
+
         AssistantDock {}
     }
     Variants {

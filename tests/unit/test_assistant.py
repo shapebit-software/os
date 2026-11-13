@@ -805,3 +805,44 @@ def test_voice_mode_talks_in_a_conversation_that_is_never_kept_or_listed(setup):
     assert setup.client.ask("open", id=voice)["event"] == "error"
     setup.stop()
     assert setup.start() and setup.state["conversations"] == []
+
+
+# Dictation's Tidy up ------------------------------------------------------------
+
+
+def test_dictated_text_is_tidied_up_as_it_is_written(setup):
+    setup.model.replies.append({"text": ["Cześć Marku, ", "dzięki za wiadomość."]})
+    setup.client.send(op="tidy", id="t1", text="cześć marku dzięki za. wiadomość")
+    first = setup.client.wait(lambda e: e["event"] == "tidy")
+    assert first == {"event": "tidy", "id": "t1", "text": "Cześć Marku,"}
+    done = setup.client.wait(lambda e: e["event"] == "tidy" and e.get("done"))
+    assert done["text"] == "Cześć Marku, dzięki za wiadomość."
+    # As every request begins, so that a local model keeps what it read; the
+    # text goes as the person's, to tidy, not to answer.
+    asked = setup.model.requests[0]
+    setup.model.replies.append({"text": ["Hi."]})
+    setup.client.send(op="send", id=None, text="hello")
+    setup.client.done()
+    assert asked["messages"][0] == setup.model.requests[1]["messages"][0]
+    assert asked["tools"] == setup.model.requests[1]["tools"]
+    assert asked["messages"][1]["content"].endswith('"""\ncześć marku dzięki za. wiadomość\n"""')
+    assert "Tidy up the text I dictated" in asked["messages"][1]["content"]
+    # Nothing of it is kept as a conversation: only the request's is there.
+    assert len(setup.client.ask("search", query="")["ids"]) == 1
+
+
+def test_a_tidied_text_comes_without_quotes_or_a_code_block_around_it(setup):
+    setup.model.replies.append({"text": ['"Do jutra."']})
+    setup.client.send(op="tidy", id="t2", text="do jutra")
+    assert setup.client.wait(lambda e: e["event"] == "tidy" and e.get("done"))["text"] == "Do jutra."
+    setup.model.replies.append({"text": ["```\nSee you.\n```"]})
+    setup.client.send(op="tidy", id="t3", text="see you")
+    assert setup.client.wait(lambda e: e["event"] == "tidy" and e.get("done"))["text"] == "See you."
+
+
+def test_tidy_up_that_calls_a_tool_fails_and_does_nothing(setup):
+    setup.model.replies.append({"calls": [("set_volume", {"percent": 30})]})
+    setup.client.send(op="tidy", id="t4", text="volume thirty")
+    assert setup.client.wait(lambda e: e["event"] == "tidy" and "error" in e) == {
+        "event": "tidy", "id": "t4", "error": "It couldn't be tidied up."}
+    assert len(setup.model.requests) == 1

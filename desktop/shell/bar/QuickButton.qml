@@ -100,6 +100,15 @@ BarButton {
                 Assistant.pillAt = button.bar.place(button);
         }
     }
+    // And dictation's Tidy up (TidyPill.qml).
+    Connections {
+        target: button.dictate ? Dictation : null
+
+        function onPillAsked(screen: string) {
+            if (screen === button.screenName && button.visible && !Dictation.pillAt)
+                Dictation.pillAt = button.bar.place(button);
+        }
+    }
 
     // While recording, its length so far; as wide as the button, so the
     // button keeps its size.

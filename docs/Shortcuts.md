@@ -37,6 +37,7 @@ Moving a window past the last workspace makes a new one, up to eight.
 | Super+A | Apps |
 | Super+D | Dictate into the app and copy: tap to start and stop, or hold while you speak |
 | Super+Shift+D | Dictate only to copy |
+| Super+T | Tidy up what was dictated last, in its place |
 | Super+N | Notifications |
 | Super+I | Settings |
 | Super+L | Lock the screen |
