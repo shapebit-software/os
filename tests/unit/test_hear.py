@@ -228,24 +228,40 @@ def test_marks_after_words_are_left_out(hear):
 
 def test_the_engine_hears_the_recording_with_the_models(hear):
     hearing = hear(said="Tak.\n")
-    hearing.say()
+    hearing.recording()
+    hearing.wait_for_file("engine-runs")
+    hearing.do("stop")
     hearing.wait_for("done")
-    assert hearing.file("engine-runs") == f"{hearing.fakes}\n"
+    # Live, then the whole recording once more at the stop, for the words that go in.
+    assert hearing.file("engine-runs") == f"{hearing.fakes}\n--recorded {hearing.fakes}\n"
     assert (hearing.fakes / "engine-audio").read_bytes().startswith(LOUD)
+
+
+def test_a_dictation_longer_than_a_minute_keeps_its_live_phrases(hear):
+    hearing = hear(said="Tak.\n", env={"DICTATION_AGAIN_UP_TO": "0"})
+    hearing.recording()
+    hearing.wait_for_file("engine-runs")
+    hearing.do("stop")
+    assert hearing.wait_for("done")["text"] == "Tak."
+    assert hearing.file("engine-runs") == f"{hearing.fakes}\n"
 
 
 def test_with_the_speech_model_service_the_engine_goes_through_it(hear):
     # The model then stays loaded between recordings (test_speech_model.py).
     hearing = hear(said="Tak.\n", service=True)
-    hearing.say()
+    hearing.recording()
+    hearing.wait_for_file("engine-runs")
+    hearing.do("stop")
     assert hearing.wait_for("done")["text"] == "Tak."
-    assert hearing.file("engine-runs") == f"--connect {hearing.runtime / 'speech-model.sock'}\n"
+    service = hearing.runtime / "speech-model.sock"
+    assert hearing.file("engine-runs") == f"--connect {service}\n--connect {service} --recorded\n"
 
 
 def test_a_phrase_begun_is_said_while_listening_and_its_words_when_it_ends(hear):
-    hearing = hear(said="Dzień dobry.\n", speech=True)
+    hearing = hear(engine=LIVE_ENGINE)
+    hearing.recording()
+    (hearing.fakes / "phrases").write_text("<speech>\nDzień dobry.\n")
     hearing.wait_for("speaking")
-    hearing.say()
     message = hearing.wait_for("draft")
     assert (message["text"], message["tail"]) == ("Dzień dobry.", "")
 
@@ -530,7 +546,9 @@ def test_recorder_failure_is_reported(hear):
 
 def test_a_failed_engine_goes_over_the_recording_again(hear):
     hearing = hear(fails=1, said="Dzień dobry.\n")
-    hearing.say()
+    hearing.recording()
+    hearing.wait_for_file("engine-runs")
+    hearing.do("stop")
     assert hearing.wait_for("done")["text"] == "Dzień dobry."
     assert len(hearing.file("engine-runs").splitlines()) == 2
     assert (hearing.fakes / "engine-audio").read_bytes().startswith(LOUD)
@@ -539,7 +557,9 @@ def test_a_failed_engine_goes_over_the_recording_again(hear):
 
 def test_a_hung_engine_goes_over_the_recording_again_with_no_draft(hear):
     hearing = hear(hangs=1, said="Dzień dobry.\n", speech=True)
-    hearing.say()
+    hearing.recording()
+    hearing.wait_for_file("engine-runs")
+    hearing.do("stop")
     assert hearing.wait_for("done")["text"] == "Dzień dobry."
     states = [m["state"] for m in hearing.heard]
     assert (states.count("speaking"), states.count("draft")) == (1, 0)

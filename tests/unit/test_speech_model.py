@@ -117,9 +117,9 @@ class Service:
             assert time.monotonic() < deadline
             time.sleep(0.05)
 
-    def connect(self, audio):
+    def connect(self, audio, *more):
         """One recording, as hear sends it through --connect."""
-        return subprocess.run([ENGINE, "--connect", str(self.socket)], input=audio, capture_output=True,
+        return subprocess.run([ENGINE, "--connect", str(self.socket), *more], input=audio, capture_output=True,
                               env=self.env, timeout=10)  # fmt: skip
 
     @property
@@ -198,6 +198,32 @@ def test_smart_turn_hears_the_features_whisper_makes():
     assert round(float(got.mean()), 5) == -0.31416
 
 
+def test_a_whole_recording_is_written_down_in_pieces_of_up_to_15_seconds(service):
+    # As dictation's at its stop: nothing goes out while it comes, nor as it
+    # begins; then pieces, here with no pause in it, cut at 15 s.
+    model = service({}, turn=True)
+    loud = b"\0\x50" * 16000
+    done = model.connect(loud * 20, "--recorded")
+    assert done.returncode == 0
+    said = [json.loads(line) for line in done.stdout.splitlines()]
+    assert said == [{"final": f"{15 * 16000} samples"}, {"final": f"{5 * 16000} samples"}]
+
+
+def test_a_connection_without_its_line_writes_nothing_down(service):
+    model = service({})
+    caller = socket.socket(socket.AF_UNIX)
+    caller.connect(str(model.socket))
+    caller.sendall(b"not json\n" + SECOND)
+    caller.shutdown(socket.SHUT_WR)
+    # Closed, with nothing said: plainly, or reset, as what was sent goes unread.
+    try:
+        assert caller.recv(100) == b""
+    except ConnectionResetError:
+        pass
+    # The next one is heard as ever.
+    assert model.connect(SECOND).returncode == 0
+
+
 def test_unused_for_the_minutes_set_it_ends_and_frees_the_memory(service):
     model = service({"speechModel": "used", "speechModelMinutes": 0.02})
     assert model.connect(SECOND).returncode == 0
@@ -221,7 +247,7 @@ def test_a_discarded_recording_is_not_written_down_and_the_next_one_is(service):
     # hear ends the bridge, as it does to discard: the connection closes.
     caller = socket.socket(socket.AF_UNIX)
     caller.connect(str(model.socket))
-    caller.sendall(SECOND)
+    caller.sendall(b'{"recorded": false}\n' + SECOND)
     caller.close()
     done = model.connect(SECOND)
     assert done.returncode == 0

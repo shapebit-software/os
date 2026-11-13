@@ -8,9 +8,10 @@
 # while the person speaks: each phrase when they pause, so the words so far come
 # phrase by phrase, a draft only ever shown. Parakeet tells its 25 languages
 # apart by itself. The engine is speech-model.service, which keeps Parakeet loaded
-# between recordings as Settings says. Should the engine fail or fall behind, it goes over the whole
-# recording again at the stop. Without Parakeet, nothing can be written down, so it
-# fails before it listens.
+# between recordings as Settings says. At dictation's stop, it goes over the whole
+# recording once more (AGAIN_UP_TO), for the words that go in; so it does too should
+# the engine fail or fall behind. Without Parakeet, nothing can be written down, so
+# it fails before it listens.
 #
 # Audio stays in the runtime directory, and it is gone at the end.
 #
@@ -90,6 +91,10 @@ RATE = 16000
 ENGINE_BACKLOG = RATE * 2 * 10
 # How long, in seconds, the last phrase may take after the stop.
 ENGINE_WAIT = float(os.environ.get("DICTATION_ENGINE_WAIT", 30))
+# Dictation's recording, up to this long in seconds, is written down once more at
+# the stop, whole (dictate-engine --recorded): better words and punctuation than
+# its live phrases, for a wait of about a tenth of its length.
+AGAIN_UP_TO = float(os.environ.get("DICTATION_AGAIN_UP_TO", 60))
 
 
 def clean(said):
@@ -274,9 +279,12 @@ class Hearing:
             if self.engine:
                 self.drop_engine()
             self.written("")
-        elif self.engine:
+        elif self.engine and (self.converse or self.audio_path.stat().st_size > AGAIN_UP_TO * RATE * 2):
+            # Voice mode keeps no recording; a long one keeps its live phrases.
             self.end_engine_input()
         else:
+            if self.engine:
+                self.drop_engine()
             self.write_down()
 
     def report_level(self):
@@ -326,7 +334,8 @@ class Hearing:
         self.rerun = recording is not None
         try:
             self.engine = subprocess.Popen(
-                ["setpriv", "--pdeathsig", "TERM", ENGINE, *(["--connect", str(SERVICE)] if SERVICE.is_socket() else [str(PARAKEET)])],
+                ["setpriv", "--pdeathsig", "TERM", ENGINE, *(["--connect", str(SERVICE)] if SERVICE.is_socket() else []),
+                 *(["--recorded"] if self.rerun else []), *([] if SERVICE.is_socket() else [str(PARAKEET)])],
                 stdin=recording or subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
@@ -435,7 +444,8 @@ class Hearing:
     # Writing it down -----------------------------------------------------
 
     def write_down(self):
-        """The engine goes over the whole recording, after it failed or fell behind."""
+        """The engine goes over the whole recording: at dictation's stop, or after
+        it failed or fell behind."""
         self.state = "writing"
         self.emit(state="writing")
         try:

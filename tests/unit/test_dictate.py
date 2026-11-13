@@ -2,6 +2,8 @@
 dictation/hear, which tests/unit/test_hear.py covers. Every path says where the
 text goes, and that nothing goes anywhere else."""
 
+import importlib.machinery
+import importlib.util
 import json
 import os
 import pathlib
@@ -639,3 +641,32 @@ def test_with_the_real_hear_the_words_go_into_the_field_and_no_audio_stays(dicta
     assert dictation.wait_for("done")["text"] == "Dzień dobry."
     assert dictation.inserted == ["Dzień dobry."]
     assert [path.name for path in dictation.runtime.iterdir()] == ["test"]
+
+
+@pytest.mark.parametrize(
+    ("said", "written"),
+    [
+        ("Cześć Marku przecinek dzięki za wiadomość kropka spotkajmy się jutro",
+         "Cześć Marku, dzięki za wiadomość. Spotkajmy się jutro"),
+        # The marks the engine put around the word go with it.
+        ("Cześć Marku, przecinek, dzięki. Kropka. Do jutra znak zapytania", "Cześć Marku, dzięki. Do jutra?"),
+        ("See you tomorrow full stop thanks comma Anna", "See you tomorrow. Thanks, Anna"),
+        ("Uwaga dwukropek jutro wolne wykrzyknik", "Uwaga: jutro wolne!"),
+        # At the start, a word, not a mark; and "period" is a word, always.
+        ("Kropka nad i", "Kropka nad i"),
+        ("For a period of time", "For a period of time"),
+        ("Nothing said aloud.", "Nothing said aloud."),
+    ],
+)
+def test_punctuation_said_as_a_word_is_written_as_its_mark(said, written):
+    loader = importlib.machinery.SourceFileLoader("dictate", str(DICTATE))
+    spec = importlib.util.spec_from_loader("dictate", loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    assert module.punctuated(said) == written
+
+
+def test_said_punctuation_goes_into_the_field_as_marks(dictate):
+    dictation = dictate("--copy", said="Do jutra przecinek Anno kropka")
+    dictation.say()
+    assert dictation.wait_for("done")["text"] == "Do jutra, Anno."

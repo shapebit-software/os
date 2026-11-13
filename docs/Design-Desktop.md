@@ -146,6 +146,16 @@ once the extra is downloaded, and until then its button leads to the download.
   button, or Super+Shift+D, only copies. Briefly, the button shows where
   they went, a check or a clipboard; the app's own undo takes an insert
   back. No card, no other choices to make.
+- At the stop, the whole recording is written down once more, in pieces of
+  up to 15 seconds cut at its pauses, rather than at each short pause: its
+  sentences hold together, with fewer full stops in their middle. It takes
+  about a tenth of the recording's length, a second or two for most; one
+  longer than a minute keeps its live phrases, so the wait stays short.
+- Punctuation said as a word becomes its mark: "przecinek", "kropka", "znak
+  zapytania", "wykrzyknik", "dwukropek", "średnik", and "comma", "full stop",
+  "question mark", "exclamation mark", "colon", "semicolon". At the very
+  start, as in "kropka nad i", it stays a word; "period" always does, and no
+  word makes a new line, as dictation never inserts one.
 - Dictation inside an application's own field, when it comes, only inserts.
 - Password fields never get dictated text.
 - An open microphone is always visible on the bar. Audio stays on the

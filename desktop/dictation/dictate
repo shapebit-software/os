@@ -27,6 +27,7 @@
 # at the end, {"state": "done", "text": ..., "inserted": bool, "copied": bool,
 # "app": ...}; {"state": "nothing"}; or {"state": "failed"}.
 import json
+import re
 import os
 import pathlib
 import selectors
@@ -175,6 +176,29 @@ def clean(said):
     return " ".join(said.split())
 
 
+# Punctuation said as a word, in Polish and English, as dictation does elsewhere:
+# its mark in place of the word, and of the marks the engine put around it. Not
+# "period", a common English word; nor "new line", as dictation never inserts a
+# line's end.
+SPOKEN_MARKS = [
+    ("znak zapytania", "?"), ("question mark", "?"), ("wykrzyknik", "!"), ("exclamation mark", "!"),
+    ("przecinek", ","), ("comma", ","), ("kropka", "."), ("full stop", "."), ("dwukropek", ":"), ("colon", ":"),
+    ("średnik", ";"), ("semicolon", ";"),
+]  # fmt: skip
+MARK = re.compile(
+    r"[\s,.;:!?]*\b(" + "|".join(re.escape(word) for word, _ in SPOKEN_MARKS) + r")\b[\s,.;:!?]*", re.IGNORECASE
+)
+
+
+def punctuated(said):
+    """The text with punctuation said as words written as marks, and a capital
+    after a sentence's end. At the very start, as in "kropka nad i", nothing
+    comes before for a mark to end: there the word stays."""
+    marks = {word: mark for word, mark in SPOKEN_MARKS}
+    said = MARK.sub(lambda m: m.group(0) if m.start() == 0 else marks[m.group(1).lower()] + " ", said).strip()
+    return re.sub(r"([.!?] )(\w)", lambda m: m.group(1) + m.group(2).upper(), said)
+
+
 class Dictation:
     def __init__(self, copy, only_copy):
         self.copy = copy or only_copy
@@ -264,13 +288,13 @@ class Dictation:
                 # It stopped by itself, after a long silence.
                 self.target = self.place()
             if state == "draft":
-                self.draft = message
+                self.draft = {**message, "text": punctuated(message.get("text", ""))}
                 self.place_draft(changed=True)
             elif state in ("listening", "writing"):
                 self.state = state
                 self.emit(**message)
             elif state in ("done", "nothing"):
-                self.written(clean(message.get("text", "")))
+                self.written(punctuated(clean(message.get("text", ""))))
 
     # The draft -----------------------------------------------------------
 

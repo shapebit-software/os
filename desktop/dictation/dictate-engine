@@ -9,12 +9,19 @@
 # sherpa-onnx runs both.
 #
 # Usage:
-#   dictate-engine MODELS             one recording, on the standard input
-#   dictate-engine --serve MODELS     speech-model.service: one recording per
-#                                     connection on the socket systemd passes
-#   dictate-engine --connect SOCKET   one recording, on the standard input, through
-#                                     the service; for hear, as the first does
-# MODELS is the folder of Parakeet's and Silero's files.
+#   dictate-engine [--recorded] MODELS            one recording, on the standard input
+#   dictate-engine --serve MODELS                 speech-model.service: one recording
+#                                                 per connection on the socket systemd
+#                                                 passes, after a line of JSON,
+#                                                 {"recorded": bool}
+#   dictate-engine --connect SOCKET [--recorded]  one recording, on the standard input,
+#                                                 through the service; for hear, as the
+#                                                 first does
+# MODELS is the folder of Parakeet's and Silero's files. --recorded is for a whole
+# recording, once it is over, as dictation's at its stop: no phrase goes out as it
+# comes; at the end, it is written down in pieces of up to 15 seconds, cut at its
+# pauses, which Parakeet punctuates and spells better than the short phrases of
+# live speech. One piece is no longer, as Parakeet drops words beyond 20 seconds.
 #
 # Loading Parakeet takes about two seconds and holds about 1.1 GB, so the service
 # keeps it loaded between recordings: always, with Settings > Assistant's "Load the
@@ -143,7 +150,7 @@ def turn_judge(models):
     return lambda samples: float(session.run(None, {"input_features": turn_features(samples, filters)})[0].reshape(-1)[0])
 
 
-def recording(recognizer, detector, turn, source, say, gone=lambda: False):
+def recording(recognizer, detector, turn, source, say, gone=lambda: False, recorded=False):
     """Writes down one recording, read from the file descriptor source until it
     ends, and says what it heard with say(**message). Returns False, with the last
     phrase not written down, when the caller is gone()."""
@@ -198,12 +205,31 @@ def recording(recognizer, detector, turn, source, say, gone=lambda: False):
         else:
             say(final=text)
 
+    # A recording's pauses, where its pieces may end.
+    pauses = []
+
     def phrases():
         while not detector.empty():
             # In the middle of the pause, so that no word loses its end.
             end = detector.front.start + len(detector.front.samples) + int(PAUSE / 2 * RATE)
             detector.pop()
-            phrase(min(end - cut, len(heard)))
+            if recorded:
+                pauses.append(end)
+            else:
+                phrase(min(end - cut, len(heard)))
+
+    def pieces():
+        """The recording in pieces of up to LONGEST_PHRASE, each to its last pause
+        within that, or cut there where it has none."""
+        longest = LONGEST_PHRASE * RATE
+        start = 0
+        while start < len(heard):
+            ends = [end for end in pauses if start < end <= min(start + longest, len(heard))]
+            end = len(heard) if len(heard) - start <= longest else ends[-1] if ends else start + longest
+            text = write_down(heard[start:end])
+            if text:
+                say(final=text)
+            start = end
 
     while not ended:
         chunks = [incoming.get()]
@@ -224,6 +250,8 @@ def recording(recognizer, detector, turn, source, say, gone=lambda: False):
             for start in range(0, len(audio), WINDOW):
                 detector.accept_waveform(audio[start : start + WINDOW])
         phrases()
+        if recorded:
+            continue
         # A long time with no phrase may still hold something.
         if not detector.is_speech_detected() and len(heard) >= LONGEST_PHRASE * RATE:
             phrase(len(heard))
@@ -236,7 +264,9 @@ def recording(recognizer, detector, turn, source, say, gone=lambda: False):
         return False
     detector.flush()
     phrases()
-    if len(heard):
+    if recorded:
+        pieces()
+    elif len(heard):
         phrase(len(heard))
     return True
 
@@ -283,7 +313,18 @@ def serve(models):
                 return bool(poller.poll(0))
 
             try:
-                if recording(recognizer, detector, turn, connection.fileno(), say, gone):
+                # What the recording is, on a line of its own before it.
+                header = b""
+                while not header.endswith(b"\n") and len(header) < 256:
+                    byte = connection.recv(1)
+                    if not byte:
+                        break
+                    header += byte
+                try:
+                    recorded = json.loads(header).get("recorded") is True
+                except ValueError:
+                    continue
+                if recording(recognizer, detector, turn, connection.fileno(), say, gone, recorded):
                     say(end=True)
             except OSError:
                 # Gone while it was said: the next recording.
@@ -291,12 +332,13 @@ def serve(models):
         last = time.monotonic()
 
 
-def connect(path):
+def connect(path, recorded=False):
     """The recording on the standard input, through the service, and what it says
     on the standard output; fails unless it says it is done."""
     server = socket.socket(socket.AF_UNIX)
     try:
         server.connect(path)
+        server.sendall(json.dumps({"recorded": recorded}).encode() + b"\n")
     except OSError:
         sys.exit(1)
 
@@ -326,14 +368,15 @@ def main():
     if sys.argv[1] == "--serve":
         serve(sys.argv[2])
     elif sys.argv[1] == "--connect":
-        connect(sys.argv[2])
+        connect(sys.argv[2], "--recorded" in sys.argv[3:])
     else:
 
         def say(**message):
             print(json.dumps(message, ensure_ascii=False), flush=True)
 
-        recognizer, detector, turn = load(sys.argv[1])
-        recording(recognizer, detector, turn, 0, say)
+        recorded = sys.argv[1] == "--recorded"
+        recognizer, detector, turn = load(sys.argv[-1])
+        recording(recognizer, detector, turn, 0, say, recorded=recorded)
 
 
 if __name__ == "__main__":
