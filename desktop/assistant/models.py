@@ -1,7 +1,7 @@
 """The language models the assistant can use, and how it talks to them.
 
 A model speaks one of three chat APIs, each streamed and with tools: "chat",
-OpenAI's /chat/completions, which llama-server, OpenAI, and Gemini offer;
+OpenAI's /chat/completions, which llama-server and OpenAI offer;
 "anthropic", Claude's /messages; and "responses", OpenAI's /responses, which
 a ChatGPT plan answers on. The assistant hands every one the conversation as
 the chat API has it, and each adapter here turns it into its own. So a new
@@ -77,6 +77,8 @@ def catalog():
     for own, found in ((False, _read(VENDOR)), (True, _read(config_dir() / "models.json"))):
         for entry in found:
             if isinstance(entry, dict) and entry.get("id"):
+                if entry.get("provider") and entry["provider"] not in providers.PROVIDERS:
+                    continue
                 entries[entry["id"]] = {**entry, "own": own}
     return list(entries.values())
 
@@ -119,6 +121,8 @@ def describe(entry):
 
 def _key(entry):
     """The credential an online model is asked with, or None."""
+    if entry.get("provider") and entry["provider"] not in providers.PROVIDERS:
+        raise Unavailable("This provider is not supported.")
     if entry.get("provider") == "chatgpt":
         try:
             return chatgpt.access_token()

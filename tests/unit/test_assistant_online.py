@@ -5,7 +5,6 @@ API, Claude's and OpenAI's Responses, gets the conversation in its own shape
 and streams back text and tool calls; a ChatGPT plan's limits and an ended
 sign-in say so; and removing or signing out forgets what was kept."""
 
-import base64
 import http.server
 import json
 import pathlib
@@ -16,15 +15,13 @@ import urllib.parse
 import urllib.request
 
 import pytest
+import jwt
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "desktop" / "assistant"))
 import models  # noqa: E402
+import providers  # noqa: E402
 from test_assistant import Setup  # noqa: E402
-
-
-def jwt(claims):
-    part = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
-    return f"e30.{part}.signature"
 
 
 class Provider:
@@ -37,7 +34,13 @@ class Provider:
         self.requests = []
         self.tokens = []
         self.revoked = []
-        self.models = {"anthropic": {"data": [{"id": "claude-test-1", "display_name": "Claude Test"}]},
+        self.key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        self.nonce = ""
+        self.token_claims = {}
+        self.bad_signature = False
+        self.revoke_status = 200
+        self.scope = "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct"
+        self.models = {"test-key": {"data": [{"id": "test-model-1", "display_name": "Test model"}]},
                        "chatgpt": {"models": [{"slug": "gpt-test", "display_name": "GPT Test", "visibility": "list"},
                                               {"slug": "gpt-hidden", "display_name": "Hidden", "visibility": "hide"}]}}  # fmt: skip
         self.refresh_counter = 0
@@ -56,10 +59,16 @@ class Provider:
                 self.wfile.write(data)
 
             def do_GET(self):
-                if self.path == "/anthropic/v1/models":
-                    if self.headers.get("x-api-key") != "sk-ant-good":
+                if self.path == "/auth/.well-known/openid-configuration":
+                    return self.reply(200, {"issuer": outer.url + "/auth", "jwks_uri": outer.url + "/auth/jwks",
+                                            "revocation_endpoint": outer.url + "/auth/api/accounts/oauth/revoke"})  # fmt: skip
+                if self.path == "/auth/jwks":
+                    key = jwt.algorithms.RSAAlgorithm.to_jwk(outer.key.public_key(), as_dict=True)
+                    return self.reply(200, {"keys": [{**key, "kid": "test", "alg": "RS256", "use": "sig"}]})
+                if self.path == "/test-key/v1/models":
+                    if self.headers.get("x-api-key") != "test-key-secret":
                         return self.reply(401, {"error": {"message": "invalid x-api-key"}})
-                    return self.reply(200, outer.models["anthropic"])
+                    return self.reply(200, outer.models["test-key"])
                 if self.path == "/chatgpt/v1/models":
                     if not self.headers.get("Authorization", "").startswith("Bearer access-"):
                         return self.reply(401, {"detail": "no"})
@@ -72,14 +81,19 @@ class Provider:
                     fields = dict(urllib.parse.parse_qsl(raw.decode()))
                     if self.path == "/auth/api/accounts/oauth/revoke":
                         outer.revoked.append(fields)
-                        return self.reply(200, b"", "text/plain")
+                        return self.reply(outer.revoke_status, b"" if outer.revoke_status == 200 else {"error": "unavailable"})
                     outer.tokens.append(fields)
                     if fields["grant_type"] == "refresh_token" and fields["refresh_token"] == "gone":
                         return self.reply(400, {"error": "refresh_token_expired"})
                     outer.refresh_counter += 1
+                    claims = {"iss": outer.url + "/auth", "aud": fields["client_id"], "sub": "test-person", "exp": time.time() + 3600,
+                              "nonce": outer.nonce, "email": "person@example.org", **outer.token_claims}  # fmt: skip
+                    token = jwt.encode(claims, outer.key, algorithm="RS256", headers={"kid": "test"})
+                    if outer.bad_signature:
+                        token = token.rsplit(".", 1)[0] + ".invalid-signature"
                     return self.reply(200, {"access_token": f"access-{outer.refresh_counter}", "refresh_token": f"refresh-{outer.refresh_counter}",
-                                            "id_token": jwt({"email": "person@example.org"}), "token_type": "Bearer", "expires_in": 3600,
-                                            "scope": "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct"})  # fmt: skip
+                                            "id_token": token, "token_type": "Bearer", "expires_in": 3600,
+                                            "scope": outer.scope})  # fmt: skip
                 body = json.loads(raw)
                 outer.requests.append((self.path, dict(self.headers), body))
                 reply = outer.replies.pop(0) if outer.replies else {"text": ["(nothing scripted)"]}
@@ -126,12 +140,20 @@ class Provider:
 
 
 @pytest.fixture
-def online(tmp_path):
+def online(tmp_path, monkeypatch):
     provider = Provider()
     made = Setup(tmp_path)
-    made.env.update(ASSISTANT_ANTHROPIC_URL=f"{provider.url}/anthropic/v1", ASSISTANT_CHATGPT_URL=f"{provider.url}/chatgpt/v1",
+    made.env.update(ASSISTANT_CHATGPT_URL=f"{provider.url}/chatgpt/v1",
                     ASSISTANT_CHATGPT_AUTH=f"{provider.url}/auth")  # fmt: skip
     made.stop()
+    # Enable the retained implementation only in these test processes.
+    monkeypatch.setitem(providers.PROVIDERS, "chatgpt", providers.CHATGPT)
+    source = pathlib.Path(__file__).parents[2] / "desktop" / "assistant"
+    bootstrap = (f"import sys, runpy; sys.path.insert(0, {str(source)!r}); "
+                 "import providers; providers.PROVIDERS['chatgpt'] = providers.CHATGPT; "
+                 f"sys.argv = [{str(source / 'assistant')!r}, 'serve']; "
+                 f"runpy.run_path({str(source / 'assistant')!r}, run_name='__main__')")
+    made.command = [sys.executable, "-c", bootstrap]
     made.start()
     made.provider = provider
     yield made
@@ -150,35 +172,128 @@ def files_hold(made, text):
                if p.is_file() and "keyring" not in p.parts and p.suffix in (".json", "", ".jsonl"))  # fmt: skip
 
 
-def test_a_claude_model_is_added_with_a_key_kept_in_the_keyring_and_answers(online):
-    online.client.send(op="provider-models", provider="anthropic", key="sk-ant-bad")
-    assert "refused the key" in online.client.wait(lambda e: e["event"] == "provider-models")["error"]
-    online.client.send(op="provider-models", provider="anthropic", key="sk-ant-good")
-    listed = online.client.wait(lambda e: e["event"] == "provider-models")
-    assert listed["models"] == [{"model": "claude-test-1", "name": "Claude Test"}]
-    added = online.client.ask("add-model", provider="anthropic", model="claude-test-1", name="Claude Test", key="sk-ant-good")
-    assert added == {"event": "model-added", "id": "anthropic:claude-test-1"}
-    assert keyring(online) == {"anthropic": "sk-ant-good"} and not files_hold(online, "sk-ant-good")
-    state = online.client.ask("hello", pid=4242)
-    assert state["model"]["id"] == "anthropic:claude-test-1" and state["model"]["provider"] == "anthropic"
+def test_disabled_service_starts_without_chatgpt_libraries(tmp_path):
+    source = pathlib.Path(__file__).parents[2] / "desktop" / "assistant"
+    bootstrap = ("import sys, runpy; sys.modules['jwt'] = None; sys.modules['cryptography'] = None; "
+                 f"sys.path.insert(0, {str(source)!r}); "
+                 f"sys.argv = [{str(source / 'assistant')!r}, 'serve']; "
+                 f"runpy.run_path({str(source / 'assistant')!r}, run_name='__main__')")
+    made = Setup(tmp_path, command=[sys.executable, "-c", bootstrap])
+    try:
+        assert made.state["providers"] == {} and made.state["chatgpt"] is None
+        assert made.client.ask("chatgpt-sign-in")["error"] == "This provider is not supported."
+    finally:
+        made.stop()
+        made.model.close()
 
-    online.provider.replies += [{"text": ["Let me ", "check."], "calls": [("get_status", {})]}, {"text": ["Wi-Fi is on."]}]
-    online.client.send(op="send", id=None, text="is wifi on?")
-    online.client.card("done")
-    assert online.client.done()["text"] == "Wi-Fi is on."
-    (path, headers, first), (_, _, second) = online.provider.requests
-    assert path == "/anthropic/v1/messages" and headers["x-api-key"] == "sk-ant-good" and headers["anthropic-version"]
-    assert first["model"] == "claude-test-1" and first["stream"] is True and "ShapeBit OS" in first["system"]
-    assert first["messages"] == [{"role": "user", "content": [{"type": "text", "text": "is wifi on?"}]}]
-    assert {"name", "description", "input_schema"} == set(first["tools"][0])
-    # The tool's call and result, in Claude's shape: the result in the person's turn.
-    assert second["messages"][1] == {"role": "assistant", "content": [
-        {"type": "text", "text": "Let me check."}, {"type": "tool_use", "id": "toolu_1", "name": "get_status", "input": {}}]}
-    assert second["messages"][2]["role"] == "user" and second["messages"][2]["content"][0]["type"] == "tool_result"
-    assert "wifi: on" in second["messages"][2]["content"][0]["content"]
 
-    online.client.send(op="remove-model", id="anthropic:claude-test-1")
-    online.client.wait(lambda e: e["event"] == "settings" and all(m["id"] != "anthropic:claude-test-1" for m in e["models"]))
+@pytest.mark.parametrize("provider", ["chatgpt", "gemini", "openai", "anthropic"])
+def test_shipped_service_disables_online_providers(tmp_path, provider):
+    made = Setup(tmp_path)
+    try:
+        assert made.state["providers"] == {} and made.state["chatgpt"] is None
+        assert made.client.ask("add-model", provider=provider, model="retired-model", key="unused")["error"]
+        assert made.client.ask("provider-models", provider=provider)["error"] == "This provider is not supported."
+        assert made.client.ask("chatgpt-sign-in")["error"] == "This provider is not supported."
+        assert made.client.ask("chatgpt-sign-out")["error"] == "This provider is not supported."
+        assert keyring(made) == {}
+        assert made.model.requests == []
+    finally:
+        made.stop()
+        made.model.close()
+
+
+@pytest.mark.parametrize("saved_model", [False, True])
+def test_disabled_chatgpt_removes_saved_models_and_local_tokens(tmp_path, saved_model):
+    made = Setup(tmp_path)
+    try:
+        made.stop()
+        config = tmp_path / "config" / "assistant"
+        config.mkdir(parents=True, exist_ok=True)
+        entry = {"id": "chatgpt:old", "provider": "chatgpt", "where": "online", "model": "old"}
+        (config / "models.json").write_text(json.dumps([entry] if saved_model else []))
+        (config / "settings.json").write_text(json.dumps({"model": entry["id"] if saved_model else ""}))
+        folder = tmp_path / "keyring"
+        folder.mkdir(exist_ok=True)
+        (folder / "chatgpt").write_text("old-token")
+        made.start()
+        assert made.state["chatgpt"] is None and made.state["providers"] == {}
+        assert json.loads((config / "models.json").read_text()) == []
+        assert made.settings()["model"] == ""
+        assert keyring(made) == {}
+        assert made.commands().count("secret-tool clear assistant-provider chatgpt") == 2  # Once per start.
+        assert not any("secret-tool lookup assistant-provider chatgpt" in c for c in made.commands())
+    finally:
+        made.stop()
+        made.model.close()
+
+
+@pytest.mark.parametrize("retired_provider", ["gemini", "openai", "anthropic"])
+def test_explicit_test_registration_enables_only_chatgpt(online, retired_provider):
+    assert set(online.client.ask("hello", pid=4242)["providers"]) == {"chatgpt"}
+    assert online.client.ask("add-model", provider=retired_provider, model="retired-model", key="removed-key")["error"]
+    assert online.client.ask("provider-models", provider=retired_provider, key="removed-key")["error"] == "This provider is not supported."
+    assert keyring(online) == {}
+    assert online.provider.requests == [] and online.model.requests == []
+
+
+@pytest.mark.parametrize("retired_provider", ["gemini", "openai", "anthropic"])
+def test_retired_provider_cleanup_preserves_chatgpt_and_conversations(online, retired_provider):
+    sign_in(online)
+    online.client.ask("add-model", provider="chatgpt", model="gpt-test", key=None)
+    sent = online.client.ask("send", id=None, text="Keep this conversation")
+    online.client.done()
+    credentials = keyring(online)
+    online.stop()
+    config = online.tmp / "config" / "assistant"
+    path = config / "models.json"
+    kept = json.loads(path.read_text())
+    retired = {"id": f"{retired_provider}:retired-model", "provider": retired_provider, "where": "online",
+               "url": online.provider.url + "/removed/v1", "model": "retired-model"}
+    path.write_text(json.dumps([*kept, retired]))
+    settings = online.settings()
+    settings["model"] = retired["id"]
+    (config / "settings.json").write_text(json.dumps(settings))
+    (online.tmp / "keyring" / retired_provider).write_text("removed-key")
+
+    online.start()
+    assert json.loads(path.read_text()) == kept
+    assert keyring(online) == credentials
+    assert online.settings()["model"] == ""
+    assert all(m.get("provider") != retired_provider for m in online.state["models"])
+    assert online.state["model"]["id"] != retired["id"]
+    assert online.state["chatgpt"]["email"] == "person@example.org"
+    conversation = online.client.ask("open", id=sent["conversation"])
+    assert conversation["messages"][0]["text"] == "Keep this conversation"
+
+
+def test_api_key_machinery_still_stores_discovers_and_streams_with_a_test_provider(online, monkeypatch):
+    # Register only in this test process; the shipped service exposes no providers.
+    monkeypatch.setitem(providers.PROVIDERS, "test-key", {
+        "name": "Test API", "auth": "key", "api": "anthropic", "url": online.provider.url + "/test-key/v1",
+        "mark": "T", "color": "#123456", "usage": "https://example.org/usage",
+    })
+    for name in ("PATH", "XDG_RUNTIME_DIR"):
+        monkeypatch.setenv(name, online.env[name])
+    with pytest.raises(providers.Failed, match="refused the key"):
+        providers.list_models("test-key", "wrong-key")
+    providers.keep_key("test-key", " test-key-secret ")
+    assert providers.secret("test-key") == "test-key-secret"
+    assert not files_hold(online, "test-key-secret")
+    assert providers.list_models("test-key", providers.secret("test-key")) == [
+        {"model": "test-model-1", "name": "Test model"}]
+    entry = providers.entry("test-key", "test-model-1", "Test model")
+    online.provider.replies.append({"text": ["Still ", "working."], "calls": [("get_status", {})]})
+    text = []
+    answer, calls = models.Chat(entry).run([
+        {"role": "system", "content": "Be brief."}, {"role": "user", "content": "Status?"}], [], text.append)
+    assert answer == "Still working." and "".join(text) == answer
+    assert calls == [{"id": "toolu_1", "name": "get_status", "arguments": "{}"}]
+    path, headers, body = online.provider.requests[0]
+    assert path == "/test-key/v1/messages"
+    assert headers["x-api-key"] == "test-key-secret" and headers["anthropic-version"]
+    assert body["model"] == "test-model-1" and body["system"] == "Be brief."
+    providers.forget("test-key")
     assert keyring(online) == {}
 
 
@@ -186,6 +301,7 @@ def sign_in(made):
     """Continue with ChatGPT, with the test as the browser."""
     url = made.client.ask("chatgpt-sign-in")["url"]
     query = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query))
+    made.provider.nonce = query["nonce"]
     redirect = f"{query['redirect_uri']}?" + urllib.parse.urlencode(
         {"code": "the-code", "state": query["state"], "client_id": "oaiapp_test", "scope": query["scope"]})
     page = urllib.request.urlopen(redirect, timeout=10).read().decode()
@@ -270,15 +386,57 @@ def test_signing_out_revokes_and_forgets_the_plans_models(online):
     state = online.client.ask("hello", pid=4242)
     assert state["chatgpt"] is None and all(m.get("provider") != "chatgpt" for m in state["models"])
     # The client id stays for the next sign-in, which then sends it, not a new registration.
-    assert json.loads(keyring(online)["chatgpt"]) == {"client_id": "oaiapp_test"}
+    assert json.loads(keyring(online)["chatgpt"]) == {"client_id": "oaiapp_test", "subject": "test-person"}
     query = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(online.client.ask("chatgpt-sign-in")["url"]).query))
     assert query["client_id"] == "oaiapp_test" and "agent_name_hint" not in query
 
 
 def test_a_model_needs_its_key_or_sign_in_to_be_added(online):
-    assert online.client.ask("add-model", provider="anthropic", model="claude-test-1", name="", key=None)["error"] == "Enter the API key."
     assert online.client.ask("add-model", provider="chatgpt", model="gpt-test", name="", key=None)["error"] == "Continue with ChatGPT first."
     assert online.client.ask("add-model", provider="nobody", model="x", name="", key=None)["error"]
+
+
+@pytest.mark.parametrize("claims,bad_signature", [
+    ({"iss": "https://another-issuer.example"}, False),
+    ({"aud": "another-client"}, False),
+    ({"exp": 1}, False),
+    ({"nonce": "another-attempt"}, False),
+    ({"sub": ""}, False),
+    ({}, True),
+])
+def test_chatgpt_rejects_unverified_identity_before_storing_tokens(online, claims, bad_signature):
+    url = online.client.ask("chatgpt-sign-in")["url"]
+    query = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query))
+    online.provider.nonce = query["nonce"]
+    online.provider.token_claims = claims
+    online.provider.bad_signature = bad_signature
+    redirect = query["redirect_uri"] + "?" + urllib.parse.urlencode({"code": "the-code", "state": query["state"], "client_id": "oaiapp_test"})
+    assert "couldn&#x27;t be verified" in urllib.request.urlopen(redirect, timeout=10).read().decode()
+    event = online.client.wait(lambda e: e["event"] == "chatgpt" and "signedIn" in e)
+    assert event["signedIn"] is False
+    assert keyring(online) == {}
+
+
+def test_callback_scopes_cannot_grant_permission_the_token_endpoint_did_not_grant(online):
+    url = online.client.ask("chatgpt-sign-in")["url"]
+    query = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query))
+    online.provider.nonce = query["nonce"]
+    online.provider.scope = "openid email"
+    redirect = query["redirect_uri"] + "?" + urllib.parse.urlencode(
+        {"code": "the-code", "state": query["state"], "client_id": "oaiapp_test", "scope": query["scope"]})
+    assert "wasn&#x27;t allowed" in urllib.request.urlopen(redirect, timeout=10).read().decode()
+    assert online.client.wait(lambda e: e["event"] == "chatgpt" and "signedIn" in e)["signedIn"] is False
+    assert keyring(online) == {}
+
+
+def test_signing_out_reports_unconfirmed_revocation_and_clears_local_tokens(online):
+    sign_in(online)
+    online.provider.revoke_status = 503
+    online.client.send(op="chatgpt-sign-out")
+    event = online.client.wait(lambda e: e["event"] == "chatgpt" and e.get("signedIn") is False)
+    assert "Remote revocation wasn't confirmed" in event["error"]
+    assert len(online.provider.revoked) == 2
+    assert "refresh_token" not in json.loads(keyring(online)["chatgpt"])
 
 
 def test_each_api_gets_pictures_in_its_own_shape():
@@ -303,7 +461,7 @@ def test_each_api_gets_pictures_in_its_own_shape():
 
 def test_the_keyring_is_reached_on_the_bus_named_for_it_and_its_failure_says_why(tmp_path, monkeypatch):
     # make run's session bus has no keyring: secret-tool alone goes to the host's.
-    import providers
+    monkeypatch.setitem(providers.PROVIDERS, "test-key", {"name": "Test API"})
 
     tool = tmp_path / "secret-tool"
     tool.write_text(f'#!/bin/bash\necho "$DBUS_SESSION_BUS_ADDRESS" > "{tmp_path}/bus"\n'
@@ -313,8 +471,8 @@ def test_the_keyring_is_reached_on_the_bus_named_for_it_and_its_failure_says_why
     monkeypatch.setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/run/dev-bus")
     monkeypatch.setenv("ASSISTANT_KEYRING_BUS", "unix:path=/run/host-bus")
     with pytest.raises(providers.Failed, match="couldn't keep it: Cannot create an item in a locked collection"):
-        providers.keep_key("anthropic", "sk-ant")
+        providers.keep_key("test-key", "test-key-secret")
     assert (tmp_path / "bus").read_text().strip() == "unix:path=/run/host-bus"
     monkeypatch.delenv("ASSISTANT_KEYRING_BUS")
-    assert providers.secret("anthropic") is None
+    assert providers.secret("test-key") is None
     assert (tmp_path / "bus").read_text().strip() == "unix:path=/run/dev-bus"

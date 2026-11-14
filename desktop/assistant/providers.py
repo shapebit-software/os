@@ -2,12 +2,8 @@
 Models: how each is reached, how its models are listed, and where its
 credentials are kept. models.py streams answers through them.
 
-- ChatGPT: the person's ChatGPT plan, through Sign in with ChatGPT
-  (chatgpt.py), on OpenAI's Responses API. OpenAI allows it for open-source
-  and local apps; usage counts against the plan, never billed elsewhere.
-- OpenAI, Claude (Anthropic), and Gemini (Google): the person's own API key,
-  billed by the provider per use. Anthropic and Google do not allow apps to
-  sign in with their subscriptions, so they have keys only.
+No online providers are registered in the shipped system. ChatGPT sign-in and
+generic API-key storage, discovery and protocols remain for future integrations.
 
 Keys and ChatGPT's tokens are in the keyring (secret-tool), never in a file:
 attribute assistant-provider, the provider's id. In development, make run's
@@ -29,17 +25,10 @@ def url_of(provider, default):
 
 # id: name, how the person signs in ("plan" or "key"), the API it speaks, its
 # base, the mark and color its models show with, and where its usage is managed.
-PROVIDERS = {
-    "chatgpt": {"name": "ChatGPT", "auth": "plan", "api": "responses", "url": url_of("chatgpt", "https://api.openai.com/v1"),
-                "mark": "C", "color": "#10a37f", "usage": "https://chatgpt.com/settings/usage"},
-    "openai": {"name": "OpenAI", "auth": "key", "api": "chat", "url": url_of("openai", "https://api.openai.com/v1"),
-               "mark": "O", "color": "#10a37f", "usage": "https://platform.openai.com/usage"},
-    "anthropic": {"name": "Claude", "auth": "key", "api": "anthropic", "url": url_of("anthropic", "https://api.anthropic.com/v1"),
-                  "mark": "A", "color": "#d97757", "usage": "https://console.anthropic.com/settings/usage"},
-    "gemini": {"name": "Gemini", "auth": "key", "api": "chat",
-               "url": url_of("gemini", "https://generativelanguage.googleapis.com/v1beta/openai"),
-               "mark": "G", "color": "#4285f4", "usage": "https://aistudio.google.com/usage"},
-}  # fmt: skip
+# Retained for a future integration; registering it requires an explicit code change.
+CHATGPT = {"name": "ChatGPT", "auth": "plan", "api": "responses", "url": url_of("chatgpt", "https://api.openai.com/v1"),
+           "mark": "C", "color": "#10a37f", "usage": "https://chatgpt.com/settings/usage"}  # fmt: skip
+PROVIDERS = {}
 ANTHROPIC_VERSION = "2023-06-01"
 # Of a provider's models, those that are not for chat.
 NOT_CHAT = ("embed", "tts", "whisper", "audio", "realtime", "transcribe", "image", "dall-e", "moderation", "search",
@@ -133,12 +122,8 @@ def list_models(provider, credential):
         model = str(m.get("id", "")).removeprefix("models/")
         if not model or any(word in model for word in NOT_CHAT):
             continue
-        if provider == "gemini" and not model.startswith("gemini"):
-            continue
-        if provider == "openai" and not (model.startswith(("gpt-", "chatgpt-")) or model[:1] == "o" and model[1:2].isdigit()):
-            continue
         models.append({"model": model, "name": m.get("display_name") or model})
-    if provider != "anthropic":
+    if PROVIDERS[provider]["api"] != "anthropic":
         # Newest, by name, first: the providers list in no useful order.
         models.sort(key=lambda m: m["model"], reverse=True)
     return models

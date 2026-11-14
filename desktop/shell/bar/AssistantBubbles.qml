@@ -115,8 +115,6 @@ Popout {
                         height: 24
                         color: panel.choosing ? Theme.veil(0.12) : chooserHover.hovered ? Theme.veil(0.07) : "transparent"
 
-                        // Its name says that an AI answers: people must know
-                        // (Assistant.qml).
                         Text {
                             id: chosen
                             x: 8

@@ -82,7 +82,7 @@ PanelWindow {
         // The models and the downloads of the one on this computer, how it
         // loads, what it can do, and what it may do unasked; then where it shows.
         { id: "assistant", name: "Assistant", icon: Assistant.icon, rows: [
-            { label: "Models", detail: "Gemma on this computer, and online ones: ChatGPT, Claude, and Gemini",
+            { label: "Models", detail: "Gemma on this computer",
               value: Assistant.model?.name ?? "None", open: () => page = "assistant-models" },
             ...assistantExtras.map(e => ({ label: e.name, detail: e.detail, kind: "extra", extra: e })),
             ...(Assistant.model?.where === "local" ? [{ label: "Load the model", kind: "choice",
@@ -91,11 +91,6 @@ PanelWindow {
                   : `Shortly after sign-in, to answer at once; it keeps about ${modelMemory} of memory in use`,
               options: ["After sign-in", "When used"], selected: Assistant.loading === "used" ? "When used" : "After sign-in",
               select: o => Assistant.setLoading(o === "When used" ? "used" : "ready") }] : []),
-            { label: "Speak answers", kind: "toggle", on: Settings.assistantSpeaks,
-              detail: Extras.list.some(e => e.id === "voices" && e.installed)
-                  ? "In voice mode, it says its answers aloud, and stops when you right-click its button or tap Super"
-                  : "In voice mode, it says its answers aloud, once Spoken answers is downloaded",
-              toggle: () => Settings.assistantSpeaks = !Settings.assistantSpeaks },
             { label: "Sound when it hears you", detail: "A soft sound as soon as it takes what you said, before the answer comes",
               kind: "toggle", on: Settings.assistantSounds, toggle: () => Settings.assistantSounds = !Settings.assistantSounds },
             ...(Dictation.available ? [{ label: "Load the speech model", kind: "choice",

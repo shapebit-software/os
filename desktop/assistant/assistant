@@ -254,13 +254,26 @@ class Assistant:
         # Whether the model read pictures when last looked at, by model id.
         self.seen = {}
         # The ChatGPT account signed in, {email}, and a sign-in under way.
-        self.account = chatgpt.account()
+        self.account = chatgpt.account() if "chatgpt" in providers.PROVIDERS else None
         self.signin = None
         self.undo = {}  # card id: how to undo
         # The last message of the request under way: its replies and cards go
         # after it, before what was sent since.
         self.tail = None
         self.settings = {"model": "", "grants": [], "retention": 30, "loading": "ready", **read_json(CONFIG / "settings.json", {})}
+        # Retired providers must not remain usable through saved model endpoints.
+        own = models.own()
+        retired = [e for e in own if e.get("provider") and e["provider"] not in providers.PROVIDERS]
+        if retired:
+            models.save_own([e for e in own if e not in retired])
+            if self.settings["model"] in {e["id"] for e in retired}:
+                self.settings["model"] = ""
+                self.save_settings()
+        disabled = {e["provider"] for e in retired}
+        if "chatgpt" not in providers.PROVIDERS:
+            disabled.add("chatgpt")
+        for provider in disabled:
+            providers.forget(provider)
         (DATA / "conversations").mkdir(parents=True, exist_ok=True)
         for path in (DATA / "conversations").glob("*.json"):
             conversation = read_json(path, None)
@@ -556,16 +569,20 @@ class Assistant:
                 provider = request.get("provider")
                 if provider in providers.PROVIDERS:
                     threading.Thread(target=self.list_provider, args=(provider, request.get("key")), daemon=True).start()
+                else:
+                    return {"event": "provider-models", "provider": provider, "error": "This provider is not supported."}
             elif op == "add-model":
                 return self.add_model(request)
             elif op == "remove-model":
                 self.remove_model(request.get("id"))
-            elif op == "chatgpt-sign-in":
-                if self.signin:
-                    self.signin.cancel()
-                self.signin = chatgpt.SignIn(self.signed_in)
-                return {"event": "chatgpt", "url": self.signin.url}
-            elif op == "chatgpt-sign-out":
+            elif op in ("chatgpt-sign-in", "chatgpt-sign-out"):
+                if "chatgpt" not in providers.PROVIDERS:
+                    return {"event": "chatgpt", "error": "This provider is not supported."}
+                if op == "chatgpt-sign-in":
+                    if self.signin:
+                        self.signin.cancel()
+                    self.signin = chatgpt.SignIn(self.signed_in)
+                    return {"event": "chatgpt", "url": self.signin.url}
                 threading.Thread(target=self.sign_out, daemon=True).start()
             elif op == "delete-skill":
                 try:
@@ -644,12 +661,12 @@ class Assistant:
             self.emit("settings", **self.settings_fields())
 
     def sign_out(self):
-        chatgpt.sign_out()
+        warning = chatgpt.sign_out()
         with self.lock:
             self.account = None
             for entry in [e for e in models.own() if e.get("provider") == "chatgpt"]:
                 self.remove_model(entry["id"])
-            self.emit("chatgpt", signedIn=False, error=None)
+            self.emit("chatgpt", signedIn=False, error=warning)
             self.emit("settings", **self.settings_fields())
 
     def send(self, request):

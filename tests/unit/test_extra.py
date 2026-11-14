@@ -329,13 +329,12 @@ def test_a_piper_voice_is_prepared_for_sherpa_onnx(extras):
                        "n_speakers": "1", "sample_rate": "22050"}  # fmt: skip
 
 
-def test_voices_are_what_speak_reads():
+def test_piper_voices_are_not_offered_or_shipped():
     entries = json.loads((ROOT / "desktop" / "extras" / "extras.json").read_text())
-    voices = next(extra for extra in entries if extra["id"] == "voices")
-    assert voices["prepare"] == "piper"
-    names = {item["as"] for item in voices["downloads"]}
-    assert names == {"pl.onnx", "pl.onnx.json", "en.onnx", "en.onnx.json"}
-    assert '|| "/var/lib/extras"}/voices`' in (ROOT / "desktop" / "shell" / "services" / "Assistant.qml").read_text()
+    assert all(extra["id"] != "voices" and extra.get("prepare") != "piper" for extra in entries)
+    assert "piper-voices" not in json.dumps(entries)
+    settings = (ROOT / "desktop" / "shell" / "settings" / "SettingsWindow.qml").read_text()
+    assert "Settings.assistantSpeaks" not in settings
 
 
 def test_a_download_can_be_named(extras):

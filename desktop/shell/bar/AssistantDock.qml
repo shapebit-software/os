@@ -286,7 +286,7 @@ PanelWindow {
                     visible: Assistant.ready && Assistant.messages.length === 0
                     width: parent.width
                     text: "Ask a question, or ask for a change: the brightness, the volume, Wi-Fi, an app to open. "
-                        + "The assistant shows what it would do before it does it. " + Assistant.disclosure
+                        + "The assistant shows what it would do before it does it."
                     color: Theme.inkFaint
                     wrapMode: Text.Wrap
                     lineHeight: 1.4
@@ -331,7 +331,6 @@ PanelWindow {
                     height: 24
                     color: dock.choosing ? Theme.veil(0.12) : modelHover.hovered ? Theme.veil(0.07) : "transparent"
 
-                    // Its name says that an AI answers: people must know (Assistant.qml).
                     Text {
                         id: modelName
                         x: 8

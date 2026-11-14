@@ -1,8 +1,7 @@
 // A page of Settings > Assistant: every model the assistant can answer with,
 // the one in use, and adding online ones (assistant/providers.py). Gemma runs
-// on this computer. OpenAI answers on the person's ChatGPT plan, after
-// Continue with ChatGPT, or on their API key; Claude and Gemini on their API
-// key, as Anthropic and Google allow apps no sign-in with their plans.
+// on this computer. Online forms remain for future provider integrations;
+// no online provider is registered in the shipped system.
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.controls
@@ -11,19 +10,17 @@ import qs.services
 Column {
     id: page
 
-    // The form for adding a model: its provider, "openai", "anthropic", or
-    // "gemini"; for OpenAI, by the ChatGPT "plan" or a "key"; the model
-    // chosen from those listed; and whether it shows.
+    // The form for adding a model from the registered providers.
     property bool adding
-    property string provider: "openai"
-    property string method: "plan"
+    property string provider: Object.keys(Assistant.providers)[0] ?? ""
     property string chosen
-    // The provider whose models are listed: the plan's is "chatgpt".
-    readonly property string listing: provider === "openai" && method === "plan" ? "chatgpt" : provider
+    readonly property string listing: provider
     readonly property var listed: Assistant.providerModels[listing] ?? null
-    readonly property bool byPlan: listing === "chatgpt"
+    readonly property bool byPlan: (Assistant.providers[listing]?.auth ?? "plan") === "plan"
 
     function start() {
+        if (!Object.keys(Assistant.providers).length)
+            return;
         adding = true;
         chosen = "";
         keyField.text = "";
@@ -131,13 +128,15 @@ Column {
         color: Theme.textMuted
         font { family: Theme.font; pixelSize: 12 }
     }
-
+    
     Text {
         width: page.width
         wrapMode: Text.Wrap
         text: "The assistant answers with one model at a time: choose it here, or in the assistant. Gemma runs on this "
-            + "computer. An online model gets what you ask, and what the assistant reads for it, on its provider's "
-            + "servers, under your account there."
+            + "computer."
+            + (Object.keys(Assistant.providers).length
+                ? " An online model gets what you ask, and what the assistant reads for it, on its provider's servers, under your account there."
+                : " No online AI provider is enabled.")
         color: Theme.textMuted
         font { family: Theme.font; pixelSize: 12 }
     }
@@ -230,7 +229,7 @@ Column {
     // The ChatGPT account, while signed in: OpenAI asks that people see the
     // plan is used, and where to manage its usage.
     List {
-        visible: Assistant.chatgpt !== null
+        visible: Assistant.providers.chatgpt !== undefined && Assistant.chatgpt !== null
 
         Item {
             width: parent.width
@@ -278,6 +277,7 @@ Column {
     }
 
     Item {
+        visible: Object.keys(Assistant.providers).length > 0
         width: page.width
         height: 34
 
@@ -297,7 +297,7 @@ Column {
 
     // Adding one: the provider, how to sign in, the model, and its name.
     List {
-        visible: page.adding
+        visible: page.adding && Object.keys(Assistant.providers).length > 0
 
         Column {
             width: parent.width
@@ -305,17 +305,11 @@ Column {
             spacing: 10
 
             SettingsChoice {
-                options: [["OpenAI", "openai"], ["Claude", "anthropic"], ["Gemini", "gemini"]]
+                options: Object.entries(Assistant.providers).map(([id, info]) => [info.name, id])
+                visible: options.length > 1
                 selected: page.provider
                 onPicked: value => page.provider = value
             }
-            SettingsChoice {
-                visible: page.provider === "openai"
-                options: [["ChatGPT plan", "plan"], ["API key", "key"]]
-                selected: page.method
-                onPicked: value => page.method = value
-            }
-
             // By the ChatGPT plan.
             Column {
                 visible: page.byPlan
@@ -351,12 +345,7 @@ Column {
 
                 Note {
                     width: parent.width
-                    text: (page.provider === "anthropic"
-                            ? "Claude's plans can't be used by other apps, so it needs an API key, from console.anthropic.com. "
-                            : page.provider === "gemini"
-                            ? "Google's plans can't be used by other apps, so Gemini needs an API key, from aistudio.google.com; it has a free tier. "
-                            : "An API key from platform.openai.com. ")
-                        + "The provider bills its use. The key stays in your keyring."
+                    text: "An API key for the selected provider. The provider bills its use. The key stays in your keyring."
                 }
                 Row {
                     width: parent.width

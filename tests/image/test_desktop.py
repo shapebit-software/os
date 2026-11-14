@@ -80,9 +80,13 @@ def test_the_assistant_has_its_sound_when_it_hears_a_request(host):
 
 
 def test_spoken_answers_have_their_phonemes_but_no_voice(sh, host):
-    # dictation/speak: espeak-ng for the phonemes; the voices are an extra.
+    # dictation/speak retains its runtime; ShapeBit supplies no voice models.
     assert sh("espeak-ng -q --ipa -v pl 'tak'").strip() == "tˈak"
     assert not host.file("/var/lib/extras/voices").exists
+    entries = json.loads(host.file("/usr/share/desktop/extras.json").content_string)
+    assert all(extra["id"] != "voices" and extra.get("prepare") != "piper" for extra in entries)
+    settings = host.file("/usr/share/desktop/shell/settings/SettingsWindow.qml").content_string
+    assert "Settings.assistantSpeaks" not in settings
 
 
 def test_dictation_has_its_runtime_but_no_speech_model(sh, host):
@@ -95,9 +99,9 @@ def test_dictation_has_its_runtime_but_no_speech_model(sh, host):
         assert not host.file(path).exists
 
 
-# Every shared library of dictation's wheels, with its license. A library that
-# is not here may be under the GPL or the LGPL, whose exact sources the wheels
-# do not give; such libraries come from RPMs instead (desktop/packages).
+# Top-level licenses of dictation's shared libraries, not a complete inventory
+# of their statically included code. Transitive notices and source information
+# need separate collection; a new library needs an explicit provenance review.
 DICTATION_LIBRARIES = {
     "_sherpa_onnx.cpython-*.so": "Apache-2.0",
     "libsherpa-onnx-c-api.so": "Apache-2.0",
@@ -106,7 +110,7 @@ DICTATION_LIBRARIES = {
 }
 
 
-def test_dictation_bundles_no_copyleft_library(sh):
+def test_dictation_native_libraries_are_inventoried(sh):
     libraries = sh("find /usr/lib64/dictation -name '*.so*' -printf '%f\\n'").split()
     unknown = [name for name in libraries if not any(fnmatch.fnmatch(name, known) for known in DICTATION_LIBRARIES)]
     assert not unknown, f"libraries of unknown license in /usr/lib64/dictation: {unknown}"
@@ -114,14 +118,8 @@ def test_dictation_bundles_no_copyleft_library(sh):
     assert sh("find /usr/lib64/dictation -maxdepth 1 -name '*.libs'") == ""
 
 
-def test_dictation_libraries_carry_their_notices(sh, host):
-    # The notices are for the ONNX Runtime release that the wheel bundles.
-    licenses = "/usr/share/licenses/onnxruntime"
-    version = host.file(f"{licenses}/VERSION").content_string.strip()
-    library = sh("ls /usr/lib64/dictation/sherpa_onnx/lib/libonnxruntime.so").strip()
-    assert f"VERS_{version}" in sh("grep -ao 'VERS_[0-9.]*' %s", library).split()
-    for notice in (f"{licenses}/LICENSE", f"{licenses}/ThirdPartyNotices.txt", "/usr/share/licenses/sherpa-onnx/LICENSE"):
-        assert host.file(notice).size > 0
+def test_sherpa_carries_its_upstream_license(host):
+    assert host.file("/usr/share/licenses/sherpa-onnx/LICENSE").size > 0
 
 
 def test_dictation_loads_alsa_from_its_rpm(sh):
@@ -140,6 +138,8 @@ def test_extras_can_be_downloaded_by_administrators(host, sh):
 
 
 def test_assistant_is_installed_and_starts_with_its_socket(host, sh):
+    assert "No online AI provider or ChatGPT" in host.file("/usr/share/doc/shapebit/assistant-privacy.html").content_string
+    sh("python3 -c 'import sys; sys.path.insert(0, \"/usr/libexec/desktop/assistant\"); import providers; assert not providers.PROVIDERS'")
     for name in ("assistant", "actions.py", "models.py", "skills.py", "web.py", "providers.py", "chatgpt.py"):
         sh(f"python3 -c 'import ast; ast.parse(open(\"/usr/libexec/desktop/assistant/{name}\").read())'")
     assert host.file("/usr/libexec/desktop/assistant/assistant").mode & 0o111
@@ -173,6 +173,7 @@ def test_llama_server_runs_with_its_own_libraries(sh, host):
     assert host.file("/usr/libexec/llama/libggml-cpu-haswell.so").size > 0
     for notice in ("LICENSE", "LICENSE-jsonhpp", "LICENSE-cpp-httplib"):
         assert host.file(f"/usr/share/licenses/llama.cpp/{notice}").size > 0
+    assert "Copyright 2024 Mozilla Foundation" in host.file("/usr/share/licenses/llama.cpp/LICENSE-llamafile").content_string
 
 
 def test_compositor_configuration_is_valid(sh):

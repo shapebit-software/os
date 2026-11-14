@@ -177,7 +177,7 @@ class Client:
 
 
 class Setup:
-    def __init__(self, tmp_path, model=None, entry=None, **fields):
+    def __init__(self, tmp_path, model=None, entry=None, command=None, **fields):
         self.tmp = tmp_path
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
@@ -205,11 +205,12 @@ class Setup:
         for app_id, name in (("org.mozilla.firefox", "Firefox"), ("org.gnome.Nautilus", "Files")):
             (applications / f"{app_id}.desktop").write_text(f"[Desktop Entry]\nType=Application\nName={name}\n")
         self.process = None
+        self.command = command or [ASSISTANT, "serve"]
         self.start()
 
     def start(self):
         self.socket_path.unlink(missing_ok=True)
-        self.process = subprocess.Popen([ASSISTANT, "serve"], env=self.env)
+        self.process = subprocess.Popen(self.command, env=self.env)
         self.client = Client(self.socket_path)
         self.state = self.client.ask("hello", pid=4242)
         return self.client
@@ -652,6 +653,8 @@ def test_a_local_models_server_restarts_when_its_vision_comes(tmp_path):
         assert made.state["model"]["sees"] is False
         made.client.send(op="models")
         made.client.wait(lambda e: e["event"] == "settings")
+        # Drain this update's status before changing what that status reads.
+        made.client.wait(lambda e: e["event"] == "status" and e["model"]["sees"] is False)
         assert not any("try-restart" in c for c in made.commands())
         (tmp_path / "extras" / "gemma-vision").mkdir()
         (tmp_path / "extras" / "gemma-vision" / "mmproj.gguf").write_bytes(b"")

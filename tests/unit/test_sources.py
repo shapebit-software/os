@@ -12,23 +12,25 @@ sources = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sources)
 
 
-@pytest.mark.parametrize(
-    "license",
-    [
-        "GPL-2.0-only", "LGPL-2.1-or-later", "AGPL-3.0-only", "MPL-2.0", "EPL-2.0", "CDDL-1.0",
-        "GPLv2+", "MIT AND (GPL-2.0-only WITH Linux-syscall-note)", "BSD-3-Clause OR LGPL-3.0-only",
-    ],
-)  # fmt: skip
-def test_copyleft_licenses_are_found(license):
-    assert sources.copyleft([license])
+def test_sources_do_not_depend_on_license_labels():
+    # All three were omitted from published images by the old license matcher.
+    lines = "\n".join([
+        "lzo-2.10-17.fc45.src.rpm\tgpl-2.0-or-later",
+        "clevis-pin-tpm2-0.5.5-1.fc45.src.rpm\tMIT AND EUPL-1.2",
+        "fdk-aac-free-2.0.3-3.fc45.src.rpm\tFDK-AAC",
+        "unknown-1.src.rpm\tUnrecognized-License",
+    ])
+    assert sources.source_rpms(lines) == [
+        "clevis-pin-tpm2-0.5.5-1.fc45.src.rpm", "fdk-aac-free-2.0.3-3.fc45.src.rpm",
+        "lzo-2.10-17.fc45.src.rpm", "unknown-1.src.rpm",
+    ]
 
 
-@pytest.mark.parametrize("license", ["MIT", "Apache-2.0", "BSD-3-Clause AND Zlib", "OFL-1.1", "GFDL-1.3-or-later"])
-def test_permissive_licenses_are_not(license):
-    assert not sources.copyleft([license])
+def test_a_plain_rpm_inventory_is_deduplicated():
+    assert sources.source_rpms("b.src.rpm\na.src.rpm\nb.src.rpm\n(none)\n") == ["a.src.rpm", "b.src.rpm"]
 
 
-def test_a_source_counts_if_any_of_its_packages_is_copyleft():
+def test_all_packages_have_sources_even_when_their_labels_are_permissive():
     lines = "\n".join([
         "glibc-2.42-1.fc45.src.rpm\tLGPL-2.1-or-later",
         "fonts-1-1.fc45.src.rpm\tOFL-1.1",
@@ -36,7 +38,7 @@ def test_a_source_counts_if_any_of_its_packages_is_copyleft():
         "gcc-16-1.fc45.src.rpm\tGPL-3.0-or-later",
         "(none)\tpubkey",
     ])  # fmt: skip
-    assert sources.source_rpms(lines) == ["gcc-16-1.fc45.src.rpm", "glibc-2.42-1.fc45.src.rpm"]
+    assert sources.source_rpms(lines) == ["fonts-1-1.fc45.src.rpm", "gcc-16-1.fc45.src.rpm", "glibc-2.42-1.fc45.src.rpm"]
 
 
 def test_the_tar_is_the_same_for_the_same_files(tmp_path):

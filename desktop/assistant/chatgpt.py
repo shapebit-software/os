@@ -8,11 +8,13 @@ The person signs in in their own browser, on OpenAI's page; the answer comes
 back to a listener on 127.0.0.1 (OAuth authorization code with PKCE). The
 tokens, with the client id, are in the keyring (providers.py), never in a
 file or a log: the access token lasts an hour, and the refresh token, which
-changes with each refresh, 30 days. Signing out revokes it.
+changes with each refresh, 30 days. Signing out clears local tokens and attempts
+remote revocation, reporting when it could not be confirmed.
 """
 
 import base64
 import hashlib
+import html
 import http.server
 import json
 import os
@@ -89,14 +91,35 @@ def post(path, fields):
         raise Failed("Couldn't reach OpenAI.") from None
 
 
-def claims(token):
-    """What a JWT says, for showing the email only: its signature isn't
-    checked, so nothing relies on it."""
+def configuration():
+    """Discover keys and revocation from the same issuer used for sign-in."""
     try:
-        part = token.split(".")[1]
-        return json.loads(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)))
-    except (IndexError, ValueError, AttributeError):
-        return {}
+        with urllib.request.urlopen(AUTH + "/.well-known/openid-configuration", timeout=10) as reply:
+            found = json.load(reply)
+        if found["issuer"] != AUTH:
+            raise ValueError("wrong issuer")
+        return found
+    except (OSError, ValueError, KeyError):
+        raise Failed("Couldn't verify OpenAI's sign-in configuration.") from None
+
+
+def identity(token, client_id, nonce):
+    """Validate identity with issuer keys, not an unverified JWT payload."""
+    # Only an enabled sign-in needs PyJWT and its cryptography backend.
+    import jwt
+
+    try:
+        keys = jwt.PyJWKClient(configuration()["jwks_uri"], timeout=10)
+        key = keys.get_signing_key_from_jwt(token).key
+        found = jwt.decode(token, key, algorithms=["RS256", "ES256"], audience=client_id, issuer=AUTH,
+                           options={"require": ["iss", "aud", "exp", "sub", "nonce"]})  # fmt: skip
+        if not isinstance(found["nonce"], str) or not secrets.compare_digest(found["nonce"], nonce):
+            raise ValueError("wrong nonce")
+        if not isinstance(found["sub"], str) or not found["sub"]:
+            raise ValueError("missing subject")
+        return found
+    except (jwt.PyJWTError, OSError, ValueError, KeyError):
+        raise Failed("OpenAI's sign-in identity couldn't be verified. Try signing in again.") from None
 
 
 class SignIn:
@@ -107,8 +130,10 @@ class SignIn:
         self.done = done
         self.state = secrets.token_urlsafe(24)
         self.verifier = secrets.token_urlsafe(48)
+        self.nonce = secrets.token_urlsafe(24)
         kept = record() or {}
         self.client_id = kept.get("client_id")
+        self.subject = kept.get("subject")
         outer = self
 
         class Handler(http.server.BaseHTTPRequestHandler):
@@ -122,7 +147,7 @@ class SignIn:
                     return
                 error = outer.callback(dict(urllib.parse.parse_qsl(parts.query)))
                 page = ("Signed in. You can close this page and go back to ShapeBit." if not error
-                        else f"Not signed in: {error} You can close this page.")  # fmt: skip
+                        else f"Not signed in: {html.escape(error)} You can close this page.")  # fmt: skip
                 body = f"<!doctype html><meta charset=utf-8><title>ShapeBit</title><p style='font:16px sans-serif'>{page}</p>".encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -137,9 +162,11 @@ class SignIn:
         challenge = base64.urlsafe_b64encode(hashlib.sha256(self.verifier.encode()).digest()).rstrip(b"=").decode()
         query = {"client_id": self.client_id or "dynamic_agent_client", "ext_agent_host_id": host_id(), "response_type": "code",
                  "redirect_uri": self.redirect, "scope": SCOPE, "resource": RESOURCE, "state": self.state,
-                 "nonce": secrets.token_urlsafe(24), "code_challenge_method": "S256", "code_challenge": challenge}  # fmt: skip
+                 "nonce": self.nonce, "code_challenge_method": "S256", "code_challenge": challenge}  # fmt: skip
         if not self.client_id:
             query["agent_name_hint"] = APP
+        elif kept.get("id_token"):
+            query["id_token_hint"] = kept["id_token"]
         self.url = f"{AUTH}/api/accounts/authorize?" + urllib.parse.urlencode(query)
         self.ended = False
         threading.Thread(target=self.serve, daemon=True).start()
@@ -181,10 +208,13 @@ class SignIn:
                 "code_verifier": self.verifier, "redirect_uri": self.redirect, "resource": RESOURCE})  # fmt: skip
             if "access_token" not in tokens:
                 raise Failed(f"OpenAI didn't sign you in ({tokens.get('error', 'no token')}).")
-            if NEEDED not in tokens.get("scope", query.get("scope", "")).split():
+            user = identity(tokens.get("id_token", ""), issued, self.nonce)
+            if self.subject and user["sub"] != self.subject:
+                raise Failed("This installation is registered to a different OpenAI account. Sign in with the original account.")
+            if NEEDED not in (tokens.get("scope") or "").split():
                 raise Failed("Using your ChatGPT plan here wasn't allowed. Your plan may not include it.")
             with LOCK:
-                save({"client_id": issued, "email": claims(tokens.get("id_token", "")).get("email", ""),
+                save({"client_id": issued, "subject": user["sub"], "email": user.get("email", ""), "id_token": tokens["id_token"],
                       "access_token": tokens["access_token"], "refresh_token": tokens.get("refresh_token", ""),
                       "expires_at": time.time() + float(tokens.get("expires_in", 3600)), "scope": tokens.get("scope", "")})  # fmt: skip
         except (Failed, providers.Failed) as error:
@@ -209,7 +239,8 @@ def access_token():
             if tokens.get("error") == "invalid_client":
                 raise Failed("OpenAI no longer knows this installation; sign in to ChatGPT again.")
             # The refresh token is used up, ended, or taken back: only signing in again helps.
-            save({"client_id": kept["client_id"], "email": kept.get("email", "")})
+            save({"client_id": kept["client_id"], "email": kept.get("email", ""),
+                  **({"subject": kept["subject"]} if kept.get("subject") else {})})
             raise Failed("The ChatGPT sign-in ended; sign in again in Settings > Assistant > Models.")
         kept.update(access_token=tokens["access_token"], refresh_token=tokens.get("refresh_token") or kept["refresh_token"],
                     expires_at=time.time() + float(tokens.get("expires_in", 3600)))  # fmt: skip
@@ -224,10 +255,23 @@ def sign_out():
         kept = record()
         if not kept:
             return
+        warning = None
         if kept.get("refresh_token"):
-            try:
-                post("/api/accounts/oauth/revoke", {"token": kept["refresh_token"], "token_type_hint": "refresh_token",
-                                                    "client_id": kept["client_id"]})  # fmt: skip
-            except Failed:
-                pass
-        save({"client_id": kept["client_id"]})
+            for attempt in range(2):
+                try:
+                    endpoint = configuration()["revocation_endpoint"]
+                    # Reject an unexpected origin before sending a refresh token.
+                    if not endpoint.startswith(AUTH + "/"):
+                        raise Failed("Unexpected revocation endpoint.")
+                    result = post(endpoint[len(AUTH):], {"token": kept["refresh_token"], "token_type_hint": "refresh_token",
+                                                       "client_id": kept["client_id"]})  # fmt: skip
+                    if result.get("error"):
+                        raise Failed("Revocation was refused.")
+                    break
+                except (Failed, KeyError):
+                    if attempt == 0:
+                        time.sleep(0.2)
+                    else:
+                        warning = "Signed out on this computer. Remote revocation wasn't confirmed; disconnect ShapeBit in ChatGPT Settings."
+        save({"client_id": kept["client_id"], **({"subject": kept["subject"]} if kept.get("subject") else {})})
+        return warning

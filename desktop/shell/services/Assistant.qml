@@ -133,9 +133,9 @@ Singleton {
     property string voiceNotice
     readonly property var voiceWaiting: voiceMessages.find(m => m.role === "action" && m.state === "proposed") ?? null
     readonly property var voiceLast: voiceMessages.length ? voiceMessages[voiceMessages.length - 1] : null
-    // Voice mode says its answers aloud (dictation/speak), with Settings >
-    // Assistant's "Speak answers" and the voices downloaded; while it does,
-    // it does not hear, so that it never takes its own voice for a request.
+    // Voice mode can say its answers aloud (dictation/speak), with
+    // the internal assistantSpeaks preference and a locally supplied voice extra.
+    // While speaking it does not hear, so it never takes its own voice for a request.
     readonly property bool canTalk: Settings.assistantSpeaks && Extras.list.some(e => e.id === "voices" && e.installed)
     property bool talking
     // How much of each answer has gone to be said, by its message's id.
@@ -409,9 +409,6 @@ Singleton {
         talking = false;
         toldUpTo = {};
         speaker.running = canTalk;
-        // Otherwise it would answer only in writing, with no word why.
-        if (Settings.assistantSpeaks && !canTalk)
-            say("Answers are said aloud once Spoken answers is downloaded, in Settings > Assistant");
         listener.command = [helper(), "--converse"];
         listener.running = true;
     }
