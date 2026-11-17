@@ -43,4 +43,4 @@ jobs:
               keep+=("$version-sbom")
             fi
           done
-          scripts/release/prune-packages.py "$REPOSITORY" "${keep[@]}"
+          image/release/prune-packages.py "$REPOSITORY" "${keep[@]}"

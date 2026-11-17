@@ -17,8 +17,27 @@
 
 ## Image
 
-These rules cover the image: `image/`, `Makefile`, `scripts/`, and `tests/`, and
-any change in `desktop/` or `installer/` that the image installs.
+These rules cover the image: `packages/`, `image/`, `development/` and the
+`Makefile`.
+
+- **A folder in `packages/` is a feature and a package.** It holds
+  everything about the feature, side by side: its code, its scripts, its
+  tests, its `Makefile` with the install rules (CMake for the installer), and
+  its spec, named `shapebit-<folder>`, with its `Requires`, each with the
+  reason for it. Specs load `packages/package.macros`, Makefiles include
+  `packages/package.mk`. There are no folders by file type, such as
+  `scripts/`, `tests/` or `data/`. `shapebit-system` requires every feature.
+- **External packages live in the feature that needs them.** A folder with a
+  spec and a `sources` file (Fedora's format) below a feature, such as
+  `packages/dictation/sherpa-onnx/`, is software that ShapeBit builds and
+  publishes in its own repository (`packages/repositories/README.md`), only
+  when its version or `Release` changes; the image installs it from there.
+  Patches go beside its spec.
+- **Tests are named by where they run.** `test_*.py` (and the installer's
+  `tst_*.cpp`, the shell's `tst_*.qml`) are unit tests, which need no machine;
+  `check_*.py` check the built OS, in its container or on a VM. Test file
+  names are unique across the repository. `packages/test_install.py` fails on
+  a file that no install rule installs.
 
 - **Verify with unit tests.** Run `make test-unit` inside `make dev`. A change is
   done only when it passes. Everything else, such as `make static-checks`,
@@ -32,22 +51,22 @@ any change in `desktop/` or `installer/` that the image installs.
 - **Make owns configuration.** Defaults live only in the `Makefile`. Scripts
   read them from the environment and fail fast on missing values
   (`: "${VAR:?}"`).
-- **Each component is an RPM.** `desktop/`, `system/` (with the `release`
-  package), `installer/` and `license-notices/` each have a spec: what the component installs, and
-  its `Requires`, each with the reason for it. The image builds them from the
-  same commit; `third-party/` builds what Fedora lacks. `image/` only
-  assembles: the build fails on a file under `/usr` that no package owns, or
-  that differs from its package (`scripts/build/packaged.py`).
-- **`system/usr/` is the system's `/usr`.** Put vendor defaults under `/usr`.
-  `/etc` and `/var` are machine state.
-- **Every behavior gets a check.** See [docs/Testing.md](docs/Testing.md). Image
-  content goes in `tests/image/`; the installer medium in `tests/medium/`;
-  runtime behavior of the installed system in `tests/system/`; updates in
-  `tests/update/`; what a person sees and does in `tests/openqa/`; logic that
-  needs no machine in `tests/unit/`. Write checks in Python with pytest and
-  Testinfra. The system under test gets nothing installed for a check: use the
-  commands it ships. Only checks that need a host-side secret, such as the
-  recovery key, go in `tests/host/`.
+- **`image/` only assembles.** It builds every package of `packages/` from
+  the same commit, reproducibly (`SOURCE_DATE_EPOCH`), checks them with
+  rpmlint (`packages/rpmlint.toml`), and installs them with what they require.
+  The build fails on a file under `/usr` that no package owns, or that differs
+  from its package (`image/packaged.py`).
+- **Vendor defaults go under `/usr`,** by a feature's install rules. `/etc`
+  and `/var` are machine state.
+- **Every behavior gets a check, beside what it checks.** See
+  [docs/Testing.md](docs/Testing.md). Logic that needs no machine gets a unit
+  test next to its code. The built OS is checked in `image/`: its content in
+  `content/`; the installer medium in `medium/`; the installed, running system
+  in `installed/`; updates in `update/`; what a person sees and does in
+  `openqa/`. Write checks in Python with pytest and Testinfra. The system
+  under test gets nothing installed for a check: use the commands it ships. Only checks that
+  need a host-side secret, such as the recovery key, run from the host, in
+  `image/installed/check_recovery_key.py`.
 - **A bug becomes a regression test** at the lowest level that shows it.
 - **Disks are installed by the installer.** `make disk` boots the installer
   medium and installs through it, so the tests cover what users run. Do not

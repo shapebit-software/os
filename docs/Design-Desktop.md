@@ -5,8 +5,8 @@ the shell that draws the bars, panels, Settings, and the lock screen, in a
 session run by **UWSM**. Its design follows the
 [demo](https://shapebit.software/demo/); where this page and the demo
 disagree, the demo decides. The source is in
-[`desktop/`](https://github.com/shapebit-software/os/tree/main/desktop) of the
-monorepo.
+[`packages/`](https://github.com/shapebit-software/os/tree/main/packages) of the
+monorepo: the shell, windows, portal, and the desktop's other features.
 
 This page has two parts: the [desktop as built](#the-desktop-as-built), and
 the [future design](#future-design) of what is not built yet.

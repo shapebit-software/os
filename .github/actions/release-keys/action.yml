@@ -1,7 +1,7 @@
 # Writes the release keys to $RUNNER_TEMP/keys, outside build/, which the
 # installer's build context holds, and points KEYS_DIR and SIGNING_KEY at them.
 # The job removes them with `rm -rf "$RUNNER_TEMP/keys"` right after its last
-# signing build, before any test (tests/unit/test_workflows.py).
+# signing build, before any test (.github/test_workflows.py).
 name: Release keys
 description: Restore the release keys for the signing builds
 inputs:

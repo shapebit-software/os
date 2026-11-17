@@ -4,7 +4,7 @@ ShapeBit OS is an image-based Linux desktop operating system built on Fedora:
 a [bootc](https://bootc-dev.github.io/bootc/) container built on Fedora bootc 45,
 and the installer medium that installs it to a disk that follows the
 [Base System](https://shapebit.software/docs/) architecture. The system starts
-to a login screen, which opens the [desktop](desktop/).
+to a login screen, which opens the [desktop](packages/shell/).
 
 ## Setup
 
@@ -15,15 +15,16 @@ git clone https://github.com/shapebit-software/os.git
 ## Development
 
 The desktop and installer share one Fedora development container, configured
-in the root `distrobox.ini`. Run these commands from the monorepo root:
+in `development/distrobox.ini`. Run these commands from the monorepo root:
 
 ```sh
-DBX_CONTAINER_MANAGER=docker distrobox assemble create --file distrobox.ini
+DBX_CONTAINER_MANAGER=docker distrobox assemble create --file development/distrobox.ini
 DBX_CONTAINER_MANAGER=docker distrobox enter shapebit-dev
 ```
 
-Later, `make dev` enters it. Inside the container, change into `desktop/` or `installer/` and follow that
-project's development instructions. Both use the same installed tools and
+Later, `make dev` enters it. Inside the container, `make run` runs the desktop
+in a window (see [packages/shell](packages/shell/README.md)); for the
+installer, follow [packages/installer](packages/installer/README.md). Both use the same installed tools and
 libraries. Use the same container manager for creation and entry; replace
 `docker` with `podman` if that is your host's engine.
 
@@ -66,19 +67,21 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 
 | Path         | Purpose                                                               |
 | ------------ | --------------------------------------------------------------------- |
-| `image/`     | The Containerfiles of the system, the medium, and the seal: how the image is put together. |
-| `system/`    | The system's own files (`usr/`, its `/usr`) and `system.spec`: the packages `system` and `release`, and what they run on. |
-| `desktop/`   | The desktop: compositor configuration, shell, and session, and `desktop.spec`. |
-| `installer/` | The installer: backend, UI, and `installerctl`, and `installer.spec`. |
-| `license-notices/` | The license notices that some Fedora packages lack, taken from their source RPMs, as a package. |
-| [`third-party/`](third-party/) | RPMs of third-party software that Fedora lacks, and their signed repository. |
-| `scripts/build/` | Building: keys, the image, the medium, the installed disk, the third-party packages, the colors. |
-| `scripts/release/` | Releasing: sources, SBOM, the package repository, release notes, pruning old versions. |
-| `scripts/test/` | Testing: static checks, unit tests, the VM and SSH, tmt and openQA runs, the local update registry. |
-| `tests/`     | Unit, image, system, update, and openQA checks: see [docs/Testing.md](docs/Testing.md). |
+| `packages/`  | ShapeBit's own packages, one folder per feature: `apps`, `assistant`, `boot`, `capture`, `colors`, `dictation`, `downloads`, `extras`, `font`, `homes`, `installer`, `licenses`, `license-notices`, `login`, `network`, `portal`, `release`, `repositories`, `screen-sharing`, `shell`, `sound`, `splash`, `system` (requires them all), `updates`, `windows`. |
+| `image/`     | The OS image, assembled from those packages, and everything about it as a whole: its build (here), `release/`, `vm/`, and its checks: `content/`, `medium/`, `installed/`, `update/`, `openqa/` (see [docs/Testing.md](docs/Testing.md)). |
+| `development/`       | Development: the container (`distrobox.ini`) and the desktop in a window (`make run`). |
 | `docs/`      | The documentation, published to the Wiki and the website.             |
 | `.agents/`   | Skills for coding agents.                                             |
 | `build/`     | Generated outputs (ignored by Git).                                   |
+
+A folder in `packages/` is a feature and an RPM (`shapebit-<feature>`): its
+code, its scripts, its tests, its install rules, and its spec, side by side.
+Software that Fedora lacks is an external package inside the feature that
+needs it, such as `packages/dictation/sherpa-onnx/` (a folder with a
+`sources` file), built and published in ShapeBit's own repository
+([packages/repositories](packages/repositories/README.md)). `test_*.py` are
+unit tests (`make test-unit`); `check_*.py` check the built OS
+(`make test-image`, `make test`).
 
 ## Documentation
 

@@ -2,10 +2,10 @@
 # Seal the image built from Containerfile: add a signed UKI, whose
 # command line pins the image's composefs digest, and which carries expected
 # PCR 11 values for TPM2 unlock, signed with a key of their own (pcr.key) and
-# not the Secure Boot one. scripts/build/image.sh computes COMPOSEFS_DIGEST from the
+# not the Secure Boot one. image/image.sh computes COMPOSEFS_DIGEST from the
 # built image, as `bootc install` does; a digest computed inside a build
 # differs, since builds do not see the image's exact file metadata.
-# UNSEALED has no default: scripts/build/image.sh always passes it.
+# UNSEALED has no default: image/image.sh always passes it.
 ARG UNSEALED
 FROM ${UNSEALED} AS unsealed
 

@@ -1,0 +1,114 @@
+"""packages/installer/medium/provenance.py, on made-up artifacts."""
+
+import hashlib
+import importlib.util
+import io
+import json
+import pathlib
+import tarfile
+
+import pytest
+
+spec = importlib.util.spec_from_file_location(
+    "provenance", pathlib.Path(__file__).with_name("provenance.py")
+)
+provenance = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(provenance)
+
+
+MANIFEST = "application/vnd.oci.image.manifest.v1+json"
+INDEX = "application/vnd.oci.image.index.v1+json"
+
+
+def archive(path, index, blobs=()):
+    """An OCI archive with this index.json and these blobs, named by digest."""
+    with tarfile.open(path, "w") as tar:
+        for name, content in [("index.json", index), *blobs]:
+            data = json.dumps(content).encode()
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    return path
+
+
+def test_image_digest_reads_the_manifest_of_the_archive(tmp_path):
+    index = {"manifests": [{"digest": "sha256:abc", "mediaType": MANIFEST}]}
+    assert provenance.image_digest(archive(tmp_path / "image.tar", index)) == "sha256:abc"
+
+
+def test_image_digest_looks_inside_dockers_nested_index(tmp_path):
+    outer = {"manifests": [{"digest": "sha256:outer", "mediaType": INDEX}]}
+    inner = {
+        "manifests": [
+            {"digest": "sha256:abc", "mediaType": MANIFEST, "platform": {"architecture": "amd64"}},
+            {"digest": "sha256:att", "mediaType": MANIFEST, "platform": {"architecture": "unknown"}},
+        ]
+    }
+    path = archive(tmp_path / "image.tar", outer, [("blobs/sha256/outer", inner)])
+    assert provenance.image_digest(path) == "sha256:abc"
+
+
+def test_image_digest_refuses_an_ambiguous_archive(tmp_path):
+    index = {"manifests": [{"digest": "a", "mediaType": MANIFEST}, {"digest": "b", "mediaType": MANIFEST}]}
+    with pytest.raises(ValueError):
+        provenance.image_digest(archive(tmp_path / "image.tar", index))
+
+
+def test_sha256_is_the_files(tmp_path):
+    (tmp_path / "medium").write_bytes(b"medium")
+    assert provenance.sha256(tmp_path / "medium") == hashlib.sha256(b"medium").hexdigest()
+
+
+def test_field_prints_one_value_of_a_record(tmp_path, capsys):
+    record = tmp_path / "record.json"
+    record.write_text(json.dumps({"image_digest": "sha256:abc"}))
+    provenance.main("field", str(record), "image_digest")
+    assert capsys.readouterr().out == "sha256:abc\n"
+
+
+def labelled(tmp_path, labels):
+    """An image whose config has these labels."""
+    index = {"manifests": [{"digest": "sha256:man", "mediaType": MANIFEST}]}
+    return archive(tmp_path / "image.tar", index, [
+        ("blobs/sha256/man", {"config": {"digest": "sha256:cfg"}}),
+        ("blobs/sha256/cfg", {"config": {"Labels": labels}}),
+    ])  # fmt: skip
+
+
+def test_label_reads_the_images_config(tmp_path):
+    image = labelled(tmp_path, {"org.opencontainers.image.version": "202611051112"})
+    assert provenance.label(image, "org.opencontainers.image.version") == "202611051112"
+
+
+def test_a_medium_records_its_system_and_its_own_commit(tmp_path):
+    image = labelled(tmp_path, {"org.opencontainers.image.version": "202611051112"})
+    (tmp_path / "medium").write_bytes(b"medium")
+    provenance.main("medium", str(image), str(tmp_path / "medium"), "3794e90", str(tmp_path / "record.json"))
+    assert json.loads((tmp_path / "record.json").read_text()) == {
+        "version": "202611051112",
+        "image_digest": "sha256:man",
+        "revision": "3794e90",
+        "medium_sha256": hashlib.sha256(b"medium").hexdigest(),
+    }
+
+
+def test_a_field_older_records_lack_gives_its_default(tmp_path, capsys):
+    record = tmp_path / "record.json"
+    record.write_text(json.dumps({"version": "1"}))
+    provenance.main("field", str(record), "revision", "")
+    provenance.main("field", str(record), "version", "")
+    assert capsys.readouterr().out == "\n1\n"
+    with pytest.raises(KeyError):
+        provenance.main("field", str(record), "revision")
+
+
+def test_sources_add_their_sha256_to_the_record(tmp_path):
+    record = tmp_path / "record.json"
+    record.write_text(json.dumps({"version": "1", "medium_sha256": "abc"}))
+    (tmp_path / "sources.tar").write_bytes(b"sources")
+    provenance.main("sources", str(record), str(tmp_path / "sources.tar"))
+    assert json.loads(record.read_text()) == {
+        "version": "1",
+        "medium_sha256": "abc",
+        "sources_sha256": hashlib.sha256(b"sources").hexdigest(),
+    }

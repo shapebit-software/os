@@ -44,5 +44,5 @@ jobs:
             exit 1
           fi
           docker pull -q "$REPOSITORY:$VERSION"
-          scripts/release/sources.py collect "$REPOSITORY:$VERSION" build/sources
-          scripts/release/sources.py push build/sources "$REPOSITORY:$VERSION-sources" "ShapeBit $VERSION: sources"
+          image/release/sources.py collect "$REPOSITORY:$VERSION" build/sources
+          image/release/sources.py push build/sources "$REPOSITORY:$VERSION-sources" "ShapeBit $VERSION: sources"

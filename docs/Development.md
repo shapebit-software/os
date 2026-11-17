@@ -7,9 +7,9 @@ installer medium, installs them, and what the result does. To run the commands, 
 
 ## Build
 
-`make image` ([scripts/build/image.sh](https://github.com/shapebit-software/os/blob/main/scripts/build/image.sh)) builds in two phases. It
+`make image` ([image/image.sh](https://github.com/shapebit-software/os/blob/main/image/image.sh)) builds in two phases. It
 signs with the keys of `SIGNING_KEY`: by default the development keys that
-[scripts/build/keys.sh](https://github.com/shapebit-software/os/blob/main/scripts/build/keys.sh) generates in `build/keys/`.
+[image/keys.sh](https://github.com/shapebit-software/os/blob/main/image/keys.sh) generates in `build/keys/`.
 `dev-secureboot.key` and `dev-secureboot.crt` (named ShapeBit Development) sign
 systemd-boot and the UKI; `dev-pcr.key` signs the UKI's TPM2 PCR 11 values.
 `make release-key KEYS_DIR=<directory>` generates the release keys once
@@ -21,25 +21,28 @@ secrets, so that installed systems update across builds; the checks of pushes
 and pull requests sign with throwaway development keys
 ([Signing Keys](Design-Security.md#signing-keys)).
 
-1. [Containerfile](https://github.com/shapebit-software/os/blob/main/image/Containerfile) builds the system: signed systemd-boot, the
-   certificate to enroll, systemd-homed login support, the
-   login screen, the desktop, and Files (Nautilus). The desktop's files come
-   from its source tree (`DESKTOP_SRC`, by default `desktop/`), installed
-   by its Makefile and packaged as the RPM `desktop`
-   ([desktop.spec](https://github.com/shapebit-software/os/blob/main/desktop/desktop.spec)),
-   whose `Requires` are the packages it runs on. The system's own files are
-   the RPM `system`, and ShapeBit's os-release the RPM `release`
-   ([system/system.spec](https://github.com/shapebit-software/os/blob/main/system/system.spec)).
+1. [Containerfile](https://github.com/shapebit-software/os/blob/main/image/Containerfile) builds the system from
+   ShapeBit's own packages, one per feature in
+   [`packages/`](https://github.com/shapebit-software/os/tree/main/packages): each folder holds the
+   feature's code, its install rules (`Makefile`), its tests, and its spec
+   (`shapebit-<feature>`), whose `Requires` are the packages it runs on, each
+   with its reason. The build reads every spec's `Requires` first, installs
+   them, then builds every package at the image's version and commit, with
+   every time in them the commit's, so the same commit gives the same
+   packages; rpmlint checks them. `shapebit-system` requires every feature, and
+   comes last. systemd-boot is signed there, with the certificate to enroll.
    dnf installs no weak dependencies, so every package is in the image
    because a spec requires it, or a package it requires does.
    Fedora has no Hyprland, so the build installs it from the third-party
    [sdegler/hyprland](https://copr.fedorainfracloud.org/coprs/sdegler/hyprland/)
-   COPR for now; the repository is not left in the image.
+   COPR for now; the repository ships turned off.
    The image also carries Flatpak with Flathub's remote, Distrobox, the
    speech recognition of dictation (sherpa-onnx), and llama.cpp's
    `llama-server` for the assistant. Fedora lacks the last two, so ShapeBit
-   builds them as RPMs at pinned versions, checked against their hashes
-   ([`third-party/`](https://github.com/shapebit-software/os/tree/main/third-party)).
+   builds them as external packages at pinned versions, checked against their
+   hashes, each in the feature that needs it (a folder with a `sources` file,
+   such as `packages/dictation/sherpa-onnx/`), and publishes them in its own
+   repository ([packages/repositories](https://github.com/shapebit-software/os/tree/main/packages/repositories)).
    The image ships no AI model: the models are extras, downloaded on the
    computer when the person chooses.
    Fedora's logos are replaced by `generic-logos`, as Fedora's trademark
@@ -54,9 +57,9 @@ The sealed image is saved as `build/image.tar`.
 ## Installer medium
 
 `make installer` builds the medium in the same two phases.
-[Containerfile.installer](https://github.com/shapebit-software/os/blob/main/image/Containerfile.installer) adds, to the sealed
-system (`IMAGE`), the [installer](https://github.com/shapebit-software/os/blob/main/installer/) as a
-package ([installer.spec](https://github.com/shapebit-software/os/blob/main/installer/installer.spec)) at the
+[packages/installer/medium/Containerfile](https://github.com/shapebit-software/os/blob/main/packages/installer/medium/Containerfile) adds, to the sealed
+system (`IMAGE`), the [installer](https://github.com/shapebit-software/os/blob/main/packages/installer/) as a
+package ([installer.spec](https://github.com/shapebit-software/os/blob/main/packages/installer/installer.spec)) at the
 image's version, with what it requires, such as the `cage` kiosk compositor that
 shows it, and the same sealed system, as an OCI layout, as
 the payload; sealing then replaces the system's UKI with the medium's own, whose
@@ -64,16 +67,16 @@ composefs digest covers all of it. So the Installer workflow builds from the
 released `os:<version>` alone, and no unsealed image is kept anywhere. The
 medium's record, `build/installer.img.json`, names the system it installs: its
 version, which is also the installer's, and its image digest.
-[scripts/build/medium.sh](https://github.com/shapebit-software/os/blob/main/scripts/build/medium.sh) writes the result to
+[packages/installer/medium/medium.sh](https://github.com/shapebit-software/os/blob/main/packages/installer/medium/medium.sh) writes the result to
 `build/installer.img`: an EFI System Partition and one unencrypted, compressed
 Btrfs filesystem, 7 GiB in all, so that it fits a USB drive sold as 8 GB. The
 medium holds no secrets.
 
 ## Disk
 
-`make disk` ([scripts/build/disk.sh](https://github.com/shapebit-software/os/blob/main/scripts/build/disk.sh)) installs the way a user does:
+`make disk` ([image/vm/disk.sh](https://github.com/shapebit-software/os/blob/main/image/vm/disk.sh)) installs the way a user does:
 it boots the medium in QEMU with an empty disk of `DISK_SIZE` attached, checks
-the medium ([tests/medium/](https://github.com/shapebit-software/os/blob/main/tests/medium/)), and runs the installer
+the medium ([image/medium/](https://github.com/shapebit-software/os/blob/main/image/medium/)), and runs the installer
 through `installerctl`, the command-line client of the same D-Bus interface
 that the UI uses. `make installer-vm` opens the same VM in a window instead.
 
@@ -105,9 +108,9 @@ firmware → Fedora's shim → signed systemd-boot → signed UKI → sealed sys
 
 Shim trusts our key only after a person enrolls its certificate, once per
 machine, in shim's MOK manager. The first boot of the medium stops there; it
-needs no password. [scripts/test/mok-enroll.sh](https://github.com/shapebit-software/os/blob/main/scripts/test/mok-enroll.sh) does the same
+needs no password. [image/vm/mok-enroll.sh](https://github.com/shapebit-software/os/blob/main/image/vm/mok-enroll.sh) does the same
 on the VM, whose firmware starts with Microsoft's keys.
-[esp-shim](https://github.com/shapebit-software/os/blob/main/system/usr/libexec/esp-shim) places shim on the medium and on the
+[esp-shim](https://github.com/shapebit-software/os/blob/main/packages/boot/esp-shim) places shim on the medium and on the
 installed disk; updates do not replace shim yet.
 
 The installer gives the LUKS2 volume two key slots:
@@ -141,7 +144,7 @@ from `UPDATE_REF`, which the installer records:
 `ghcr.io/shapebit-software/os:stable`.
 
 `os-update.timer` runs `os-update`
-([system/usr/libexec/os-update](https://github.com/shapebit-software/os/blob/main/system/usr/libexec/os-update)) soon after
+([packages/updates/os-update](https://github.com/shapebit-software/os/blob/main/packages/updates/os-update)) soon after
 boot and every 6 hours, except on metered connections; Settings' **Check
 now** starts `os-update@now.service`, which a polkit rule lets the person at
 the computer start. It downloads and stages a new build with
@@ -149,7 +152,7 @@ the computer start. It downloads and stages a new build with
 `/run/os-update/status.json`.
 
 To update a VM from a local build, `make publish`
-([scripts/test/publish.sh](https://github.com/shapebit-software/os/blob/main/scripts/test/publish.sh)) pushes the image to a local
+([image/update/publish.sh](https://github.com/shapebit-software/os/blob/main/image/update/publish.sh)) pushes the image to a local
 registry container on the host, and the VM switches to it as
 `DEV_UPDATE_REF`, through the host's `10.0.2.2`; bootc switches only to a
 build other than the one running. That registry serves plain HTTP, so the VM
@@ -165,7 +168,7 @@ A staged build boots after a restart; `bootc rollback` returns to the
 previous one. The TPM unlocks the new build
 without re-enrollment, because its UKI carries PCR 11 values signed by the
 same PCR key, and each deployment's `/etc` carries the machine's own changes.
-[tests/update/](https://github.com/shapebit-software/os/blob/main/tests/update/) checks all of this.
+[image/update/](https://github.com/shapebit-software/os/blob/main/image/update/) checks all of this.
 
 ## Homes
 
@@ -176,15 +179,15 @@ first owner, an administrator (`wheel`), directly on the installed disk.
 systemd-homework leaves that Btrfs without SELinux labels, which keeps the
 login screen out of the home; homed mounts it with `defcontext=` so it reads
 as a home directory
-([systemd-homed.service.d](https://github.com/shapebit-software/os/blob/main/system/usr/lib/systemd/system/systemd-homed.service.d)).
+([homes/selinux-labels.conf](https://github.com/shapebit-software/os/blob/main/packages/homes/selinux-labels.conf)).
 
 ## Boot splash
 
 [Plymouth](https://gitlab.freedesktop.org/plymouth/plymouth) shows the logo and
 a spinner from the initramfs on, instead of boot messages
-([kargs.d/30-splash.toml](https://github.com/shapebit-software/os/blob/main/system/usr/lib/bootc/kargs.d/30-splash.toml));
+([splash/30-splash.toml](https://github.com/shapebit-software/os/blob/main/packages/splash/30-splash.toml));
 it also asks for the recovery key when the TPM cannot unlock. The theme,
-[system/usr/share/plymouth/themes/boot](https://github.com/shapebit-software/os/blob/main/system/usr/share/plymouth/themes/boot),
+[packages/splash](https://github.com/shapebit-software/os/blob/main/system/splash),
 is Fedora's spinner theme with the logo. Plymouth shows only messages when
 the kernel console includes a serial port, as it does for development, so
 `plymouth.ignore-serial-consoles` tells it to draw on the screen anyway.
@@ -193,7 +196,7 @@ Errors still reach the console; `Esc` shows the messages during boot.
 Every step up to the desktop shares the splash's night color, `#1f1a3c`, so
 none shows a black frame: the login screen and the installer take the screen
 from Plymouth, which leaves its last picture until they draw
-([sddm.service.d](https://github.com/shapebit-software/os/blob/main/system/usr/lib/systemd/system/sddm.service.d));
+([splash/sddm-splash.conf](https://github.com/shapebit-software/os/blob/main/packages/splash/sddm-splash.conf));
 the login screen fades in from the color and back to it after signing in;
 the text console, briefly shown between them, has it as its background; and
 Hyprland paints it until the shell's wallpaper fades in.
@@ -201,7 +204,7 @@ Hyprland paints it until the shell's wallpaper fades in.
 ## Colors
 
 Every color is named once, in
-[system/usr/share/colors/colors.toml](https://github.com/shapebit-software/os/blob/main/system/usr/share/colors/colors.toml),
+[packages/colors/colors.toml](https://github.com/shapebit-software/os/blob/main/packages/colors/colors.toml),
 which the image installs, so the installer medium has it too. It holds the
 brand's violet `#5b2fd6`, the default accent; night; ramps of greys, darks,
 lavenders, inks, and reds; the accents to choose from; and the roles on light
@@ -209,7 +212,7 @@ and on dark surfaces. The person's choices, such as the accent, stay in the
 shell's settings; the file holds the defaults and what there is to choose.
 
 QML reads it through the module `Colors`
-([system/usr/lib64/qt6/qml/Colors](https://github.com/shapebit-software/os/blob/main/system/usr/lib64/qt6/qml/Colors)),
+([packages/colors/Colors](https://github.com/shapebit-software/os/blob/main/packages/colors/Colors)),
 in Qt's own folder of modules. Its values, `ColorValues.qml`, are generated
 from the file by `make colors` and committed; `Colors.qml` adds what needs
 computing, such as the accent from the person's choice. The shell, the login
@@ -221,9 +224,9 @@ accent uses a lighter version of it, `accentInk`.
 The portal, which hands the accent to applications, reads the file when it
 runs. What cannot read it keeps a copy that names the color there: the boot
 splash, the console's colors in `kargs.d`, and the compositor.
-`tests/unit/test_colors.py` checks that the generated values are current, the
+`packages/colors/test_colors.py` checks that the generated values are current, the
 copies, that no QML names a color of its own, and that text in the accent
-reads on night. `make run` and `make lint` in `desktop/` and the installer's
+reads on night. `make run` and `make lint` at the repository root and the installer's
 tests take the module and the file from the source tree.
 
 ## Login screen
@@ -231,13 +234,13 @@ tests take the module and the file from the source tree.
 [SDDM](https://github.com/sddm/sddm) shows the login screen on the first
 virtual terminal; its greeter runs in Hyprland, the desktop's compositor, with
 its own configuration
-([system/usr/lib/sddm/compositor.lua](https://github.com/shapebit-software/os/blob/main/system/usr/lib/sddm/compositor.lua)).
+([packages/login/compositor.lua](https://github.com/shapebit-software/os/blob/main/packages/login/compositor.lua)).
 Weston, SDDM's usual compositor, shows it without a cursor. The theme, in
-[system/usr/share/sddm/themes/login](https://github.com/shapebit-software/os/blob/main/system/usr/share/sddm/themes/login), draws
+[packages/login/theme](https://github.com/shapebit-software/os/blob/main/packages/login/theme), draws
 the screen: the date and time, the accessibility and power menus, and the
 person who signs in with their password. It lists systemd-homed users, uses
 the Instrument Sans font (SIL Open Font License, in
-[system/usr/share/fonts/instrument-sans](https://github.com/shapebit-software/os/blob/main/system/usr/share/fonts/instrument-sans),
+[packages/font](https://github.com/shapebit-software/os/blob/main/system/font),
 since Fedora has no package of it), and draws its backdrop itself.
 
 Signing in starts the desktop session: Hyprland with the ShapeBit shell, run
@@ -250,7 +253,7 @@ there.
 To change the theme, run it in a window on a machine with SDDM:
 
 ```bash
-sddm-greeter-qt6 --test-mode --theme system/usr/share/sddm/themes/login
+sddm-greeter-qt6 --test-mode --theme packages/login/theme
 ```
 
 ## Real hardware

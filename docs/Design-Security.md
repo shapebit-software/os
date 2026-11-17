@@ -59,7 +59,7 @@ workflow's install tests show that they do.
   build jobs of the Candidate and Installer workflows use, and only on `main`.
 - They are on the runner only from the step that restores them until the last
   build that signs; tests run after they are removed
-  ([tests/unit/test_workflows.py](https://github.com/shapebit-software/os/blob/main/tests/unit/test_workflows.py)).
+  ([.github/test_workflows.py](https://github.com/shapebit-software/os/blob/main/.github/test_workflows.py)).
   Inside a build, only the steps that sign see them, as build secrets that no
   image layer keeps. Only signed binaries and public keys enter the image.
 - The image that the update test moves on to (`os/candidate:<version>-update`)
@@ -117,7 +117,7 @@ Packages come from Fedora, with one accepted exception: Fedora has no
 Hyprland, so Hyprland, its dialogs, hypridle, xdg-desktop-portal-hyprland, and
 Quickshell come from the third-party
 [sdegler/hyprland](https://copr.fedorainfracloud.org/coprs/sdegler/hyprland/)
-COPR ([hyprland.repo](https://github.com/shapebit-software/os/blob/main/system/usr/share/dnf5/repos.d/hyprland.repo)).
+COPR ([hyprland.repo](https://github.com/shapebit-software/os/blob/main/packages/repositories/hyprland.repo)).
 
 **Risk.** One person controls that repository, and its package scripts run as
 root while the image builds. Nothing limits it to those packages: a newer
@@ -132,5 +132,5 @@ installed systems never fetch from it. The source RPMs of every
 release are kept with its sources.
 
 **Plan.** Drop the COPR as soon as Fedora ships Hyprland: remove
-`hyprland.repo` and the COPR from `distrobox.ini`, and install from Fedora.
+`hyprland.repo` and the COPR from `development/distrobox.ini`, and install from Fedora.
 Until then, this stays a known supply-chain risk.

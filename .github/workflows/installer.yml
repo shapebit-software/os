@@ -87,7 +87,7 @@ jobs:
         run: |
           mkdir -p build
           skopeo copy -q --preserve-digests "docker://$IMAGE" oci-archive:build/image.tar
-          scripts/release/sources.py pull "$REPOSITORY:$VERSION-sources" "$RUNNER_TEMP/os-sources"
+          image/release/sources.py pull "$REPOSITORY:$VERSION-sources" "$RUNNER_TEMP/os-sources"
 
       - uses: ./.github/actions/release-keys
         with:
@@ -111,10 +111,10 @@ jobs:
         run: |
           xz -T0 -c build/installer.img >build/shapebit-installer.img.xz
           cp build/installer.img.json build/shapebit-installer.img.json
-          python3 scripts/release/artifact.py pack build/installer-artifact application/vnd.shapebit.installer.v1 \
+          python3 image/release/artifact.py pack build/installer-artifact application/vnd.shapebit.installer.v1 \
             "ShapeBit installer $VERSION" build/shapebit-installer.img.xz build/shapebit-installer.img.json
           skopeo copy -q oci:build/installer-artifact "docker://$INSTALLERS:$VERSION"
-          scripts/release/sources.py push build/installer-sources "$INSTALLERS:$VERSION-sources" \
+          image/release/sources.py push build/installer-sources "$INSTALLERS:$VERSION-sources" \
             "ShapeBit installer $VERSION: sources"
 
   # Install from the medium, without its UI, and check the system.
@@ -134,7 +134,7 @@ jobs:
       - uses: ./.github/actions/ghcr-login
       - run: make pull-installer
       - name: Install from the medium, and test the system
-        run: make -o installer disk && make test-plan PLAN=system
+        run: make -o installer disk && make test-plan PLAN=installed
       - name: Keep the test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -195,10 +195,10 @@ jobs:
           # skopeo does not create the destination's parent: a fresh checkout has no build/.
           mkdir -p build
           skopeo copy -q "docker://$INSTALLERS:$VERSION" oci:build/installer-artifact
-          python3 scripts/release/artifact.py unpack build/installer-artifact build/upload
-          scripts/release/sources.py pull "$INSTALLERS:$VERSION-sources" build/installer-sources
-          scripts/release/sources.py tar build/installer-sources build/upload/shapebit-installer-sources.tar
-          expected=$(python3 scripts/build/provenance.py field build/upload/shapebit-installer.img.json sources_sha256)
+          python3 image/release/artifact.py unpack build/installer-artifact build/upload
+          image/release/sources.py pull "$INSTALLERS:$VERSION-sources" build/installer-sources
+          image/release/sources.py tar build/installer-sources build/upload/shapebit-installer-sources.tar
+          expected=$(python3 packages/installer/medium/provenance.py field build/upload/shapebit-installer.img.json sources_sha256)
           echo "$expected  build/upload/shapebit-installer-sources.tar" | sha256sum -c --quiet -
 
       - name: Prepare the upload key

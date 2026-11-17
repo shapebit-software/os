@@ -1,0 +1,59 @@
+# check=skip=InvalidDefaultArgInFrom
+# The installer medium: the ShapeBit system plus the installer and the system
+# to install. It is built from the sealed system, BASE, and then sealed in the
+# same way (see image/image.sh), which replaces BASE's UKI with one whose
+# composefs digest also covers the payload. So the released os:<version> is
+# both the payload and the base, and no unsealed image needs to be kept.
+# Build contexts: `packages` is ShapeBit's packages, the installer among them;
+# `payload` is the directory with the sealed system archive, image.tar, which is BASE.
+# BASE has no default: the Makefile always passes it.
+ARG BASE
+# The installer's package (packages/installer/installer.spec), at the image's
+# version and commit, which BASE's os-release records, with every time in it
+# the commit's (SOURCE_DATE_EPOCH); its BuildRequires come from the spec.
+FROM ${BASE} AS build
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    --mount=type=bind,from=packages,target=/src \
+    dnf -y install rpm-build rpmlint dnf5-plugins && \
+    dnf -y builddep --define "packages /src" --define "image_version 0" /src/installer/installer.spec
+ARG SOURCE_DATE_EPOCH
+RUN --mount=type=bind,from=packages,target=/src \
+    . /usr/lib/os-release && \
+    SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:?} \
+    rpmbuild -bb --quiet --define "_topdir /tmp/rpm" --define "packages /src" \
+      --define "image_version $IMAGE_VERSION" --define "image_revision $IMAGE_REVISION" \
+      /src/installer/installer.spec && \
+    mkdir /out && cp /tmp/rpm/RPMS/*/*.rpm /out/ && \
+    rpmlint --config /src/rpmlint.toml /out/*.rpm
+
+FROM ${BASE}
+# The installer and its Requires (packages/installer/installer.spec). It is built in this build,
+# so it carries no signature; the repositories' packages are still checked.
+# dnf's cache is a build cache, never in the image; the rest of its state in
+# /var and /run is removed, since bootc ignores it on install.
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    --mount=type=bind,from=build,source=/out,target=/run/packages \
+    dnf -y install --setopt=localpkg_gpgcheck=0 /run/packages/*.rpm && \
+    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf
+# The units are enabled by the preset that the installer ships, which also
+# holds on the first boot, when systemd applies presets again. The installer
+# takes the screen, so the system's login screen is masked; presets skip
+# masked units.
+RUN systemctl set-default graphical.target && \
+    systemctl preset installer-backend.service installer.service && \
+    systemctl mask sddm.service
+
+# What the installer installs, and where the installed system updates from. An
+# OCI layout, not the archive: bootc would unpack an archive into /var/tmp first,
+# which the medium has no room for, and fs-verity misreads a file of about 4 GB.
+# skopeo flattens Docker's nested index, which bootc cannot read in a layout.
+RUN --mount=type=bind,from=payload,target=/payload \
+    mkdir -p /usr/share/installer && \
+    skopeo copy -q --preserve-digests oci-archive:/payload/image.tar oci:/usr/share/installer/image
+# The installer's sources are published beside it, not with the system's.
+LABEL software.shapebit.sources="https://download.shapebit.software/shapebit-installer-sources.tar"
+ARG UPDATE_REF
+RUN test -n "$UPDATE_REF" && \
+    printf '[Payload]\nSource=oci:/usr/share/installer/image\nUpdateRef=%s\n' "$UPDATE_REF" \
+      >/usr/share/installer/installer.conf
+RUN bootc container lint

@@ -1,0 +1,5 @@
+# The image builds read only packaged.py from this folder (and the
+# Containerfiles, which the engine reads apart); nothing else goes into the
+# context, such as the checks' dependencies in .deps.
+*
+!packaged.py

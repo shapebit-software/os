@@ -1,7 +1,7 @@
-# The Fedora of the image, with the development packages of distrobox.ini, which
+# The Fedora of the image, with the development packages of development/distrobox.ini, which
 # static checks and unit tests run in.
 name: Fedora development packages
-description: Install the development packages of distrobox.ini
+description: Install the development packages of development/distrobox.ini
 runs:
   using: composite
   steps:
@@ -10,4 +10,4 @@ runs:
       run: |
         dnf -y install dnf5-plugins
         dnf -y copr enable sdegler/hyprland
-        dnf -y install git python3 $(sed -n 's/^additional_packages="\(.*\)"$/\1/p' distrobox.ini)
+        dnf -y install git python3 $(sed -n 's/^additional_packages="\(.*\)"$/\1/p' development/distrobox.ini)

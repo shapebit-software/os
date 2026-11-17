@@ -32,24 +32,26 @@ code is packaged too (`desktop`, `system`, `release`, `installer`,
 system contains, and each entry brings its license, its source and its SBOM
 entry. The image build fails on a file that no RPM owns, or that differs from
 its RPM, beyond what the Fedora base image already has
-([scripts/build/packaged.py](https://github.com/shapebit-software/os/blob/main/scripts/build/packaged.py)).
+([image/packaged.py](https://github.com/shapebit-software/os/blob/main/image/packaged.py)).
 
 ### Maintaining
 
 A dependency's license texts come in the same change as the dependency:
 
-- **Software that Fedora lacks** is packaged in
-  [`third-party/`](https://github.com/shapebit-software/os/tree/main/third-party),
+- **Software that Fedora lacks** is an external package in the feature that
+  needs it (a folder with a `sources` file, such as
+  [`packages/dictation/sherpa-onnx/`](https://github.com/shapebit-software/os/tree/main/packages/dictation/sherpa-onnx)),
   with each bundled library's texts as `%license` and its
   `Provides: bundled(...)`; the RPM then brings its texts, sources and SBOM
   entries like any other.
-- **An extra** has its texts in `desktop/extras/licenses/<id>/`, listed in its
-  `licenses` in `desktop/extras/extras.json`, including `<id>/NOTICE`, which
+- **An extra** has its texts in `packages/extras/licenses/<id>/`, listed in its
+  `licenses` in `packages/extras/extras.json`, including `<id>/NOTICE`, which
   `extra` writes from its `credits`; each credit's `license` is an SPDX ID.
 - **A Fedora package that lacks a notice** gets a rule in
-  `license-notices/license-notices.py`; the rule goes when Fedora ships the notice.
+  `packages/license-notices/license-notices.py`; the rule goes when Fedora ships the notice.
 - **A fixed text**, such as the font's, is committed under
-  `system/usr/share/licenses/<component>/`, unchanged from upstream.
+  the feature folder that installs it (such as `packages/font/OFL.txt`),
+  unchanged from upstream.
 
 Unit tests check the committed texts and the collector; image tests check the
 installed notices and Settings > Licenses.

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Run a tmt plan on the machine already up on SSH_PORT, keeping everything it
+# leaves in RUN_DIR: tmt's workdir, with logs, per-test data, and reports.
+# Usage: tmt.sh PLAN RUN_DIR
+set -euo pipefail
+: "${VENV:?}" "${SSH_PORT:?}" "${SSH_KEY:?}"
+: "${IMAGE_DIGEST:?}" "${OWNER_NAME:?}" "${LOCALE:?}" "${KEYBOARD_LAYOUT:?}" "${TIME_ZONE:?}" "${DEV_UPDATE_REF:?}"
+# Only the update test has these (image/vm/test-machine.sh).
+NEXT_VERSION=${NEXT_VERSION:-} NEXT2_VERSION=${NEXT2_VERSION:-}
+plan=$1 run=$(realpath -m "$2")
+mkdir -p "$run"
+
+# tmt keeps its workdir at the same path on the guest, so it must be somewhere a
+# guest can write, whatever the checkout's path: /var/tmp, not /home.
+workdir=$(mktemp -d /var/tmp/shapebit-tmt.XXXXXX)
+trap 'mv "$workdir" "$run/tmt"' EXIT
+
+# image/ is the tree that tmt copies to the guest, with the checks' dependencies.
+"$VENV/bin/tmt" --root image run --id "$workdir" --scratch --all \
+  --environment "IMAGE_DIGEST=$IMAGE_DIGEST OWNER_NAME=$OWNER_NAME" \
+  --environment "LOCALE=$LOCALE KEYBOARD_LAYOUT=$KEYBOARD_LAYOUT TIME_ZONE=$TIME_ZONE" \
+  --environment "DEV_UPDATE_REF=$DEV_UPDATE_REF NEXT_VERSION=$NEXT_VERSION NEXT2_VERSION=$NEXT2_VERSION" \
+  plan --name "^/plans/$plan\$" \
+  provision --how connect --guest "${TEST_GUEST:-127.0.0.1}" --port "$SSH_PORT" --key "$(realpath "$SSH_KEY")"
