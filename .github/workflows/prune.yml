@@ -1,7 +1,7 @@
 # Deletes the versions of the public os package that nobody may download any
 # more: keeps the version that os:stable holds, the release before it (the target
 # of Undo), and their sources and SBOMs, and deletes every other version, untagged ones too
-# (docs/License.md). Moving a tag deletes nothing, and a version stays
+# (documentation/License.md). Moving a tag deletes nothing, and a version stays
 # downloadable by its digest until it is deleted. Refuses if a version that it
 # keeps has no sources. Release calls it after each run; it can also run by hand.
 # Deleting needs this repository's Admin role on the package (Package settings >
@@ -37,10 +37,10 @@ jobs:
           if [ -n "$previous" ] && skopeo inspect --raw "docker://$REPOSITORY:$previous" >/dev/null 2>&1; then
             keep+=("$previous" "$previous-sources")
           fi
-          # Releases before SBOMs (docs/License.md) have none.
+          # Releases before SBOMs (documentation/License.md) have none.
           for version in "$stable" "$previous"; do
             if [ -n "$version" ] && skopeo inspect --raw "docker://$REPOSITORY:$version-sbom" >/dev/null 2>&1; then
               keep+=("$version-sbom")
             fi
           done
-          image/release/prune-packages.py "$REPOSITORY" "${keep[@]}"
+          distribution/release/prune-packages.py "$REPOSITORY" "${keep[@]}"

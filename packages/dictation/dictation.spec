@@ -24,14 +24,11 @@ Requires:       python3-numpy
 # voice mode (dictate-engine); sherpa-onnx links the same library but has no
 # Python interface to it.
 Requires:       python3-onnxruntime
-# The phonemes of the assistant's spoken answers (speak): sherpa-onnx 2 reads
-# Piper voices only from phonemes, and nothing else in the image makes them.
-Requires:       espeak-ng
 
 %description
 Dictation writes speech into the application in use, with Parakeet on the
 computer through sherpa-onnx (sherpa-onnx/ here, published in ShapeBit's
-repository); it also speaks the assistant's answers.
+repository).
 
 %install
 %shapebit_install dictation

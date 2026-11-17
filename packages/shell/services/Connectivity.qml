@@ -55,7 +55,7 @@ Singleton {
     // The agent: the source tree's in development (make run), otherwise the
     // installed one.
     readonly property string agentPath: Quickshell.env("DESKTOP_SHELL")
-        ? `${Quickshell.env("DESKTOP_SHELL")}/../session/connection-agent`
+        ? `${Quickshell.env("DESKTOP_SHELL")}/../network/connection-agent`
         : "/usr/libexec/desktop/connection-agent"
     // The agent's questions that are open, by its ids.
     property var asked: []

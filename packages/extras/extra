@@ -144,13 +144,13 @@ def varint(number):
 
 
 def prepare_piper(model):
-    """What sherpa-onnx (dictation/speak) needs of a Piper voice, which Piper's own
+    """What sherpa-onnx (assistant/speak) needs of a Piper voice, which Piper's own
     files lack: NAME.tokens, its phonemes and their numbers, and in the model, the
     metadata sherpa-onnx's own conversion adds. The metadata is appended, as an ONNX
     file is protobuf, where a field may come after the rest: no ONNX library is
     needed. sherpa-onnx reads one character as one phoneme, so each of Piper 1.5's
     vowel clusters, such as "aɪ", stands as a private character, U+E000 on, in their
-    order in the voice's "vowel_clusters"; dictation/speak writes them so."""
+    order in the voice's "vowel_clusters"; assistant/speak writes them so."""
     config = json.loads(model.with_suffix(".onnx.json").read_text(encoding="utf-8"))
     clusters = ["".join(pair) for pair in config.get("vowel_clusters", [])]
     tokens = []

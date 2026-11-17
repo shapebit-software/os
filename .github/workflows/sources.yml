@@ -1,5 +1,5 @@
 # Collects and publishes the sources of a released version of os that has none,
-# such as one released before sources were published (docs/License.md), as
+# such as one released before sources were published (documentation/License.md), as
 # os:<version>-sources. Downloads from Fedora's repositories, or from Koji for
 # versions that they no longer have; fails if a source cannot be found, and then
 # that version must be replaced by a new release and deleted instead. Runs only
@@ -44,5 +44,5 @@ jobs:
             exit 1
           fi
           docker pull -q "$REPOSITORY:$VERSION"
-          image/release/sources.py collect "$REPOSITORY:$VERSION" build/sources
-          image/release/sources.py push build/sources "$REPOSITORY:$VERSION-sources" "ShapeBit $VERSION: sources"
+          distribution/release/sources.py collect "$REPOSITORY:$VERSION" build/sources
+          distribution/release/sources.py push build/sources "$REPOSITORY:$VERSION-sources" "ShapeBit $VERSION: sources"

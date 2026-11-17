@@ -17,7 +17,7 @@
 
 ## Image
 
-These rules cover the image: `packages/`, `image/`, `development/` and the
+These rules cover the image: `packages/`, `distribution/`, `development/` and the
 `Makefile`.
 
 - **A folder in `packages/` is a feature and a package.** It holds
@@ -25,7 +25,8 @@ These rules cover the image: `packages/`, `image/`, `development/` and the
   tests, its `Makefile` with the install rules (CMake for the installer), and
   its spec, named `shapebit-<folder>`, with its `Requires`, each with the
   reason for it. Specs load `packages/package.macros`, Makefiles include
-  `packages/package.mk`. There are no folders by file type, such as
+  `packages/package.mk`. Every package carries its license as `%license`:
+  ShapeBit's, one shared file, unless it packages others' work (`font`). There are no folders by file type, such as
   `scripts/`, `tests/` or `data/`. `shapebit-system` requires every feature.
 - **External packages live in the feature that needs them.** A folder with a
   spec and a `sources` file (Fedora's format) below a feature, such as
@@ -42,7 +43,7 @@ These rules cover the image: `packages/`, `image/`, `development/` and the
 - **Verify with unit tests.** Run `make test-unit` inside `make dev`. A change is
   done only when it passes. Everything else, such as `make static-checks`,
   `make test`, and `make test-release`, is optional, because CI runs it
-  ([docs/Testing.md](docs/Testing.md)); say which of these you did not run. Add
+  ([documentation/Testing.md](documentation/Testing.md)); say which of these you did not run. Add
   `ENGINE=docker` on hosts without Podman.
 - **Prefer built-in tools.** Use what bootc, systemd, the Fedora base image, or
   QEMU already provide, such as `kargs.d`, systemd credentials, tmpfiles.d,
@@ -51,22 +52,22 @@ These rules cover the image: `packages/`, `image/`, `development/` and the
 - **Make owns configuration.** Defaults live only in the `Makefile`. Scripts
   read them from the environment and fail fast on missing values
   (`: "${VAR:?}"`).
-- **`image/` only assembles.** It builds every package of `packages/` from
+- **`distribution/` only assembles.** It builds every package of `packages/` from
   the same commit, reproducibly (`SOURCE_DATE_EPOCH`), checks them with
   rpmlint (`packages/rpmlint.toml`), and installs them with what they require.
   The build fails on a file under `/usr` that no package owns, or that differs
-  from its package (`image/packaged.py`).
+  from its package (`distribution/packaged.py`).
 - **Vendor defaults go under `/usr`,** by a feature's install rules. `/etc`
   and `/var` are machine state.
 - **Every behavior gets a check, beside what it checks.** See
-  [docs/Testing.md](docs/Testing.md). Logic that needs no machine gets a unit
-  test next to its code. The built OS is checked in `image/`: its content in
+  [documentation/Testing.md](documentation/Testing.md). Logic that needs no machine gets a unit
+  test next to its code. The built OS is checked in `distribution/`: its content in
   `content/`; the installer medium in `medium/`; the installed, running system
   in `installed/`; updates in `update/`; what a person sees and does in
   `openqa/`. Write checks in Python with pytest and Testinfra. The system
   under test gets nothing installed for a check: use the commands it ships. Only checks that
   need a host-side secret, such as the recovery key, run from the host, in
-  `image/installed/check_recovery_key.py`.
+  `distribution/installed/check_recovery_key.py`.
 - **A bug becomes a regression test** at the lowest level that shows it.
 - **Disks are installed by the installer.** `make disk` boots the installer
   medium and installs through it, so the tests cover what users run. Do not

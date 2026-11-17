@@ -17,6 +17,11 @@ Requires:       llama-server
 # The assistant's soft sound when it takes a spoken request (the shell's
 # services/Assistant.qml). Other packages bring it now; it is named so it stays.
 Requires:       sound-theme-freedesktop
+# The assistant's spoken answers (speak), with sherpa-onnx's Piper voices
+# (dictation's python3-sherpa-onnx): sherpa-onnx 2 reads Piper voices only from
+# phonemes, and nothing else in the image makes them.
+Requires:       espeak-ng
+Requires:       python3-sherpa-onnx
 
 %description
 The assistant answers and acts through typed actions, with a language model

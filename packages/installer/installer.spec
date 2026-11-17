@@ -47,5 +47,6 @@ system with bootc, installerctl, and their units, presets, user, and D-Bus polic
 %cmake_install
 # Every file it installs is the package's: the CMake install rules are the one list.
 (cd %{buildroot} && find . ! -type d | sed 's|^\.||') > files
+%shapebit_license_install
 
 %files -f files

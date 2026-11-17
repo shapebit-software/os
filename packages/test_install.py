@@ -3,7 +3,8 @@ it is a test, a tool, or what builds the package: a file that is added but not
 installed would otherwise ship nothing, without a word. The tests beside the
 code are never installed. External packages (a folder with a sources file)
 are built apart, and so are features that build otherwise: the installer
-(CMake), the collected license notices, and shapebit-system."""
+(CMake) and shapebit-system. The license notices that
+notices.py collects are installed by the licenses spec, in the image build."""
 
 import pathlib
 import subprocess
@@ -15,7 +16,7 @@ FEATURES = sorted(p.parent for p in PACKAGES.glob("*/Makefile"))
 # What builds or describes a package, everywhere.
 BUILD = {"Makefile", "README.md"}
 # Tools that serve a feature but are not part of it on the system.
-TOOLS = {"colors": {"colors.py"}, "repositories": {"rpm-build.sh", "rpm-repo.sh"}}
+TOOLS = {"colors": {"colors.py"}, "licenses": {"notices.py"}, "repositories": {"rpm-build.sh", "rpm-repo.sh"}}
 
 
 def is_test(path):

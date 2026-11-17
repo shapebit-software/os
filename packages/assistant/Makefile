@@ -4,6 +4,8 @@ include ../package.mk
 
 install: ## Install into DESTDIR
 	install -Dm755 -t $(libexec)/assistant assistant
+	# The assistant's spoken answers; the shell runs it from the desktop's programs.
+	install -Dm755 -t $(libexec) speak
 	install -Dm644 -t $(libexec)/assistant actions.py models.py skills.py web.py providers.py chatgpt.py
 	install -Dm644 -t $(data)/assistant models.json
 	install -Dm644 -t $(data)/assistant/skills skills/*.md

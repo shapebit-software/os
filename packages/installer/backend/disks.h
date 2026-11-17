@@ -31,7 +31,7 @@ inline constexpr qint64 minimumDiskSize = 16LL * 1024 * 1024 * 1024;
 inline constexpr qint64 steadyRoom = 24LL * 1024 * 1024 * 1024;
 
 // The reserve that the homes leave free on a file system of total bytes whose
-// system uses system bytes (docs/Design-Base.md):
+// system uses system bytes (documentation/Design-Base.md):
 // max(64 GiB, steady + surge), where steady is steadyRoom plus 2% of the disk
 // (between 4 and 16 GiB) for metadata, and surge is room for two more systems,
 // at least 16 GiB: once a first update has run, the rollback's system stays

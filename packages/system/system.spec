@@ -26,7 +26,6 @@ Requires:       shapebit-downloads = %{version}-%{release}
 Requires:       shapebit-extras = %{version}-%{release}
 Requires:       shapebit-font = %{version}-%{release}
 Requires:       shapebit-homes = %{version}-%{release}
-Requires:       shapebit-license-notices = %{version}-%{release}
 Requires:       shapebit-licenses = %{version}-%{release}
 Requires:       shapebit-login = %{version}-%{release}
 Requires:       shapebit-network = %{version}-%{release}
@@ -51,4 +50,8 @@ Requires:       rsync
 %description
 ShapeBit OS: every feature of the installed system, at the image's version.
 
-%files
+%install
+: >files
+%shapebit_license_install
+
+%files -f files

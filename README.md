@@ -67,10 +67,10 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 
 | Path         | Purpose                                                               |
 | ------------ | --------------------------------------------------------------------- |
-| `packages/`  | ShapeBit's own packages, one folder per feature: `apps`, `assistant`, `boot`, `capture`, `colors`, `dictation`, `downloads`, `extras`, `font`, `homes`, `installer`, `licenses`, `license-notices`, `login`, `network`, `portal`, `release`, `repositories`, `screen-sharing`, `shell`, `sound`, `splash`, `system` (requires them all), `updates`, `windows`. |
-| `image/`     | The OS image, assembled from those packages, and everything about it as a whole: its build (here), `release/`, `vm/`, and its checks: `content/`, `medium/`, `installed/`, `update/`, `openqa/` (see [docs/Testing.md](docs/Testing.md)). |
+| `packages/`  | ShapeBit's own packages, one folder per feature: `apps`, `assistant`, `boot`, `capture`, `colors`, `dictation`, `downloads`, `extras`, `font`, `homes`, `installer`, `licenses`, `login`, `network`, `portal`, `release`, `repositories`, `screen-sharing`, `shell`, `sound`, `splash`, `system` (requires them all), `updates`, `windows`. |
+| `distribution/`     | The OS image, assembled from those packages, and everything about it as a whole: its build (here), `release/`, `vm/`, and its checks: `content/`, `medium/`, `installed/`, `update/`, `openqa/` (see [documentation/Testing.md](documentation/Testing.md)). |
 | `development/`       | Development: the container (`distrobox.ini`) and the desktop in a window (`make run`). |
-| `docs/`      | The documentation, published to the Wiki and the website.             |
+| `documentation/`      | The documentation, published to the Wiki and the website.             |
 | `.agents/`   | Skills for coding agents.                                             |
 | `build/`     | Generated outputs (ignored by Git).                                   |
 
@@ -85,12 +85,12 @@ unit tests (`make test-unit`); `check_*.py` check the built OS
 
 ## Documentation
 
-- [Design](docs/Design.md)
-- [User Guide](docs/User-Guide.md): [installing](docs/Install.md) and
-  [shortcuts](docs/Shortcuts.md).
-- [Development](docs/Development.md): how the image, medium, and disk
+- [Design](documentation/Design.md)
+- [User Guide](documentation/User-Guide.md): [installing](documentation/Install.md) and
+  [shortcuts](documentation/Shortcuts.md).
+- [Development](documentation/Development.md): how the image, medium, and disk
   are made, boot and update, installing on real hardware, development access,
-  and what is not implemented yet; [Testing](docs/Testing.md).
+  and what is not implemented yet; [Testing](documentation/Testing.md).
 
 ## Project links
 

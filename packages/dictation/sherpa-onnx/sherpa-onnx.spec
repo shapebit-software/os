@@ -49,7 +49,7 @@ and related models locally with ONNX Runtime.}
 
 %package -n python3-sherpa-onnx
 Summary:        %{summary}
-# What it bundles, so that the SBOM lists it (image/release/sbom.py).
+# What it bundles, so that the SBOM lists it (distribution/release/sbom.py).
 Provides:       bundled(kaldi-native-fbank) = 1.22.4
 Provides:       bundled(kissfft) = 0^20250528gitfebd4ca
 Provides:       bundled(utf8proc) = 2.12.0

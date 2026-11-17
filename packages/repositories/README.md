@@ -7,7 +7,7 @@ dnf's settings; the image build turns them on.
 
 | File | What it is |
 | --- | --- |
-| `hyprland.repo` | The third-party COPR that Hyprland comes from, for now (docs/Design-Security.md). |
+| `hyprland.repo` | The third-party COPR that Hyprland comes from, for now (documentation/Design-Security.md). |
 | `third-party.repo`, `third-party.asc` | ShapeBit's own repository of external packages, and the key that signs it. |
 | `no-weak-deps.conf`, `no-countme.repo` | dnf installs no weak dependencies, and does not report the computer to Fedora's mirrors. |
 | `rpm-build.sh`, `rpm-repo.sh` | Build an external package, and write the signed repository of them all. |
@@ -16,8 +16,8 @@ dnf's settings; the image build turns them on.
 
 ShapeBit builds what the image needs and Fedora lacks as RPMs, so it installs
 like any other package: its license texts reach `/usr/share/licenses`, its
-source RPM reaches the published sources (`image/release/sources.py`), and
-what it bundles reaches the SBOM (`image/release/sbom.py` reads
+source RPM reaches the published sources (`distribution/release/sources.py`), and
+what it bundles reaches the SBOM (`distribution/release/sbom.py` reads
 `Provides: bundled(...)`). Each lives in the feature that needs it, which
 requires it:
 
@@ -45,7 +45,7 @@ requires it:
   repository of all those releases, signed (`rpm-repo.sh`), and deploys it to
   GitHub Pages:
   `https://shapebit-software.github.io/os/rpms/fedora-VERSION-{x86_64,source}/`.
-- The image build and `image/release/sources.py` read it through
+- The image build and `distribution/release/sources.py` read it through
   `third-party.repo`; dnf checks the repository's signature with
   `third-party.asc`; the metadata holds each RPM's SHA-256. `make validate`
   checks each external package's `License` against Fedora's list.

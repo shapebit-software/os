@@ -953,7 +953,7 @@ Singleton {
     Process {
         id: speaker
 
-        command: [assistant.tree ? `${assistant.tree}/../dictation/speak` : "/usr/libexec/desktop/speak",
+        command: [assistant.tree ? `${assistant.tree}/../assistant/speak` : "/usr/libexec/desktop/speak",
             `${Quickshell.env("EXTRAS_DIR") || "/var/lib/extras"}/voices`]
         stdinEnabled: true
         stdout: SplitParser {

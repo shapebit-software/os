@@ -18,4 +18,4 @@ fixes. Installed systems update to it on their own (Settings > Updates).
 
 ## Design
 
-How the system protects devices and data: [Security](docs/Design-Security.md).
+How the system protects devices and data: [Security](documentation/Design-Security.md).

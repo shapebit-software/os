@@ -34,7 +34,7 @@
 # over the recording again would say what was heard once more.
 #
 # In, {"do": ...}: "stop", "discard"; in voice mode also "pause", while the
-# assistant speaks (dictation/speak), so that it does not hear itself, and
+# assistant speaks (assistant/speak), so that it does not hear itself, and
 # "resume". The end of the input discards, as do SIGINT and SIGTERM.
 #
 # Out: {"state": "listening", "level": 0..1, "quiet": bool, "idle": bool};

@@ -1,7 +1,7 @@
 # What ShapeBit's own packages share: each spec loads this file first, with
 #   %{load:%{packages}/package.macros}
 # Each package is built in every image build from the same commit
-# (image/Containerfile), never published: its version is the image's, and its
+# (distribution/Containerfile), never published: its version is the image's, and its
 # sources are this repository, so it has no sources file. Build one with
 #   rpmbuild -bb --define "packages PACKAGES" --define "image_version VERSION" \
 #     --define "image_revision COMMIT" FEATURE/FEATURE.spec
@@ -11,7 +11,7 @@
 %shapebit_license   LicenseRef-PolyForm-Shield-1.0.0
 %shapebit_url       https://github.com/shapebit-software/os
 # Marks ShapeBit's own packages, whose sources are this repository
-# (image/release/sources.py leaves them out).
+# (distribution/release/sources.py leaves them out).
 %shapebit_vendor    ShapeBit
 
 # The same commit gives the same packages: every time in them is the commit's
@@ -21,12 +21,23 @@
 %clamp_mtime_to_source_epoch        1
 %_buildhost                         shapebit
 
+# ShapeBit's license, which every package of ShapeBit's own code carries as its
+# %license: the same file, /usr/share/licenses/shapebit/LICENSE, which rpm
+# lets them all own, so that Settings > Licenses lists it once. Appends it to
+# the file list.
+%shapebit_license_install \
+install -Dm644 %{packages}/licenses/LICENSE %{buildroot}/usr/share/licenses/shapebit/LICENSE \
+echo '%%dir /usr/share/licenses/shapebit' >>files \
+echo '%%license /usr/share/licenses/shapebit/LICENSE' >>files
+
 # Installs the feature folder FEATURE with its Makefile, and lists what it
 # installed as the package's files: every file, and every folder that the
-# build's own system lacks, which no other package owns.
-%shapebit_install() \
+# build's own system lacks, which no other package owns; then ShapeBit's
+# license. -n leaves the license out, for a package of others' work (font).
+%shapebit_install(n) \
 make -C %{packages}/%1 install DESTDIR=%{buildroot} FEDORA=%{fedora} IMAGE_VERSION=%{image_version} IMAGE_REVISION=%{image_revision} \
 (cd %{buildroot} \
- find . ! -type d | sed 's|^\.||' \
- find . -mindepth 1 -type d | sed 's|^\.||' | while read -r d; do [ -d "$d" ] || echo "%%dir $d"; done \
-) >files
+ find . ! -type d | sed -e 's|^\.||' -e '\|^/usr/share/licenses/shapebit/|d' \
+ find . -mindepth 1 -type d | sed -e 's|^\.||' -e '\|^/usr/share/licenses/shapebit$|d' | while read -r d; do [ -d "$d" ] || echo "%%dir $d"; done \
+) >files \
+%{!-n:%shapebit_license_install}

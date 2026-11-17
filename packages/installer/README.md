@@ -5,7 +5,7 @@ that erase one disk and install the system on it, following the
 [Installation](https://shapebit.software/docs/) architecture.
 
 It runs from the installer medium, which the
-[image](../README.md) builds
+[image](../../README.md) builds
 (`make installer`) and tests (`make test`).
 
 ## How it works
@@ -40,6 +40,24 @@ the target. For that, it gives the installed system its machine ID and runs
 the medium's systemd-homed on the target's home storage and state, so the
 owner's record belongs to the installed system. Before it reports success, it
 checks the result and unlocks the volume once with each key.
+
+## Medium
+
+`make installer` builds the medium in the same two phases as the image.
+[medium/Containerfile](medium/Containerfile) adds, to the sealed
+system (`IMAGE`), the installer as a
+package ([installer.spec](installer.spec)) at the
+image's version, with what it requires, such as the `cage` kiosk compositor that
+shows it, and the same sealed system, as an OCI layout, as
+the payload; sealing then replaces the system's UKI with the medium's own, whose
+composefs digest covers all of it. So the Installer workflow builds from the
+released `os:<version>` alone, and no unsealed image is kept anywhere. The
+medium's record, `build/installer.img.json`, names the system it installs: its
+version, which is also the installer's, and its image digest.
+[medium/medium.sh](medium/medium.sh) writes the result to
+`build/installer.img`: an EFI System Partition and one unencrypted, compressed
+Btrfs filesystem, 7 GiB in all, so that it fits a USB drive sold as 8 GB. The
+medium holds no secrets.
 
 ## Development
 

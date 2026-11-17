@@ -1,0 +1,176 @@
+# Testing
+
+ShapeBit is tested at three levels. Levels 1 and 2 exist; level 3 is reserved.
+
+| Level | What it tests | Tools | Command |
+| --- | --- | --- | --- |
+| Static | Lint and validate; nothing is built or run | qmllint, pyflakes, tmt, Hyprland, dnf, systemd-analyze | `make static-checks` |
+| Unit | Logic that needs no image and no VM: `test_*.py` (and `tst_*`) beside the code they test, in every folder | pytest, CTest | `make test-unit` |
+| Image | Files of the container image; nothing boots | pytest, Testinfra, in the container | `make test-image` |
+| 1. Scripted | The booted medium; the installed system; updates and rollback | tmt, pytest, Testinfra, QEMU/KVM | `make test`, `make test-update` |
+| 2. Full OS and UI | The medium through its UI, then using the system | openQA's isotovideo, Python modules | `make test-release` |
+| 3. AI exploration | Reserved: not implemented | | |
+
+## When they run
+
+| Workflow | Starts | Does |
+| --- | --- | --- |
+| Verification | Every push and pull request | Three stages in order, each only if the one before passed: Static checks (`make lint`, `make validate`), Unit tests (`make test-unit`, which also builds the installer program and runs its tests), and, on a change to `distribution/Containerfile*`, `distribution/packaged.py`, `distribution/content/` or any package but the installer (`packages/`), Image tests (`make test-image`, with a throwaway key; publishes nothing) |
+| Candidate | Weekly, early on Monday (UTC), or by hand, on `main` | Runs Static checks and Unit tests, then builds the OS image without a cache, signed with the release keys, and pushes it to `os/candidate:<version>`, with its sources and SBOM. Tests it by updating: installs stable with `os/installer:stable`, updates to the candidate, then runs level 1 and openQA's desktop modules (`FLOW=update`). If all pass, writes a draft release with its report |
+| Release | Only by hand, on `main` | Copies the draft release's `os/candidate:<version>` to `os:<version>` and `os:stable`, and publishes its release; or, with Undo, copies the release before back to `os:stable` and marks the last release withdrawn |
+| Installer | Monthly, on the 1st (UTC), or by hand, on `main` | Builds the installer from the released `os:stable`, once per OS version, and pushes it to `os/installer:<version>`. Runs levels 1 and 2 on it in full (`FLOW=install`). After a person approves it, publishes it on the download server and moves `os/installer:stable` to it |
+
+With no installer yet, there is nothing to update from: Candidate's
+**Bootstrap** option, which refuses once `os/installer:stable` exists, skips the
+update tests, and the Installer workflow then tests the release in full before
+its installer is published.
+
+Two tracks, then: each week a new OS image, tested on the path that existing
+systems take, from the installer that people download; each month a new
+installer, from the OS that is out. An installer bug is fixed by a Candidate
+and a Release, then an Installer run.
+
+### Packages
+
+| Package on GHCR | Visibility | Tags | Holds |
+| --- | --- | --- | --- |
+| `ghcr.io/shapebit-software/os` | Public | `stable`, `<version>`, `<version>-sources` | Released OS images and their sources; installed systems update from `stable` |
+| `ghcr.io/shapebit-software/os/candidate` | Private | `<version>`, `<version>-sources`, `<version>-update` | OS images under test, their sources, and the build that the update test moves on to from each |
+| `ghcr.io/shapebit-software/os/installer` | Private | `<version>`, `<version>-sources`, `stable` | Installer media, and their sources until they are published, as OCI artifacts; `stable` is the one on the download site |
+
+In each package, `stable` is what users get. Sources are collected as the
+image is built, while the repositories still match it, and published before or
+with it ([License](License.md#sources)). Each Release run deletes the versions
+of `os` other than `stable`'s and the release before it, with their sources
+(the Prune workflow); the Sources workflow collects them for a released version
+that has none. The installer's version is the OS
+version inside it. Both private packages give this repository's Actions write
+access (Package settings > Manage Actions access). `make pull-installer` pulls
+an installer (`INSTALLER_REF`, by default `os/installer:stable`) after
+`skopeo login ghcr.io`.
+
+Actions artifacts hold test results only: anyone signed in to GitHub can
+download them, and a release-signed image or installer must not be public
+before it is released.
+
+A test job that fails on a flake can be re-run on the same build with GitHub's
+"Re-run failed jobs": the jobs pull what the build job pushed, so the digest does
+not change. Something that breaks only inside a built image waits for the next
+Candidate run; it cannot reach `stable`. Before a risky change, run `make test`,
+or start Candidate by hand.
+
+## What each run proves
+
+Every scripted and openQA run leaves `build/results/<time>-<plan>/`.
+
+| Run | Tests |
+| --- | --- |
+| `make test-image` | The image's files; nothing boots |
+| `/plans/medium` | The medium booted, before it installs |
+| `/plans/installed`, `/plans/update` | A disk generated by `installerctl`, without the UI |
+| `make test-release` | The medium itself through its UI (`FLOW=install`), or, with `FLOW=update`, the system it installed after an update to `UPDATE_ARCHIVE` |
+
+A disk result says nothing about the installer's pages, and a `make test-release`
+result covers less of the system's details. A release needs both.
+
+**Updates.** `make test-update` installs, then moves a clone of the machine to
+`NEXT_ARCHIVE`'s build, runs the system checks there, then to
+`NEXT2_ARCHIVE`'s, and rolls back. Locally both are newer builds of the same
+tree (`make update-builds`); in Candidate the machine is stable, `NEXT_ARCHIVE`
+is the candidate, and `NEXT2_ARCHIVE` its `-update` build. The system checks
+and openQA also compare the running image's digest to the recorded one, so a result
+cannot describe a different build.
+
+The release medium is a raw disk image (`shapebit-installer.img.xz` on the
+download site): ShapeBit builds no ISO. Every VM attaches it with a snapshot, so it stays byte for byte what was
+built and recorded in `build/installer.img.json`. `make test-release` refuses a
+medium that differs.
+
+## Level 1: tmt
+
+`distribution/` is tmt's tree; its checks are the `check_*.py` files in its feature
+folders. Its plans (`distribution/plans.fmf`) are:
+
+- `/plans/medium`, run by `make disk` on the medium, before it installs.
+- `/plans/installed`, run by `make test`.
+- `/plans/update`, run by `make test-update`.
+
+**Machines.** `distribution/vm/test-machine.sh` makes a disposable clone of the installed
+machine for each plan: a qcow2 overlay of the disk with copies of its EFI
+variables and TPM state. It then runs tmt with `provision --how connect` and
+discards the clone. tmt does not start the VM itself: its `virtual.testcloud`
+plugin creates a new firmware and TPM and uses cloud-init, while an installed
+ShapeBit disk boots only with the enrolled certificate and the TPM it is sealed
+to, and the rules forbid a second way to make a disk.
+
+**What reaches the guest.** Only tmt's tree, under `/var/tmp`, with pytest and
+Testinfra (`distribution/requirements.txt`, installed in `distribution/.deps`). The image ships
+`rsync` because tmt would otherwise build a derived image and test that.
+
+**Reboots.** A test that reboots is a script that picks its stage from
+`TMT_REBOOT_COUNT` and calls `tmt-reboot`; pytest markers name the stages
+(`distribution/installed/persistence.sh`, `distribution/update/update.sh`). Each boot writes its
+own `junit-<count>.xml`.
+
+**Updates.** The host publishes both new builds to the local registry first,
+with skopeo, which keeps their digests. The test moves the tag that the system
+follows through the registry's API, as publishing a build does, so the host
+need not act between boots.
+
+**The recovery key** stays on the host: `distribution/installed/check_recovery_key.py` passes it over standard
+input after tmt finishes, and it is in no report.
+
+**After failure.** The plan's `finish` step always saves the journal, failed units,
+and `bootc status`. The run's directory keeps `tmt/` (logs, per-test data, an
+HTML report) and `serial.log`.
+
+To add a check, write a `test_*` function in a `check_*.py` file of the fitting
+folder. A new file needs an entry in that folder's `main.fmf`.
+
+## Level 2: openQA
+
+`distribution/openqa/` is an openQA test distribution: `main.pm` only lists the modules,
+which are Python (`*.py` beside it, through `Inline::Python`), and `needles/` holds the
+reference screens. The same folder holds what runs them: `openqa.sh` runs them
+with isotovideo, openQA's test engine, in a container built from its
+`Containerfile`, with the run's variables and needles from `run.py`. It
+works as the case directory of an openQA server. A server is not required, and
+this repository does not run one.
+
+The update flow installs the stable release with the installer of the
+download site, whose screens may look as they did at the commits they were
+built from: the installer's medium records its commit, and Candidate reads the
+release's from `os:stable`. Each needle of those commits that differs from the
+tree's goes along under its tags, named after its commit (`distribution/openqa/run.py
+needles`), so either look matches; none is kept in the tree.
+
+Each module pairs what the screen shows (`assert_screen`) with the state beneath
+it (`lib/sut.py`, over SSH): a check that only looks would pass on a right
+picture of a wrong system.
+
+The modules cover the MOK enrollment, installation through the UI, first boot,
+login, Settings, window layouts, dictation, locking and unlocking, and
+restarting. `FLOW` chooses their order in `main.pm`: `install` runs them all;
+`update` adds `update` after the first boot, which copies `UPDATE_ARCHIVE`'s
+build to the machine as an OCI layout over SSH, switches to it, and restarts,
+so that the desktop's modules test that build. The machine needs no
+credentials for the private package. Settings
+is the shell's own (`Super+I`): ShapeBit has no Switchboard.
+
+After failure, the run's `pool/testresults/` keeps each step's screenshot and
+JSON, and `pool/` keeps `autoinst-log.txt` and `video.webm`.
+
+**Needles** compare pictures, so use one only where the picture is what is tested,
+such as the first installer page, which shows that the UI reaches the screen.
+Elsewhere, wait on state: each installer page writes `Installer page: <name>` to
+the journal when it is ready for keys, and `install.py` saves its screenshot without
+comparing it. A needle is a PNG with a JSON of the same name, naming the tag and the areas
+to compare. When the UI changes on purpose, take the new screen from
+`testresults/` and change the needle with it, in the same commit.
+
+## Level 3: AI exploration
+
+Reserved for an agent that controls disposable VMs and looks for unusual workflows
+and edge cases. Nothing here implements it. When it comes, it will use the same
+disposable machines, and each bug it finds must become a level 1 or 2 regression
+test before it counts as found.

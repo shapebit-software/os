@@ -33,7 +33,7 @@ Singleton {
     Process {
         running: audio.recording && !(audio.input?.audio?.muted ?? false)
         command: ["setpriv", "--pdeathsig", "TERM",
-            audio.tree ? `${audio.tree}/../session/microphone-level` : "/usr/libexec/desktop/microphone-level"]
+            audio.tree ? `${audio.tree}/../sound/microphone-level` : "/usr/libexec/desktop/microphone-level"]
         stdout: SplitParser {
             onRead: line => audio.level = Number(line) || 0
         }
