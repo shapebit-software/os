@@ -1,0 +1,18 @@
+# ShapeBit's own builds of what Fedora lacks (third-party/README.md): metadata on
+# GitHub Pages, signed with the key of third-party.asc; the RPMs are release assets.
+# Mounted only while the image builds, and while scripts/sources.py downloads
+# the source RPMs, with third-party.asc at the path below; never part of the image.
+[shapebit]
+name=ShapeBit packages
+baseurl=https://shapebit-software.github.io/os/rpms/fedora-$releasever-$basearch/
+repo_gpgcheck=1
+gpgcheck=0
+gpgkey=file:///etc/pki/rpm-gpg/third-party.asc
+
+[shapebit-source]
+name=ShapeBit packages - Source
+baseurl=https://shapebit-software.github.io/os/rpms/fedora-$releasever-source/
+enabled=0
+repo_gpgcheck=1
+gpgcheck=0
+gpgkey=file:///etc/pki/rpm-gpg/third-party.asc

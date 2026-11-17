@@ -1,5 +1,0 @@
-# What dictate-engine imports that Fedora does not package, for the image's
-# Python 3.15 (image/Containerfile). NumPy is Fedora's (packages): its wheel
-# bundles libgfortran and libquadmath, under the GPL and the LGPL.
-sherpa-onnx==2.0.1 --hash=sha256:12e5bbe8d724de633f9475e882cdb471515c74ea5a88ee7b299ee9080e72da09
-sherpa-onnx-core==2.0.1 --hash=sha256:f4ee0ab91c4ae596e0e49d7de32522a946295e038a652f1c1884d89014ee4ec2

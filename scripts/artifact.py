@@ -5,6 +5,8 @@ and reads them as OCI layouts; skopeo copies a layout to and from a registry
 (`skopeo copy oci:LAYOUT docker://REF`). Blobs are hard links of the files where
 the filesystem allows, so a layout of gigabytes costs no copy.
 
+push() and pull() do both steps for a registry, through a layout beside the files.
+
 Usage: artifact.py pack LAYOUT TYPE TITLE FILE...   write FILEs as an artifact
        artifact.py unpack LAYOUT DIR [NAME...]      put its files (or only NAMEs) in DIR
        artifact.py list LAYOUT                      print each file's digest and name
@@ -15,7 +17,9 @@ import json
 import os
 import pathlib
 import shutil
+import subprocess
 import sys
+import tempfile
 
 MANIFEST = "application/vnd.oci.image.manifest.v1+json"
 EMPTY = {"mediaType": "application/vnd.oci.empty.v1+json", "size": 2, "data": "e30="}
@@ -108,6 +112,24 @@ def unpack(layout, directory, names=()):
     for name, digest in found.items():
         if not names or name in names:
             place(pathlib.Path(layout) / "blobs" / digest.replace(":", "/"), directory / name)
+
+
+def push(ref, artifact_type, title, files):
+    """FILEs as an artifact at the registry REF; the layout's hard links need the same filesystem."""
+    with tempfile.TemporaryDirectory(dir=pathlib.Path(files[0]).parent) as work:
+        layout = pathlib.Path(work) / "layout"
+        pack(layout, artifact_type, title, files)
+        subprocess.run(["skopeo", "copy", "-q", "--preserve-digests", f"oci:{layout}", f"docker://{ref}"], check=True)
+
+
+def pull(ref, directory):
+    """The files of the artifact at the registry REF, into DIRECTORY."""
+    directory = pathlib.Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=directory.parent) as work:
+        layout = pathlib.Path(work) / "layout"
+        subprocess.run(["skopeo", "copy", "-q", f"docker://{ref}", f"oci:{layout}"], check=True)
+        unpack(layout, directory)
 
 
 def main(command=None, *args):

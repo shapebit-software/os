@@ -20,6 +20,15 @@ def capabilities(sh):
     return json.loads(sh("installerctl capabilities"))
 
 
+def test_installer_preserves_the_system_license_materials(host, sh):
+    assert host.file("/usr/share/licenses/shapebit/LICENSE").size > 0
+    assert host.file("/usr/share/licenses/llama.cpp/LICENSE-llamafile").size > 0
+    assert host.file("/usr/share/licenses/parakeet/LICENSE-smart-turn").size > 0
+    assert host.file("/usr/share/licenses/malcontent-libs/COPYING").size > 0
+    components = json.loads(sh("/usr/libexec/desktop/licenses list"))["components"]
+    assert {"cage", "wlroots", "shapebit"} <= {c["name"] for c in components}
+
+
 def test_finished_booting_without_failed_units(host, sh):
     host.run("systemctl is-system-running --wait")
     assert sh("systemctl --failed --no-legend --plain") == ""

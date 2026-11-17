@@ -68,7 +68,9 @@ SETTINGS = pathlib.Path(os.environ.get("XDG_CONFIG_HOME") or pathlib.Path.home()
 
 def load(models):
     """Parakeet, and a way to make Silero, which keeps what it heard, for each recording."""
-    sys.path.insert(0, os.environ.get("DICTATION_PYTHON", "/usr/lib64/dictation"))
+    # sherpa-onnx is the system's (python3-sherpa-onnx); `make run` has its own.
+    if "DICTATION_PYTHON" in os.environ:
+        sys.path.insert(0, os.environ["DICTATION_PYTHON"])
     import sherpa_onnx
 
     recognizer = sherpa_onnx.OfflineRecognizer.from_transducer(

@@ -1,6 +1,6 @@
 # Releases the candidate of the draft release, which the Candidate workflow
-# tested: copies os/candidate:<version> and its sources, unchanged, to the public
-# os:<version> and os:<version>-sources, then the image to os:stable, which
+# tested: copies os/candidate:<version>, its sources and its SBOM, unchanged, to the public
+# os:<version>, os:<version>-sources and os:<version>-sbom, then the image to os:stable, which
 # installed systems update from, and publishes its release. With "Undo", instead
 # copies the release before, os:<version>, back to os:stable, and marks the last
 # release withdrawn. Runs only by hand, in the environment "Release", which can
@@ -86,11 +86,12 @@ jobs:
           age=$(( ($(date +%s) - $(date -d "$(inspect '{{.Created}}')" +%s)) / 86400 ))
           if [ "$age" -gt 14 ]; then echo "::warning::The candidate is $age days old"; fi
 
-      # The sources first, so that they are public before the image is.
-      - name: Copy the candidate and its sources to os:<version>, and to os:stable
+      # The sources and the SBOM first, so that they are public before the image is.
+      - name: Copy the candidate, its sources and its SBOM to os:<version>, and to os:stable
         if: ${{ !inputs.undo }}
         run: |
           skopeo copy -q --preserve-digests "docker://$CANDIDATES:$VERSION-sources" "docker://$REPOSITORY:$VERSION-sources"
+          skopeo copy -q --preserve-digests "docker://$CANDIDATES:$VERSION-sbom" "docker://$REPOSITORY:$VERSION-sbom"
           skopeo copy -q --preserve-digests "docker://$CANDIDATES:$VERSION" "docker://$REPOSITORY:$VERSION"
           skopeo copy -q --preserve-digests "docker://$REPOSITORY:$VERSION" "docker://$REPOSITORY:stable"
 

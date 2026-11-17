@@ -69,6 +69,7 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 | `image/`     | The Containerfiles of the system, the medium, and the seal, and `rootfs/`, copied verbatim into the image. |
 | `desktop/`   | The desktop: compositor configuration, shell, and session.            |
 | `installer/` | The installer: backend, UI, and `installerctl`.                       |
+| [`licensing/`](licensing/) | How license texts reach `/usr/share/licenses`: source RPM rules, collector, reader. |
 | [`third-party/`](third-party/) | RPMs of third-party software that Fedora lacks, and their signed repository. |
 | `scripts/`   | Keys, image build, medium, installation in QEMU, publishing, SSH.     |
 | `tests/`     | Unit, image, system, update, and openQA checks: see [docs/Testing.md](docs/Testing.md). |

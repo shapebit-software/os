@@ -17,8 +17,10 @@ COPY rootfs/ /
 # The system's packages (image/packages) and the desktop's (build context
 # `desktop`, its file packages), each listed with the reason for it, in one
 # transaction. Fedora has no Hyprland, so it comes from a third-party COPR for
-# now (hyprland.repo, which scripts/sources.py also reads); the repository is
-# mounted only for this build and is not left in the image. dnf's cache is a
+# now (hyprland.repo); what else Fedora lacks, such as sherpa-onnx, ShapeBit
+# builds itself (third-party.repo, signed with the key of third-party.asc; third-party/README.md).
+# scripts/sources.py reads both repositories too; they are mounted only for
+# this build and are not left in the image. dnf's cache is a
 # build cache, kept between builds and never in the image. The rest of dnf's
 # state in /var and /run is removed, since bootc ignores it on install; so are
 # SDDM's runtime directory, which tmpfiles.d creates on each boot, and libX11's
@@ -31,7 +33,9 @@ COPY rootfs/ /
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
     --mount=type=bind,source=packages,target=/run/system-packages \
     --mount=type=bind,from=desktop,source=packages,target=/run/desktop-packages \
-    --mount=type=bind,source=hyprland.repo,target=/etc/yum.repos.d/hyprland.repo <<'EOF'
+    --mount=type=bind,source=hyprland.repo,target=/etc/yum.repos.d/hyprland.repo \
+    --mount=type=bind,source=third-party.repo,target=/etc/yum.repos.d/third-party.repo \
+    --mount=type=bind,source=third-party.asc,target=/etc/pki/rpm-gpg/third-party.asc <<'EOF'
 set -euo pipefail
 dnf -y install --disablerepo=fedora-cisco-openh264 $(sed 's/#.*//' /run/system-packages /run/desktop-packages)
 rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf /run/sddm /var/cache/libX11
@@ -83,11 +87,11 @@ RUN kernel=$(basename /usr/lib/modules/*) && \
     dracut --force "/usr/lib/modules/$kernel/initramfs.img" "$kernel"
 
 # Build tools, used by the stages below and never part of the final image:
-# sbsigntools signs; make installs the desktop's files; pip and patchelf fetch
-# and fix sherpa-onnx; cmake, gcc-c++, make, and binutils build llama-server.
+# sbsigntools signs; make installs the desktop's files; cmake, gcc-c++, make,
+# and binutils build llama-server.
 FROM system AS tools
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
-    dnf -y install sbsigntools make python3-pip patchelf cmake gcc-c++ binutils && mkdir /out
+    dnf -y install sbsigntools make cmake gcc-c++ binutils && mkdir /out
 
 # systemd-boot, signed; bootctl installs the *.signed copy when present.
 FROM tools AS bootloader
@@ -106,25 +110,6 @@ RUN --mount=type=secret,id=signing.crt \
 # The desktop's files (build context `desktop`), installed by its Makefile.
 FROM tools AS desktop-files
 RUN --mount=type=bind,from=desktop,target=/src make -C /src install DESTDIR=/out
-
-# What the speech recognition of dictation runs on (desktop/dictation/
-# dictate-engine): sherpa-onnx, which Fedora does not package. The wheels are checked
-# against their hashes (desktop/dictation/requirements.txt), and pip stays here. Its
-# models are too large for the image, and are downloaded (desktop/extras); so
-# dictation works only once they are. The wheel bundles a copy of the ALSA
-# library, under the LGPL, whose exact source is unknown; its module loads
-# Fedora's instead (desktop/packages), whose source is the RPM's, and the copy
-# is left out. Sherpa's own license is collected from its wheel metadata.
-FROM tools AS sherpa
-RUN --mount=type=bind,from=desktop,source=dictation/requirements.txt,target=/run/requirements.txt <<'EOF'
-set -euo pipefail
-dir=/out/usr/lib64/dictation
-pip install --require-hashes --only-binary :all: --no-deps --target "$dir" -r /run/requirements.txt
-bundled=$(basename "$dir"/sherpa_onnx.libs/libasound-*.so.2*)
-patchelf --replace-needed "$bundled" libasound.so.2 "$dir"/sherpa_onnx/lib/_sherpa_onnx.cpython-*.so
-rm -r "$dir/sherpa_onnx.libs"
-install -Dm644 "$dir"/sherpa_onnx-*.dist-info/licenses/LICENSE /out/usr/share/licenses/sherpa-onnx/LICENSE
-EOF
 
 # The assistant's language model server (desktop/assistant/llama-server@.service):
 # llama.cpp's llama-server, which Fedora packages too old for Gemma 4. Its
@@ -156,11 +141,23 @@ for hash in vendor/hash/*/LICENSE*; do
   install -Dm644 "$hash" "/out/usr/share/licenses/llama.cpp/LICENSE-$(basename "$(dirname "$hash")")"
 done
 EOF
+RUN --mount=type=bind,from=licensing,source=collect.py,target=/run/collect.py \
+    python3 /run/collect.py header "/tmp/llama.cpp-$LLAMA_VERSION/ggml/src/ggml-cpu/llamafile/sgemm.cpp" \
+      /out/usr/share/licenses/llama.cpp/LICENSE-llamafile
+
+# The notices that installed RPMs lack, from their exact source RPMs
+# (licensing/rpms.json), and links to RPM license files kept elsewhere. Fixed
+# texts are in rootfs/usr/share/licenses. Source RPMs stay in this build stage.
+FROM tools AS licenses
+RUN --mount=type=bind,from=licensing,target=/run/licensing \
+    --mount=type=cache,target=/var/cache/licenses,sharing=locked \
+    python3 /run/licensing/collect.py collect /run/licensing/rpms.json /out /var/cache/licenses && \
+    install -Dm755 /run/licensing/read.py /out/usr/libexec/desktop/licenses
 
 FROM system
 COPY --from=desktop-files /out/ /
-COPY --from=sherpa /out/ /
 COPY --from=llama /out/ /
+COPY --from=licenses /out/ /
 # The desktop's settings defaults (window-buttons.gschema.override) apply
 # once the schemas are compiled again.
 RUN glib-compile-schemas /usr/share/glib-2.0/schemas

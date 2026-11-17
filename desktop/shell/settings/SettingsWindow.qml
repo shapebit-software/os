@@ -271,16 +271,12 @@ PanelWindow {
             { label: "Apps", detail: "Updated automatically every day", kind: "info" },
         ] },
         // What the system and its downloads are made of, and under which licenses.
-        { id: "licenses", name: "Licenses", icon: "M4 1.8h5.6l2.8 2.8v9.6H4zM9.4 1.8v3h3M6 8h4.4M6 10.6h4.4", rows: [
-            { label: "ShapeBit OS", detail: "PolyForm Shield License 1.0.0. The ShapeBit name and logo are not licensed for reuse",
-              value: "Read", open: () => window.openLink("https://polyformproject.org/licenses/shield/1.0.0") },
-            { label: "Fedora Linux and the other programs", detail: "Each under its own license, such as the GPL, the LGPL, MIT, or Apache 2.0",
-              value: "Open", open: () => window.openLink("file:///usr/share/licenses") },
+        // Its page is its own (LicensesPage.qml); the rows are for the search.
+        { id: "licenses", name: "Licenses", own: true, icon: "M4 1.8h5.6l2.8 2.8v9.6H4zM9.4 1.8v3h3M6 8h4.4M6 10.6h4.4", rows: [
+            { label: "Licenses and notices", detail: "Read the installed materials for each component", value: "Read",
+              open: () => window.show("licenses") },
             { label: "Sources", detail: `Each version's sources are published next to it: ghcr.io/shapebit-software/os:${OsUpdate.version}-sources`,
               value: "Read", open: () => window.openLink("https://shapebit.software/docs/license/#sources") },
-            ...[].concat(...Extras.list.map(e => (e.credits ?? []).map(c => ({ label: c.work,
-              detail: `${c.license} · by ${c.by}${c.changes ? `, ${c.changes}` : ""} · ${e.name}, ${e.installed ? "downloaded" : "not downloaded"}`,
-              value: "Source", open: () => window.openLink(c.url) })))),
         ] },
         { id: "sound", name: "Sound", icon: "M10.8 5.9a3 3 0 0 1 0 4.2M12.7 4.2a5.6 5.6 0 0 1 0 7.6M3 6.2h2.2L8.6 3.4v9.2L5.2 9.8H3z", rows: [
             { label: "Output", detail: Audio.output?.description ?? "No device",
@@ -737,6 +733,7 @@ PanelWindow {
             }
 
             Flickable {
+                id: settingsContent
                 x: 36
                 y: 62
                 // The store of apps has room for more.
@@ -836,6 +833,13 @@ PanelWindow {
                     DownloadsPage {
                         visible: window.page === "" && !window.query && window.section.id === "downloads"
                         width: parent.width
+                    }
+
+                    LicensesPage {
+                        visible: window.page === "" && !window.query && window.section.id === "licenses"
+                        width: parent.width
+                        onNavigated: settingsContent.contentY = 0
+                        onSourcesRequested: window.openLink("https://shapebit.software/docs/license/#sources")
                     }
 
                     AssistantSkillsPage {

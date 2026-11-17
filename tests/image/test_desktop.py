@@ -1,7 +1,6 @@
 """The container image: the desktop session, its portals, and its applications."""
 
 import ast
-import fnmatch
 import json
 
 import pytest
@@ -91,43 +90,26 @@ def test_spoken_answers_have_their_phonemes_but_no_voice(sh, host):
 
 def test_dictation_has_its_runtime_but_no_speech_model(sh, host):
     # The engine gets as far as loading Parakeet only with sherpa-onnx and NumPy
-    # (Fedora's) in place. Speech models are extras, downloaded when the person
-    # chooses.
-    sh("PYTHONPATH=/usr/lib64/dictation python3 -c 'import numpy, sherpa_onnx, onnxruntime'")
+    # in place. Speech models are extras, downloaded when the person chooses.
+    sh("python3 -c 'import numpy, sherpa_onnx, onnxruntime'")
     assert host.file("/usr/libexec/desktop/dictate-engine").mode & 0o111
-    for path in ("/usr/share/parakeet", "/usr/share/whisper", "/usr/bin/whisper-cli"):
+    for path in ("/usr/share/parakeet", "/usr/share/whisper", "/usr/bin/whisper-cli", "/usr/lib64/dictation"):
         assert not host.file(path).exists
 
 
-# Top-level licenses of dictation's shared libraries, not a complete inventory
-# of their statically included code. Transitive notices and source information
-# need separate collection; a new library needs an explicit provenance review.
-DICTATION_LIBRARIES = {
-    "_sherpa_onnx.cpython-*.so": "Apache-2.0",
-    "libsherpa-onnx-c-api.so": "Apache-2.0",
-    "libsherpa-onnx-cxx-api.so": "Apache-2.0",
-    "libonnxruntime.so": "MIT",
-}
-
-
-def test_dictation_native_libraries_are_inventoried(sh):
-    libraries = sh("find /usr/lib64/dictation -name '*.so*' -printf '%f\\n'").split()
-    unknown = [name for name in libraries if not any(fnmatch.fnmatch(name, known) for known in DICTATION_LIBRARIES)]
-    assert not unknown, f"libraries of unknown license in /usr/lib64/dictation: {unknown}"
-    # auditwheel's directories of bundled copies, such as sherpa_onnx.libs.
-    assert sh("find /usr/lib64/dictation -maxdepth 1 -name '*.libs'") == ""
-
-
-def test_sherpa_carries_its_upstream_license(host):
-    assert host.file("/usr/share/licenses/sherpa-onnx/LICENSE").size > 0
-
-
-def test_dictation_loads_alsa_from_its_rpm(sh):
-    module = sh("ls /usr/lib64/dictation/sherpa_onnx/lib/_sherpa_onnx.cpython-*.so").strip()
+def test_sherpa_is_shapebits_build_on_fedoras_onnx_runtime(sh, host):
+    # third-party/sherpa-onnx: one ONNX Runtime in the image, Fedora's, and the bundled
+    # libraries' licenses with the package.
+    assert sh("rpm -q --qf '%{NAME}' python3-sherpa-onnx") == "python3-sherpa-onnx"
+    module = sh("python3 -c 'import sherpa_onnx.lib._sherpa_onnx as m; print(m.__file__)'").strip()
     libraries = sh("ldd %s", module)
     assert "not found" not in libraries
-    path = next(line.split()[2] for line in libraries.splitlines() if "libasound.so.2" in line)
-    assert sh("rpm -qf --qf '%%{NAME}' %s", path) == "alsa-lib"
+    path = next(line.split()[2] for line in libraries.splitlines() if "libonnxruntime.so" in line)
+    assert sh("rpm -qf --qf '%%{NAME}' %s", path) == "onnxruntime"
+    package = sh("rpm -ql python3-sherpa-onnx").split()
+    assert not [f for f in package if "/libonnxruntime" in f]
+    for library in ("kaldi-native-fbank", "kissfft", "utf8proc", "openfst", "hclust-cpp", "eigen"):
+        assert host.file(f"/usr/share/licenses/python3-sherpa-onnx/{library}").is_directory, library
 
 
 def test_extras_can_be_downloaded_by_administrators(host, sh):
@@ -138,7 +120,6 @@ def test_extras_can_be_downloaded_by_administrators(host, sh):
 
 
 def test_assistant_is_installed_and_starts_with_its_socket(host, sh):
-    assert "No online AI provider or ChatGPT" in host.file("/usr/share/doc/shapebit/assistant-privacy.html").content_string
     sh("python3 -c 'import sys; sys.path.insert(0, \"/usr/libexec/desktop/assistant\"); import providers; assert not providers.PROVIDERS'")
     for name in ("assistant", "actions.py", "models.py", "skills.py", "web.py", "providers.py", "chatgpt.py"):
         sh(f"python3 -c 'import ast; ast.parse(open(\"/usr/libexec/desktop/assistant/{name}\").read())'")

@@ -14,6 +14,10 @@ colors := $(abspath $(CURDIR)/../image/rootfs/usr/lib64/qt6/qml)
 # its models, downloaded in `make run` (EXTRAS_DIR), and its model server and
 # speech engine, which `make dev-assistant` puts there (../scripts/dev-assistant.sh).
 dev := $(abspath $(CURDIR)/../build/dev)
+# Settings > Licenses shows the image's committed license texts and the
+# extras', copied together into $(dev)/licenses; the RPMs' own are only in a
+# built image.
+system_licenses := $(abspath $(CURDIR)/../image/rootfs/usr/share/licenses)
 
 # The host's system bus, which the development container shares here: the
 # shell needs it for the network and Bluetooth.
@@ -40,8 +44,10 @@ lint: ## Lint the shell
 # so Settings > Assistant downloads them without an administrator.
 run: ## Run the desktop in a window, inside the current Wayland session
 	mkdir -p $(dev)/extras
+	rm -rf $(dev)/licenses && mkdir -p $(dev)/licenses && cp -r $(system_licenses)/. extras/licenses/. $(dev)/licenses/
 	env -u XDG_CURRENT_DESKTOP DESKTOP_SHELL=$(CURDIR)/shell QML_IMPORT_PATH=$(colors) FONTCONFIG_FILE=$(CURDIR)/fonts.conf \
 	EXTRAS_DIR=$(dev)/extras DICTATION_PARAKEET=$(dev)/extras/parakeet \
+	LICENSES_DIR=$(dev)/licenses \
 	$(if $(wildcard $(dev)/llama/llama-server),ASSISTANT_LLAMA=$(dev)/llama/llama-server) \
 	$(if $(wildcard $(dev)/python),PYTHONPATH=$(dev)/python) \
 	$(if $(wildcard $(host_bus)),DBUS_SYSTEM_BUS_ADDRESS=unix:path=$(host_bus)) \
@@ -57,6 +63,7 @@ install: ## Install into DESTDIR
 	install -Dm755 -t $(DESTDIR)$(PREFIX)/libexec/desktop portal/portal portal/share-picker session/connection-agent session/microphone-level apps/app-install apps/app-catalog apps/app-remove dictation/dictate dictation/hear dictation/dictate-engine dictation/speak extras/extra downloads/downloads capture/camera capture/skip-silence
 	install -Dm644 -t $(share)/desktop/browsers apps/fedora.filter
 	install -Dm644 -t $(share)/desktop extras/extras.json
+	install -d $(share)/licenses && cp -r extras/licenses/. $(share)/licenses/
 	install -Dm755 -t $(DESTDIR)$(PREFIX)/libexec/desktop/assistant assistant/assistant
 	install -Dm644 -t $(DESTDIR)$(PREFIX)/libexec/desktop/assistant assistant/actions.py assistant/models.py \
 	  assistant/skills.py assistant/web.py assistant/providers.py assistant/chatgpt.py

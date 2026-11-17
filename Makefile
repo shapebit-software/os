@@ -82,7 +82,7 @@ UPDATE_ARCHIVE ?= $(IMAGE_ARCHIVE)
 # as they did then; Candidate reads it from os:stable. The installer's own
 # commit is in its record.
 STABLE_REVISION ?=
-# The copyleft source RPMs of the image, and of the installer
+# The source RPMs of the image, and of the installer
 # (scripts/sources.py, docs/License.md). SOURCES_PREVIOUS names an earlier
 # version's sources to compare with; SOURCES_CACHE, a directory of source RPMs
 # to take instead of downloading them. Both are optional.
@@ -91,6 +91,10 @@ INSTALLER_SOURCES_DIR ?= $(BUILD)/installer-sources
 INSTALLER_SOURCES     ?= $(BUILD)/installer-sources.tar
 SOURCES_PREVIOUS      ?=
 SOURCES_CACHE         ?=
+# The image's software bill of materials (scripts/sbom.py, docs/License.md),
+# and the syft that scans it, pinned by digest.
+SBOM       ?= $(BUILD)/sbom.spdx.json
+SYFT_IMAGE ?= docker.io/anchore/syft:v1.18.1@sha256:b8c170b8e51bfc4779ec3ef4399942c57290f5ce76a9c3af564c9d00d4946a6b
 
 # Packages of third-party software that Fedora lacks (third-party/README.md): the one that
 # `make rpm` builds, where built packages go, where the published ones are
@@ -99,15 +103,14 @@ RPM            ?= sherpa-onnx
 RPMS           ?= $(BUILD)/rpms
 RPM_RELEASES   ?= https://github.com/shapebit-software/os/releases/download
 RPM_PUBLIC_KEY ?= image/third-party.asc
-export RPM_RELEASES RPM_PUBLIC_KEY
-
+export SYFT_IMAGE LLAMA_VERSION LLAMA_SHA256 RPM_RELEASES RPM_PUBLIC_KEY
 export DEV_ENTER OPENQA_DISK_SIZE INSTALLER_REF IMAGE_REVISION IMAGE_ARCHIVE NEXT_ARCHIVE NEXT2_ARCHIVE FLOW UPDATE_ARCHIVE STABLE_REVISION OPENQA_DISTRI OPENQA_IMAGE RESULTS VENV TEST_SSH_PORT DISK_FORMAT ENGINE IMAGE FEDORA_VERSION IMAGE_VERSION BUILD DISK DISK_SIZE INSTALLER_IMAGE MEDIUM MEDIUM_SIZE SSH_PORT SSH_KEY OWNER_NAME OWNER_PASSWORD RECOVERY_KEY LOCALE KEYBOARD_LAYOUT TIME_ZONE KEYS_DIR SIGNING_KEY BOOT_TIMEOUT REGISTRY_PORT UPDATE_REF DEV_UPDATE_REF
 
 # Checks that run on this host leave no bytecode in the tree that tmt copies.
 export PYTHONDONTWRITEBYTECODE := 1
 
 .DEFAULT_GOAL := help
-.PHONY: dev dev-assistant release-key help colors image static-checks lint validate test-unit test-image publish installer rpm rpm-repo sources installer-sources pull-installer disk vm installer-vm ssh test test-plan update-builds test-update test-release test-guest clean
+.PHONY: dev dev-assistant release-key help colors image static-checks lint validate test-unit test-image publish installer sbom rpm rpm-repo sources installer-sources pull-installer disk vm installer-vm ssh test test-plan update-builds test-update test-release test-guest clean
 
 help: ## List targets
 	@awk -F ':.*## ' '/^[a-z-]+:.*## / { printf "  %-12s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -126,7 +129,7 @@ image: $(KEYS) ## Build the container image with its signed UKI
 	  --build-arg FEDORA_VERSION=$(FEDORA_VERSION) --build-arg IMAGE_VERSION=$(IMAGE_VERSION) \
 	  --build-arg IMAGE_REVISION=$(IMAGE_REVISION) \
 	  --build-arg LLAMA_VERSION=$(LLAMA_VERSION) --build-arg LLAMA_SHA256=$(LLAMA_SHA256) \
-	  --build-context desktop=$(DESKTOP_SRC)
+	  --build-context desktop=$(DESKTOP_SRC) --build-context licensing=licensing
 
 colors: ## Write the QML module Colors's values from the system's colors (image/rootfs/usr/share/colors/colors.toml)
 	python3 scripts/colors.py
@@ -158,13 +161,16 @@ installer: image ## Build the installer medium, which carries the image
 	  --build-context installer=$(INSTALLER_SRC) --build-context payload=$(BUILD)/payload
 	scripts/medium.sh
 
+sbom: image ## Write the image's software bill of materials to SBOM
+	scripts/sbom.py generate $(IMAGE) $(SBOM)
+
 rpm: ## Build the package third-party/RPM, offline, into RPMS/RPM
 	scripts/rpm-build.sh third-party/$(RPM) $(RPMS)/$(RPM)
 
 rpm-repo: ## Write the signed repository of RPMS/releases (a directory per tag) into the Pages site RPMS/pages
 	scripts/rpm-repo.sh $(RPMS)/releases $(RPMS)/pages/rpms
 
-sources: image ## Collect the image's copyleft source RPMs into SOURCES_DIR
+sources: image ## Collect the image's source RPMs into SOURCES_DIR
 	scripts/sources.py collect $(IMAGE) $(SOURCES_DIR) \
 	  $(if $(SOURCES_CACHE),--cache $(SOURCES_CACHE)) $(if $(SOURCES_PREVIOUS),--previous $(SOURCES_PREVIOUS))
 

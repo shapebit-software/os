@@ -82,7 +82,9 @@ class Voice:
 
 class Speaking:
     def __init__(self, voices):
-        sys.path.insert(0, os.environ.get("DICTATION_PYTHON", "/usr/lib64/dictation"))
+        # sherpa-onnx is the system's (python3-sherpa-onnx); `make run` has its own.
+        if "DICTATION_PYTHON" in os.environ:
+            sys.path.insert(0, os.environ["DICTATION_PYTHON"])
         self.voices = {model.stem: Voice(model) for model in sorted(voices.glob("*.onnx"))}
         self.last = "en" if "en" in self.voices else next(iter(self.voices))
         self.waiting = queue.Queue()

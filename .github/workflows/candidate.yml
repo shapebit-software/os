@@ -4,7 +4,7 @@
 # (os/installer:stable), update to the candidate, and test it: the path that
 # existing systems take. Only if every test passes does it write a draft release
 # of its notes, for the Release workflow. Its sources are collected as it is
-# built, to os/candidate:<version>-sources. The build has no cache, so that it picks
+# built, to os/candidate:<version>-sources, and its SBOM to -sbom. The build has no cache, so that it picks
 # up Fedora's updates; only the build job has the release keys, in the
 # environment "Signing", and only while it builds; a failed test job can be re-run on the same build (docs/Testing.md).
 # Actions artifacts, which anyone signed in to GitHub can download, hold test
@@ -125,6 +125,13 @@ jobs:
           stable=$(skopeo inspect "docker://$REPOSITORY:stable" --format '{{index .Labels "org.opencontainers.image.version"}}' || true)
           make -o image sources ${stable:+SOURCES_PREVIOUS=$REPOSITORY:$stable-sources}
           scripts/sources.py push build/sources "$CANDIDATES:$IMAGE_VERSION-sources" "ShapeBit $IMAGE_VERSION: sources"
+
+      # What the image is made of, in SPDX (docs/License.md). Release publishes it
+      # with the image.
+      - name: Write and push the image's SBOM
+        run: |
+          make -o image sbom
+          scripts/sbom.py push build/sbom.spdx.json "$CANDIDATES:$IMAGE_VERSION-sbom" "ShapeBit $IMAGE_VERSION: SBOM"
 
   # Install stable without the UI, update to the candidate through the update
   # registry, run the system checks on it, then update again and roll back.

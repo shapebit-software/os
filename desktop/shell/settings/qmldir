@@ -4,6 +4,7 @@ AppsPage AppsPage.qml
 AssistantModelsPage AssistantModelsPage.qml
 AssistantSkillsPage AssistantSkillsPage.qml
 DownloadsPage DownloadsPage.qml
+LicensesPage LicensesPage.qml
 ConnectionsPage ConnectionsPage.qml
 DisplayArrangement DisplayArrangement.qml
 ImagePicker ImagePicker.qml

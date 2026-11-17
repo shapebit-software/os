@@ -82,11 +82,12 @@ def listing():
 
 
 def notice(extra):
-    """One line for each work in it: who made it, its license, any changes, and where it is from."""
+    """For each work in it: who made it, its license (an SPDX ID) and a link to it,
+    any changes, and where it is from."""
     return "".join(
         f"{credit['work']} by {credit['by']}, under {credit['license']}"
         + (f", {credit['changes']}" if "changes" in credit else "")
-        + f": {credit['url']}\n"
+        + f": {credit['url']}\nLicense: https://spdx.org/licenses/{credit['license']}.html\n"
         for credit in extra["credits"]
     )
 

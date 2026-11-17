@@ -1,0 +1,86 @@
+{
+  "rpms": [
+    {
+      "package": "exiv2-libs",
+      "files": [
+        {
+          "archive": "exiv2-*.tar.gz",
+          "member": "exiv2-*/doc/COPYING-XMPSDK",
+          "to": "exiv2-libs/COPYING-XMPSDK"
+        }
+      ]
+    },
+    {
+      "package": "glx-utils",
+      "files": [
+        {
+          "archive": "mesa-demos-*.tar.xz",
+          "member": "mesa-demos-*/src/xdemos/glxgears.c",
+          "to": "glx-utils/NOTICE-glxgears",
+          "header": true
+        },
+        {
+          "archive": "mesa-demos-*.tar.xz",
+          "member": "mesa-demos-*/src/xdemos/glxinfo.c",
+          "to": "glx-utils/NOTICE-glxinfo",
+          "header": true
+        }
+      ]
+    },
+    {
+      "package": "mesa-libGLU",
+      "files": [
+        {
+          "archive": "glu-*.tar.xz",
+          "member": "glu-*/src/libtess/tess.c",
+          "to": "mesa-libGLU/NOTICE-SGI",
+          "header": true
+        }
+      ]
+    },
+    {
+      "package": "xcb-util-keysyms",
+      "files": [
+        {
+          "archive": "xcb-util-keysyms-*.tar.xz",
+          "member": "xcb-util-keysyms-*/COPYING",
+          "to": "xcb-util-keysyms/COPYING"
+        }
+      ]
+    },
+    {
+      "package": "xorg-x11-server-Xwayland",
+      "files": [
+        {
+          "archive": "xwayland-*.tar.xz",
+          "member": "xwayland-*/COPYING",
+          "to": "xorg-x11-server-Xwayland/COPYING"
+        }
+      ]
+    },
+    {
+      "package": "sound-theme-freedesktop",
+      "files": [
+        {
+          "archive": "sound-theme-freedesktop-*.tar.bz2",
+          "member": "sound-theme-freedesktop-*/CREDITS",
+          "to": "sound-theme-freedesktop/CREDITS"
+        }
+      ],
+      "note": "Upstream COPYING is empty; CREDITS contains the per-sound authors and license assignments."
+    },
+    {
+      "package": "malcontent-libs",
+      "files": [
+        {
+          "archive": "malcontent-*.tar.xz",
+          "member": "malcontent-*/LICENSES/LGPL-2.1-or-later.txt",
+          "to": "malcontent-libs/LICENSES/LGPL-2.1-or-later.txt"
+        }
+      ]
+    }
+  ],
+  "documents": [
+    "/usr/share/doc/libglvnd/README.md"
+  ]
+}

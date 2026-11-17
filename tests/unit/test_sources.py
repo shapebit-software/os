@@ -12,33 +12,13 @@ sources = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sources)
 
 
-def test_sources_do_not_depend_on_license_labels():
-    # All three were omitted from published images by the old license matcher.
-    lines = "\n".join([
-        "lzo-2.10-17.fc45.src.rpm\tgpl-2.0-or-later",
-        "clevis-pin-tpm2-0.5.5-1.fc45.src.rpm\tMIT AND EUPL-1.2",
-        "fdk-aac-free-2.0.3-3.fc45.src.rpm\tFDK-AAC",
-        "unknown-1.src.rpm\tUnrecognized-License",
-    ])
-    assert sources.source_rpms(lines) == [
-        "clevis-pin-tpm2-0.5.5-1.fc45.src.rpm", "fdk-aac-free-2.0.3-3.fc45.src.rpm",
-        "lzo-2.10-17.fc45.src.rpm", "unknown-1.src.rpm",
+def test_every_installed_package_has_its_sources_whatever_its_license():
+    # lzo, clevis-pin-tpm2 and fdk-aac-free were left out by the old copyleft
+    # matcher, which read the license labels.
+    lines = "lzo-2.10-17.fc45.src.rpm\nclevis-pin-tpm2-0.5.5-1.fc45.src.rpm\nfdk-aac-free-2.0.3-3.fc45.src.rpm\n"
+    assert sources.source_rpms(lines + "lzo-2.10-17.fc45.src.rpm\n(none)\n") == [
+        "clevis-pin-tpm2-0.5.5-1.fc45.src.rpm", "fdk-aac-free-2.0.3-3.fc45.src.rpm", "lzo-2.10-17.fc45.src.rpm",
     ]
-
-
-def test_a_plain_rpm_inventory_is_deduplicated():
-    assert sources.source_rpms("b.src.rpm\na.src.rpm\nb.src.rpm\n(none)\n") == ["a.src.rpm", "b.src.rpm"]
-
-
-def test_all_packages_have_sources_even_when_their_labels_are_permissive():
-    lines = "\n".join([
-        "glibc-2.42-1.fc45.src.rpm\tLGPL-2.1-or-later",
-        "fonts-1-1.fc45.src.rpm\tOFL-1.1",
-        "gcc-16-1.fc45.src.rpm\tMIT",
-        "gcc-16-1.fc45.src.rpm\tGPL-3.0-or-later",
-        "(none)\tpubkey",
-    ])  # fmt: skip
-    assert sources.source_rpms(lines) == ["fonts-1-1.fc45.src.rpm", "gcc-16-1.fc45.src.rpm", "glibc-2.42-1.fc45.src.rpm"]
 
 
 def test_the_tar_is_the_same_for_the_same_files(tmp_path):

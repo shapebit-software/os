@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""The sources that the GPL and its kin require next to each published binary:
-the source RPM of every installed RPM whose license names a copyleft license
-(docs/License.md). Reads the packages from IMAGE, and downloads their source
-RPMs in a container of IMAGE, with dnf from Fedora's repositories and the
-Hyprland COPR (image/hyprland.repo), or from Fedora's Koji for a version that
-the repositories no longer have. Fails if any is missing. COPR deletes old
+"""The source RPMs next to each published binary: that of every installed RPM,
+whatever its license label says, as labels can be incomplete or use unfamiliar
+names (docs/License.md). Reads the packages from IMAGE, and downloads their
+source RPMs in a container of IMAGE, with dnf from Fedora's repositories, the
+Hyprland COPR (image/hyprland.repo) and ShapeBit's own (image/third-party.repo), or
+from Fedora's Koji for a version that the repositories no longer have. Fails if any is missing. COPR deletes old
 builds, so this runs right after a build, while the repositories still match.
 
 Usage: sources.py collect IMAGE DIR [--cache DIR] [--previous REF]
@@ -22,17 +22,13 @@ import importlib.util
 import json
 import os
 import pathlib
-import re
 import shlex
 import subprocess
 import sys
 import tarfile
-import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TYPE = "application/vnd.shapebit.sources.v1"
-# SPDX identifiers, and Fedora's older names such as GPLv2+.
-COPYLEFT = re.compile(r"(?<![A-Za-z0-9])(?:AGPL|LGPL|GPL|MPL|EPL|CDDL)")
 
 spec = importlib.util.spec_from_file_location("artifact", ROOT / "scripts/artifact.py")
 artifact = importlib.util.module_from_spec(spec)
@@ -44,7 +40,7 @@ DOWNLOAD = r"""
 set -euo pipefail
 cd /out
 mapfile -t wanted <.wanted
-dnf -q download --enablerepo='*-source' --skip-unavailable --destdir /out "${wanted[@]/%/.src}" || true
+dnf -q -y download --enablerepo='*-source' --skip-unavailable --destdir /out "${wanted[@]/%/.src}" || true
 missing=()
 for nvr in "${wanted[@]}"; do [[ -f $nvr.src.rpm ]] || missing+=("$nvr"); done
 if ((${#missing[@]})); then
@@ -60,23 +56,13 @@ def engine():
     return shlex.split(os.environ["ENGINE"])
 
 
-def copyleft(licenses):
-    return any(COPYLEFT.search(license) for license in licenses)
-
-
 def source_rpms(lines):
-    """Which source RPMs to publish, from `rpm -qa` lines of SOURCERPM and LICENSE:
-    those of which any binary package names a copyleft license."""
-    licenses = {}
-    for line in lines.splitlines():
-        source, license = line.split("\t", 1)
-        if source != "(none)":
-            licenses.setdefault(source, set()).add(license)
-    return sorted(source for source, names in licenses.items() if copyleft(names))
+    """Every distinct source RPM, from `rpm -qa` lines of SOURCERPM; public keys have none."""
+    return sorted(set(lines.split()) - {"(none)"})
 
 
 def image_source_rpms(image):
-    query = "%{SOURCERPM}\t%{LICENSE}\n"
+    query = "%{SOURCERPM}\n"
     lines = subprocess.run(
         [*engine(), "run", "--rm", "--network", "none", "--entrypoint", "rpm", image, "-qa", "--qf", query],
         check=True, capture_output=True, text=True,
@@ -90,6 +76,8 @@ def download(image, directory, names):
         [*engine(), "run", "--rm", "-i", "-e", f"OWNER={os.getuid()}:{os.getgid()}",
          "-v", f"{directory.resolve()}:/out:z",
          "-v", f"{ROOT / 'image/hyprland.repo'}:/etc/yum.repos.d/hyprland.repo:ro,z",
+         "-v", f"{ROOT / 'image/third-party.repo'}:/etc/yum.repos.d/third-party.repo:ro,z",
+         "-v", f"{ROOT / 'image/third-party.asc'}:/etc/pki/rpm-gpg/third-party.asc:ro,z",
          "--entrypoint", "bash", image, "-s"],
         input=DOWNLOAD, text=True, check=True,
     )  # fmt: skip
@@ -133,23 +121,10 @@ def collect(image, directory, cache=None, previous=None):
 
 
 def push(directory, ref, title):
-    directory = pathlib.Path(directory)
-    files = sorted(str(path) for path in directory.glob("*.src.rpm"))
+    files = sorted(str(path) for path in pathlib.Path(directory).glob("*.src.rpm"))
     if not files:
         sys.exit(f"error: no source RPMs in {directory}")
-    with tempfile.TemporaryDirectory(dir=directory.parent) as work:
-        layout = pathlib.Path(work) / "layout"
-        artifact.pack(layout, TYPE, title, files)
-        subprocess.run(["skopeo", "copy", "-q", "--preserve-digests", f"oci:{layout}", f"docker://{ref}"], check=True)
-
-
-def pull(ref, directory):
-    directory = pathlib.Path(directory)
-    directory.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=directory.parent) as work:
-        layout = pathlib.Path(work) / "layout"
-        subprocess.run(["skopeo", "copy", "-q", f"docker://{ref}", f"oci:{layout}"], check=True)
-        artifact.unpack(layout, directory)
+    artifact.push(ref, TYPE, title, files)
 
 
 def write_tar(directory, out):
@@ -187,7 +162,7 @@ def main(argv):
     elif args.command == "push":
         push(args.directory, args.ref, args.title)
     elif args.command == "pull":
-        pull(args.ref, args.directory)
+        artifact.pull(args.ref, args.directory)
     else:
         write_tar(args.directory, args.out)
 

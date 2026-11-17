@@ -1,6 +1,7 @@
 # The Fedora packages that the desktop runs on, one per line; the OS image
 # installs them (Containerfile). Hyprland, its dialogs, hypridle,
-# xdg-desktop-portal-hyprland, and Quickshell come from a third-party COPR, which the image enables for this.
+# xdg-desktop-portal-hyprland, and Quickshell come from a third-party COPR, which the image enables for this,
+# and python3-sherpa-onnx from ShapeBit's own repository (third-party/README.md).
 
 # The compositor, the shell's runtime, and the session.
 hyprland
@@ -26,7 +27,8 @@ ffmpeg-free
 # reads Piper voices only from phonemes, and nothing else in the image makes them.
 espeak-ng
 # ONNX Runtime for Smart Turn, which hears when the person is done speaking in
-# voice mode (dictation/dictate-engine); sherpa-onnx's own has no Python interface.
+# voice mode (dictation/dictate-engine); sherpa-onnx links the same library
+# but has no Python interface to it.
 python3-onnxruntime
 # The sound theme: the assistant's soft sound when it takes a spoken request
 # (shell/services/Assistant.qml). Other packages bring it now; it is named so it stays.
@@ -48,14 +50,13 @@ rtkit
 # Dictation (dictation/dictate): pw-record hears the microphone. The text goes
 # in as the input method, which needs no package; wtype types it only when the
 # person asks, for applications that do not say if they have a text field.
-# sherpa-onnx is not Fedora's: the image fetches it (Containerfile), and
-# Parakeet, which it runs, is downloaded (extras/extra). It runs on Fedora's
-# NumPy and ALSA library, rather than the copies that wheels bundle, so that
-# their sources are those of the RPMs.
+# sherpa-onnx, which writes speech down, is not Fedora's: ShapeBit builds it
+# against Fedora's ONNX Runtime (third-party/sherpa-onnx), and Parakeet, which it
+# runs, is downloaded (extras/extra). dictate-engine uses Fedora's NumPy.
 pipewire-utils
 wtype
+python3-sherpa-onnx
 python3-numpy
-alsa-lib
 # Secrets (the Secret Service and its portal), unlocked by the login password:
 # SDDM's PAM configuration calls pam_oo7 when it is installed.
 oo7-daemon

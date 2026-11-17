@@ -7,11 +7,29 @@ ShapeBit OS is source-available. ShapeBit-authored operating system software is 
 
 Fedora, the Linux kernel, and other third-party components remain governed by their own licenses.
 
+## Installed materials
+
+Settings > Licenses lists the component materials under `/usr/share/licenses/`
+and displays their full text locally. RPM-owned notices elsewhere, such as in
+Python package metadata, are linked from that directory rather than moved.
+ShapeBit's own license is installed under `/usr/share/licenses/shapebit/`.
+
+The license texts of the optional models are part of the system, so they are
+there before a model is downloaded.
+
+Fixed texts are kept in the repository; the image build adds the notices that
+some Fedora packages lack, from their exact source RPMs. Rules, code and
+maintenance instructions are in
+[`licensing/`](https://github.com/shapebit-software/os/tree/main/licensing).
+This collection does not replace corresponding-source publication below or
+component-specific decisions about license compatibility and distribution.
+
 ## Sources
 
 Each version's sources are published next to it, for as long as that version
-can be downloaded: the source RPM of every package in it under a copyleft
-license, such as the GPL, the LGPL, or the MPL.
+can be downloaded. For new builds, collection includes the source RPM of every
+installed package that has one. Collection does not depend on package license
+labels, which may omit embedded components or use unfamiliar identifiers.
 
 - **The system**, `ghcr.io/shapebit-software/os:<version>`: its sources are
   `ghcr.io/shapebit-software/os:<version>-sources`, an OCI artifact with one
@@ -31,6 +49,24 @@ license, such as the GPL, the LGPL, or the MPL.
   beside it.
 
 ShapeBit's own code is in its [repositories on GitHub](https://github.com/shapebit-software).
+
+## Software bill of materials
+
+Each released version of the system has a software bill of materials (SBOM)
+next to it: `ghcr.io/shapebit-software/os:<version>-sbom`, one SPDX 2.3 JSON
+file that lists every component with its version and license. Releases from
+before November 2026 have none. To download it:
+
+```sh
+podman artifact pull ghcr.io/shapebit-software/os:<version>-sbom
+podman artifact extract ghcr.io/shapebit-software/os:<version>-sbom <directory>
+```
+
+It lists the RPMs and Python packages that the image has, found by
+[syft](https://github.com/anchore/syft), and the code each RPM declares it
+bundles; llama.cpp, which ShapeBit pins; ShapeBit itself; and the models that
+the system downloads on request, as optional components.
+`make sbom` writes it for a local image.
 
 ## Documentation
 
