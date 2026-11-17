@@ -40,6 +40,16 @@ BuildRequires:  python3-devel
 BuildRequires:  python3-setuptools
 BuildRequires:  python3-wheel
 BuildRequires:  unzip
+
+%global _description %{expand:
+sherpa-onnx runs speech recognition, speech synthesis, voice activity detection
+and related models locally with ONNX Runtime.}
+
+%description %_description
+
+%package -n python3-sherpa-onnx
+Summary:        %{summary}
+# What it bundles, so that the SBOM lists it (scripts/release/sbom.py).
 Provides:       bundled(kaldi-native-fbank) = 1.22.4
 Provides:       bundled(kissfft) = 0^20250528gitfebd4ca
 Provides:       bundled(utf8proc) = 2.12.0
@@ -51,15 +61,6 @@ Provides:       bundled(pybind11) = 3.0.0
 Provides:       bundled(eigen3) = 5.0.1
 Provides:       bundled(openfst) = 1.8.5
 Provides:       bundled(kaldifst) = 1.8.0
-
-%global _description %{expand:
-sherpa-onnx runs speech recognition, speech synthesis, voice activity detection
-and related models locally with ONNX Runtime.}
-
-%description %_description
-
-%package -n python3-sherpa-onnx
-Summary:        %{summary}
 
 %description -n python3-sherpa-onnx %_description
 

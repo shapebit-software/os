@@ -266,7 +266,7 @@ def main(argv):
     command.add_argument("title")
     args = parser.parse_args(argv)
     if args.command == "generate":
-        generate(args.image, args.file)
+        generate(args.image, args.directory)
     else:
         artifact.push(args.ref, TYPE, args.title, [pathlib.Path(args.directory) / name for name in FILES.values()])
 

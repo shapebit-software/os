@@ -110,6 +110,8 @@ def test_sherpa_is_shapebits_build_on_fedoras_onnx_runtime(sh, host):
     assert not [f for f in package if "/libonnxruntime" in f]
     for library in ("kaldi-native-fbank", "kissfft", "utf8proc", "openfst", "hclust-cpp", "eigen"):
         assert host.file(f"/usr/share/licenses/python3-sherpa-onnx/{library}").is_directory, library
+    # And it declares them, for the SBOM.
+    assert "bundled(kissfft)" in sh("rpm -q --provides python3-sherpa-onnx")
 
 
 def test_extras_can_be_downloaded_by_administrators(host, sh):
@@ -154,7 +156,8 @@ def test_llama_server_is_shapebits_package_with_its_own_libraries(sh, host):
     assert "version: " in sh("/usr/libexec/llama/llama-server --version 2>&1")
     assert "not found" not in sh("ldd /usr/libexec/llama/llama-server")
     assert host.file("/usr/libexec/llama/libggml-cpu-haswell.so").size > 0
-    assert sh("rpm -qf --qf '%{NAME}\\n' /usr/libexec/llama/llama-server /usr/libexec/llama/libggml-cpu-haswell.so") == "llama-server\nllama-server"
+    assert sh("rpm -qf --qf '%{NAME}\\n' /usr/libexec/llama/llama-server /usr/libexec/llama/libggml-cpu-haswell.so").split() == [
+        "llama-server", "llama-server"]
     assert "libggml" not in sh("rpm -q --provides llama-server")
     for notice in ("LICENSE", "LICENSE-jsonhpp", "LICENSE-cpp-httplib", "LICENSE-xxhash"):
         assert host.file(f"/usr/share/licenses/llama-server/{notice}").size > 0

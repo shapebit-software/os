@@ -148,3 +148,13 @@ def test_os_release_is_parsed():
 def test_each_credit_has_an_spdx_license_id():
     # A single ID: the notice links to its page on spdx.org.
     assert all(re.fullmatch(r"[A-Za-z0-9.+-]+", c["license"]) for e in EXTRAS for c in e["credits"])
+
+
+def test_the_command_line_names_the_image_and_the_directory(monkeypatch):
+    calls = []
+    monkeypatch.setattr(sbom, "generate", lambda image, directory: calls.append(("generate", image, directory)))
+    monkeypatch.setattr(sbom.artifact, "push", lambda ref, kind, title, files: calls.append(("push", ref, files)))
+    sbom.main(["generate", "localhost/os:dev", "build/sbom"])
+    sbom.main(["push", "build/sbom", "ghcr.io/x/os:1-sbom", "SBOM"])
+    assert calls == [("generate", "localhost/os:dev", "build/sbom"), ("push", "ghcr.io/x/os:1-sbom", [
+        sbom.pathlib.Path("build/sbom/sbom.spdx.json"), sbom.pathlib.Path("build/sbom/sbom.cdx.json")])]

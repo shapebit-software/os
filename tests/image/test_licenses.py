@@ -13,7 +13,6 @@ import pytest
 
 @pytest.mark.parametrize("path,notice", [
     ("shapebit/LICENSE", "Required Notice: Copyright Marcin Syngajewski"),
-    ("python3-sherpa-onnx/LICENSE", "Apache License"),
     ("python3-sherpa-onnx/kissfft/COPYING", "Mark Borgerding"),
     ("llama-server/LICENSE-llamafile", "Copyright 2024 Mozilla Foundation"),
     ("exiv2-libs/COPYING", "GNU GENERAL PUBLIC LICENSE"),
@@ -63,6 +62,9 @@ def test_settings_can_read_shared_and_collected_notices(sh):
     assert {"shapebit", "llama-server", "python3-sherpa-onnx", "parakeet", "gemma-4-e2b", "python3-onnxruntime"} <= components.keys()
     for component in components.values():
         assert all(not f["name"].startswith(".") for f in component["files"])
+    # sherpa-onnx's own license is in its Python metadata, which the RPM database knows.
+    sherpa = json.loads(sh("/usr/libexec/desktop/licenses read python3-sherpa-onnx/LICENSE"))
+    assert "Apache License" in sherpa["text"]
     text = json.loads(sh("/usr/libexec/desktop/licenses read python3-onnxruntime/ThirdPartyNotices.txt"))
     assert "THIRD PARTY SOFTWARE NOTICES" in text["text"]
     readme = json.loads(sh("/usr/libexec/desktop/licenses read libglvnd/README.md"))
@@ -96,6 +98,8 @@ NOTHING_TO_LICENSE = {
 # Their license text is not in their own source package, so no rule of
 # image/license-notices.py can take it; reported to Fedora (docs/License.md).
 REPORTED = {"ca-certificates", "microcode_ctl", "shim-x64"}
+# ShapeBit's own packages: their license is ShapeBit's, in /usr/share/licenses/shapebit.
+SHAPEBITS = {"desktop"}
 
 
 def test_every_installed_package_has_its_license_text():
@@ -109,4 +113,5 @@ def test_every_installed_package_has_its_license_text():
         name, source = line.split("\t")
         sources.setdefault(source, set()).add(name)
     without = {name for names in sources.values() if not names & listed for name in names} - {"gpg-pubkey"}
-    assert without - NOTHING_TO_LICENSE - REPORTED == set()
+    assert "shapebit" in listed
+    assert without - NOTHING_TO_LICENSE - REPORTED - SHAPEBITS == set()

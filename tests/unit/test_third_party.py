@@ -45,3 +45,13 @@ def test_development_container_runs_the_version_the_image_builds():
     assert re.search(r"^%global ver \d+\.\d+\.\d+$", spec, re.M)
     script = (ROOT / "scripts/build/dev-assistant.sh").read_text()
     assert "sed -n 's/^%global ver //p' third-party/sherpa-onnx/sherpa-onnx.spec" in script
+
+
+@pytest.mark.parametrize("package", PACKAGES, ids=lambda p: p.name)
+def test_bundled_code_is_declared_by_a_package_that_is_built(package):
+    # Tags before the first %package belong to the main package, which is built
+    # only if it has its own %files; otherwise they reach no RPM.
+    spec = (package / f"{package.name}.spec").read_text()
+    main = spec.split("\n%package", 1)[0]
+    if re.search(r"^%files\s*$", spec, re.M) is None:
+        assert "bundled(" not in main

@@ -125,9 +125,10 @@ RUN --mount=type=bind,source=license-notices.py,target=/run/license-notices.py \
 
 FROM system
 # ShapeBit's own packages need nothing that the image lacks, so rpm installs
-# them without a repository.
+# them without a repository. They are built in this build, so they carry no
+# signature, which the base image's rpm otherwise asks for.
 RUN --mount=type=bind,from=desktop-package,source=/out,target=/run/packages \
-    rpm -i /run/packages/*.rpm
+    rpm -i --nosignature /run/packages/*.rpm
 COPY --from=licenses /out/ /
 # The desktop's settings defaults (window-buttons.gschema.override) apply
 # once the schemas are compiled again.
