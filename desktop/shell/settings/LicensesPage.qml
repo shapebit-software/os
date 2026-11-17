@@ -1,5 +1,5 @@
 // Settings > Licenses: each component's license texts under /usr/share/licenses,
-// the optional models' included, read through licensing/read.py and shown verbatim.
+// the optional models' included, read through licenses/licenses and shown verbatim.
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
@@ -19,7 +19,7 @@ Column {
     signal navigated()
     signal sourcesRequested()
     readonly property string helper: Quickshell.env("DESKTOP_SHELL")
-        ? `${Quickshell.env("DESKTOP_SHELL")}/../../licensing/read.py`
+        ? `${Quickshell.env("DESKTOP_SHELL")}/../licenses/licenses`
         : "/usr/libexec/desktop/licenses"
     readonly property string query: search.text.toLowerCase()
     readonly property var shown: (opened ? opened.files : components).filter(c =>

@@ -1,4 +1,5 @@
-"""License texts must be complete, and collection must keep upstream notices intact."""
+"""License texts must be complete, collection must keep upstream notices intact,
+and Settings > Licenses must read only license texts."""
 
 import gzip
 import importlib.machinery
@@ -24,8 +25,8 @@ def module(name, path):
     return result
 
 
-collector = module("license_collector", "licensing/collect.py")
-reader = module("license_reader", "licensing/read.py")
+collector = module("license_notices", "image/license-notices.py")
+reader = module("license_reader", "desktop/licenses/licenses")
 
 
 def archive(files):
@@ -70,16 +71,11 @@ def test_source_rpm_accepts_cpio_dot_prefix(monkeypatch):
     assert collector.rpm_member(pathlib.Path("example.src.rpm"), "example-*.tar.gz") == b"source archive"
 
 
-def test_rpm_notices_are_linked_without_moving_package_files(tmp_path, monkeypatch):
-    upstream = tmp_path / "README.md"
-    upstream.write_text("Embedded copyright and license")
-    output = tmp_path / "licenses"
-    monkeypatch.setattr(collector.subprocess, "check_output", lambda *a, **kw: f"example\t{upstream}\td\n")
-    collector.rpm_links(output, [str(upstream)])
-    link = output / "example/README.md"
-    assert link.is_symlink()
-    assert link.read_text() == upstream.read_text()
-    assert upstream.is_file()
+def test_each_rule_names_a_package_an_archive_and_a_place():
+    assert collector.RULES
+    for package, archive, member, to, only_header in collector.RULES:
+        assert archive and member.count("/") >= 1 and isinstance(only_header, bool)
+        assert to.startswith(package + "/") and ".." not in to
 
 
 def test_header_preserves_copyright_terms_and_disclaimer():
@@ -93,6 +89,7 @@ def test_header_preserves_copyright_terms_and_disclaimer():
 
 def test_reader_lists_shared_notices_and_reads_plain_text(tmp_path, monkeypatch):
     monkeypatch.setattr(reader, "ROOT", tmp_path)
+    monkeypatch.setattr(reader, "FROM_RPMS", False)
     component = tmp_path / "example"
     component.mkdir()
     (component / "NOTICE").write_text("Copyright Example\n<verbatim text>\n")
@@ -108,9 +105,42 @@ def test_reader_lists_shared_notices_and_reads_plain_text(tmp_path, monkeypatch)
     ]}]
     assert reader.read("example/NOTICE") == "Copyright Example\n<verbatim text>\n"
     assert reader.read("example/LICENSE") == "Shared full license"
-    for path in ["../secret", "/etc/passwd", "example/.hidden"]:
+    for path in ["../secret", "/etc/passwd", "example/.hidden", "example/broken"]:
         with pytest.raises(ValueError):
             reader.read(path)
+
+
+def test_reader_finds_the_texts_rpms_keep_elsewhere(tmp_path, monkeypatch):
+    licenses, share = tmp_path / "licenses", tmp_path / "share"
+    (licenses / "pip").mkdir(parents=True)
+    (licenses / "pip/COPYING").write_text("in the licenses folder")
+    share.mkdir()
+    files = {"site-packages/pip/LICENSE.txt": "pip's license", "share/doc/libX/COPYING": "X license",
+             "share/doc/libX/README": "not a license", "share/doc/glvnd/README.md": "glvnd license",
+             "share/doc/libX/empty-LICENSE": ""}
+    for name, text in files.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text(text)
+    lines = "\n".join([
+        f"pip\t{tmp_path}/site-packages/pip/LICENSE.txt\tl",
+        f"libX\t{tmp_path}/share/doc/libX/COPYING\td",
+        f"libX\t{tmp_path}/share/doc/libX/README\td",
+        f"libX\t{tmp_path}/share/doc/libX/empty-LICENSE\tl",
+        f"glvnd\t{tmp_path}/share/doc/glvnd/README.md\td",
+        "pip\t/usr/share/licenses/pip/COPYING\tl",
+    ])
+    # This test's share/ stands in for /usr/share/, where texts count by their name.
+    monkeypatch.setattr(reader, "SHARE", f"{tmp_path}/share/")
+    monkeypatch.setattr(reader, "DOCUMENTS", {f"{tmp_path}/share/doc/glvnd/README.md"})
+    assert reader.rpm_texts(lines) == {"pip": [tmp_path / "site-packages/pip/LICENSE.txt"],
+                                       "libX": [tmp_path / "share/doc/libX/COPYING"],
+                                       "glvnd": [tmp_path / "share/doc/glvnd/README.md"]}
+    monkeypatch.setattr(reader, "ROOT", licenses)
+    monkeypatch.setattr(reader, "FROM_RPMS", True)
+    monkeypatch.setattr(reader.subprocess, "run", lambda *a, **kw: type("R", (), {"stdout": lines})())
+    assert {f["path"] for c in reader.listing() for f in c["files"]} == {
+        "pip/COPYING", "pip/LICENSE.txt", "libX/COPYING", "glvnd/README.md"}
+    assert reader.read("pip/LICENSE.txt") == "pip's license"
 
 
 def test_reader_handles_compressed_legacy_notices(tmp_path, monkeypatch):

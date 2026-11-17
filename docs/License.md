@@ -9,20 +9,38 @@ Fedora, the Linux kernel, and other third-party components remain governed by th
 
 ## Installed materials
 
-Settings > Licenses lists the component materials under `/usr/share/licenses/`
-and displays their full text locally. RPM-owned notices elsewhere, such as in
-Python package metadata, are linked from that directory rather than moved.
-ShapeBit's own license is installed under `/usr/share/licenses/shapebit/`.
+Settings > Licenses lists each component's license texts and shows them in
+full, locally: those under `/usr/share/licenses/`, and those the RPM database
+knows elsewhere, such as a Python package's in its metadata. ShapeBit's own
+license is installed under `/usr/share/licenses/shapebit/`.
 
 The license texts of the optional models are part of the system, so they are
 there before a model is downloaded.
 
-Fixed texts are kept in the repository; the image build adds the notices that
-some Fedora packages lack, from their exact source RPMs. Rules, code and
-maintenance instructions are in
-[`licensing/`](https://github.com/shapebit-software/os/tree/main/licensing).
-This collection does not replace corresponding-source publication below or
-component-specific decisions about license compatibility and distribution.
+Some Fedora packages leave out a notice that their license asks to keep; the
+image build adds it from the package's exact source RPM. This does not replace
+corresponding-source publication below or component-specific decisions about
+license compatibility and distribution.
+
+### Maintaining
+
+A dependency's license texts come in the same change as the dependency:
+
+- **Software that Fedora lacks** is packaged in
+  [`third-party/`](https://github.com/shapebit-software/os/tree/main/third-party),
+  with each bundled library's texts as `%license` and its
+  `Provides: bundled(...)`; the RPM then brings its texts, sources and SBOM
+  entries like any other.
+- **An extra** has its texts in `desktop/extras/licenses/<id>/`, listed in its
+  `licenses` in `desktop/extras/extras.json`, including `<id>/NOTICE`, which
+  `extra` writes from its `credits`; each credit's `license` is an SPDX ID.
+- **A Fedora package that lacks a notice** gets a rule in
+  `image/license-notices.py`; the rule goes when Fedora ships the notice.
+- **A fixed text**, such as the font's, is committed under
+  `image/rootfs/usr/share/licenses/<component>/`, unchanged from upstream.
+
+Unit tests check the committed texts and the collector; image tests check the
+installed notices and Settings > Licenses.
 
 ## Sources
 

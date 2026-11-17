@@ -1,25 +1,38 @@
 #!/usr/bin/python3
-"""Collect the notices that installed RPMs lack, from their exact source RPMs,
-and link RPM-owned license files kept outside /usr/share/licenses into it.
+"""The license notices that some installed Fedora RPMs lack, taken from their
+exact source RPMs into DESTDIR/usr/share/licenses/<package>/ (docs/License.md).
 
-Fixed license texts are committed under image/rootfs/usr/share/licenses and
-desktop/extras/licenses; this handles only what depends on the installed
-packages. Nothing from an archive is extracted onto the
-filesystem. Usage:
-  collect.py collect RULES DESTDIR CACHE
+Shipping a component's notices is a condition of its license; these packages
+leave some out. Each rule names the binary package, the archive in its source
+RPM, the member in that archive, and where the notice goes; a notice at the
+start of a source file takes only that header. A wildcard matches one path
+component, and exactly one member must match, or the build fails. Nothing from
+an archive is extracted onto the filesystem. When Fedora ships a notice itself,
+its rule goes. Runs in the image build; source RPMs stay in CACHE.
+Usage: license-notices.py DESTDIR CACHE
 """
 
 import fnmatch
-import hashlib
 import io
-import json
 import pathlib
-import re
 import subprocess
 import sys
 import tarfile
 import urllib.request
 import zipfile
+
+# (package, archive in its source RPM, member, destination, header only)
+RULES = [
+    ('exiv2-libs', 'exiv2-*.tar.gz', 'exiv2-*/doc/COPYING-XMPSDK', 'exiv2-libs/COPYING-XMPSDK', False),
+    ('glx-utils', 'mesa-demos-*.tar.xz', 'mesa-demos-*/src/xdemos/glxgears.c', 'glx-utils/NOTICE-glxgears', True),
+    ('glx-utils', 'mesa-demos-*.tar.xz', 'mesa-demos-*/src/xdemos/glxinfo.c', 'glx-utils/NOTICE-glxinfo', True),
+    ('mesa-libGLU', 'glu-*.tar.xz', 'glu-*/src/libtess/tess.c', 'mesa-libGLU/NOTICE-SGI', True),
+    ('xcb-util-keysyms', 'xcb-util-keysyms-*.tar.xz', 'xcb-util-keysyms-*/COPYING', 'xcb-util-keysyms/COPYING', False),
+    ('xorg-x11-server-Xwayland', 'xwayland-*.tar.xz', 'xwayland-*/COPYING', 'xorg-x11-server-Xwayland/COPYING', False),
+    # Upstream COPYING is empty; CREDITS contains the per-sound authors and license assignments.
+    ('sound-theme-freedesktop', 'sound-theme-freedesktop-*.tar.bz2', 'sound-theme-freedesktop-*/CREDITS', 'sound-theme-freedesktop/CREDITS', False),
+    ('malcontent-libs', 'malcontent-*.tar.xz', 'malcontent-*/LICENSES/LGPL-2.1-or-later.txt', 'malcontent-libs/LICENSES/LGPL-2.1-or-later.txt', False),
+]
 
 
 def place(root, name, data):
@@ -102,51 +115,17 @@ def rpm_member(path, pattern):
     return subprocess.check_output(["cpio", "-i", "--to-stdout", "--quiet", matches[0]], input=data)
 
 
-def rpm_links(root, documents):
-    """Link license files from outside /usr/share/licenses without moving them:
-    those RPM marks as %license, those named like one under /usr/share (many
-    packages, such as the X11 libraries, ship theirs as plain documents), and
-    the listed documents that hold license text under another name."""
-    query = "[%{=NAME}\t%{FILENAMES}\t%{FILEFLAGS:fflags}\n]"
-    for line in subprocess.check_output(["rpm", "-qa", "--qf", query], text=True).splitlines():
-        package, name, flags = line.split("\t")
-        source = pathlib.Path(name)
-        if name.startswith("/usr/share/licenses/"):
-            continue
-        text_suffix = source.suffix.lower() in {"", ".txt", ".md", ".rst", ".html", ".gz", ".bz2", ".xz",
-                                               ".gpl", ".lgpl", ".bsd", ".mit", ".apache", ".ofl", ".mpl", ".ucd"}
-        document = (name.startswith("/usr/share/") and text_suffix and re.fullmatch(
-            r"(?:.*[-_])?(?:copying|copyright|licen[cs]e|notice|credits)(?:[._-].*)?", source.name, re.IGNORECASE))
-        if "l" not in flags and not (source.is_file() and (document or name in documents)):
-            continue
-        if not source.is_file() or not source.read_bytes().strip():
-            raise ValueError(f"missing RPM license: {name}")
-        target = root / package / source.name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if target.exists():
-            if target.read_bytes() == source.read_bytes():
-                continue
-            target = target.with_name(target.name + "-" + hashlib.sha256(source.read_bytes()).hexdigest()[:12])
-        if not target.is_symlink():
-            target.symlink_to(source)
-
-
-def collect(rules, dest, cache):
-    spec = json.loads(rules.read_text())
+def collect(dest, cache, rules=RULES):
     root = dest / "usr/share/licenses"
-    for source in spec["rpms"]:
-        path = rpm_source(source["package"], cache)
-        for rule in source["files"]:
-            text = member(rpm_member(path, rule["archive"]), rule["member"])
-            place(root, rule["to"], header(text) if rule.get("header") else text)
-    rpm_links(root, spec["documents"])
+    for package, archive, pattern, to, only_header in rules:
+        text = member(rpm_member(rpm_source(package, cache), archive), pattern)
+        place(root, to, header(text) if only_header else text)
 
 
 def main(args):
-    if args[:1] == ["collect"] and len(args) == 4:
-        collect(*map(pathlib.Path, args[1:]))
-    else:
+    if len(args) != 2:
         raise ValueError(__doc__)
+    collect(*map(pathlib.Path, args))
 
 
 if __name__ == "__main__":

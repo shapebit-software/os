@@ -1,0 +1,108 @@
+#!/usr/bin/python3
+"""The license texts for Settings > Licenses, by component; no network.
+
+A component is a folder of /usr/share/licenses, where packages put their texts,
+or a package of the RPM database whose texts are elsewhere: those it marks as
+%license (such as a Python package's, in site-packages), those named like one
+under /usr/share (many packages, such as the X11 libraries, ship theirs as
+plain documents), and DOCUMENTS, which hold license text under another name.
+Compressed texts are read decompressed, which Qt cannot do.
+Usage: licenses list | licenses read COMPONENT/FILE
+LICENSES_DIR replaces /usr/share/licenses and leaves the RPM database out, for
+development and tests.
+"""
+
+import bz2
+import gzip
+import json
+import lzma
+import os
+import pathlib
+import re
+import subprocess
+import sys
+
+ROOT = pathlib.Path(os.environ.get("LICENSES_DIR", "/usr/share/licenses"))
+FROM_RPMS = "LICENSES_DIR" not in os.environ
+SHARE = "/usr/share/"
+DOCUMENTS = {"/usr/share/doc/libglvnd/README.md"}
+NAMED = re.compile(r"(?:.*[-_])?(?:copying|copyright|licen[cs]e|notice|credits)(?:[._-].*)?", re.IGNORECASE)
+TEXT = {"", ".txt", ".md", ".rst", ".html", ".gz", ".bz2", ".xz",
+        ".gpl", ".lgpl", ".bsd", ".mit", ".apache", ".ofl", ".mpl", ".ucd"}
+
+
+def rpm_texts(lines):
+    """{package: [path]}: the texts packages keep outside ROOT, from `rpm -qa`
+    lines of NAME, FILENAMES, FILEFLAGS:fflags."""
+    result = {}
+    for line in lines.splitlines():
+        package, name, flags = line.split("\t")
+        path = pathlib.Path(name)
+        if name.startswith("/usr/share/licenses/"):
+            continue
+        named = name.startswith(SHARE) and path.suffix.lower() in TEXT and NAMED.fullmatch(path.name)
+        if ("l" in flags or named or name in DOCUMENTS) and path.is_file() and path.stat().st_size:
+            result.setdefault(package, []).append(path)
+    return result
+
+
+def sources():
+    """{"COMPONENT/FILE": the file}: every license text there is."""
+    found = {}
+    if ROOT.is_dir():
+        for directory in ROOT.iterdir():
+            if directory.is_dir() and not directory.name.startswith("."):
+                for path in directory.rglob("*"):
+                    relative = path.relative_to(ROOT)
+                    if not any(p.startswith(".") for p in relative.parts) and path.is_file() and path.stat().st_size:
+                        found[str(relative)] = path
+    if FROM_RPMS:
+        query = "[%{=NAME}\t%{FILENAMES}\t%{FILEFLAGS:fflags}\n]"
+        lines = subprocess.run(["rpm", "-qa", "--qf", query], check=True, capture_output=True, text=True).stdout
+        for package, paths in rpm_texts(lines).items():
+            for path in paths:
+                key = f"{package}/{path.name}"
+                if key in found and found[key].resolve() != path.resolve():
+                    key = f"{package}/{path.parent.name}/{path.name}"
+                found.setdefault(key, path)
+    return found
+
+
+def listing():
+    components = {}
+    for key in sorted(sources()):
+        component, name = key.split("/", 1)
+        components.setdefault(component, []).append({"name": name, "path": key})
+    return [{"name": name, "files": components[name]} for name in sorted(components, key=str.lower)]
+
+
+def read(name):
+    """The text of NAME, one of listing()'s paths and nothing else."""
+    path = sources().get(name)
+    if path is None:
+        raise ValueError("Choose a packaged license file.")
+    data = path.read_bytes()
+    if path.suffix == ".gz":
+        data = gzip.decompress(data)
+    elif path.suffix == ".bz2":
+        data = bz2.decompress(data)
+    elif path.suffix == ".xz":
+        data = lzma.decompress(data)
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return data.decode("latin-1")
+
+
+if __name__ == "__main__":
+    try:
+        if sys.argv[1:] == ["list"]:
+            result = {"components": listing()}
+        elif len(sys.argv) == 3 and sys.argv[1] == "read":
+            result = {"text": read(sys.argv[2])}
+        else:
+            raise ValueError(__doc__)
+        print(json.dumps(result))
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        print(json.dumps({"error": str(error)}))
+        sys.exit(1)

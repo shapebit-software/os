@@ -116,14 +116,12 @@ RUN --mount=type=bind,from=desktop,target=/src \
       --define "source_dir /src" /src/desktop.spec && \
     cp /tmp/rpm/RPMS/noarch/*.rpm /out/
 
-# The notices that installed RPMs lack, from their exact source RPMs
-# (licensing/rpms.json), and links to RPM license files kept elsewhere. Fixed
-# texts are in rootfs/usr/share/licenses. Source RPMs stay in this build stage.
+# The notices that some installed RPMs lack, from their exact source RPMs
+# (license-notices.py). Source RPMs stay in this build stage.
 FROM tools AS licenses
-RUN --mount=type=bind,from=licensing,target=/run/licensing \
+RUN --mount=type=bind,source=license-notices.py,target=/run/license-notices.py \
     --mount=type=cache,target=/var/cache/licenses,sharing=locked \
-    python3 /run/licensing/collect.py collect /run/licensing/rpms.json /out /var/cache/licenses && \
-    install -Dm755 /run/licensing/read.py /out/usr/libexec/desktop/licenses
+    python3 /run/license-notices.py /out /var/cache/licenses
 
 FROM system
 # ShapeBit's own packages need nothing that the image lacks, so rpm installs

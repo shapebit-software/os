@@ -60,7 +60,7 @@ install: ## Install into DESTDIR
 	install -Dm644 portal/portals.conf $(share)/xdg-desktop-portal/shapebit-portals.conf
 	install -Dm644 -t $(share)/glib-2.0/schemas session/window-buttons.gschema.override
 	install -Dm644 portal/shell.portal $(share)/xdg-desktop-portal/portals/shell.portal
-	install -Dm755 -t $(DESTDIR)$(PREFIX)/libexec/desktop portal/portal portal/share-picker session/connection-agent session/microphone-level apps/app-install apps/app-catalog apps/app-remove dictation/dictate dictation/hear dictation/dictate-engine dictation/speak extras/extra downloads/downloads capture/camera capture/skip-silence
+	install -Dm755 -t $(DESTDIR)$(PREFIX)/libexec/desktop portal/portal portal/share-picker session/connection-agent session/microphone-level apps/app-install apps/app-catalog apps/app-remove dictation/dictate dictation/hear dictation/dictate-engine dictation/speak extras/extra downloads/downloads licenses/licenses capture/camera capture/skip-silence
 	install -Dm644 -t $(share)/desktop/browsers apps/fedora.filter
 	install -Dm644 -t $(share)/desktop extras/extras.json
 	install -d $(share)/licenses && cp -r extras/licenses/. $(share)/licenses/
