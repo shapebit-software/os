@@ -7,6 +7,7 @@ bundles reaches the SBOM (`scripts/sbom.py` reads `Provides: bundled(...)`).
 
 | Package | Why |
 | --- | --- |
+| `llama-server` | The assistant's language model server, from llama.cpp; Fedora's `llama-cpp` is too old for Gemma 4. Its libraries stay private in `/usr/libexec/llama`. |
 | `sherpa-onnx` | Dictation's speech recognition; Fedora has no package. Built against Fedora's ONNX Runtime, not upstream's bundled copy. |
 
 ## How it works
