@@ -12,8 +12,8 @@ bundles reaches the SBOM (`scripts/sbom.py` reads `Provides: bundled(...)`).
 
 ## How it works
 
-- Each package is a directory: `NAME/NAME.spec` and `NAME/sources`, the SHA-256
-  of each of its Sources. Upstream downloads during its build become Sources,
+- Each package is a directory: `NAME/NAME.spec` and `NAME/sources`, the SHA-512
+  of each of its Sources, as in Fedora's package repositories. Upstream downloads during its build become Sources,
   so the build runs without network and the source RPM holds all the code.
 - `make rpm RPM=NAME` builds one into `build/rpms/NAME`, in a Fedora container
   of `FEDORA_VERSION` (`scripts/rpm-build.sh`).
@@ -31,8 +31,8 @@ bundles reaches the SBOM (`scripts/sbom.py` reads `Provides: bundled(...)`).
 
 1. Write or change the spec. Bump `Release` for a rebuild of the same version;
    a new upstream version resets it to 1.
-2. Download its Sources and write their hashes to `sources`
-   (`spectool -g`, then `sha256sum`).
+2. Download its Sources and write their hashes to `sources`, in Fedora's
+   format: `spectool -g NAME.spec`, then `sha512sum --tag FILE... > sources`.
 3. `make rpm RPM=NAME`, then test what it built in a container of the image's
    Fedora version.
 4. Name it in the package list that needs it (`desktop/packages` or

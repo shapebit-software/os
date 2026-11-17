@@ -32,9 +32,9 @@ def spec_sources(spec):
 
 @pytest.mark.parametrize("package", PACKAGES, ids=lambda p: p.name)
 def test_every_source_is_pinned_by_its_hash(package):
-    sources = (package / "sources").read_text().splitlines()
-    pinned = {line.split()[1]: line.split()[0] for line in sources}
-    assert all(re.fullmatch(r"[0-9a-f]{64}", h) for h in pinned.values())
+    # Fedora's format, which `sha512sum -c` reads.
+    lines = (package / "sources").read_text().splitlines()
+    pinned = dict(re.fullmatch(r"SHA512 \((.+)\) = ([0-9a-f]{128})", line).groups() for line in lines)
     assert sorted(pinned) == sorted(spec_sources(package / f"{package.name}.spec"))
 
 

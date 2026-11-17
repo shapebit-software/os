@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Build one package of third-party/ in a Fedora container, into OUT: its binary and
 # source RPMs (third-party/README.md). Its Sources are downloaded first and checked
-# against the package's `sources` file; the build itself has no network.
+# against the package's `sources` file, in Fedora's format (`SHA512 (FILE) = HASH`);
+# the build itself has no network.
 # Usage: rpm-build.sh third-party/NAME OUT (called by `make rpm`).
 set -euo pipefail
 : "${ENGINE:?}" "${FEDORA_VERSION:?}"
@@ -22,7 +23,7 @@ $ENGINE run --name "$container" -v "$dir:/package:ro,z" \
 dnf -y -q install rpm-build rpmdevtools dnf-plugins-core
 mkdir -p ~/rpmbuild/SOURCES
 spectool -g -C ~/rpmbuild/SOURCES /package/$name.spec
-(cd ~/rpmbuild/SOURCES && sha256sum --quiet -c /package/sources)
+(cd ~/rpmbuild/SOURCES && sha512sum --quiet -c /package/sources)
 dnf -y -q builddep /package/$name.spec
 rpmbuild -br /package/$name.spec || test \$? -eq 11
 shopt -s nullglob
