@@ -16,6 +16,11 @@ import pytest
     ("python3-sherpa-onnx/LICENSE", "Apache License"),
     ("python3-sherpa-onnx/kissfft/COPYING", "Mark Borgerding"),
     ("llama-server/LICENSE-llamafile", "Copyright 2024 Mozilla Foundation"),
+    ("exiv2-libs/COPYING", "GNU GENERAL PUBLIC LICENSE"),
+    ("libdrm/NOTICE", "Precision Insight"),
+    ("libatasmart/NOTICE", "Lennart Poettering"),
+    ("lsof/COPYING", "Purdue Research Foundation"),
+    ("WALinuxAgent-udev/NOTICE", "Microsoft"),
     ("exiv2-libs/COPYING-XMPSDK", "Adobe Systems Incorporated"),
     ("glx-utils/NOTICE-glxgears", "Brian Paul"),
     ("glx-utils/NOTICE-glxinfo", "Brian Paul"),
@@ -79,3 +84,29 @@ def test_settings_component_displays_the_local_license():
         result = subprocess.run(["qs", "-p", str(config)], env=env, capture_output=True, text=True, timeout=25)
         assert result.returncode == 0, result.stdout + result.stderr
         assert "LICENSE_VIEWER_OK" in result.stdout + result.stderr
+
+
+# Packages that need no license text: nothing in them is a copyrightable work
+# (folders, links, keys, repository settings, metadata).
+NOTHING_TO_LICENSE = {
+    "default-fonts-core-sans", "desktop-backgrounds-compat", "efi-filesystem", "emacs-filesystem",
+    "fedora-gpg-keys", "fedora-repos", "fedora-repos-archive", "filesystem", "fonts-filesystem",
+    "kde-filesystem", "libreport-filesystem", "qt6-filesystem",
+}
+# Their license text is not in their own source package, so no rule of
+# image/license-notices.py can take it; reported to Fedora (docs/License.md).
+REPORTED = {"ca-certificates", "microcode_ctl", "shim-x64"}
+
+
+def test_every_installed_package_has_its_license_text():
+    # Settings > Licenses lists a package, or a package of the same source, for
+    # each text it finds; a package that is in neither has no text in the image.
+    listed = {c["name"] for c in json.loads(subprocess.run(
+        ["/usr/libexec/desktop/licenses", "list"], check=True, capture_output=True, text=True).stdout)["components"]}
+    sources = {}
+    for line in subprocess.run(["rpm", "-qa", "--qf", "%{NAME}\t%{SOURCERPM}\n"],
+                               check=True, capture_output=True, text=True).stdout.splitlines():
+        name, source = line.split("\t")
+        sources.setdefault(source, set()).add(name)
+    without = {name for names in sources.values() if not names & listed for name in names} - {"gpg-pubkey"}
+    assert without - NOTHING_TO_LICENSE - REPORTED == set()

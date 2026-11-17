@@ -23,6 +23,8 @@ import zipfile
 
 # (package, archive in its source RPM, member, destination, header only)
 RULES = [
+    # exiv2-libs has no license text; its COPYING is only in exiv2, the command line tool.
+    ('exiv2-libs', 'exiv2-*.tar.gz', 'exiv2-*/COPYING', 'exiv2-libs/COPYING', False),
     ('exiv2-libs', 'exiv2-*.tar.gz', 'exiv2-*/doc/COPYING-XMPSDK', 'exiv2-libs/COPYING-XMPSDK', False),
     ('glx-utils', 'mesa-demos-*.tar.xz', 'mesa-demos-*/src/xdemos/glxgears.c', 'glx-utils/NOTICE-glxgears', True),
     ('glx-utils', 'mesa-demos-*.tar.xz', 'mesa-demos-*/src/xdemos/glxinfo.c', 'glx-utils/NOTICE-glxinfo', True),
@@ -31,7 +33,30 @@ RULES = [
     ('xorg-x11-server-Xwayland', 'xwayland-*.tar.xz', 'xwayland-*/COPYING', 'xorg-x11-server-Xwayland/COPYING', False),
     # Upstream COPYING is empty; CREDITS contains the per-sound authors and license assignments.
     ('sound-theme-freedesktop', 'sound-theme-freedesktop-*.tar.bz2', 'sound-theme-freedesktop-*/CREDITS', 'sound-theme-freedesktop/CREDITS', False),
+    # malcontent-libs' COPYING is a link to this file, which only the source has.
     ('malcontent-libs', 'malcontent-*.tar.xz', 'malcontent-*/LICENSES/LGPL-2.1-or-later.txt', 'malcontent-libs/LICENSES/LGPL-2.1-or-later.txt', False),
+    # These install no license text, and no package of their source that does is
+    # in the image: the texts at the top of their sources.
+    ('libbpf', 'v*.tar.gz', 'libbpf-*/LICENSE.BSD-2-Clause', 'libbpf/LICENSE.BSD-2-Clause', False),
+    ('libbpf', 'v*.tar.gz', 'libbpf-*/LICENSE.LGPL-2.1', 'libbpf/LICENSE.LGPL-2.1', False),
+    ('libosinfo', 'libosinfo-*.tar.xz', 'libosinfo-*/COPYING.LIB', 'libosinfo/COPYING.LIB', False),
+    ('lsof', 'lsof-*.tar.xz', 'lsof-*/COPYING', 'lsof/COPYING', False),
+    ('nss-altfiles', 'nss-altfiles-*.tar.gz', 'nss-altfiles-*/COPYING', 'nss-altfiles/COPYING', False),
+    ('numactl-libs', 'numactl-*.tar.gz', 'numactl-*/LICENSE.LGPL2.1', 'numactl-libs/LICENSE.LGPL2.1', False),
+    ('xfsprogs', 'xfsprogs-*.tar.xz', 'xfsprogs-*/LICENSES/GPL-2.0', 'xfsprogs/LICENSES/GPL-2.0', False),
+    ('xfsprogs', 'xfsprogs-*.tar.xz', 'xfsprogs-*/LICENSES/LGPL-2.1', 'xfsprogs/LICENSES/LGPL-2.1', False),
+    ('zlib-ng-compat', 'zlib-ng-*.tar.gz', 'zlib-ng-*/LICENSE.md', 'zlib-ng-compat/LICENSE.md', False),
+    ('container-selinux', 'v*.tar.gz', 'container-selinux-*/LICENSE', 'container-selinux/LICENSE', False),
+    ('WALinuxAgent-udev', 'v*.tar.gz', 'WALinuxAgent-*/LICENSE.txt', 'WALinuxAgent-udev/LICENSE.txt', False),
+    ('WALinuxAgent-udev', 'v*.tar.gz', 'WALinuxAgent-*/NOTICE', 'WALinuxAgent-udev/NOTICE', False),
+    # containers-common's settings come from the common, image and storage
+    # projects of its source, all Apache-2.0; storage has a NOTICE.
+    ('containers-common', 'v*.tar.gz', 'container-libs-common-*/common/LICENSE', 'containers-common/LICENSE', False),
+    ('containers-common', 'v*.tar.gz', 'container-libs-common-*/storage/NOTICE', 'containers-common/NOTICE-storage', False),
+    ('cdparanoia-libs', 'cdparanoia-III-*.src.tgz', 'cdparanoia-III-*/COPYING-LGPL', 'cdparanoia-libs/COPYING-LGPL', False),
+    # Notices only in source headers: libdrm's MIT, libatasmart's LGPL.
+    ('libdrm', 'libdrm-*.tar.xz', 'libdrm-*/xf86drm.c', 'libdrm/NOTICE', True),
+    ('libatasmart', 'libatasmart-*.tar.xz', 'libatasmart-*/atasmart.c', 'libatasmart/NOTICE', True),
 ]
 
 
@@ -65,22 +90,35 @@ def member(data, pattern):
         return archive.extractfile(matches[0]).read()
 
 
+def comments(text):
+    """The comments at the start of a C source, in order: /* */ blocks and runs
+    of // lines, up to the first code."""
+    while True:
+        text = text.lstrip()
+        if text.startswith("/*"):
+            end = text.index("*/") + 2
+            yield text[:end]
+            text = text[end:]
+        elif text.startswith("//"):
+            lines = []
+            for line in text.splitlines():
+                if not line.startswith("//"):
+                    break
+                lines.append(line)
+            yield "\n".join(lines)
+            text = text[len("\n".join(lines)):]
+        else:
+            return
+
+
 def header(data):
-    text = data.decode("utf-8")
-    if text.startswith("/*"):
-        notice = text[: text.index("*/") + 2] + "\n"
-    elif text.startswith("//"):
-        lines = []
-        for line in text.splitlines():
-            if not line.startswith("//"):
-                break
-            lines.append(line)
-        notice = "\n".join(lines) + "\n"
-    else:
-        raise ValueError("source does not start with a notice")
-    if "copyright" not in notice.lower() or "permission" not in notice.lower():
-        raise ValueError("source header has no copyright and permission notice")
-    return notice.encode()
+    """The first comment at the start of a source that has a copyright and its
+    terms: a permission notice, or a license it is under."""
+    for notice in comments(data.decode("utf-8")):
+        lower = notice.lower()
+        if "copyright" in lower and ("permission" in lower or "license" in lower or "licence" in lower):
+            return (notice + "\n").encode()
+    raise ValueError("source does not start with a copyright and permission notice")
 
 
 def rpm_source(package, cache):

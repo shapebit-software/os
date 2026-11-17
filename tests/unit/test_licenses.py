@@ -87,6 +87,20 @@ def test_header_preserves_copyright_terms_and_disclaimer():
         collector.header(b"// unrelated header\ncode")
 
 
+def test_header_skips_a_description_before_the_notice():
+    # libdrm's xf86drm.c: a description, then the MIT notice.
+    notice = b"/*\n * Copyright 1999 Precision Insight\n * Permission is hereby granted\n */"
+    source = b"/**\n * \\file xf86drm.c\n */\n\n" + notice + b"\n\n#include <stdio.h>\n/* Copyright later */"
+    assert collector.header(source) == notice + b"\n"
+
+
+def test_header_takes_a_notice_that_names_its_license():
+    # libatasmart: an LGPL notice, without the word "permission".
+    notice = (b"/***\n    Copyright 2008 Lennart Poettering\n    libatasmart is free software; under the terms of"
+              b" the GNU Lesser General Public License\n***/")
+    assert collector.header(b"/*-*- Mode: C -*-*/\n\n" + notice + b"\nint x;") == notice + b"\n"
+
+
 def test_reader_lists_shared_notices_and_reads_plain_text(tmp_path, monkeypatch):
     monkeypatch.setattr(reader, "ROOT", tmp_path)
     monkeypatch.setattr(reader, "FROM_RPMS", False)

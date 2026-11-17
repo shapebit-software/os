@@ -17,8 +17,12 @@ license is installed under `/usr/share/licenses/shapebit/`.
 The license texts of the optional models are part of the system, so they are
 there before a model is downloaded.
 
-Some Fedora packages leave out a notice that their license asks to keep; the
-image build adds it from the package's exact source RPM. This does not replace
+Some Fedora packages leave out a notice that their license asks to keep, or
+install no license text at all; the image build adds it from the package's
+exact source RPM. An image test fails when an installed package has no license
+text in the system, except those with nothing to license (such as packages of
+empty folders) and three whose text is not in their source package
+(ca-certificates, microcode_ctl, shim-x64), which are reported to Fedora. This does not replace
 corresponding-source publication below or component-specific decisions about
 license compatibility and distribution.
 
