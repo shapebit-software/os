@@ -4,7 +4,7 @@ The desktop of ShapeBit OS: [Hyprland](https://hypr.land) as the compositor
 and [Quickshell](https://quickshell.org) as the shell, following the
 [demo](https://shapebit.software/demo/), which decides where this README
 and the demo disagree. What a person sees is in the
-[guide](../../guide/Desktop.md).
+[guidebook](../../guidebook/Desktop.md).
 
 The session starts Hyprland through [UWSM](https://github.com/Vladimir-csp/uwsm),
 which runs the session's systemd units (`graphical-session.target` and the

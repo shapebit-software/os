@@ -2,7 +2,7 @@
 
 Speech to text, for dictation and the assistant: the package
 `shapebit-dictation`. What a person sees is in the
-[guide](../../guide/Dictation.md).
+[guidebook](../../guidebook/Dictation.md).
 
 - [hear](hear) turns speech into words with sherpa-onnx (an external package,
   [sherpa-onnx/](sherpa-onnx/)) and Parakeet, an

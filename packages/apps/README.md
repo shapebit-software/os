@@ -14,7 +14,7 @@ queue, and `app-update.timer` updates the apps daily.
   outside a sandbox. Settings is the shell's. Screenshots and recordings
   belong to the shell, not to an app.
 - **Everything else is a Flatpak**, installed per person. Welcome's
-  recommended apps ([guide](../../guide/Apps.md)) are on by default.
+  recommended apps ([guidebook](../../guidebook/Apps.md)) are on by default.
 - **Searches run locally**, on the catalogue Flatpak downloads.
 - **Browsers** come from Flathub, but Chromium from Fedora's Flatpak
   ([fedora.filter](fedora.filter)). Chrome is Flathub's package, which

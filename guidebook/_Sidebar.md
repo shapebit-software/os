@@ -1,4 +1,4 @@
-## ShapeBit Guide
+## ShapeBit Guidebook
 
 - [About](Home.md)
 - [Installing](Install.md)

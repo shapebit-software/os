@@ -3,7 +3,7 @@
 The assistant's service, its actions, skills, and model catalog, and the
 model server: the package `shapebit-assistant`. The shell draws it (bubbles,
 panel, docked panel, voice pill); what a person sees is in the
-[guide](../../guide/Assistant.md).
+[guidebook](../../guidebook/Assistant.md).
 
 One service ([assistant](assistant), `assistant.socket`) serves the whole
 session, outside the shell. The local model, Gemma 4 E2B, runs in

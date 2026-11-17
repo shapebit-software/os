@@ -111,7 +111,7 @@ bootc switch 10.0.2.2:5000/shapebit-os:dev
 **Real hardware.** A medium built locally is signed with the development
 keys; later updates from `stable` would need the release keys enrolled too.
 Write `build/installer.img` to a USB drive of at least 8 GB with `dd`, and
-install as the [guide](../guide/Install.md) says. To run the system checks
+install as the [guidebook](../guidebook/Install.md) says. To run the system checks
 on it, log in on a console (Ctrl+Alt+F3), connect to the network, allow root
 to log in with `build/ssh/id_ed25519.pub`, and run
 `make test-guest GUEST=ADDRESS IMAGE_DIGEST=sha256:... OWNER_NAME=... LOCALE=... KEYBOARD_LAYOUT=... TIME_ZONE=...`.

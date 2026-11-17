@@ -41,9 +41,9 @@ podman artifact pull ghcr.io/shapebit-software/os:<version>-sbom
 podman artifact extract ghcr.io/shapebit-software/os:<version>-sbom <directory>
 ```
 
-## This guide
+## This guidebook
 
-Unless stated otherwise, this guide is licensed under the [Creative Commons
+Unless stated otherwise, this guidebook is licensed under the [Creative Commons
 Attribution-NonCommercial-NoDerivatives 4.0 International
 license](https://creativecommons.org/licenses/by-nc-nd/4.0/) (CC BY-NC-ND 4.0).
 

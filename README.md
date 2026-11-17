@@ -65,7 +65,7 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 | `packages/`  | ShapeBit's own packages, one folder per feature: `apps`, `assistant`, `boot`, `capture`, `colors`, `dictation`, `downloads`, `extras`, `font`, `homes`, `installer`, `licenses`, `login`, `network`, `portal`, `release`, `repositories`, `screen-sharing`, `shell`, `sound`, `splash`, `system` (requires them all), `updates`, `windows`. |
 | `distribution/`     | The OS image, assembled from those packages, and everything about it as a whole: its build (here), `release/`, `vm/`, and its checks: `content/`, `medium/`, `installed/`, `update/`, `openqa/` (see [distribution](distribution/README.md)). |
 | `development/`       | The development container, and the desktop in a window (`make run`). |
-| `guide/`     | The guide for people who use ShapeBit, published to the Wiki and the website. |
+| `guidebook/` | The guidebook for people who use ShapeBit, published to the Wiki and the website. |
 | `.agents/`   | Skills for coding agents.                                             |
 | `build/`     | Generated outputs (ignored by Git).                                   |
 
@@ -80,13 +80,13 @@ unit tests (`make test-unit`); `check_*.py` check the built OS
 
 ## Documentation
 
-- [Guide](guide/Home.md), for people who use ShapeBit.
+- [Guidebook](guidebook/Home.md), for people who use ShapeBit.
 - [Distribution](distribution/README.md): how the image is built, signed,
   installed, and tested; [releases](distribution/release/README.md).
 - Each feature's README in [`packages/`](packages/), where its code doesn't
   say it all: its goals, structure, and rules.
 
-`guide/` is only for people who use ShapeBit. Developer documentation lives
+`guidebook/` is only for people who use ShapeBit. Developer documentation lives
 beside the code it describes, and says only what the code and its comments
 can't: the intent, the structure, and the rules.
 

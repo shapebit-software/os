@@ -80,7 +80,7 @@ These rules cover the image: `packages/`, `distribution/`, `development/` and th
 
 ## Documentation
 
-- **`guide/` is for people who use ShapeBit,** published to the Wiki and
+- **`guidebook/` is for people who use ShapeBit,** published to the Wiki and
   shapebit.software/docs. It describes what they see and do, in plain words;
   nothing about how it is built, and nothing that isn't built yet.
 - **Developer documentation lives beside its code:** a feature's README in

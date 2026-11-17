@@ -13,7 +13,7 @@ UEFI Secure Boot → Fedora's shim (signed by Microsoft) → systemd-boot, signe
 
 - PCs keep their manufacturer's Secure Boot keys. Shim trusts ShapeBit's key
   only after a person enrolls it, once per computer, at the installer's first
-  boot ([guide](../../guide/Install.md)). [esp-shim](esp-shim) places shim on
+  boot ([guidebook](../../guidebook/Install.md)). [esp-shim](esp-shim) places shim on
   the medium and the installed disk; updates don't replace it yet.
 - The UKI bundles the kernel, initramfs, command line, and TPM policy in one
   signed file, and pins the system's composefs digest: if the system on disk
