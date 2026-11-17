@@ -38,7 +38,7 @@ jobs:
         run: |
           if [[ $BASE =~ ^0+$ ]]; then BASE=$(git merge-base origin/main HEAD); fi
           if git diff --quiet "$BASE" HEAD -- 'image/Containerfile*' system desktop/desktop.spec \
-            'image/*.repo' image/third-party.asc image/packaged.py license-notices; then
+            scripts/build/packaged.py license-notices; then
             echo "changed=false" >>"$GITHUB_OUTPUT"
           else
             echo "changed=true" >>"$GITHUB_OUTPUT"

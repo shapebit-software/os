@@ -99,7 +99,7 @@ SYFT_IMAGE ?= docker.io/anchore/syft:v1.18.1@sha256:b8c170b8e51bfc4779ec3ef43999
 RPM            ?= sherpa-onnx
 RPMS           ?= $(BUILD)/rpms
 RPM_RELEASES   ?= https://github.com/shapebit-software/os/releases/download
-RPM_PUBLIC_KEY ?= image/third-party.asc
+RPM_PUBLIC_KEY ?= system/usr/share/pki/rpm-gpg/third-party.asc
 export SYFT_IMAGE RPM_RELEASES RPM_PUBLIC_KEY
 export DEV_ENTER OPENQA_DISK_SIZE INSTALLER_REF IMAGE_REVISION IMAGE_ARCHIVE NEXT_ARCHIVE NEXT2_ARCHIVE FLOW UPDATE_ARCHIVE STABLE_REVISION OPENQA_DISTRI OPENQA_IMAGE RESULTS VENV TEST_SSH_PORT DISK_FORMAT ENGINE IMAGE FEDORA_VERSION IMAGE_VERSION BUILD DISK DISK_SIZE INSTALLER_IMAGE MEDIUM MEDIUM_SIZE SSH_PORT SSH_KEY OWNER_NAME OWNER_PASSWORD RECOVERY_KEY LOCALE KEYBOARD_LAYOUT TIME_ZONE KEYS_DIR SIGNING_KEY BOOT_TIMEOUT REGISTRY_PORT UPDATE_REF DEV_UPDATE_REF
 
@@ -126,7 +126,7 @@ image: $(KEYS) ## Build the container image with its signed UKI
 	  --build-arg FEDORA_VERSION=$(FEDORA_VERSION) --build-arg IMAGE_VERSION=$(IMAGE_VERSION) \
 	  --build-arg IMAGE_REVISION=$(IMAGE_REVISION) \
 	  --build-context desktop=$(DESKTOP_SRC) --build-context system-source=system \
-	  --build-context license-notices=license-notices
+	  --build-context license-notices=license-notices --build-context build-scripts=scripts/build
 
 colors: ## Write the QML module Colors's values from the system's colors (system/usr/share/colors/colors.toml)
 	python3 scripts/build/colors.py

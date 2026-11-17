@@ -24,8 +24,9 @@ bundles reaches the SBOM (`scripts/release/sbom.py` reads `Provides: bundled(...
   (`scripts/release/rpm-repo.sh`), and deploys it to GitHub Pages:
   `https://shapebit-software.github.io/os/rpms/fedora-VERSION-{x86_64,source}/`.
 - The image build and `scripts/release/sources.py` read it through
-  `image/third-party.repo`. dnf checks the repository's signature with
-  `image/third-party.asc`; the metadata holds each RPM's SHA-256.
+  `system/usr/share/dnf5/repos.d/third-party.repo`, which the system ships
+  turned off. dnf checks the repository's signature with
+  `system/usr/share/pki/rpm-gpg/third-party.asc`; the metadata holds each RPM's SHA-256.
 
 ## Add or update a package
 
@@ -47,7 +48,7 @@ Create the key on your own computer, put the private key in the environment
 ```sh
 export GNUPGHOME=$(mktemp -d)
 gpg --batch --passphrase '' --quick-gen-key "ShapeBit packages" ed25519 sign never
-gpg --armor --export > image/third-party.asc
+gpg --armor --export > system/usr/share/pki/rpm-gpg/third-party.asc
 gpg --armor --export-secret-keys | gh secret set RPM_SIGNING_KEY --env Signing
 rm -rf "$GNUPGHOME"
 ```

@@ -33,6 +33,18 @@ def test_the_system_and_its_identity_are_unchanged_packages_at_the_images_versio
     sh("rpm -V --nomtime system release")
 
 
+def test_the_third_party_repositories_ship_turned_off_with_their_keys(host, sh):
+    # A record of where packages came from; installed systems never fetch from them.
+    for name in ("hyprland", "third-party"):
+        path = f"/usr/share/dnf5/repos.d/{name}.repo"
+        assert sh(f"rpm -qf --qf '%{{NAME}}' {path}") == "system"
+        text = host.file(path).content_string
+        assert "enabled=1" not in text and text.count("enabled=0") == text.count("\n[")
+    assert host.file("/usr/share/pki/rpm-gpg/third-party.asc").contains("BEGIN PGP PUBLIC KEY BLOCK")
+    enabled = sh("dnf repo list --enabled --quiet")
+    assert "hyprland" not in enabled and "shapebit" not in enabled
+
+
 def test_logos_are_not_fedoras(host):
     # Fedora's logos are its trademarks; generic-logos stands in (image/Containerfile).
     assert not host.package("fedora-logos").is_installed

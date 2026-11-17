@@ -117,7 +117,7 @@ Packages come from Fedora, with one accepted exception: Fedora has no
 Hyprland, so Hyprland, its dialogs, hypridle, xdg-desktop-portal-hyprland, and
 Quickshell come from the third-party
 [sdegler/hyprland](https://copr.fedorainfracloud.org/coprs/sdegler/hyprland/)
-COPR ([image/hyprland.repo](https://github.com/shapebit-software/os/blob/main/image/hyprland.repo)).
+COPR ([hyprland.repo](https://github.com/shapebit-software/os/blob/main/system/usr/share/dnf5/repos.d/hyprland.repo)).
 
 **Risk.** One person controls that repository, and its package scripts run as
 root while the image builds. Nothing limits it to those packages: a newer
@@ -126,8 +126,9 @@ ships ends up in the signed image. The development container and CI's checks
 enable it too.
 
 **What limits it.** Packages are checked against the COPR's signing key. The
-repository is mounted only while the image builds and is not left in the
-image, so installed systems never fetch from it. The source RPMs of every
+system ships the repository turned off, as a record of where its packages
+come from; only the image build and the source collection turn it on, so
+installed systems never fetch from it. The source RPMs of every
 release are kept with its sources.
 
 **Plan.** Drop the COPR as soon as Fedora ships Hyprland: remove

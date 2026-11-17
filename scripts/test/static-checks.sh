@@ -58,7 +58,7 @@ validate() {
   # only reads its metadata, so it needs no key.
   : "${FEDORA_VERSION:?}"
   local spec package unit third_party
-  third_party=$(sed -n 's/^baseurl=//p' image/third-party.repo | head -1)
+  third_party=$(sed -n 's/^baseurl=//p' system/usr/share/dnf5/repos.d/third-party.repo | head -1)
   for spec in system/system.spec desktop/desktop.spec; do
     for package in $(sed -n 's/^Requires: *//p' "$spec" | grep -v '%{'); do
       if [[ -z $(dnf -q repoquery --releasever="$FEDORA_VERSION" --latest-limit=1 \

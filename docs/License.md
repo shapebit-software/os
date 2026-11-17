@@ -32,7 +32,7 @@ code is packaged too (`desktop`, `system`, `release`, `installer`,
 system contains, and each entry brings its license, its source and its SBOM
 entry. The image build fails on a file that no RPM owns, or that differs from
 its RPM, beyond what the Fedora base image already has
-([image/packaged.py](https://github.com/shapebit-software/os/blob/main/image/packaged.py)).
+([scripts/build/packaged.py](https://github.com/shapebit-software/os/blob/main/scripts/build/packaged.py)).
 
 ### Maintaining
 

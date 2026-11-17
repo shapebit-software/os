@@ -4,7 +4,7 @@
 # image's, and its sources are this repository. Its Requires are what it runs
 # on, each with the reason for it: Hyprland, its dialogs, hypridle,
 # xdg-desktop-portal-hyprland, and Quickshell come from a third-party COPR
-# (image/hyprland.repo), python3-sherpa-onnx and llama-server from ShapeBit's own
+# (system/usr/share/dnf5/repos.d/hyprland.repo), python3-sherpa-onnx and llama-server from ShapeBit's own
 # repository (third-party/README.md), and the rest from Fedora. Build it with
 #   rpmbuild -bb --define "image_version VERSION" --define "source_dir DESKTOP" desktop.spec
 

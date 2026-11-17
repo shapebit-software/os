@@ -5,7 +5,7 @@
 # named by its tag. Each Fedora version gets a binary and a source repository,
 # fedora-VERSION-x86_64 and fedora-VERSION-source. RPM_SIGNING_KEY is the
 # armored private key that signs each repomd.xml; dnf checks the signature with
-# RPM_PUBLIC_KEY (image/third-party.asc).
+# RPM_PUBLIC_KEY (system/usr/share/pki/rpm-gpg/third-party.asc).
 # Usage: rpm-repo.sh PACKAGES SITE (called by `make rpm-repo`).
 set -euo pipefail
 : "${ENGINE:?}" "${RPM_RELEASES:?}" "${RPM_PUBLIC_KEY:?}" "${RPM_SIGNING_KEY:?}"

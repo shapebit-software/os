@@ -3,7 +3,7 @@
 whatever its license label says, as labels can be incomplete or use unfamiliar
 names (docs/License.md). Reads the packages from IMAGE, and downloads their
 source RPMs in a container of IMAGE, with dnf from Fedora's repositories, the
-Hyprland COPR (image/hyprland.repo) and ShapeBit's own (image/third-party.repo), or
+Hyprland COPR and ShapeBit's own, which the image ships (system/usr/share/dnf5/repos.d), or
 from Fedora's Koji for a version that the repositories no longer have. Fails if any is missing. COPR deletes old
 builds, so this runs right after a build, while the repositories still match.
 
@@ -40,7 +40,7 @@ DOWNLOAD = r"""
 set -euo pipefail
 cd /out
 mapfile -t wanted <.wanted
-dnf -q -y download --enablerepo='*-source' --skip-unavailable --destdir /out "${wanted[@]/%/.src}" || true
+dnf -q -y download --enablerepo=hyprland,shapebit,'*-source' --skip-unavailable --destdir /out "${wanted[@]/%/.src}" || true
 missing=()
 for nvr in "${wanted[@]}"; do [[ -f $nvr.src.rpm ]] || missing+=("$nvr"); done
 if ((${#missing[@]})); then
@@ -78,9 +78,6 @@ def download(image, directory, names):
     subprocess.run(
         [*engine(), "run", "--rm", "-i", "-e", f"OWNER={os.getuid()}:{os.getgid()}",
          "-v", f"{directory.resolve()}:/out:z",
-         "-v", f"{ROOT / 'image/hyprland.repo'}:/etc/yum.repos.d/hyprland.repo:ro,z",
-         "-v", f"{ROOT / 'image/third-party.repo'}:/etc/yum.repos.d/third-party.repo:ro,z",
-         "-v", f"{ROOT / 'image/third-party.asc'}:/etc/pki/rpm-gpg/third-party.asc:ro,z",
          "--entrypoint", "bash", image, "-s"],
         input=DOWNLOAD, text=True, check=True,
     )  # fmt: skip

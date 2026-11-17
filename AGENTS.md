@@ -37,7 +37,7 @@ any change in `desktop/` or `installer/` that the image installs.
   its `Requires`, each with the reason for it. The image builds them from the
   same commit; `third-party/` builds what Fedora lacks. `image/` only
   assembles: the build fails on a file under `/usr` that no package owns, or
-  that differs from its package (`image/packaged.py`).
+  that differs from its package (`scripts/build/packaged.py`).
 - **`system/usr/` is the system's `/usr`.** Put vendor defaults under `/usr`.
   `/etc` and `/var` are machine state.
 - **Every behavior gets a check.** See [docs/Testing.md](docs/Testing.md). Image
