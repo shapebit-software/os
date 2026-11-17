@@ -1,4 +1,5 @@
-"""The SBOM must add what syft cannot see, and fail when syft missed what it should find."""
+"""The SBOM must add what syft cannot see, and fail unless syft found exactly the
+installed RPMs, whose sources are published."""
 
 import importlib.util
 import json
@@ -20,25 +21,31 @@ python3-sherpa-onnx\tbundled(kissfft)\t0^20250528gitfebd4ca
 bootc\tbundled(crate(serde))\t1.0.228
 bootc\tbundled(crate(serde/default))\t1.0.228
 glib2\tbundled(gnulib)\t
+glib2\tglib2\t2.86.0-1.fc45
+bootc\tbootc\t1.8.0-1.fc45
+libstdc++\tlibstdc++\t16.2.1-3.fc45
+gpg-pubkey\tgpg-pubkey\t1-1
 """
 BUNDLED = sbom.bundled(PROVIDES)
 EXTRAS = json.loads((ROOT / "desktop/extras/extras.json").read_text())
 
 
-def rpm(name):
-    return {"SPDXID": f"SPDXRef-Package-rpm-{name}", "name": name, "externalRefs": [
-        {"referenceCategory": "PACKAGE-MANAGER", "referenceType": "purl", "referenceLocator": f"pkg:rpm/fedora/{name}@1"}]}
+def rpm(name, purl=None):
+    """syft's entry of an installed RPM; PURL for another kind of entry."""
+    purl = purl or f"pkg:rpm/shapebit/{name.replace('+', '%2B')}@1-1.fc45?arch=x86_64&upstream={name}-1-1.fc45.src.rpm"
+    return {"SPDXID": sbom.spdx_id("Package-rpm", name), "name": name, "externalRefs": [
+        {"referenceCategory": "PACKAGE-MANAGER", "referenceType": "purl", "referenceLocator": purl}]}
 
 
-def scan(rpms=("python3-sherpa-onnx", "bootc", "glib2")):
-    """A minimal syft document."""
-    packages = [rpm(name) for name in rpms]
+def scan(rpms=("python3-sherpa-onnx", "bootc", "glib2", "libstdc++")):
+    """A minimal syft document, with an entry from a binary's package note as syft writes it."""
+    packages = [rpm(name) for name in rpms] + [rpm("audit", "pkg:rpm/fedora/audit@4.2.1-2.fc45?distro=fedora-45")]
     return {"packages": packages, "creationInfo": {"creators": ["Tool: syft"]}, "relationships": [
         {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-Root"}]}
 
 
 def complete(doc):
-    return sbom.complete(doc, RELEASE, "PolyForm Shield", EXTRAS, BUNDLED, "0.8.0", "f" * 64)
+    return sbom.complete(doc, RELEASE, "PolyForm Shield", EXTRAS, sbom.installed(PROVIDES), BUNDLED, "0.8.0", "f" * 64)
 
 
 def related(doc, relation, target):
@@ -83,8 +90,12 @@ def test_identifiers_are_unique_and_valid():
                for i in ids)
 
 
-@pytest.mark.parametrize("rpms", [(), ("bootc", "glib2")])
-def test_a_scan_that_missed_packages_fails(rpms):
+def test_installed_rpms_are_every_name_but_imported_keys():
+    assert sbom.installed(PROVIDES) == {"python3-sherpa-onnx", "bootc", "glib2", "libstdc++"}
+
+
+@pytest.mark.parametrize("rpms", [(), ("bootc", "glib2", "libstdc++"), ("python3-sherpa-onnx", "bootc", "glib2", "libstdc++", "kernel")])
+def test_a_scan_that_differs_from_the_installed_rpms_fails(rpms):
     with pytest.raises(ValueError, match="syft"):
         complete(scan(rpms))
 

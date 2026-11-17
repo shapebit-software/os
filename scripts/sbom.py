@@ -4,7 +4,8 @@
 syft (SYFT_IMAGE) scans the image's filesystem from inside a container of it:
 its binary is mounted read-only, the container has no network, and nothing is
 installed. It finds the RPMs and the Python packages. This adds what it cannot
-see, from what the repository pins: ShapeBit itself (its version and revision
+see, from what the repository pins, and fails unless syft's RPMs are exactly
+`rpm -qa`'s, whose source RPMs scripts/sources.py publishes: ShapeBit itself (its version and revision
 from the image's os-release), llama.cpp (LLAMA_VERSION, LLAMA_SHA256), the
 code that each RPM declares it bundles (Fedora's `Provides: bundled(...)`, as in
 third-party/), and the models that are extras (the image's extras.json), as optional
@@ -25,6 +26,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import urllib.parse
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TYPE = "application/spdx+json"
@@ -80,6 +82,12 @@ def bundled(lines):
     return {package: sorted(libraries) for package, libraries in result.items()}
 
 
+def installed(lines):
+    """The names of the installed RPMs, from the same `rpm -qa` lines; gpg-pubkey
+    is rpm's record of an imported key, not a package."""
+    return {line.split("\t")[0] for line in lines.splitlines()} - {"gpg-pubkey"}
+
+
 def bundled_purl(library, version):
     match = re.fullmatch(r"(crate|golang)\((.+)\)", library)
     if match and version:
@@ -87,19 +95,22 @@ def bundled_purl(library, version):
     return None
 
 
-def complete(doc, release, license_text, extras, bundles, llama_version, llama_sha256):
-    """Add to syft's document what it cannot see; fail if it missed what it should find."""
+def complete(doc, release, license_text, extras, rpm_names, bundles, llama_version, llama_sha256):
+    """Add to syft's document what it cannot see; fail unless its RPMs are exactly
+    RPM_NAMES, the image's, whose source RPMs are its published sources."""
     packages = doc["packages"]
     rpms = {}
+    # An RPM from the RPM database names its source RPM (upstream=); syft's
+    # entries from the package notes of binaries do not, and are not installed RPMs.
     for p in packages:
         for ref in p.get("externalRefs", []):
-            if ref["referenceType"] == "purl" and ref["referenceLocator"].startswith("pkg:rpm/"):
-                rpms.setdefault(ref["referenceLocator"].split("/")[2].split("@")[0], p["SPDXID"])
-    if not rpms:
-        raise ValueError("syft found no RPMs")
-    for parent in bundles:
-        if parent not in rpms:
-            raise ValueError(f"syft did not find the RPM {parent}")
+            purl = ref["referenceLocator"]
+            if ref["referenceType"] == "purl" and purl.startswith("pkg:rpm/") and "upstream=" in purl:
+                rpms.setdefault(urllib.parse.unquote(purl.split("/")[2].split("@")[0]), p["SPDXID"])
+    if missed := sorted(rpm_names - rpms.keys()):
+        raise ValueError(f"syft did not find the RPMs {', '.join(missed)}")
+    if unknown := sorted(rpms.keys() - rpm_names):
+        raise ValueError(f"syft found RPMs that are not installed: {', '.join(unknown)}")
     root = next(r["relatedSpdxElement"] for r in doc["relationships"]
                 if r["spdxElementId"] == "SPDXRef-DOCUMENT" and r["relationshipType"] == "DESCRIBES")
 
@@ -176,10 +187,12 @@ def generate(image, out):
         if not os.environ.get(name):
             sys.exit(f"error: {name} is not set")
     release = os_release(image_file(image, "/usr/lib/os-release"))
+    # Each installed RPM provides at least itself, so this lists every one.
+    provides = image_run(image, "rpm", "-qa", "--qf", "[%{=NAME}\t%{PROVIDENAME}\t%{PROVIDEVERSION}\n]")
     doc = complete(scan(image, release["IMAGE_VERSION"]), release,
                    image_file(image, "/usr/share/licenses/shapebit/LICENSE"),
                    json.loads(image_file(image, "/usr/share/desktop/extras.json")),
-                   bundled(image_run(image, "rpm", "-qa", "--qf", "[%{=NAME}\t%{PROVIDENAME}\t%{PROVIDEVERSION}\n]")),
+                   installed(provides), bundled(provides),
                    os.environ["LLAMA_VERSION"], os.environ["LLAMA_SHA256"])
     out = pathlib.Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
