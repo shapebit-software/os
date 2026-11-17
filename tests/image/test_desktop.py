@@ -268,3 +268,12 @@ def test_capture_has_its_encoders_and_devices(sh):
     encoders = sh("ffmpeg -hide_banner -encoders")
     assert "libopus" in encoders and "libvpx-vp9" in encoders
     assert "pulse" in sh("ffmpeg -hide_banner -devices") and "v4l2" in sh("ffmpeg -hide_banner -devices")
+
+
+def test_the_desktop_is_one_unchanged_package_at_the_images_version(sh):
+    # desktop/desktop.spec: what desktop/Makefile installs, built with the image.
+    version = sh(". /usr/lib/os-release && echo $IMAGE_VERSION").strip()
+    assert sh("rpm -q --qf '%{VERSION}' desktop") == version
+    paths = "/usr/libexec/desktop/extra /usr/share/desktop/shell/shell.qml /usr/share/licenses/parakeet/NOTICE"
+    assert set(sh(f"rpm -qf --qf '%{{NAME}}\\n' {paths}").split()) == {"desktop"}
+    sh("rpm -V desktop")

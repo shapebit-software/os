@@ -87,10 +87,10 @@ RUN kernel=$(basename /usr/lib/modules/*) && \
     dracut --force "/usr/lib/modules/$kernel/initramfs.img" "$kernel"
 
 # Build tools, used by the stages below and never part of the final image:
-# sbsigntools signs; make installs the desktop's files.
+# sbsigntools signs; rpm-build and make build ShapeBit's own packages.
 FROM system AS tools
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
-    dnf -y install sbsigntools make && mkdir /out
+    dnf -y install sbsigntools rpm-build make && mkdir /out
 
 # systemd-boot, signed; bootctl installs the *.signed copy when present.
 FROM tools AS bootloader
@@ -107,8 +107,14 @@ RUN --mount=type=secret,id=signing.crt \
     openssl x509 -in /run/secrets/signing.crt -outform DER -out /out/enroll-this-key.cer
 
 # The desktop's files (build context `desktop`), installed by its Makefile.
-FROM tools AS desktop-files
-RUN --mount=type=bind,from=desktop,target=/src make -C /src install DESTDIR=/out
+# The desktop's package (build context `desktop`, desktop.spec), at the image's
+# version: what its Makefile installs, so that the RPM database knows every file.
+FROM tools AS desktop-package
+ARG IMAGE_VERSION
+RUN --mount=type=bind,from=desktop,target=/src \
+    rpmbuild -bb --quiet --define "_topdir /tmp/rpm" --define "image_version $IMAGE_VERSION" \
+      --define "source_dir /src" /src/desktop.spec && \
+    cp /tmp/rpm/RPMS/noarch/*.rpm /out/
 
 # The notices that installed RPMs lack, from their exact source RPMs
 # (licensing/rpms.json), and links to RPM license files kept elsewhere. Fixed
@@ -120,7 +126,10 @@ RUN --mount=type=bind,from=licensing,target=/run/licensing \
     install -Dm755 /run/licensing/read.py /out/usr/libexec/desktop/licenses
 
 FROM system
-COPY --from=desktop-files /out/ /
+# ShapeBit's own packages need nothing that the image lacks, so rpm installs
+# them without a repository.
+RUN --mount=type=bind,from=desktop-package,source=/out,target=/run/packages \
+    rpm -i /run/packages/*.rpm
 COPY --from=licenses /out/ /
 # The desktop's settings defaults (window-buttons.gschema.override) apply
 # once the schemas are compiled again.

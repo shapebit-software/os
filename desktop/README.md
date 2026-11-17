@@ -140,7 +140,8 @@ The lock screen checks the password of the container's account, which
 distrobox leaves empty, so any password unlocks it. Set one with
 `sudo passwd $USER` in the container to try it for real.
 
-`make install DESTDIR=<directory>` installs the files as the image does.
+`make install DESTDIR=<directory>` installs the files as the image does: the
+image packages them as the RPM `desktop` (`desktop.spec`), at its own version.
 
 Each folder of `shell/` is a QML module, `qs.<folder>`. Every QML file must be
 listed in its folder's `qmldir`, and a file imports the other folders it uses.
@@ -159,6 +160,7 @@ listed in its folder's `qmldir`, and a file imports the other folders it uses.
 | `dictation/`  | Dictation: `hear` turns speech into words, for dictation and the assistant; `dictate` is the input method that delivers them. |
 | `extras/`     | The extras (large optional downloads, such as models) with their hashes, and the helper that installs them.           |
 | `packages`    | The packages the desktop runs on, each with its reason; the image installs them.                                         |
+| `desktop.spec` | The RPM of what `make install` installs, which the image builds and installs.                                          |
 | `dev/`        | Development only: the session bus of `make run`, and the Portal Tester.                                                    |
 
 ## Not yet implemented
