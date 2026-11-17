@@ -37,7 +37,7 @@ TEST_SSH_PORT  ?= 2223
 OPENQA_IMAGE   ?= localhost/shapebit-openqa:dev
 OPENQA_DISTRI  ?= distribution/openqa
 # openQA's target disk: sparse, and large enough that the installer leaves the
-# whole reserve beside the home (documentation/Design-Base.md), as on a real computer.
+# whole reserve beside the home (packages/homes/README.md), as on a real computer.
 OPENQA_DISK_SIZE ?= 256G
 # The first owner, an administrator that the installer creates.
 OWNER_NAME     ?= dev
@@ -78,7 +78,7 @@ UPDATE_ARCHIVE ?= $(IMAGE_ARCHIVE)
 # commit is in its record.
 STABLE_REVISION ?=
 # The source RPMs of the image, and of the installer
-# (distribution/release/sources.py, documentation/License.md). SOURCES_PREVIOUS names an earlier
+# (distribution/release/sources.py, distribution/release/README.md). SOURCES_PREVIOUS names an earlier
 # version's sources to compare with; SOURCES_CACHE, a directory of source RPMs
 # to take instead of downloading them. Both are optional.
 SOURCES_DIR           ?= $(BUILD)/sources
@@ -87,7 +87,7 @@ INSTALLER_SOURCES     ?= $(BUILD)/installer-sources.tar
 SOURCES_PREVIOUS      ?=
 SOURCES_CACHE         ?=
 # The directory of the image's software bill of materials, in SPDX and
-# CycloneDX (distribution/release/sbom.py, documentation/License.md), and the syft that scans it,
+# CycloneDX (distribution/release/sbom.py, distribution/release/README.md), and the syft that scans it,
 # pinned by digest.
 SBOM       ?= $(BUILD)/sbom
 SYFT_IMAGE ?= docker.io/anchore/syft:v1.18.1@sha256:b8c170b8e51bfc4779ec3ef4399942c57290f5ce76a9c3af564c9d00d4946a6b

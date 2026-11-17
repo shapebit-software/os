@@ -2,8 +2,8 @@
 
 ShapeBit OS is an image-based Linux desktop operating system built on Fedora:
 a [bootc](https://bootc-dev.github.io/bootc/) container built on Fedora bootc 45,
-and the installer medium that installs it to a disk that follows the
-[Base System](https://shapebit.software/docs/) architecture. The system starts
+and the installer medium that installs it to a disk
+([packages/installer](packages/installer/README.md#disk-layout)). The system starts
 to a login screen, which opens the [desktop](packages/shell/).
 
 ## Setup
@@ -68,9 +68,9 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 | Path         | Purpose                                                               |
 | ------------ | --------------------------------------------------------------------- |
 | `packages/`  | ShapeBit's own packages, one folder per feature: `apps`, `assistant`, `boot`, `capture`, `colors`, `dictation`, `downloads`, `extras`, `font`, `homes`, `installer`, `licenses`, `login`, `network`, `portal`, `release`, `repositories`, `screen-sharing`, `shell`, `sound`, `splash`, `system` (requires them all), `updates`, `windows`. |
-| `distribution/`     | The OS image, assembled from those packages, and everything about it as a whole: its build (here), `release/`, `vm/`, and its checks: `content/`, `medium/`, `installed/`, `update/`, `openqa/` (see [documentation/Testing.md](documentation/Testing.md)). |
+| `distribution/`     | The OS image, assembled from those packages, and everything about it as a whole: its build (here), `release/`, `vm/`, and its checks: `content/`, `medium/`, `installed/`, `update/`, `openqa/` (see [distribution](distribution/README.md)). |
 | `development/`       | Development: the container (`distrobox.ini`) and the desktop in a window (`make run`). |
-| `documentation/`      | The documentation, published to the Wiki and the website.             |
+| `guide/`     | The guide for people who use ShapeBit, published to the Wiki and the website. |
 | `.agents/`   | Skills for coding agents.                                             |
 | `build/`     | Generated outputs (ignored by Git).                                   |
 
@@ -85,12 +85,15 @@ unit tests (`make test-unit`); `check_*.py` check the built OS
 
 ## Documentation
 
-- [Design](documentation/Design.md)
-- [User Guide](documentation/User-Guide.md): [installing](documentation/Install.md) and
-  [shortcuts](documentation/Shortcuts.md).
-- [Development](documentation/Development.md): how the image, medium, and disk
-  are made, boot and update, installing on real hardware, development access,
-  and what is not implemented yet; [Testing](documentation/Testing.md).
+- [Guide](guide/Home.md), for people who use ShapeBit.
+- [Distribution](distribution/README.md): how the image is built, signed,
+  installed, and tested; [releases](distribution/release/README.md).
+- Each feature's README in [`packages/`](packages/), where its code doesn't
+  say it all: its goals, structure, and rules.
+
+`guide/` is only for people who use ShapeBit. Developer documentation lives
+beside the code it describes, and says only what the code and its comments
+can't: the intent, the structure, and the rules.
 
 ## Project links
 

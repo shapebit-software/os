@@ -104,7 +104,7 @@ NOTHING_TO_LICENSE = {
     "kde-filesystem", "libreport-filesystem", "qt6-filesystem",
 }
 # Their license text is not in their own source package, so no rule of
-# packages/licenses/notices.py can take it; reported to Fedora (documentation/License.md).
+# packages/licenses/notices.py can take it; reported to Fedora (packages/licenses/README.md).
 REPORTED = {"ca-certificates", "microcode_ctl", "shim-x64"}
 # ShapeBit's own packages (packages/, vendor ShapeBit): their license text is
 # ShapeBit's, in /usr/share/licenses/shapebit, which Settings > Licenses lists

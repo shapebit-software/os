@@ -180,7 +180,7 @@ RUN --mount=type=bind,from=licenses,source=/out,target=/run/notices \
 # the schemas are compiled again.
 RUN glib-compile-schemas /usr/share/glib-2.0/schemas
 # Identifies this build, the commit it is made from, and where its sources
-# are published once it is released (documentation/License.md), as os-release does
+# are published once it is released (distribution/release/README.md), as os-release does
 # from the release package.
 ARG IMAGE_VERSION
 ARG IMAGE_REVISION

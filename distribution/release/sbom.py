@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The software bill of materials of IMAGE, as SPDX 2.3 JSON and CycloneDX 1.6
-JSON, with the same content (documentation/License.md).
+JSON, with the same content (distribution/release/README.md).
 
 syft (SYFT_IMAGE) scans the image's filesystem from inside a container of it,
 once for both formats: its binary is mounted read-only, the container has no

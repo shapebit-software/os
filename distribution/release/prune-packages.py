@@ -2,7 +2,7 @@
 """Delete every version of a GHCR container package except those that carry one of
 the tags to keep, and what they refer to: the manifests of an index, which GHCR
 lists as untagged versions. Moving a tag deletes nothing, and a version stays
-downloadable by its digest until it is deleted (documentation/License.md). Deleted versions
+downloadable by its digest until it is deleted (distribution/release/README.md). Deleted versions
 can be restored for 30 days.
 
 Usage: prune-packages.py [--dry-run] REPOSITORY TAG...

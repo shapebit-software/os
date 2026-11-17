@@ -43,7 +43,7 @@ These rules cover the image: `packages/`, `distribution/`, `development/` and th
 - **Verify with unit tests.** Run `make test-unit` inside `make dev`. A change is
   done only when it passes. Everything else, such as `make static-checks`,
   `make test`, and `make test-release`, is optional, because CI runs it
-  ([documentation/Testing.md](documentation/Testing.md)); say which of these you did not run. Add
+  ([distribution/README.md](distribution/README.md#testing)); say which of these you did not run. Add
   `ENGINE=docker` on hosts without Podman.
 - **Prefer built-in tools.** Use what bootc, systemd, the Fedora base image, or
   QEMU already provide, such as `kargs.d`, systemd credentials, tmpfiles.d,
@@ -60,7 +60,7 @@ These rules cover the image: `packages/`, `distribution/`, `development/` and th
 - **Vendor defaults go under `/usr`,** by a feature's install rules. `/etc`
   and `/var` are machine state.
 - **Every behavior gets a check, beside what it checks.** See
-  [documentation/Testing.md](documentation/Testing.md). Logic that needs no machine gets a unit
+  [distribution/README.md](distribution/README.md#testing). Logic that needs no machine gets a unit
   test next to its code. The built OS is checked in `distribution/`: its content in
   `content/`; the installer medium in `medium/`; the installed, running system
   in `installed/`; updates in `update/`; what a person sees and does in
@@ -77,3 +77,13 @@ These rules cover the image: `packages/`, `distribution/`, `development/` and th
   only as build secrets; only signed binaries and public keys enter the image.
 - **Keep shell scripts small.** Use Bash with `set -euo pipefail`, and start
   each script with a comment that says what it does and how to call it.
+
+## Documentation
+
+- **`guide/` is for people who use ShapeBit,** published to the Wiki and
+  shapebit.software/docs. It describes what they see and do, in plain words;
+  nothing about how it is built, and nothing that isn't built yet.
+- **Developer documentation lives beside its code:** a feature's README in
+  `packages/`, the OS as a whole in `distribution/README.md`. A README says
+  only what the code and its comments can't: the intent, the structure, the
+  rules, and what is planned. Comments cite the README that owns a fact.

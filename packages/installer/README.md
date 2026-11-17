@@ -1,8 +1,7 @@
 # ShapeBit installer
 
 The installer of ShapeBit OS: a Qt Quick frontend and a privileged backend
-that erase one disk and install the system on it, following the
-[Installation](https://shapebit.software/docs/) architecture.
+that erase one disk and install the system on it.
 
 It runs from the installer medium, which the
 [image](../../README.md) builds
@@ -31,15 +30,35 @@ installer-backend (root)  →  sfdisk, cryptsetup, bootc, systemd-cryptenroll, h
   identity again when it accepts the plan, when the user confirms, and
   immediately before it erases the disk.
 
-On the target disk the backend creates the layout of the
-[Base System](https://shapebit.software/docs/): an EFI System Partition and a
-LUKS2 volume with Btrfs subvolumes. It installs the system from the archive on
+On the target disk the backend creates the [disk layout](#disk-layout). It
+installs the system from the archive on
 the medium with bootc, enrolls a recovery key and this machine's TPM2 (PCR 7
 and signed PCR 11), and creates the first owner with systemd-homed directly on
 the target. For that, it gives the installed system its machine ID and runs
 the medium's systemd-homed on the target's home storage and state, so the
 owner's record belongs to the installed system. Before it reports success, it
 checks the result and unlocks the volume once with each key.
+
+## Disk layout
+
+```text
+GPT
+├── esp        EFI System Partition: shim, signed systemd-boot and UKIs; no secrets
+└── shapebit   LUKS2, with the x86-64 root partition type, so systemd finds it
+    └── Btrfs
+        ├── @base      /sysroot: the composefs images, and each release's /etc
+        ├── @machine   /var: this computer's state
+        ├── @people    /var/home: the systemd-homed homes (packages/homes)
+        └── @recovery  not mounted; reserved for recovery
+```
+
+Homes are in `@people`, not `@machine`, so that a reset can wipe the
+computer's state and keep the homes. Each release keeps its own `/etc` and
+carries local changes forward on update. The installer sizes the first
+owner's home to leave the computer its reserve
+([packages/homes](../homes/README.md)), and marks the machine ID
+`uninitialized`, so the first boot generates it. The random key that opens the
+volume during the installation never leaves memory.
 
 ## Medium
 

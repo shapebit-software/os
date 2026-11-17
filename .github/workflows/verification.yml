@@ -1,5 +1,5 @@
 # Verifies every push and pull request, in order: each stage starts only if the
-# one before it passed (documentation/Testing.md). A new check goes in the stage it fits.
+# one before it passed (distribution/README.md). A new check goes in the stage it fits.
 name: Verification
 
 on:

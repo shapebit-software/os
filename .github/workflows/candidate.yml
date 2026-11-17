@@ -6,7 +6,7 @@
 # of its notes, for the Release workflow. Its sources are collected as it is
 # built, to os/candidate:<version>-sources, and its SBOM to -sbom. The build has no cache, so that it picks
 # up Fedora's updates; only the build job has the release keys, in the
-# environment "Signing", and only while it builds; a failed test job can be re-run on the same build (documentation/Testing.md).
+# environment "Signing", and only while it builds; a failed test job can be re-run on the same build (distribution/README.md).
 # Actions artifacts, which anyone signed in to GitHub can download, hold test
 # results only, never an image. "Bootstrap" is for when no installer exists yet,
 # and so nothing to update from: it skips the update tests, and the Installer
@@ -86,7 +86,7 @@ jobs:
           echo "version=$version" >>"$GITHUB_OUTPUT"
 
       # The keys are on the runner only for the builds that sign, never while
-      # tests run (documentation/Design-Security.md).
+      # tests run (distribution/README.md).
       - uses: ./.github/actions/release-keys
         with:
           secureboot-key: ${{ secrets.RELEASE_SECUREBOOT_KEY }}
@@ -119,14 +119,14 @@ jobs:
 
       # COPR deletes old builds, and Fedora's repositories drop a version once an
       # update replaces it, so the sources are collected now, while they match
-      # the build (documentation/License.md). Release publishes them with the image.
+      # the build (distribution/release/README.md). Release publishes them with the image.
       - name: Collect and push the image's sources
         run: |
           stable=$(skopeo inspect "docker://$REPOSITORY:stable" --format '{{index .Labels "org.opencontainers.image.version"}}' || true)
           make -o image sources ${stable:+SOURCES_PREVIOUS=$REPOSITORY:$stable-sources}
           distribution/release/sources.py push build/sources "$CANDIDATES:$IMAGE_VERSION-sources" "ShapeBit $IMAGE_VERSION: sources"
 
-      # What the image is made of, in SPDX and CycloneDX (documentation/License.md). Release publishes it
+      # What the image is made of, in SPDX and CycloneDX (distribution/release/README.md). Release publishes it
       # with the image.
       - name: Write and push the image's SBOM
         run: |

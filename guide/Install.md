@@ -87,58 +87,58 @@ from then on. No password is needed. Use the arrow keys and **Enter**:
 
 1. **Verification failed**: choose **OK**.
 
-   ![Verification failed](https://raw.githubusercontent.com/shapebit-software/os/main/docs/images/mok-1-verification-failed.png)
+   ![Verification failed](assets/mok-1-verification-failed.png)
 
 2. **Press any key to perform MOK management**: press a key within 10
    seconds. If you miss it, restart and boot the drive again.
 
-   ![Press any key](https://raw.githubusercontent.com/shapebit-software/os/main/docs/images/mok-2-press-any-key.png)
+   ![Press any key](assets/mok-2-press-any-key.png)
 
 3. Choose **Enroll key from disk**.
 
-   ![Enroll key from disk](https://raw.githubusercontent.com/shapebit-software/os/main/docs/images/mok-3-enroll-key-from-disk.png)
+   ![Enroll key from disk](assets/mok-3-enroll-key-from-disk.png)
 
 4. Choose the drive (**INSTALLER**), then **enroll-this-key.cer**.
 
-   ![The drive](https://raw.githubusercontent.com/shapebit-software/os/main/docs/images/mok-4-partition.png)
-   ![The key file](https://raw.githubusercontent.com/shapebit-software/os/main/docs/images/mok-5-certificate.png)
+   ![The drive](assets/mok-4-partition.png)
+   ![The key file](assets/mok-5-certificate.png)
 
 5. Choose **Continue**, then **Yes**.
 
-   ![Continue](https://raw.githubusercontent.com/shapebit-software/os/main/docs/images/mok-6-continue.png)
-   ![Yes](https://raw.githubusercontent.com/shapebit-software/os/main/docs/images/mok-7-yes.png)
+   ![Continue](assets/mok-6-continue.png)
+   ![Yes](assets/mok-7-yes.png)
 
 6. Choose **Reboot**. The PC starts the installer.
 
-   ![Reboot](https://raw.githubusercontent.com/shapebit-software/os/main/docs/images/mok-8-reboot.png)
+   ![Reboot](assets/mok-8-reboot.png)
 
 ## 5. Install
 
 The installer asks for your language, keyboard layout, network, time zone,
 and account, then the disk.
 
-![The installer's first page](https://raw.githubusercontent.com/shapebit-software/os/main/docs/images/installer-1-welcome.png)
+![The installer's first page](assets/installer-1-welcome.png)
 
 - **Network**: choose **Skip for now**. The installer can't connect to Wi-Fi
   yet, and it doesn't need the internet.
 
-  ![Network](https://raw.githubusercontent.com/shapebit-software/os/main/docs/images/installer-2-network.png)
+  ![Network](assets/installer-2-network.png)
 
 - **Account**: your name and password. The password unlocks your session
   and your files.
 
-  ![Account](https://raw.githubusercontent.com/shapebit-software/os/main/docs/images/installer-3-account.png)
+  ![Account](assets/installer-3-account.png)
 
 - **Disk**: pick the disk, tick the box that says all its data will be
   deleted, then **Erase disk and install ShapeBit**.
 
-  ![Disk](https://raw.githubusercontent.com/shapebit-software/os/main/docs/images/installer-4-disk.png)
+  ![Disk](assets/installer-4-disk.png)
 
 - **Recovery key**: write it down or photograph it, and keep it away from
   the PC. It's the only way in if the PC ever can't unlock its disk by
   itself, and it's never shown again.
 
-  ![Recovery key](https://raw.githubusercontent.com/shapebit-software/os/main/docs/images/installer-5-recovery-key.png)
+  ![Recovery key](assets/installer-5-recovery-key.png)
 
 ## 6. Start ShapeBit
 
@@ -147,4 +147,4 @@ screen opens. After you sign in, **Welcome** connects you to the network and
 offers a browser and apps.
 
 If the PC ever asks for a passphrase at startup, type the recovery key
-([Recovery](Design-Recovery.md)).
+([Recovery key](Security.md#recovery-key)).

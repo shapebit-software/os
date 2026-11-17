@@ -7,10 +7,23 @@ dnf's settings; the image build turns them on.
 
 | File | What it is |
 | --- | --- |
-| `hyprland.repo` | The third-party COPR that Hyprland comes from, for now (documentation/Design-Security.md). |
+| `hyprland.repo` | The third-party COPR that Hyprland comes from, for now ([below](#hyprland)). |
 | `third-party.repo`, `third-party.asc` | ShapeBit's own repository of external packages, and the key that signs it. |
 | `no-weak-deps.conf`, `no-countme.repo` | dnf installs no weak dependencies, and does not report the computer to Fedora's mirrors. |
 | `rpm-build.sh`, `rpm-repo.sh` | Build an external package, and write the signed repository of them all. |
+
+## Hyprland
+
+Fedora has no Hyprland, so Hyprland, its dialogs, hypridle,
+xdg-desktop-portal-hyprland, and Quickshell come from the
+[sdegler/hyprland](https://copr.fedorainfracloud.org/coprs/sdegler/hyprland/)
+COPR. This is a known supply-chain risk: one person controls it, its package
+scripts run as root during the image build, and a newer version of any Fedora
+package in it would be installed instead. What limits it: packages are checked
+against the COPR's key; installed systems ship it turned off, so they never
+fetch from it; the source RPMs are kept with each release's sources. Drop it
+as soon as Fedora ships Hyprland: remove `hyprland.repo` and the COPR from
+`development/distrobox.ini`.
 
 ## External packages
 

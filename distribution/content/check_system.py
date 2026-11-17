@@ -177,7 +177,7 @@ def pe_section(content, name):
 
 
 def test_pcr_policy_key_is_not_the_secure_boot_key(host):
-    # Separate keys can be replaced separately (documentation/Design-Security.md). The
+    # Separate keys can be replaced separately (distribution/README.md). The
     # certificate holds its public key as DER, the UKI's .pcrpkey as PEM.
     with open(glob.glob("/boot/EFI/Linux/*.efi")[0], "rb") as uki:
         pem = pe_section(uki.read(), b".pcrpkey").decode()

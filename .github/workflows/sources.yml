@@ -1,5 +1,5 @@
 # Collects and publishes the sources of a released version of os that has none,
-# such as one released before sources were published (documentation/License.md), as
+# such as one released before sources were published (distribution/release/README.md), as
 # os:<version>-sources. Downloads from Fedora's repositories, or from Koji for
 # versions that they no longer have; fails if a source cannot be found, and then
 # that version must be replaced by a new release and deleted instead. Runs only

@@ -27,7 +27,7 @@ def home_leaves_the_reserve():
     size = int(sut.run(f"stat -L -c %s {image}"))
     assert size <= record["diskSize"], f"the home grew to {size} bytes"
     # On a disk of 128 GiB or more, the reserve is at least 64 GiB
-    # (documentation/Design-Base.md); booting and signing in use some of it.
+    # (packages/homes/README.md); booting and signing in use some of it.
     if int(get_var("HDDSIZEGB_2")) >= 128:
         free = int(sut.run("findmnt -bno AVAIL /var"))
         assert free >= 56 * GIB, f"only {free} bytes are free beside the home"

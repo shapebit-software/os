@@ -1,5 +1,5 @@
-# Copies documentation/ on main to this repository's Wiki tab, whose links name pages
-# without .md. documentation/ is the source: an edit made in the Wiki is overwritten.
+# Copies guide/ on main to this repository's Wiki tab, whose links name pages
+# without .md. guide/ is the source: an edit made in the Wiki is overwritten.
 name: Sync Wiki
 
 on:
@@ -7,7 +7,7 @@ on:
     branches:
       - main
     paths:
-      - documentation/**
+      - guide/**
   workflow_dispatch:
 
 permissions:
@@ -25,8 +25,8 @@ jobs:
           path: wiki
       - name: Copy the documentation
         run: |
-          rm -f wiki/*.md
-          cp documentation/*.md wiki/
+          rm -rf wiki/*.md wiki/assets
+          cp -r guide/*.md guide/assets wiki/
           sed -i -E 's/\]\(([A-Za-z_-]+)\.md(#[^)]*)?\)/](\1\2)/g' wiki/*.md
       - name: Publish
         working-directory: wiki

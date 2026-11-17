@@ -2,9 +2,9 @@
 
 The desktop of ShapeBit OS: [Hyprland](https://hypr.land) as the compositor
 and [Quickshell](https://quickshell.org) as the shell, following the
-[demo](https://shapebit.software/demo/). Where the demo and the
-[Desktop Environment](https://shapebit.software/docs/) architecture disagree,
-the demo decides.
+[demo](https://shapebit.software/demo/), which decides where this README
+and the demo disagree. What a person sees is in the
+[guide](../../guide/Desktop.md).
 
 The session starts Hyprland through [UWSM](https://github.com/Vladimir-csp/uwsm),
 which runs the session's systemd units (`graphical-session.target` and the
@@ -180,3 +180,25 @@ session bus of `make run`, and the Portal Tester.
 - Settings has only what works: no first day of the week.
 - Tabs cannot be dragged.
 - Tile sizes last while the workspace keeps its layout, not across sessions.
+
+## Planned
+
+- **Radial context menus** for the shell and ShapeBit's own apps; others keep
+  theirs. They open on the secondary button, the Menu key, or a long press;
+  press, move into a wedge, and release runs it, and releasing in the center
+  keeps the menu open. At most eight wedges, each in a fixed direction for its
+  kind of object, never reordered: the primary action on top, destructive ones
+  in a consistent lower sector; unavailable ones stay, disabled; at most two
+  levels. Near an edge the ring shifts inward, never the pointer. The keyboard
+  works throughout, nothing depends on color, motion, or speed, and the menu
+  never times out.
+- **Shelf**: a temporary place for things across workspaces, cleared at
+  logout. Only explicit actions add to it (a drag, **Send to Shelf**), never
+  the clipboard; files stay references, other things become copies under one
+  size limit, never evicted silently. It opens from a screen edge or a
+  shortcut, over the windows, and removing has Undo.
+- **Gaze input**: a key or button moves the pointer to the latest stable gaze
+  point; looking alone never moves or clicks anything. Camera frames and gaze
+  data stay in memory, unreadable by apps and the assistant; an indicator
+  shows while tracking, which stops on the login and lock screens. It needs
+  calibration per display.

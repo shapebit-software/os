@@ -18,4 +18,13 @@ fixes. Installed systems update to it on their own (Settings > Updates).
 
 ## Design
 
-How the system protects devices and data: [Security](documentation/Design-Security.md).
+- Disk encryption, the boot chain, and the TPM policy:
+  [packages/boot](packages/boot/README.md); encrypted homes:
+  [packages/homes](packages/homes/README.md).
+- Signing keys, their protection and rotation:
+  [distribution](distribution/README.md#signing-keys).
+- Releases, withdrawal, and what must happen before a public release:
+  [distribution/release](distribution/release/README.md).
+- The third-party Hyprland repository:
+  [packages/repositories](packages/repositories/README.md#hyprland).
+- The assistant's permissions: [packages/assistant](packages/assistant/README.md#rules).

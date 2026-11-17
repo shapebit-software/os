@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 """Every file the image adds to /usr belongs to an RPM, as the RPM has it, so
 that its license, sources and SBOM entry come with it, and `rpm -V` finds what
-changed (documentation/License.md).
+changed (packages/licenses/README.md).
 
 Fedora's bootc base image already has files that no RPM owns (its kernel
 modules, firmware, rpm-ostree's own files) and files that differ from their

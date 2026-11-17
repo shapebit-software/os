@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The source RPMs next to each published binary: that of every installed RPM,
 whatever its license label says, as labels can be incomplete or use unfamiliar
-names (documentation/License.md). Reads the packages from IMAGE, and downloads their
+names (distribution/release/README.md). Reads the packages from IMAGE, and downloads their
 source RPMs in a container of IMAGE, with dnf from Fedora's repositories, the
 Hyprland COPR and ShapeBit's own, which the image ships (packages/repositories), or
 from Fedora's Koji for a version that the repositories no longer have. Fails if any is missing. COPR deletes old

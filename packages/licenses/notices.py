@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """The license notices that some installed Fedora RPMs lack, taken from their
-exact source RPMs into DESTDIR/usr/share/licenses/<package>/ (documentation/License.md).
+exact source RPMs into DESTDIR/usr/share/licenses/<package>/ (packages/licenses/README.md).
 
 Shipping a component's notices is a condition of its license; these packages
 leave some out. Each rule names the binary package, the archive in its source
