@@ -53,8 +53,9 @@ ShapeBit's own code is in its [repositories on GitHub](https://github.com/shapeb
 ## Software bill of materials
 
 Each released version of the system has a software bill of materials (SBOM)
-next to it: `ghcr.io/shapebit-software/os:<version>-sbom`, one SPDX 2.3 JSON
-file that lists every component with its version and license. Releases from
+next to it: `ghcr.io/shapebit-software/os:<version>-sbom`. It lists every
+component with its version and license in two formats with the same content:
+`sbom.spdx.json` (SPDX 2.3) and `sbom.cdx.json` (CycloneDX 1.6). Releases from
 before November 2026 have none. To download it:
 
 ```sh
@@ -64,11 +65,10 @@ podman artifact extract ghcr.io/shapebit-software/os:<version>-sbom <directory>
 
 It lists the RPMs and Python packages that the image has, found by
 [syft](https://github.com/anchore/syft), and the code each RPM declares it
-bundles; ShapeBit itself; and the models that
-the system downloads on request, as optional components.
-Its RPMs are checked to be exactly the installed ones, whose source RPMs are
-the published sources.
-`make sbom` writes it for a local image.
+bundles; ShapeBit itself; and the models that the system downloads on request,
+as optional components. Its RPMs are checked to be exactly the installed ones,
+whose source RPMs are the published sources. `make sbom` writes it for a local
+image.
 
 ## Documentation
 

@@ -87,9 +87,10 @@ INSTALLER_SOURCES_DIR ?= $(BUILD)/installer-sources
 INSTALLER_SOURCES     ?= $(BUILD)/installer-sources.tar
 SOURCES_PREVIOUS      ?=
 SOURCES_CACHE         ?=
-# The image's software bill of materials (scripts/sbom.py, docs/License.md),
-# and the syft that scans it, pinned by digest.
-SBOM       ?= $(BUILD)/sbom.spdx.json
+# The directory of the image's software bill of materials, in SPDX and
+# CycloneDX (scripts/sbom.py, docs/License.md), and the syft that scans it,
+# pinned by digest.
+SBOM       ?= $(BUILD)/sbom
 SYFT_IMAGE ?= docker.io/anchore/syft:v1.18.1@sha256:b8c170b8e51bfc4779ec3ef4399942c57290f5ce76a9c3af564c9d00d4946a6b
 
 # Packages of third-party software that Fedora lacks (third-party/README.md): the one that
@@ -156,7 +157,7 @@ installer: image ## Build the installer medium, which carries the image
 	  --build-context installer=$(INSTALLER_SRC) --build-context payload=$(BUILD)/payload
 	scripts/medium.sh
 
-sbom: image ## Write the image's software bill of materials to SBOM
+sbom: image ## Write the image's software bill of materials, SPDX and CycloneDX, into SBOM
 	scripts/sbom.py generate $(IMAGE) $(SBOM)
 
 rpm: ## Build the package third-party/RPM, offline, into RPMS/RPM
