@@ -45,7 +45,7 @@ def scan(rpms=("python3-sherpa-onnx", "bootc", "glib2", "libstdc++")):
 
 
 def complete(doc):
-    return sbom.complete(doc, RELEASE, "PolyForm Shield", EXTRAS, sbom.installed(PROVIDES), BUNDLED, "0.8.0", "f" * 64)
+    return sbom.complete(doc, RELEASE, "PolyForm Shield", EXTRAS, sbom.installed(PROVIDES), BUNDLED)
 
 
 def related(doc, relation, target):
@@ -55,14 +55,13 @@ def related(doc, relation, target):
             and target in (r["spdxElementId"], r["relatedSpdxElement"])}
 
 
-def test_adds_shapebit_llama_and_what_rpms_bundle():
+def test_adds_shapebit_and_what_rpms_bundle():
     doc = complete(scan())
     by_name = {p["name"]: p for p in doc["packages"]}
     assert by_name["ShapeBit OS"]["versionInfo"] == "202611160900"
     assert by_name["ShapeBit OS"]["downloadLocation"].endswith("@abc123")
     assert by_name["ShapeBit OS"]["licenseDeclared"] in {i["licenseId"] for i in doc["hasExtractedLicensingInfos"]}
-    assert by_name["llama.cpp"]["checksums"] == [{"algorithm": "SHA256", "checksumValue": "f" * 64}]
-    assert related(doc, "CONTAINS", "SPDXRef-Root") == {"ShapeBit OS", "llama.cpp"}
+    assert related(doc, "CONTAINS", "SPDXRef-Root") == {"ShapeBit OS"}
     assert related(doc, "CONTAINS", "SPDXRef-Package-rpm-python3-sherpa-onnx") == {"utf8proc", "kissfft"}
     assert related(doc, "CONTAINS", "SPDXRef-Package-rpm-bootc") == {"crate(serde)"}
     serde = next(p for p in doc["packages"] if p["name"] == "crate(serde)")

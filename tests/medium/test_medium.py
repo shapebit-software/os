@@ -22,7 +22,7 @@ def capabilities(sh):
 
 def test_installer_preserves_the_system_license_materials(host, sh):
     assert host.file("/usr/share/licenses/shapebit/LICENSE").size > 0
-    assert host.file("/usr/share/licenses/llama.cpp/LICENSE-llamafile").size > 0
+    assert host.file("/usr/share/licenses/llama-server/LICENSE-llamafile").size > 0
     assert host.file("/usr/share/licenses/parakeet/LICENSE-smart-turn").size > 0
     assert host.file("/usr/share/licenses/malcontent-libs/COPYING").size > 0
     components = json.loads(sh("/usr/libexec/desktop/licenses list"))["components"]

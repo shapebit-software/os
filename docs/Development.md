@@ -35,9 +35,11 @@ and pull requests sign with throwaway development keys
    COPR for now; the repository is not left in the image.
    The image also carries Flatpak with Flathub's remote, Distrobox, the
    speech recognition of dictation (sherpa-onnx), and llama.cpp's
-   `llama-server` for the assistant, each built or downloaded at a pinned
-   version and checked against its hash. The image ships no AI model: the
-   models are extras, downloaded on the computer when the person chooses.
+   `llama-server` for the assistant. Fedora lacks the last two, so ShapeBit
+   builds them as RPMs at pinned versions, checked against their hashes
+   ([`third-party/`](https://github.com/shapebit-software/os/tree/main/third-party)).
+   The image ships no AI model: the models are extras, downloaded on the
+   computer when the person chooses.
    Fedora's logos are replaced by `generic-logos`, as Fedora's trademark
    guidelines ask of systems made from it.
 2. [Containerfile.seal](https://github.com/shapebit-software/os/blob/main/image/Containerfile.seal) adds a signed UKI. Its

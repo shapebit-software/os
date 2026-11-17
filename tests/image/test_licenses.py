@@ -15,7 +15,7 @@ import pytest
     ("shapebit/LICENSE", "Required Notice: Copyright Marcin Syngajewski"),
     ("python3-sherpa-onnx/LICENSE", "Apache License"),
     ("python3-sherpa-onnx/kissfft/COPYING", "Mark Borgerding"),
-    ("llama.cpp/LICENSE-llamafile", "Copyright 2024 Mozilla Foundation"),
+    ("llama-server/LICENSE-llamafile", "Copyright 2024 Mozilla Foundation"),
     ("exiv2-libs/COPYING-XMPSDK", "Adobe Systems Incorporated"),
     ("glx-utils/NOTICE-glxgears", "Brian Paul"),
     ("glx-utils/NOTICE-glxinfo", "Brian Paul"),
@@ -55,7 +55,7 @@ def test_settings_can_read_shared_and_collected_notices(sh):
     result = json.loads(sh("/usr/libexec/desktop/licenses list"))
     assert not result.get("error")
     components = {c["name"]: c for c in result["components"]}
-    assert {"shapebit", "llama.cpp", "python3-sherpa-onnx", "parakeet", "gemma-4-e2b", "python3-onnxruntime"} <= components.keys()
+    assert {"shapebit", "llama-server", "python3-sherpa-onnx", "parakeet", "gemma-4-e2b", "python3-onnxruntime"} <= components.keys()
     for component in components.values():
         assert all(not f["name"].startswith(".") for f in component["files"])
     text = json.loads(sh("/usr/libexec/desktop/licenses read python3-onnxruntime/ThirdPartyNotices.txt"))

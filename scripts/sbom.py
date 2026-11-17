@@ -6,7 +6,7 @@ its binary is mounted read-only, the container has no network, and nothing is
 installed. It finds the RPMs and the Python packages. This adds what it cannot
 see, from what the repository pins, and fails unless syft's RPMs are exactly
 `rpm -qa`'s, whose source RPMs scripts/sources.py publishes: ShapeBit itself (its version and revision
-from the image's os-release), llama.cpp (LLAMA_VERSION, LLAMA_SHA256), the
+from the image's os-release), the
 code that each RPM declares it bundles (Fedora's `Provides: bundled(...)`, as in
 third-party/), and the models that are extras (the image's extras.json), as optional
 components.
@@ -51,7 +51,7 @@ def spdx_id(*parts):
     return "SPDXRef-" + re.sub(r"[^A-Za-z0-9.-]+", "-", "-".join(parts)).strip("-")
 
 
-def package(ident, name, version, license, location, supplier=None, purl=None, sha256=None, comment=None):
+def package(ident, name, version, license, location, supplier=None, purl=None, comment=None):
     result = {
         "SPDXID": ident, "name": name, "versionInfo": version,
         "downloadLocation": location, "filesAnalyzed": False,
@@ -62,8 +62,6 @@ def package(ident, name, version, license, location, supplier=None, purl=None, s
     if purl:
         result["externalRefs"] = [{"referenceCategory": "PACKAGE-MANAGER", "referenceType": "purl",
                                    "referenceLocator": purl}]
-    if sha256:
-        result["checksums"] = [{"algorithm": "SHA256", "checksumValue": sha256}]
     if comment:
         result["comment"] = comment
     return result
@@ -95,7 +93,7 @@ def bundled_purl(library, version):
     return None
 
 
-def complete(doc, release, license_text, extras, rpm_names, bundles, llama_version, llama_sha256):
+def complete(doc, release, license_text, extras, rpm_names, bundles):
     """Add to syft's document what it cannot see; fail unless its RPMs are exactly
     RPM_NAMES, the image's, whose source RPMs are its published sources."""
     packages = doc["packages"]
@@ -128,10 +126,6 @@ def complete(doc, release, license_text, extras, rpm_names, bundles, llama_versi
         "licenseId": SHAPEBIT_LICENSE, "name": "PolyForm Shield License 1.0.0", "extractedText": license_text,
         "seeAlsos": ["https://polyformproject.org/licenses/shield/1.0.0"],
     })  # fmt: skip
-    add(package(spdx_id("Package-llama.cpp"), "llama.cpp", llama_version, "MIT",
-                f"https://github.com/ggml-org/llama.cpp/archive/refs/tags/v{llama_version}.tar.gz",
-                supplier="ggml-org", purl=f"pkg:github/ggml-org/llama.cpp@v{llama_version}", sha256=llama_sha256,
-                comment="Built from source into /usr/libexec/llama."), "CONTAINS", root)
     for parent, libraries in bundles.items():
         for library, library_version in libraries:
             add(package(spdx_id("Package-bundled", parent, library, library_version), library,
@@ -183,7 +177,7 @@ def scan(image, version):
 
 
 def generate(image, out):
-    for name in ("ENGINE", "SYFT_IMAGE", "LLAMA_VERSION", "LLAMA_SHA256"):
+    for name in ("ENGINE", "SYFT_IMAGE"):
         if not os.environ.get(name):
             sys.exit(f"error: {name} is not set")
     release = os_release(image_file(image, "/usr/lib/os-release"))
@@ -192,8 +186,7 @@ def generate(image, out):
     doc = complete(scan(image, release["IMAGE_VERSION"]), release,
                    image_file(image, "/usr/share/licenses/shapebit/LICENSE"),
                    json.loads(image_file(image, "/usr/share/desktop/extras.json")),
-                   installed(provides), bundled(provides),
-                   os.environ["LLAMA_VERSION"], os.environ["LLAMA_SHA256"])
+                   installed(provides), bundled(provides))
     out = pathlib.Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, indent=1) + "\n")

@@ -64,7 +64,7 @@ podman artifact extract ghcr.io/shapebit-software/os:<version>-sbom <directory>
 
 It lists the RPMs and Python packages that the image has, found by
 [syft](https://github.com/anchore/syft), and the code each RPM declares it
-bundles; llama.cpp, which ShapeBit pins; ShapeBit itself; and the models that
+bundles; ShapeBit itself; and the models that
 the system downloads on request, as optional components.
 Its RPMs are checked to be exactly the installed ones, whose source RPMs are
 the published sources.

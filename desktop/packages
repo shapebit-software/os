@@ -1,7 +1,7 @@
 # The Fedora packages that the desktop runs on, one per line; the OS image
 # installs them (Containerfile). Hyprland, its dialogs, hypridle,
 # xdg-desktop-portal-hyprland, and Quickshell come from a third-party COPR, which the image enables for this,
-# and python3-sherpa-onnx from ShapeBit's own repository (third-party/README.md).
+# and python3-sherpa-onnx and llama-server from ShapeBit's own repository (third-party/README.md).
 
 # The compositor, the shell's runtime, and the session.
 hyprland
@@ -56,6 +56,10 @@ rtkit
 pipewire-utils
 wtype
 python3-sherpa-onnx
+# The assistant's language model server (assistant/llama-server@.service), built
+# from llama.cpp (third-party/llama-server); Fedora's llama-cpp is too old for
+# Gemma 4. The model it serves is downloaded (extras/extra).
+llama-server
 python3-numpy
 # Secrets (the Secret Service and its portal), unlocked by the login password:
 # SDDM's PAM configuration calls pam_oo7 when it is installed.

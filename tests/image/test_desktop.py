@@ -148,13 +148,17 @@ def test_assistant_model_is_an_extra_not_in_the_image(host, sh):
     assert not host.file("/var/lib/extras/gemma-4-e2b").exists
 
 
-def test_llama_server_runs_with_its_own_libraries(sh, host):
+def test_llama_server_is_shapebits_package_with_its_own_libraries(sh, host):
+    # third-party/llama-server: every file is the package's, its libraries stay
+    # private, and its notices come with it.
     assert "version: " in sh("/usr/libexec/llama/llama-server --version 2>&1")
     assert "not found" not in sh("ldd /usr/libexec/llama/llama-server")
     assert host.file("/usr/libexec/llama/libggml-cpu-haswell.so").size > 0
-    for notice in ("LICENSE", "LICENSE-jsonhpp", "LICENSE-cpp-httplib"):
-        assert host.file(f"/usr/share/licenses/llama.cpp/{notice}").size > 0
-    assert "Copyright 2024 Mozilla Foundation" in host.file("/usr/share/licenses/llama.cpp/LICENSE-llamafile").content_string
+    assert sh("rpm -qf --qf '%{NAME}\\n' /usr/libexec/llama/llama-server /usr/libexec/llama/libggml-cpu-haswell.so") == "llama-server\nllama-server"
+    assert "libggml" not in sh("rpm -q --provides llama-server")
+    for notice in ("LICENSE", "LICENSE-jsonhpp", "LICENSE-cpp-httplib", "LICENSE-xxhash"):
+        assert host.file(f"/usr/share/licenses/llama-server/{notice}").size > 0
+    assert "Copyright 2024 Mozilla Foundation" in host.file("/usr/share/licenses/llama-server/LICENSE-llamafile").content_string
 
 
 def test_compositor_configuration_is_valid(sh):

@@ -4,10 +4,9 @@ and link RPM-owned license files kept outside /usr/share/licenses into it.
 
 Fixed license texts are committed under image/rootfs/usr/share/licenses and
 desktop/extras/licenses; this handles only what depends on the installed
-packages or compiled sources. Nothing from an archive is extracted onto the
+packages. Nothing from an archive is extracted onto the
 filesystem. Usage:
   collect.py collect RULES DESTDIR CACHE
-  collect.py header SOURCE DESTINATION
 """
 
 import fnmatch
@@ -144,11 +143,7 @@ def collect(rules, dest, cache):
 
 
 def main(args):
-    if args[:1] == ["header"] and len(args) == 3:
-        source, target = map(pathlib.Path, args[1:])
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(header(source.read_bytes()))
-    elif args[:1] == ["collect"] and len(args) == 4:
+    if args[:1] == ["collect"] and len(args) == 4:
         collect(*map(pathlib.Path, args[1:]))
     else:
         raise ValueError(__doc__)

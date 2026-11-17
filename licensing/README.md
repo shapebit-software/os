@@ -9,7 +9,7 @@ They come from four places:
 | The RPMs | Each package's own texts. Fedora puts most there itself. |
 | [`image/rootfs/usr/share/licenses/`](../image/rootfs/usr/share/licenses/) | Fixed texts committed to the repository: ShapeBit's own license (a copy of [`LICENSE.md`](../LICENSE.md)) and the font. |
 | [`desktop/extras/licenses/`](../desktop/extras/licenses/) | The texts of the models that are extras, installed by the desktop. |
-| The image build | `collect.py`: the notices that some RPMs lack, from their exact source RPMs (`rpms.json`), and links to RPM license files kept elsewhere. The llama stage adds llama.cpp's notices from the source it compiles. |
+| The image build | `collect.py`: the notices that some RPMs lack, from their exact source RPMs (`rpms.json`), and links to RPM license files kept elsewhere. |
 
 | File | Purpose |
 | --- | --- |

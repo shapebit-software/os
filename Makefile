@@ -7,10 +7,6 @@ IMAGE          ?= localhost/shapebit-os:dev
 # How the development container of the desktop and installer is entered.
 DEV_ENTER      ?= DBX_CONTAINER_MANAGER=docker distrobox enter shapebit-dev
 FEDORA_VERSION ?= 45
-# The assistant's language model server, pinned: llama.cpp's release and its
-# source's SHA-256.
-LLAMA_VERSION          ?= 0.8.0
-LLAMA_SHA256           ?= 51b1e025d7b12e83fa55736e65bc254acd9d23e49f546be7531368fef82210ee
 IMAGE_VERSION  ?= dev
 # The commit that the image is made from.
 IMAGE_REVISION ?= $(shell git rev-parse HEAD)
@@ -103,7 +99,7 @@ RPM            ?= sherpa-onnx
 RPMS           ?= $(BUILD)/rpms
 RPM_RELEASES   ?= https://github.com/shapebit-software/os/releases/download
 RPM_PUBLIC_KEY ?= image/third-party.asc
-export SYFT_IMAGE LLAMA_VERSION LLAMA_SHA256 RPM_RELEASES RPM_PUBLIC_KEY
+export SYFT_IMAGE RPM_RELEASES RPM_PUBLIC_KEY
 export DEV_ENTER OPENQA_DISK_SIZE INSTALLER_REF IMAGE_REVISION IMAGE_ARCHIVE NEXT_ARCHIVE NEXT2_ARCHIVE FLOW UPDATE_ARCHIVE STABLE_REVISION OPENQA_DISTRI OPENQA_IMAGE RESULTS VENV TEST_SSH_PORT DISK_FORMAT ENGINE IMAGE FEDORA_VERSION IMAGE_VERSION BUILD DISK DISK_SIZE INSTALLER_IMAGE MEDIUM MEDIUM_SIZE SSH_PORT SSH_KEY OWNER_NAME OWNER_PASSWORD RECOVERY_KEY LOCALE KEYBOARD_LAYOUT TIME_ZONE KEYS_DIR SIGNING_KEY BOOT_TIMEOUT REGISTRY_PORT UPDATE_REF DEV_UPDATE_REF
 
 # Checks that run on this host leave no bytecode in the tree that tmt copies.
@@ -128,7 +124,6 @@ image: $(KEYS) ## Build the container image with its signed UKI
 	scripts/image.sh image/Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \
 	  --build-arg FEDORA_VERSION=$(FEDORA_VERSION) --build-arg IMAGE_VERSION=$(IMAGE_VERSION) \
 	  --build-arg IMAGE_REVISION=$(IMAGE_REVISION) \
-	  --build-arg LLAMA_VERSION=$(LLAMA_VERSION) --build-arg LLAMA_SHA256=$(LLAMA_SHA256) \
 	  --build-context desktop=$(DESKTOP_SRC) --build-context licensing=licensing
 
 colors: ## Write the QML module Colors's values from the system's colors (image/rootfs/usr/share/colors/colors.toml)
