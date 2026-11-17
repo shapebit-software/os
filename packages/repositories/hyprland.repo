@@ -1,4 +1,4 @@
-# The third-party COPR that Hyprland comes from for now (distribution/Containerfile).
+# The third-party COPR that Hyprland comes from for now (distribution/image/Containerfile).
 # Shipped beside Fedora's repositories, so that the system records where its
 # packages come from; the image build and distribution/release/sources.py use it.
 # Off on installed systems, which never fetch from it: the image build and

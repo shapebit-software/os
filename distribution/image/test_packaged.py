@@ -1,13 +1,13 @@
 """The image build fails on any file in /usr that no RPM owns, or that differs
 from its RPM, beyond the base image's own, the generated caches and the
-build's deliberate changes (distribution/packaged.py)."""
+build's deliberate changes (distribution/image/packaged.py)."""
 
 import importlib.machinery
 import importlib.util
 import pathlib
 
-ROOT = pathlib.Path(__file__).parents[1]
-loader = importlib.machinery.SourceFileLoader("packaged", str(ROOT / "distribution/packaged.py"))
+ROOT = pathlib.Path(__file__).parents[2]
+loader = importlib.machinery.SourceFileLoader("packaged", str(ROOT / "distribution/image/packaged.py"))
 packaged = importlib.util.module_from_spec(importlib.util.spec_from_loader("packaged", loader))
 loader.exec_module(packaged)
 

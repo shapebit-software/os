@@ -2,10 +2,10 @@
 # Check that every package that ShapeBit's packages require still
 # exists, in the image's Fedora version and ShapeBit's third-party repository,
 # before an image build would find out. The query reads only metadata, so it
-# needs no key. Requires with a macro are the specs' own (see distribution/Containerfile).
+# needs no key. Requires with a macro are the specs' own (see distribution/image/Containerfile).
 # Usage: requires.sh (called by `make validate`, in Fedora, as `make dev`).
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 : "${FEDORA_VERSION:?}"
 
 status=0

@@ -15,8 +15,8 @@ mkdir -p "$run"
 workdir=$(mktemp -d /var/tmp/shapebit-tmt.XXXXXX)
 trap 'mv "$workdir" "$run/tmt"' EXIT
 
-# distribution/ is the tree that tmt copies to the guest, with the checks' dependencies.
-"$VENV/bin/tmt" --root distribution run --id "$workdir" --scratch --all \
+# distribution/checks/ is the tree that tmt copies to the guest, with the checks' dependencies.
+"$VENV/bin/tmt" --root distribution/checks run --id "$workdir" --scratch --all \
   --environment "IMAGE_DIGEST=$IMAGE_DIGEST OWNER_NAME=$OWNER_NAME" \
   --environment "LOCALE=$LOCALE KEYBOARD_LAYOUT=$KEYBOARD_LAYOUT TIME_ZONE=$TIME_ZONE" \
   --environment "DEV_UPDATE_REF=$DEV_UPDATE_REF NEXT_VERSION=$NEXT_VERSION NEXT2_VERSION=$NEXT2_VERSION" \

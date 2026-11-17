@@ -6,19 +6,27 @@ installer, and checks the result. What each feature does is in its own
 folder; how a release reaches computers is in [release/](release/README.md).
 The commands are in the [README](../README.md#usage) at the root.
 
+| Folder | What it holds |
+| --- | --- |
+| `image/` | The image build: its Containerfiles, the script that builds and seals it, the signing keys, and the checks that every file is packaged. |
+| `checks/` | The tmt tree of level 1: the checks of the built OS by stage (`content/`, `medium/`, `installed/`, `update/`), and what runs them. |
+| `openqa/` | Level 2: the openQA tests, through the UI. |
+| `vm/` | The machines: the disk the installer makes, the VM, and the clones that checks run on. |
+| `release/` | How a build becomes a release, with its sources and SBOM. |
+
 ## Build
 
-`make image` ([image.sh](image.sh)) builds in two phases:
+`make image` ([image.sh](image/image.sh)) builds in two phases:
 
-1. [Containerfile](Containerfile) reads every spec's `Requires`, installs
+1. [Containerfile](image/Containerfile) reads every spec's `Requires`, installs
    them, then builds every package at the image's version and commit, with
    every time in them the commit's, so a commit always gives the same
    packages; rpmlint checks them. dnf installs no weak dependencies, so every
    package is there because a spec requires it.
-   [packaged.py](packaged.py) fails the build on a file under `/usr` that no
+   [packaged.py](image/packaged.py) fails the build on a file under `/usr` that no
    RPM owns, or that differs from its RPM. The image ships no AI model, and
    `generic-logos` replaces Fedora's, as Fedora's trademark guidelines ask.
-2. [Containerfile.seal](Containerfile.seal) adds the signed UKI, whose command
+2. [Containerfile.seal](image/Containerfile.seal) adds the signed UKI, whose command
    line pins the system's composefs digest and which carries signed PCR 11
    values ([packages/boot](../packages/boot/README.md)).
 
@@ -36,7 +44,7 @@ replaced on its own:
 | PCR (`*-pcr.key`) | The expected PCR 11 values in each UKI | Alone, nothing boots. |
 
 - **Development keys** (`dev-*`, "ShapeBit Development") are generated in
-  `build/keys/` by [keys.sh](keys.sh). The checks of pushes and pull requests
+  `build/keys/` by [keys.sh](image/keys.sh). The checks of pushes and pull requests
   use throwaway ones. They are trusted only by the developer's machines.
 - **Release keys** ("ShapeBit") sign every candidate, so every release.
   `make release-key KEYS_DIR=<directory>` generates them once; builds never
@@ -82,7 +90,7 @@ storage.
 
 `make disk` ([vm/disk.sh](vm/disk.sh)) installs the way a person does: it
 boots the medium in QEMU with an empty disk of `DISK_SIZE`, checks the medium
-([medium/](medium/)), and installs through `installerctl`, the command-line
+([medium/](checks/medium/)), and installs through `installerctl`, the command-line
 client of the installer's D-Bus interface. It never builds a disk any other
 way. `make installer-vm` opens the same VM in a window.
 
@@ -98,7 +106,7 @@ installer the first owner, `OWNER_NAME`, with the password in
 `build/owner-password`, and `LOCALE`, `KEYBOARD_LAYOUT`, and `TIME_ZONE`; the
 recovery key goes to `build/recovery-key`. There is no root password.
 
-**Updates from a local build.** `make publish` ([update/publish.sh](update/publish.sh))
+**Updates from a local build.** `make publish` ([update/publish.sh](checks/update/publish.sh))
 pushes the image to a registry container on the host. The VM marks it
 insecure, as it serves plain HTTP, and switches to it through `10.0.2.2`:
 
@@ -124,7 +132,7 @@ installation.
 | --- | --- | --- |
 | Static | Lint and validate; nothing is built or run | `make static-checks` |
 | Unit | Logic that needs no image or VM: `test_*.py` and `tst_*` beside the code | `make test-unit` |
-| Image | The image's files; nothing boots ([content/](content/)) | `make test-image` |
+| Image | The image's files; nothing boots ([content/](checks/content/)) | `make test-image` |
 | 1. Scripted | The booted medium, the installed system, updates and rollback | `make test`, `make test-update` |
 | 2. Full OS and UI | The medium through its UI, then using the system ([openqa/](openqa/)) | `make test-release` |
 | 3. AI exploration | Reserved: an agent that explores disposable VMs; each bug it finds must become a level 1 or 2 test | |
@@ -157,8 +165,8 @@ must not be public before it is released.
 
 ### Level 1: tmt
 
-This folder is tmt's tree, with its plans in [plans.fmf](plans.fmf):
-`/plans/medium` (run by `make disk`), `/plans/installed` (`make test`), and
+[checks/](checks/) is tmt's tree, and all that tmt copies to a guest. Its
+plans, in [plans.fmf](checks/plans.fmf), are `/plans/medium` (run by `make disk`), `/plans/installed` (`make test`), and
 `/plans/update` (`make test-update`). To add a check, write a `test_*`
 function in a `check_*.py` of the fitting folder; a new file needs an entry
 in that folder's `main.fmf`.
@@ -169,7 +177,7 @@ in that folder's `main.fmf`.
   clone. tmt's testcloud would make a new firmware and TPM, which an
   installed disk can't boot with.
 - **The guest** gets only tmt's tree, with pytest and Testinfra
-  ([requirements.txt](requirements.txt)); nothing is installed in the system.
+  ([requirements.txt](checks/requirements.txt)); nothing is installed in the system.
 - **Reboots.** A test that reboots is a script that picks its stage from
   `TMT_REBOOT_COUNT` and calls `tmt-reboot`; pytest markers name the stages.
 - **Updates.** `make test-update` moves a clone to `NEXT_ARCHIVE`'s build,
@@ -177,7 +185,7 @@ in that folder's `main.fmf`.
   that the system follows through the local registry's API, so the host
   needn't act between boots.
 - **The recovery key** stays on the host:
-  [installed/check_recovery_key.py](installed/check_recovery_key.py) passes it
+  [installed/check_recovery_key.py](checks/installed/check_recovery_key.py) passes it
   over standard input after tmt finishes.
 - **After failure**, the plan's `finish` step saves the journal, failed
   units, and `bootc status`.

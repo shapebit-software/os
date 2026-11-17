@@ -31,7 +31,7 @@ DISK_FORMAT    ?= raw
 # has this SSH port, so that `make vm` can run beside it.
 RESULTS        ?= $(BUILD)/results
 VENV           ?= $(BUILD)/venv
-TEST_DEPS      ?= distribution/.deps
+TEST_DEPS      ?= distribution/checks/.deps
 TEST_SSH_PORT  ?= 2223
 # The engine of the full OS tests (openQA's isotovideo), built from distribution/openqa/Containerfile.
 OPENQA_IMAGE   ?= localhost/shapebit-openqa:dev
@@ -125,7 +125,7 @@ run: ## Run the desktop in a window, inside the current Wayland session; in Fedo
 	$(MAKE) -C development run
 
 image: $(KEYS) ## Build the container image with its signed UKI
-	distribution/image.sh distribution/Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \
+	distribution/image/image.sh distribution/image/Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \
 	  --build-arg FEDORA_VERSION=$(FEDORA_VERSION) --build-arg IMAGE_VERSION=$(IMAGE_VERSION) \
 	  --build-arg IMAGE_REVISION=$(IMAGE_REVISION) --build-arg SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) \
 	  --build-context packages=packages
@@ -140,7 +140,7 @@ static-checks: lint validate ## Lint and validate, without building or running t
 # `from testapi import *`, so pyflakes cannot tell which of its names exist.
 lint: $(VENV)/.done ## Lint the shell, the Python, the QML, and the test plans; in Fedora, as `make dev`
 	$(MAKE) -C packages/shell lint
-	$(VENV)/bin/tmt --root distribution lint >/dev/null
+	$(VENV)/bin/tmt --root distribution/checks lint >/dev/null
 	@status=0; python=; \
 	for file in $$(git ls-files -co --exclude-standard); do \
 	  [ -f "$$file" ] || continue; \
@@ -157,7 +157,7 @@ lint: $(VENV)/.done ## Lint the shell, the Python, the QML, and the test plans; 
 # (license-validate); ShapeBit's own license is not, so its packages are left out.
 validate: ## Validate the compositor configuration, the specs' Requires, and the external packages' licenses; in Fedora, as `make dev`
 	$(MAKE) -C packages/windows validate
-	distribution/requires.sh
+	distribution/image/requires.sh
 	@status=0; \
 	for sources in $$(git ls-files 'packages/*/*/sources'); do \
 	  spec=$$(dirname $$sources)/$$(basename $$(dirname $$sources)).spec; \
@@ -175,17 +175,17 @@ test-unit: $(VENV)/.done ## Run the tests that need no image and no VM; in Fedor
 	ctest --test-dir $(BUILD)/test-unit/installer --output-on-failure
 
 test-image: image $(TEST_DEPS)/.done ## Build the image and test its files; nothing boots
-	$(ENGINE) run --rm --network none -v "$(CURDIR)/distribution:/tests:ro,z" $(IMAGE) /tests/pytest.sh /tests/content
+	$(ENGINE) run --rm --network none -v "$(CURDIR)/distribution/checks:/tests:ro,z" $(IMAGE) /tests/pytest.sh /tests/content
 
 publish: image ## Push the image to the local update registry
-	distribution/update/publish.sh $(IMAGE_ARCHIVE)
+	distribution/checks/update/publish.sh $(IMAGE_ARCHIVE)
 
 # The payload's build context holds only the image: the engine copies a context
 # whole, and BUILD also holds disks and other builds. A hard link costs no space.
 installer: image ## Build the installer medium, which carries the image
 	mkdir -p $(BUILD)/payload
 	ln -f $(IMAGE_ARCHIVE) $(BUILD)/payload/image.tar 2>/dev/null || cp $(IMAGE_ARCHIVE) $(BUILD)/payload/image.tar
-	distribution/image.sh packages/installer/medium/Containerfile $(INSTALLER_IMAGE) $(BUILD)/installer.tar \
+	distribution/image/image.sh packages/installer/medium/Containerfile $(INSTALLER_IMAGE) $(BUILD)/installer.tar \
 	  --build-arg BASE=$(IMAGE) --build-arg UPDATE_REF=$(UPDATE_REF) --build-arg SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) \
 	  --build-context packages=packages --build-context payload=$(BUILD)/payload
 	packages/installer/medium/medium.sh
@@ -236,8 +236,8 @@ update-builds: $(KEYS) ## Build the newer images that the update test moves thro
 	done
 
 test-update: disk update-builds $(VENV)/.done $(TEST_DEPS)/.done ## On a disposable clone: update to a new build, then roll back
-	distribution/update/publish.sh $(NEXT_ARCHIVE) next
-	distribution/update/publish.sh $(NEXT2_ARCHIVE) next2
+	distribution/checks/update/publish.sh $(NEXT_ARCHIVE) next
+	distribution/checks/update/publish.sh $(NEXT2_ARCHIVE) next2
 	distribution/vm/test-machine.sh update
 
 test-release: $(SSH_KEY) ## Full OS and UI tests of the built medium itself, with openQA (FLOW=install|update)
@@ -247,22 +247,22 @@ test-guest: $(VENV)/.done $(TEST_DEPS)/.done ## Run the system checks on another
 	TEST_GUEST=$(GUEST) SSH_PORT=22 distribution/vm/tmt.sh installed $(RESULTS)/$(GUEST)-$$(date -u +%Y%m%dT%H%M%SZ)
 
 release-key: ## Generate the release keys once, in KEYS_DIR outside build/; store them safely
-	distribution/keys.sh --release
+	distribution/image/keys.sh --release
 
 clean: ## Remove build outputs
 	rm -rf $(BUILD)
 
 # The tools that run the tests, on this host. Use Fedora's runtime packages,
 # including NumPy, which the desktop's unit tests also import.
-$(VENV)/.done: Makefile distribution/requirements.txt distribution/requirements-host.txt
+$(VENV)/.done: Makefile distribution/checks/requirements.txt distribution/checks/requirements-host.txt
 	python3 -m venv --system-site-packages $(VENV)
-	$(VENV)/bin/pip install -q -r distribution/requirements-host.txt
+	$(VENV)/bin/pip install -q -r distribution/checks/requirements-host.txt
 	touch $@
 
 # What the checks need where they run. tmt carries it to the guest.
-$(TEST_DEPS)/.done: distribution/requirements.txt
+$(TEST_DEPS)/.done: distribution/checks/requirements.txt
 	rm -rf $(TEST_DEPS)
-	python3 -m pip install -q --target $(TEST_DEPS) -r distribution/requirements.txt
+	python3 -m pip install -q --target $(TEST_DEPS) -r distribution/checks/requirements.txt
 	touch $@
 
 $(SSH_KEY):
@@ -276,4 +276,4 @@ $(OWNER_PASSWORD):
 
 # The signing keys.
 $(KEYS) &:
-	distribution/keys.sh
+	distribution/image/keys.sh

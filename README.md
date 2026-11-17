@@ -63,7 +63,7 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 | Path         | Purpose                                                               |
 | ------------ | --------------------------------------------------------------------- |
 | `packages/`  | ShapeBit's own packages, one folder per feature: `apps`, `assistant`, `boot`, `capture`, `colors`, `dictation`, `downloads`, `extras`, `font`, `homes`, `installer`, `licenses`, `login`, `network`, `portal`, `release`, `repositories`, `screen-sharing`, `shell`, `sound`, `splash`, `system` (requires them all), `updates`, `windows`. |
-| `distribution/`     | The OS image, assembled from those packages, and everything about it as a whole: its build (here), `release/`, `vm/`, and its checks: `content/`, `medium/`, `installed/`, `update/`, `openqa/` (see [distribution](distribution/README.md)). |
+| `distribution/`     | The OS as a whole, assembled from those packages: `image/` (its build), `checks/` and `openqa/` (its tests), `vm/`, and `release/` ([distribution](distribution/README.md)). |
 | `development/`       | The development container, and the desktop in a window (`make run`). |
 | `guidebook/` | The guidebook for people who use ShapeBit, published to the Wiki and the website. |
 | `.agents/`   | Skills for coding agents.                                             |

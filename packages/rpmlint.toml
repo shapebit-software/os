@@ -1,5 +1,5 @@
 # rpmlint's findings that ShapeBit's own packages accept, each with the reason;
-# every other finding fails the image build (distribution/Containerfile). See
+# every other finding fails the image build (distribution/image/Containerfile). See
 # rpmlint's own documentation for each name.
 Filters = [
     # Our packages are built from the repository at the image's version; git

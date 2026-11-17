@@ -44,7 +44,7 @@ distribution/vm/vm.sh --background
 
 distribution/vm/tmt.sh "$plan" "$run" || outcome=failed
 if [[ $plan == installed ]]; then
-  "$VENV/bin/pytest" -c distribution/pytest.ini --rootdir=distribution -p no:cacheprovider \
-    --junitxml="$run/junit-host.xml" distribution/installed/check_recovery_key.py || outcome=failed
+  "$VENV/bin/pytest" -c distribution/checks/pytest.ini --rootdir=distribution/checks -p no:cacheprovider \
+    --junitxml="$run/junit-host.xml" distribution/checks/installed/check_recovery_key.py || outcome=failed
 fi
 finish_run

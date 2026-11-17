@@ -1,4 +1,4 @@
 /build/
-/distribution/.deps/
+/distribution/checks/.deps/
 __pycache__/
 .vscode/

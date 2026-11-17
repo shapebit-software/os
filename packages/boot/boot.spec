@@ -3,7 +3,7 @@
 # where SIGNED holds systemd-bootx64.efi.signed, signed from systemd-boot-unsigned at
 # version systemd_boot, and enroll-this-key.cer, the certificate that signed it. Only
 # these signed and public files reach the package; the key stays in the build
-# (distribution/Containerfile).
+# (distribution/image/Containerfile).
 %{load:%{packages}/package.macros}
 
 Name:           shapebit-boot
@@ -18,7 +18,7 @@ BuildRequires:  make
 # The base image ships only GRUB; bootc installs systemd-boot from this package,
 # and the *.signed copy in it when present: this package's, signed from exactly
 # that version. Requires with a macro are left out of what the image build
-# installs first (distribution/Containerfile).
+# installs first (distribution/image/Containerfile).
 Requires:       systemd-boot-unsigned
 Requires:       systemd-boot-unsigned = %{systemd_boot}
 

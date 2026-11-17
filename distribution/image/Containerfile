@@ -1,6 +1,6 @@
 # ShapeBit OS: bootc image, booted by systemd-boot from a signed UKI.
 # This is the unsealed system; Containerfile.seal adds the UKI (see
-# distribution/image.sh), and packages/installer/medium/Containerfile builds the
+# distribution/image/image.sh), and packages/installer/medium/Containerfile builds the
 # installer medium from it. It is assembled from ShapeBit's own packages
 # (build context `packages`: a folder with a spec is a package; see
 # packages/package.macros), built here from the same commit, and what they
@@ -66,7 +66,7 @@ cp /tmp/rpm/RPMS/*/*.rpm /out/
 rpmlint --config /src/rpmlint.toml /out/*.rpm
 EOF
 
-# What under /usr no RPM has as it is in the base image (distribution/packaged.py).
+# What under /usr no RPM has as it is in the base image (distribution/image/packaged.py).
 FROM base AS base-packaged
 RUN --mount=type=bind,source=packaged.py,target=/run/packaged.py \
     mkdir /out && python3 /run/packaged.py list >/out/base
@@ -93,7 +93,7 @@ LABEL org.opencontainers.image.title="ShapeBit OS" \
 # Hyprland's own session entry is not installed, so the login screen offers
 # only the desktop's, nor is UWSM's unit manager, which no person needs to see
 # in Apps: rpm's %_netsharedpath skips them and records them as not installed,
-# so the packages still verify (distribution/packaged.py). Fedora's Cisco repository
+# so the packages still verify (distribution/image/packaged.py). Fedora's Cisco repository
 # is left out: Cisco pays the H.264 patent royalties only for the openh264 that
 # people download from Cisco, so an image that carried it would redistribute
 # it unlicensed; Fedora's noopenh264 stands in, and apps get H.264 from
@@ -188,7 +188,7 @@ LABEL org.opencontainers.image.version="$IMAGE_VERSION" \
       org.opencontainers.image.revision="$IMAGE_REVISION" \
       software.shapebit.sources="ghcr.io/shapebit-software/os:$IMAGE_VERSION-sources"
 # Every file this build adds to /usr belongs to a package, as the package has
-# it, so that its license, sources and SBOM entry come with it (distribution/packaged.py).
+# it, so that its license, sources and SBOM entry come with it (distribution/image/packaged.py).
 RUN --mount=type=bind,source=packaged.py,target=/run/packaged.py \
     --mount=type=bind,from=base-packaged,source=/out/base,target=/run/base \
     python3 /run/packaged.py check /run/base

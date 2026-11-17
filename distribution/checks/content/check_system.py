@@ -55,14 +55,14 @@ def test_the_third_party_repositories_ship_turned_off_with_their_keys(host, sh):
 
 
 def test_logos_are_not_fedoras(host):
-    # Fedora's logos are its trademarks; generic-logos stands in (distribution/Containerfile).
+    # Fedora's logos are its trademarks; generic-logos stands in (distribution/image/Containerfile).
     assert not host.package("fedora-logos").is_installed
     assert host.package("generic-logos").is_installed
 
 
 def test_openh264_is_not_redistributed(host):
     # Cisco's patent license covers only the openh264 that Cisco serves itself
-    # (distribution/Containerfile).
+    # (distribution/image/Containerfile).
     assert not host.package("openh264").is_installed
     assert host.package("noopenh264").is_installed
 
@@ -120,7 +120,7 @@ def test_pam_uses_homed(host):
 
 def test_login_screen_stops_when_the_home_cannot_open(host):
     # Before authselect's stack, whose pam_unix would accept the password of a
-    # home that systemd-homed could not open (distribution/Containerfile).
+    # home that systemd-homed could not open (distribution/image/Containerfile).
     auth = [line.split() for line in host.file("/etc/pam.d/sddm").content_string.splitlines() if line.startswith("auth")]
     homed = auth.index(["auth", "[success=ok", "user_unknown=ignore", "default=die]", "pam_systemd_home.so"])
     assert homed < auth.index(["auth", "substack", "password-auth"])

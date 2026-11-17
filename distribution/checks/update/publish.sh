@@ -2,7 +2,7 @@
 # Push the image archive ARCHIVE to the local update registry, starting the
 # registry if needed. skopeo keeps its digest, so the system that updates from it
 # reports the digest that the archive records. A VM switched to DEV_UPDATE_REF
-# updates from it (distribution/update/).
+# updates from it (distribution/checks/update/).
 # Usage: publish.sh ARCHIVE [TAG]   TAG instead of DEV_UPDATE_REF's (`make test-update`).
 set -euo pipefail
 : "${ENGINE:?}" "${REGISTRY_PORT:?}" "${DEV_UPDATE_REF:?}"

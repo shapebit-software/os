@@ -56,7 +56,7 @@ These rules cover the image: `packages/`, `distribution/`, `development/` and th
   the same commit, reproducibly (`SOURCE_DATE_EPOCH`), checks them with
   rpmlint (`packages/rpmlint.toml`), and installs them with what they require.
   The build fails on a file under `/usr` that no package owns, or that differs
-  from its package (`distribution/packaged.py`).
+  from its package (`distribution/image/packaged.py`).
 - **Vendor defaults go under `/usr`,** by a feature's install rules. `/etc`
   and `/var` are machine state.
 - **Every behavior gets a check, beside what it checks.** See
@@ -67,7 +67,7 @@ These rules cover the image: `packages/`, `distribution/`, `development/` and th
   `openqa/`. Write checks in Python with pytest and Testinfra. The system
   under test gets nothing installed for a check: use the commands it ships. Only checks that
   need a host-side secret, such as the recovery key, run from the host, in
-  `distribution/installed/check_recovery_key.py`.
+  `distribution/checks/installed/check_recovery_key.py`.
 - **A bug becomes a regression test** at the lowest level that shows it.
 - **Disks are installed by the installer.** `make disk` boots the installer
   medium and installs through it, so the tests cover what users run. Do not
