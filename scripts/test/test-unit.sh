@@ -4,7 +4,7 @@
 # of distrobox.ini and the Hyprland COPR, as `make dev` or CI provides.
 # Usage: test-unit.sh (called by `make test-unit`).
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 : "${VENV:?}"
 
 work=$(mktemp -d)

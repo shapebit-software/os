@@ -4,7 +4,7 @@
 # or CI provides.
 # Usage: static-checks.sh lint|validate (called by `make lint` and `make validate`).
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 : "${VENV:?}"
 
 status=0

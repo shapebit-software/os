@@ -70,7 +70,9 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 | `desktop/`   | The desktop: compositor configuration, shell, and session.            |
 | `installer/` | The installer: backend, UI, and `installerctl`.                       |
 | [`third-party/`](third-party/) | RPMs of third-party software that Fedora lacks, and their signed repository. |
-| `scripts/`   | Keys, image build, medium, installation in QEMU, publishing, SSH.     |
+| `scripts/build/` | Building: keys, the image, the medium, the installed disk, the third-party packages, the colors. |
+| `scripts/release/` | Releasing: sources, SBOM, the package repository, release notes, pruning old versions. |
+| `scripts/test/` | Testing: static checks, unit tests, the VM and SSH, tmt and openQA runs, the local update registry. |
 | `tests/`     | Unit, image, system, update, and openQA checks: see [docs/Testing.md](docs/Testing.md). |
 | `docs/`      | The documentation, published to the Wiki and the website.             |
 | `.agents/`   | Skills for coding agents.                                             |

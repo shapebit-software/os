@@ -111,7 +111,7 @@ jobs:
       - name: Push the images to os/candidate
         id: push
         run: |
-          digest=$(python3 scripts/provenance.py digest build/image.tar)
+          digest=$(python3 scripts/build/provenance.py digest build/image.tar)
           skopeo copy -q --preserve-digests oci-archive:build/image.tar "docker://$CANDIDATES:$IMAGE_VERSION"
           [ "$(skopeo inspect "docker://$CANDIDATES:$IMAGE_VERSION" --format '{{.Digest}}')" = "$digest" ]
           skopeo copy -q --preserve-digests oci-archive:build/image-next2.tar "docker://$CANDIDATES:$IMAGE_VERSION-update"
@@ -124,14 +124,14 @@ jobs:
         run: |
           stable=$(skopeo inspect "docker://$REPOSITORY:stable" --format '{{index .Labels "org.opencontainers.image.version"}}' || true)
           make -o image sources ${stable:+SOURCES_PREVIOUS=$REPOSITORY:$stable-sources}
-          scripts/sources.py push build/sources "$CANDIDATES:$IMAGE_VERSION-sources" "ShapeBit $IMAGE_VERSION: sources"
+          scripts/release/sources.py push build/sources "$CANDIDATES:$IMAGE_VERSION-sources" "ShapeBit $IMAGE_VERSION: sources"
 
       # What the image is made of, in SPDX and CycloneDX (docs/License.md). Release publishes it
       # with the image.
       - name: Write and push the image's SBOM
         run: |
           make -o image sbom
-          scripts/sbom.py push build/sbom "$CANDIDATES:$IMAGE_VERSION-sbom" "ShapeBit $IMAGE_VERSION: SBOM"
+          scripts/release/sbom.py push build/sbom "$CANDIDATES:$IMAGE_VERSION-sbom" "ShapeBit $IMAGE_VERSION: SBOM"
 
   # Install stable without the UI, update to the candidate through the update
   # registry, run the system checks on it, then update again and roll back.
@@ -235,7 +235,7 @@ jobs:
             if [ -n "$stable" ] && [ "$stable" != "<no value>" ]; then range=$stable..HEAD; fi
           fi
           git log --oneline "$range" >commits
-          python3 scripts/release-notes.py "$DIGEST" "$REPOSITORY:$VERSION-sources" "$GITHUB_SHA" commits \
+          python3 scripts/release/release-notes.py "$DIGEST" "$REPOSITORY:$VERSION-sources" "$GITHUB_SHA" commits \
             old-packages packages.txt >notes.md
           if [ "$BOOTSTRAP" = true ]; then
             { echo "**Bootstrap:** not tested by an update, as no installer existed; the Installer workflow tests it in full."

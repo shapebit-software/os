@@ -1,4 +1,4 @@
-"""scripts/artifact.py: files as an OCI artifact, in an OCI layout."""
+"""scripts/release/artifact.py: files as an OCI artifact, in an OCI layout."""
 
 import hashlib
 import importlib.util
@@ -7,7 +7,7 @@ import pathlib
 
 import pytest
 
-spec = importlib.util.spec_from_file_location("artifact", pathlib.Path(__file__).parents[2] / "scripts" / "artifact.py")
+spec = importlib.util.spec_from_file_location("artifact", pathlib.Path(__file__).parents[2] / "scripts" / "release" / "artifact.py")
 artifact = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(artifact)
 

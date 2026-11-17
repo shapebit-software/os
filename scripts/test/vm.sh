@@ -12,7 +12,7 @@
 set -euo pipefail
 : "${BUILD:?}" "${DISK:?}" "${DISK_FORMAT:?}" "${MEDIUM:?}" "${SSH_PORT:?}" "${SSH_KEY:?}" "${BOOT_TIMEOUT:?}"
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 installer=0 mode=console
 for option in "$@"; do
@@ -27,7 +27,7 @@ if [[ $mode == stop ]]; then
   pid=$(cat "$BUILD/vm.pid" 2>/dev/null) || exit 0
   # A stale PID file must not stop an unrelated process.
   grep -qs qemu "/proc/$pid/cmdline" || exit 0
-  scripts/ssh.sh systemctl poweroff 2>/dev/null || true
+  scripts/test/ssh.sh systemctl poweroff 2>/dev/null || true
   for _ in {1..60}; do
     kill -0 "$pid" 2>/dev/null || exit 0
     sleep 1
@@ -108,11 +108,11 @@ qemu-system-x86_64 "${args[@]}" -display none -monitor "pipe:$BUILD/monitor" \
   -serial "file:$BUILD/serial.log" -daemonize -pidfile "$BUILD/vm.pid"
 # On a new machine, the first boot of the medium stops at shim's MOK manager.
 if ((installer && new_machine)); then
-  scripts/mok-enroll.sh
+  scripts/test/mok-enroll.sh
 fi
 echo "Waiting up to ${BOOT_TIMEOUT}s for SSH (console: $BUILD/serial.log)"
 deadline=$((SECONDS + BOOT_TIMEOUT))
-until scripts/ssh.sh true 2>/dev/null; do
+until scripts/test/ssh.sh true 2>/dev/null; do
   if ((SECONDS >= deadline)); then
     echo "error: no SSH after ${BOOT_TIMEOUT}s; last console lines:" >&2
     tail -n 30 "$BUILD/serial.log" >&2

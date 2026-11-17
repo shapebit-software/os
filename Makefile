@@ -79,7 +79,7 @@ UPDATE_ARCHIVE ?= $(IMAGE_ARCHIVE)
 # commit is in its record.
 STABLE_REVISION ?=
 # The source RPMs of the image, and of the installer
-# (scripts/sources.py, docs/License.md). SOURCES_PREVIOUS names an earlier
+# (scripts/release/sources.py, docs/License.md). SOURCES_PREVIOUS names an earlier
 # version's sources to compare with; SOURCES_CACHE, a directory of source RPMs
 # to take instead of downloading them. Both are optional.
 SOURCES_DIR           ?= $(BUILD)/sources
@@ -88,7 +88,7 @@ INSTALLER_SOURCES     ?= $(BUILD)/installer-sources.tar
 SOURCES_PREVIOUS      ?=
 SOURCES_CACHE         ?=
 # The directory of the image's software bill of materials, in SPDX and
-# CycloneDX (scripts/sbom.py, docs/License.md), and the syft that scans it,
+# CycloneDX (scripts/release/sbom.py, docs/License.md), and the syft that scans it,
 # pinned by digest.
 SBOM       ?= $(BUILD)/sbom
 SYFT_IMAGE ?= docker.io/anchore/syft:v1.18.1@sha256:b8c170b8e51bfc4779ec3ef4399942c57290f5ce76a9c3af564c9d00d4946a6b
@@ -119,82 +119,82 @@ dev: ## Enter the development container of the desktop and installer
 	$(DEV_ENTER)
 
 dev-assistant: ## Give `make run` the assistant's model server and speech engine, from the built image
-	scripts/dev-assistant.sh
+	scripts/build/dev-assistant.sh
 
 image: $(KEYS) ## Build the container image with its signed UKI
-	scripts/image.sh image/Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \
+	scripts/build/image.sh image/Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \
 	  --build-arg FEDORA_VERSION=$(FEDORA_VERSION) --build-arg IMAGE_VERSION=$(IMAGE_VERSION) \
 	  --build-arg IMAGE_REVISION=$(IMAGE_REVISION) \
 	  --build-context desktop=$(DESKTOP_SRC)
 
 colors: ## Write the QML module Colors's values from the system's colors (image/rootfs/usr/share/colors/colors.toml)
-	python3 scripts/colors.py
+	python3 scripts/build/colors.py
 
 static-checks: lint validate ## Lint and validate, without building or running the code; in Fedora, as `make dev`
 
 lint: $(VENV)/.done ## Lint the shell, the Python, the QML, and the test plans; in Fedora, as `make dev`
-	scripts/static-checks.sh lint
+	scripts/test/static-checks.sh lint
 
 validate: ## Validate the compositor configuration, the package list, and the units; in Fedora, as `make dev`
-	scripts/static-checks.sh validate
+	scripts/test/static-checks.sh validate
 
 test-unit: $(VENV)/.done ## Run the tests that need no image and no VM; in Fedora, as `make dev`
-	scripts/test-unit.sh
+	scripts/test/test-unit.sh
 
 test-image: image $(TEST_DEPS)/.done ## Build the image and test its files; nothing boots
 	$(ENGINE) run --rm --network none -v "$(CURDIR)/tests:/tests:ro,z" $(IMAGE) /tests/pytest.sh /tests/image
 
 publish: image ## Push the image to the local update registry
-	scripts/publish.sh $(IMAGE_ARCHIVE)
+	scripts/test/publish.sh $(IMAGE_ARCHIVE)
 
 # The payload's build context holds only the image: the engine copies a context
 # whole, and BUILD also holds disks and other builds. A hard link costs no space.
 installer: image ## Build the installer medium, which carries the image
 	mkdir -p $(BUILD)/payload
 	ln -f $(IMAGE_ARCHIVE) $(BUILD)/payload/image.tar 2>/dev/null || cp $(IMAGE_ARCHIVE) $(BUILD)/payload/image.tar
-	scripts/image.sh image/Containerfile.installer $(INSTALLER_IMAGE) $(BUILD)/installer.tar \
+	scripts/build/image.sh image/Containerfile.installer $(INSTALLER_IMAGE) $(BUILD)/installer.tar \
 	  --build-arg BASE=$(IMAGE) --build-arg UPDATE_REF=$(UPDATE_REF) \
 	  --build-context installer=$(INSTALLER_SRC) --build-context payload=$(BUILD)/payload
-	scripts/medium.sh
+	scripts/build/medium.sh
 
 sbom: image ## Write the image's software bill of materials, SPDX and CycloneDX, into SBOM
-	scripts/sbom.py generate $(IMAGE) $(SBOM)
+	scripts/release/sbom.py generate $(IMAGE) $(SBOM)
 
 rpm: ## Build the package third-party/RPM, offline, into RPMS/RPM
-	scripts/rpm-build.sh third-party/$(RPM) $(RPMS)/$(RPM)
+	scripts/build/rpm-build.sh third-party/$(RPM) $(RPMS)/$(RPM)
 
 rpm-repo: ## Write the signed repository of RPMS/releases (a directory per tag) into the Pages site RPMS/pages
-	scripts/rpm-repo.sh $(RPMS)/releases $(RPMS)/pages/rpms
+	scripts/release/rpm-repo.sh $(RPMS)/releases $(RPMS)/pages/rpms
 
 sources: image ## Collect the image's source RPMs into SOURCES_DIR
-	scripts/sources.py collect $(IMAGE) $(SOURCES_DIR) \
+	scripts/release/sources.py collect $(IMAGE) $(SOURCES_DIR) \
 	  $(if $(SOURCES_CACHE),--cache $(SOURCES_CACHE)) $(if $(SOURCES_PREVIOUS),--previous $(SOURCES_PREVIOUS))
 
 installer-sources: installer ## Write the installer's sources as INSTALLER_SOURCES, and record them with the medium
-	scripts/sources.py collect $(INSTALLER_IMAGE) $(INSTALLER_SOURCES_DIR) $(if $(SOURCES_CACHE),--cache $(SOURCES_CACHE))
-	scripts/sources.py tar $(INSTALLER_SOURCES_DIR) $(INSTALLER_SOURCES)
-	python3 scripts/provenance.py sources $(MEDIUM).json $(INSTALLER_SOURCES)
+	scripts/release/sources.py collect $(INSTALLER_IMAGE) $(INSTALLER_SOURCES_DIR) $(if $(SOURCES_CACHE),--cache $(SOURCES_CACHE))
+	scripts/release/sources.py tar $(INSTALLER_SOURCES_DIR) $(INSTALLER_SOURCES)
+	python3 scripts/build/provenance.py sources $(MEDIUM).json $(INSTALLER_SOURCES)
 
 pull-installer: ## Pull an installer medium from GHCR instead of building it: INSTALLER_REF=...
-	scripts/pull-installer.sh $(INSTALLER_REF)
+	scripts/test/pull-installer.sh $(INSTALLER_REF)
 
 disk: installer $(SSH_KEY) $(OWNER_PASSWORD) $(VENV)/.done $(TEST_DEPS)/.done ## Install to a new disk: boot the medium in QEMU and run the installer
-	scripts/disk.sh
+	scripts/build/disk.sh
 
 vm: $(SSH_KEY) ## Boot the installed disk in QEMU on this terminal (Ctrl-A X quits)
-	scripts/vm.sh
+	scripts/test/vm.sh
 
 installer-vm: installer $(SSH_KEY) ## Boot the medium with a new disk in a window, to install by hand
-	scripts/disk.sh --window
+	scripts/build/disk.sh --window
 
 ssh: $(SSH_KEY) ## Open a root shell in the running VM
-	scripts/ssh.sh
+	scripts/test/ssh.sh
 
 test: test-image disk ## Install, then run tmt's checks on a disposable clone of the installed machine
-	scripts/test-machine.sh system
+	scripts/test/test-machine.sh system
 
 test-plan: $(VENV)/.done $(TEST_DEPS)/.done ## Run one tmt plan on a clone of the disk as it is, without installing: PLAN=system
-	scripts/test-machine.sh $(PLAN)
+	scripts/test/test-machine.sh $(PLAN)
 
 update-builds: $(KEYS) ## Build the newer images that the update test moves through (UPDATE_TAGS)
 	set -e; for tag in $(UPDATE_TAGS); do \
@@ -203,18 +203,18 @@ update-builds: $(KEYS) ## Build the newer images that the update test moves thro
 	done
 
 test-update: disk update-builds $(VENV)/.done $(TEST_DEPS)/.done ## On a disposable clone: update to a new build, then roll back
-	scripts/publish.sh $(NEXT_ARCHIVE) next
-	scripts/publish.sh $(NEXT2_ARCHIVE) next2
-	scripts/test-machine.sh update
+	scripts/test/publish.sh $(NEXT_ARCHIVE) next
+	scripts/test/publish.sh $(NEXT2_ARCHIVE) next2
+	scripts/test/test-machine.sh update
 
 test-release: $(SSH_KEY) ## Full OS and UI tests of the built medium itself, with openQA (FLOW=install|update)
-	scripts/openqa.sh
+	scripts/test/openqa.sh
 
 test-guest: $(VENV)/.done $(TEST_DEPS)/.done ## Run the system checks on another machine: GUEST=address IMAGE_DIGEST=sha256:...
-	TEST_GUEST=$(GUEST) SSH_PORT=22 scripts/tmt.sh system $(RESULTS)/$(GUEST)-$$(date -u +%Y%m%dT%H%M%SZ)
+	TEST_GUEST=$(GUEST) SSH_PORT=22 scripts/test/tmt.sh system $(RESULTS)/$(GUEST)-$$(date -u +%Y%m%dT%H%M%SZ)
 
 release-key: ## Generate the release keys once, in KEYS_DIR outside build/; store them safely
-	scripts/keys.sh --release
+	scripts/build/keys.sh --release
 
 clean: ## Remove build outputs
 	rm -rf $(BUILD)
@@ -243,4 +243,4 @@ $(OWNER_PASSWORD):
 
 # The signing keys.
 $(KEYS) &:
-	scripts/keys.sh
+	scripts/build/keys.sh

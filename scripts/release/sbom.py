@@ -6,7 +6,7 @@ syft (SYFT_IMAGE) scans the image's filesystem from inside a container of it,
 once for both formats: its binary is mounted read-only, the container has no
 network, and nothing is installed. It finds the RPMs and the Python packages.
 This fails unless syft's RPMs are exactly `rpm -qa`'s, whose source RPMs
-scripts/sources.py publishes, and adds to both documents what syft cannot see:
+scripts/release/sources.py publishes, and adds to both documents what syft cannot see:
 ShapeBit itself (its version and revision from the image's os-release), the code
 that each RPM declares it bundles (Fedora's `Provides: bundled(...)`, as in
 third-party/), and the models that are extras (the image's extras.json), as
@@ -29,7 +29,7 @@ import sys
 import tempfile
 import urllib.parse
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 TYPE = "application/vnd.shapebit.sbom.v1"
 FILES = {"spdx": "sbom.spdx.json", "cyclonedx": "sbom.cdx.json"}
 SHAPEBIT_LICENSE_NAME = "PolyForm Shield License 1.0.0"
@@ -37,7 +37,7 @@ SHAPEBIT_LICENSE_URL = "https://polyformproject.org/licenses/shield/1.0.0"
 SHAPEBIT_LICENSE = "LicenseRef-PolyForm-Shield-1.0.0"
 REPOSITORY = "https://github.com/shapebit-software/os"
 
-spec = importlib.util.spec_from_file_location("artifact", ROOT / "scripts/artifact.py")
+spec = importlib.util.spec_from_file_location("artifact", ROOT / "scripts/release/artifact.py")
 artifact = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(artifact)
 

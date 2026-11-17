@@ -13,7 +13,7 @@ import pytest
 
 ROOT = pathlib.Path(__file__).parents[2]
 
-spec = importlib.util.spec_from_file_location("colors", ROOT / "scripts/colors.py")
+spec = importlib.util.spec_from_file_location("colors", ROOT / "scripts/build/colors.py")
 colors = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(colors)
 

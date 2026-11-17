@@ -7,9 +7,9 @@ installer medium, installs them, and what the result does. To run the commands, 
 
 ## Build
 
-`make image` ([scripts/image.sh](https://github.com/shapebit-software/os/blob/main/scripts/image.sh)) builds in two phases. It
+`make image` ([scripts/build/image.sh](https://github.com/shapebit-software/os/blob/main/scripts/build/image.sh)) builds in two phases. It
 signs with the keys of `SIGNING_KEY`: by default the development keys that
-[scripts/keys.sh](https://github.com/shapebit-software/os/blob/main/scripts/keys.sh) generates in `build/keys/`.
+[scripts/build/keys.sh](https://github.com/shapebit-software/os/blob/main/scripts/build/keys.sh) generates in `build/keys/`.
 `dev-secureboot.key` and `dev-secureboot.crt` (named ShapeBit Development) sign
 systemd-boot and the UKI; `dev-pcr.key` signs the UKI's TPM2 PCR 11 values.
 `make release-key KEYS_DIR=<directory>` generates the release keys once
@@ -60,14 +60,14 @@ composefs digest covers all of it. So the Installer workflow builds from the
 released `os:<version>` alone, and no unsealed image is kept anywhere. The
 medium's record, `build/installer.img.json`, names the system it installs: its
 version, which is also the installer's, and its image digest.
-[scripts/medium.sh](https://github.com/shapebit-software/os/blob/main/scripts/medium.sh) writes the result to
+[scripts/build/medium.sh](https://github.com/shapebit-software/os/blob/main/scripts/build/medium.sh) writes the result to
 `build/installer.img`: an EFI System Partition and one unencrypted, compressed
 Btrfs filesystem, 7 GiB in all, so that it fits a USB drive sold as 8 GB. The
 medium holds no secrets.
 
 ## Disk
 
-`make disk` ([scripts/disk.sh](https://github.com/shapebit-software/os/blob/main/scripts/disk.sh)) installs the way a user does:
+`make disk` ([scripts/build/disk.sh](https://github.com/shapebit-software/os/blob/main/scripts/build/disk.sh)) installs the way a user does:
 it boots the medium in QEMU with an empty disk of `DISK_SIZE` attached, checks
 the medium ([tests/medium/](https://github.com/shapebit-software/os/blob/main/tests/medium/)), and runs the installer
 through `installerctl`, the command-line client of the same D-Bus interface
@@ -101,7 +101,7 @@ firmware → Fedora's shim → signed systemd-boot → signed UKI → sealed sys
 
 Shim trusts our key only after a person enrolls its certificate, once per
 machine, in shim's MOK manager. The first boot of the medium stops there; it
-needs no password. [scripts/mok-enroll.sh](https://github.com/shapebit-software/os/blob/main/scripts/mok-enroll.sh) does the same
+needs no password. [scripts/test/mok-enroll.sh](https://github.com/shapebit-software/os/blob/main/scripts/test/mok-enroll.sh) does the same
 on the VM, whose firmware starts with Microsoft's keys.
 [esp-shim](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/libexec/esp-shim) places shim on the medium and on the
 installed disk; updates do not replace shim yet.
@@ -145,7 +145,7 @@ the computer start. It downloads and stages a new build with
 `/run/os-update/status.json`.
 
 To update a VM from a local build, `make publish`
-([scripts/publish.sh](https://github.com/shapebit-software/os/blob/main/scripts/publish.sh)) pushes the image to a local
+([scripts/test/publish.sh](https://github.com/shapebit-software/os/blob/main/scripts/test/publish.sh)) pushes the image to a local
 registry container on the host, and the VM switches to it as
 `DEV_UPDATE_REF`, through the host's `10.0.2.2`; bootc switches only to a
 build other than the one running. That registry serves plain HTTP, so the VM

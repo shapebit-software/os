@@ -8,7 +8,7 @@
 # Usage: medium.sh (called by `make installer`).
 set -euo pipefail
 : "${ENGINE:?}" "${INSTALLER_IMAGE:?}" "${BUILD:?}" "${MEDIUM:?}" "${MEDIUM_SIZE:?}" "${IMAGE_REVISION:?}"
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 archive=$BUILD/installer.tar
 [[ -f $archive ]] || { echo "error: $archive not found; run 'make installer'" >&2; exit 1; }
@@ -83,4 +83,4 @@ done
 INSTALL
 
 # IMAGE_REVISION is the tree's commit, whose installer the medium shows.
-python3 scripts/provenance.py medium "$BUILD/image.tar" "$MEDIUM" "$IMAGE_REVISION" "$MEDIUM.json"
+python3 scripts/build/provenance.py medium "$BUILD/image.tar" "$MEDIUM" "$IMAGE_REVISION" "$MEDIUM.json"

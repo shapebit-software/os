@@ -1,4 +1,4 @@
-"""scripts/pull-installer.sh works on a fresh checkout, where BUILD does not exist."""
+"""scripts/test/pull-installer.sh works on a fresh checkout, where BUILD does not exist."""
 
 import os
 import pathlib
@@ -25,6 +25,6 @@ def test_creates_the_build_directory(tmp_path):
     build = tmp_path / "build"
     env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "RECORD": str(record),
            "BUILD": str(build), "MEDIUM": str(build / "installer.img")}
-    subprocess.run([ROOT / "scripts/pull-installer.sh", "example.org/installer:stable"],
+    subprocess.run([ROOT / "scripts/test/pull-installer.sh", "example.org/installer:stable"],
                    env=env, capture_output=True)
     assert record.read_text().strip() == "ok"

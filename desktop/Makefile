@@ -12,7 +12,7 @@ colors := $(abspath $(CURDIR)/../image/rootfs/usr/lib64/qt6/qml)
 
 # What development adds for the assistant, in the repository's build folder:
 # its models, downloaded in `make run` (EXTRAS_DIR), and its model server and
-# speech engine, which `make dev-assistant` puts there (../scripts/dev-assistant.sh).
+# speech engine, which `make dev-assistant` puts there (../scripts/build/dev-assistant.sh).
 dev := $(abspath $(CURDIR)/../build/dev)
 # Settings > Licenses shows the image's committed license texts and the
 # extras', copied together into $(dev)/licenses; the RPMs' own are only in a

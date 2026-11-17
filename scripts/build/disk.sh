@@ -8,8 +8,8 @@
 set -euo pipefail
 : "${BUILD:?}" "${RESULTS:?}" "${DISK:?}" "${DISK_SIZE:?}" "${MEDIUM:?}" "${RECOVERY_KEY:?}" "${OWNER_NAME:?}" "${OWNER_PASSWORD:?}" \
   "${LOCALE:?}" "${KEYBOARD_LAYOUT:?}" "${TIME_ZONE:?}"
-cd "$(dirname "$0")/.."
-source scripts/results.sh
+cd "$(dirname "$0")/../.."
+source scripts/test/results.sh
 
 [[ -f $MEDIUM ]] || { echo "error: $MEDIUM not found; run 'make installer'" >&2; exit 1; }
 
@@ -18,28 +18,28 @@ rm -rf "$DISK" "$DISK.json" "$RECOVERY_KEY" "$BUILD/efivars.fd" "$BUILD/tpm" "$B
 truncate -s "$DISK_SIZE" "$DISK"
 
 if [[ ${1:-} == --window ]]; then
-  exec scripts/vm.sh --installer --window
+  exec scripts/test/vm.sh --installer --window
 fi
 
-trap 'scripts/vm.sh --stop' EXIT
-scripts/vm.sh --installer --background
-IMAGE_DIGEST=$(python3 scripts/provenance.py field "$MEDIUM.json" image_digest)
+trap 'scripts/test/vm.sh --stop' EXIT
+scripts/test/vm.sh --installer --background
+IMAGE_DIGEST=$(python3 scripts/build/provenance.py field "$MEDIUM.json" image_digest)
 export IMAGE_DIGEST
 start_run medium
-scripts/tmt.sh medium "$run" || outcome=failed
+scripts/test/tmt.sh medium "$run" || outcome=failed
 finish_run
 
 # The password and the recovery key stay in the VM's memory (/run). The small
 # home leaves the disk to the system.
-scripts/ssh.sh 'umask 077 && cat >/run/owner-password' <"$OWNER_PASSWORD"
-scripts/ssh.sh installerctl install --disk serial-target --user "$OWNER_NAME" \
+scripts/test/ssh.sh 'umask 077 && cat >/run/owner-password' <"$OWNER_PASSWORD"
+scripts/test/ssh.sh installerctl install --disk serial-target --user "$OWNER_NAME" \
   --home-size $((1024 * 1024 * 1024)) \
   --locale "$LOCALE" --keyboard-layout "$KEYBOARD_LAYOUT" --time-zone "$TIME_ZONE" \
   --password-file /run/owner-password --recovery-key-file /run/recovery-key
-(umask 077 && scripts/ssh.sh cat /run/recovery-key >"$RECOVERY_KEY")
+(umask 077 && scripts/test/ssh.sh cat /run/recovery-key >"$RECOVERY_KEY")
 
 # Powered off, so that the disk holds everything. A later build replaces the
 # medium's record, so the disk keeps its own.
-scripts/vm.sh --stop
+scripts/test/vm.sh --stop
 trap - EXIT
 cp "$MEDIUM.json" "$DISK.json"

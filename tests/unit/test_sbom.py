@@ -9,7 +9,7 @@ import re
 import pytest
 
 ROOT = pathlib.Path(__file__).parents[2]
-spec = importlib.util.spec_from_file_location("sbom", ROOT / "scripts/sbom.py")
+spec = importlib.util.spec_from_file_location("sbom", ROOT / "scripts/release/sbom.py")
 sbom = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sbom)
 

@@ -7,7 +7,7 @@
 # $BUILD/dev/extras.
 # Usage: dev-assistant.sh (called by `make dev-assistant` on the host, after `make image`).
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 : "${ENGINE:?}" "${IMAGE:?}" "${BUILD:?}" "${DEV_ENTER:?}"
 
 dev=$BUILD/dev

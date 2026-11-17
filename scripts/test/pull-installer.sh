@@ -6,7 +6,7 @@
 # Usage: pull-installer.sh REF   e.g. ghcr.io/shapebit-software/os/installer:stable
 set -euo pipefail
 : "${BUILD:?}" "${MEDIUM:?}"
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 ref=$1
 
 work=$BUILD/pulled-installer
@@ -15,10 +15,10 @@ trap 'rm -rf "$work"' EXIT
 # skopeo creates neither: a fresh checkout has no BUILD.
 mkdir -p "$work" "$(dirname "$MEDIUM")"
 skopeo copy -q "docker://$ref" "oci:$work/layout"
-python3 scripts/artifact.py unpack "$work/layout" "$work/files" shapebit-installer.img.xz shapebit-installer.img.json
+python3 scripts/release/artifact.py unpack "$work/layout" "$work/files" shapebit-installer.img.xz shapebit-installer.img.json
 
 xz -dc -T0 "$work/files/shapebit-installer.img.xz" >"$MEDIUM"
 cp "$work/files/shapebit-installer.img.json" "$MEDIUM.json"
-expected=$(python3 scripts/provenance.py field "$MEDIUM.json" medium_sha256)
+expected=$(python3 scripts/build/provenance.py field "$MEDIUM.json" medium_sha256)
 echo "$expected  $MEDIUM" | sha256sum -c --quiet -
-echo "Pulled installer $(python3 scripts/provenance.py field "$MEDIUM.json" version) from $ref"
+echo "Pulled installer $(python3 scripts/build/provenance.py field "$MEDIUM.json" version) from $ref"

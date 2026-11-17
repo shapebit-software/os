@@ -94,7 +94,7 @@ medium that differs.
 - `/plans/system`, run by `make test`.
 - `/plans/update`, run by `make test-update`.
 
-**Machines.** `scripts/test-machine.sh` makes a disposable clone of the installed
+**Machines.** `scripts/test/test-machine.sh` makes a disposable clone of the installed
 machine for each plan: a qcow2 overlay of the disk with copies of its EFI
 variables and TPM state. It then runs tmt with `provision --how connect` and
 discards the clone. tmt does not start the VM itself: its `virtual.testcloud`
@@ -130,7 +130,7 @@ needs an entry in that directory's `main.fmf`.
 
 `tests/openqa/` is an openQA test distribution: `main.pm` only lists the modules,
 which are Python (`tests/*.py`, through `Inline::Python`), and `needles/` holds the
-reference screens. `scripts/openqa.sh` runs them with isotovideo, openQA's test
+reference screens. `scripts/test/openqa.sh` runs them with isotovideo, openQA's test
 engine, in a container built from `tests/openqa/Containerfile`. The same directory
 works as the case directory of an openQA server. A server is not required, and
 this repository does not run one.

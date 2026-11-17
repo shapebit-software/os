@@ -1,6 +1,6 @@
 # Every color of the system, from the boot splash to the desktop, for anything
 # to read: the shell, the login screen, and the installer, through the QML
-# module Colors (/usr/lib64/qt6/qml/Colors), whose values scripts/colors.py
+# module Colors (/usr/lib64/qt6/qml/Colors), whose values scripts/build/colors.py
 # generates from this file; and the portal, which hands the accent to
 # applications. What cannot read it keeps a copy that names the color here,
 # which tests/unit/test_colors.py checks: the boot splash (Plymouth), the

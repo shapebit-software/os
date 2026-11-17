@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""What scripts/openqa.sh needs around isotovideo: the variables of a run, its
+"""What scripts/test/openqa.sh needs around isotovideo: the variables of a run, its
 needles, and its result. The variables that do not change are in vars.json.
 
 Usage: run.py vars RECORD PUBLIC_KEY OWNER MEDIUM_SIZE DISK_SIZE FLOW UPDATE_DIGEST OUT

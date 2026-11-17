@@ -1,4 +1,4 @@
-"""scripts/prune-packages.py: which versions of a package go."""
+"""scripts/release/prune-packages.py: which versions of a package go."""
 
 import importlib.util
 import pathlib
@@ -6,7 +6,7 @@ import pathlib
 import pytest
 
 spec = importlib.util.spec_from_file_location(
-    "prune", pathlib.Path(__file__).parents[2] / "scripts" / "prune-packages.py"
+    "prune", pathlib.Path(__file__).parents[2] / "scripts" / "release" / "prune-packages.py"
 )
 prune = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(prune)

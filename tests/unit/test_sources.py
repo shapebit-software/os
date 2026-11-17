@@ -1,4 +1,4 @@
-"""scripts/sources.py, without containers or registries."""
+"""scripts/release/sources.py, without containers or registries."""
 
 import hashlib
 import importlib.util
@@ -7,7 +7,7 @@ import tarfile
 
 import pytest
 
-spec = importlib.util.spec_from_file_location("sources", pathlib.Path(__file__).parents[2] / "scripts" / "sources.py")
+spec = importlib.util.spec_from_file_location("sources", pathlib.Path(__file__).parents[2] / "scripts" / "release" / "sources.py")
 sources = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sources)
 

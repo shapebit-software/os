@@ -1,4 +1,4 @@
-"""scripts/provenance.py, on made-up artifacts."""
+"""scripts/build/provenance.py, on made-up artifacts."""
 
 import hashlib
 import importlib.util
@@ -10,7 +10,7 @@ import tarfile
 import pytest
 
 spec = importlib.util.spec_from_file_location(
-    "provenance", pathlib.Path(__file__).parents[2] / "scripts" / "provenance.py"
+    "provenance", pathlib.Path(__file__).parents[2] / "scripts" / "build" / "provenance.py"
 )
 provenance = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(provenance)

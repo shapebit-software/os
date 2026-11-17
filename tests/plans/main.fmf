@@ -1,4 +1,4 @@
-# The machine comes from scripts/tmt.sh, which gives tmt its address with
+# The machine comes from scripts/test/tmt.sh, which gives tmt its address with
 # `provision --how connect`: see docs/Testing.md for why not testcloud.
 provision:
     how: connect

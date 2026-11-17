@@ -34,7 +34,7 @@ ColorValues {
     }
 
     // A color from OKLCH: lightness and chroma, 0 to 1 and 0 to about 0.4,
-    // hue in degrees, and opacity, 1 if left out. scripts/colors.py and the
+    // hue in degrees, and opacity, 1 if left out. scripts/build/colors.py and the
     // portal compute the same in Python.
     function oklch(l: real, c: real, h: real, alpha: real): color {
         const rgb = linear(l, c, h).map(x => {

@@ -4,7 +4,7 @@
 # Fedora's, with one build of the CPU code per kind of processor, chosen as it
 # runs. No web page and no downloads: the model is an extra. Its vendored code
 # is in its source tree, so the build runs offline. Built and published by
-# scripts/rpm-build.sh (third-party/README.md).
+# scripts/build/rpm-build.sh (third-party/README.md).
 
 %global ver 0.8.0
 # Its libraries are private to it: not offered to other packages, and not

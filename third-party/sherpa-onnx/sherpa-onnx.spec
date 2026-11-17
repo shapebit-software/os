@@ -2,7 +2,7 @@
 # for dictation (desktop/dictation). Upstream downloads its dependencies while it
 # builds; they are Sources here, at the versions and hashes that its
 # cmake/*.cmake pin (the build checks them), so the build runs offline and the
-# source RPM holds all the code. Built and published by scripts/rpm-build.sh
+# source RPM holds all the code. Built and published by scripts/build/rpm-build.sh
 # (third-party/README.md).
 
 %global ver 2.0.1

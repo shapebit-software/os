@@ -8,7 +8,7 @@ import subprocess
 def test_recovery_key_unlocks_the_volume():
     with open(os.environ["RECOVERY_KEY"], "rb") as key:
         result = subprocess.run(
-            ["scripts/ssh.sh", "cryptsetup open --test-passphrase --key-file=- /dev/disk/by-partlabel/shapebit"],
+            ["scripts/test/ssh.sh", "cryptsetup open --test-passphrase --key-file=- /dev/disk/by-partlabel/shapebit"],
             stdin=key,
             capture_output=True,
             text=True,

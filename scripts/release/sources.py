@@ -27,10 +27,10 @@ import subprocess
 import sys
 import tarfile
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 TYPE = "application/vnd.shapebit.sources.v1"
 
-spec = importlib.util.spec_from_file_location("artifact", ROOT / "scripts/artifact.py")
+spec = importlib.util.spec_from_file_location("artifact", ROOT / "scripts/release/artifact.py")
 artifact = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(artifact)
 

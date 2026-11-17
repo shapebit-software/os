@@ -1,10 +1,10 @@
-"""scripts/release-notes.py, on made-up packages and commits."""
+"""scripts/release/release-notes.py, on made-up packages and commits."""
 
 import importlib.util
 import pathlib
 
 spec = importlib.util.spec_from_file_location(
-    "release_notes", pathlib.Path(__file__).parents[2] / "scripts" / "release-notes.py"
+    "release_notes", pathlib.Path(__file__).parents[2] / "scripts" / "release" / "release-notes.py"
 )
 release_notes = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release_notes)

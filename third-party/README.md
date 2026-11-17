@@ -2,8 +2,8 @@
 
 ShapeBit builds what the image needs and Fedora lacks as RPMs, so it installs
 like any other package: its license texts reach `/usr/share/licenses`, its
-source RPM reaches the published sources (`scripts/sources.py`), and what it
-bundles reaches the SBOM (`scripts/sbom.py` reads `Provides: bundled(...)`).
+source RPM reaches the published sources (`scripts/release/sources.py`), and what it
+bundles reaches the SBOM (`scripts/release/sbom.py` reads `Provides: bundled(...)`).
 
 | Package | Why |
 | --- | --- |
@@ -16,14 +16,14 @@ bundles reaches the SBOM (`scripts/sbom.py` reads `Provides: bundled(...)`).
   of each of its Sources, as in Fedora's package repositories. Upstream downloads during its build become Sources,
   so the build runs without network and the source RPM holds all the code.
 - `make rpm RPM=NAME` builds one into `build/rpms/NAME`, in a Fedora container
-  of `FEDORA_VERSION` (`scripts/rpm-build.sh`).
+  of `FEDORA_VERSION` (`scripts/build/rpm-build.sh`).
 - The workflow [Third-party packages](../.github/workflows/third-party.yml) runs when `third-party/`
   changes on `main`. A version that has no release yet becomes the release
   `rpm-NAME-VERSION-RELEASE`, with the binary and source RPMs as assets. It
   then writes the repository of all those releases, signed
-  (`scripts/rpm-repo.sh`), and deploys it to GitHub Pages:
+  (`scripts/release/rpm-repo.sh`), and deploys it to GitHub Pages:
   `https://shapebit-software.github.io/os/rpms/fedora-VERSION-{x86_64,source}/`.
-- The image build and `scripts/sources.py` read it through
+- The image build and `scripts/release/sources.py` read it through
   `image/third-party.repo`. dnf checks the repository's signature with
   `image/third-party.asc`; the metadata holds each RPM's SHA-256.
 

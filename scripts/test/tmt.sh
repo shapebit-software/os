@@ -5,7 +5,7 @@
 set -euo pipefail
 : "${VENV:?}" "${SSH_PORT:?}" "${SSH_KEY:?}"
 : "${IMAGE_DIGEST:?}" "${OWNER_NAME:?}" "${LOCALE:?}" "${KEYBOARD_LAYOUT:?}" "${TIME_ZONE:?}" "${DEV_UPDATE_REF:?}"
-# Only the update test has these (scripts/test-machine.sh).
+# Only the update test has these (scripts/test/test-machine.sh).
 NEXT_VERSION=${NEXT_VERSION:-} NEXT2_VERSION=${NEXT2_VERSION:-}
 plan=$1 run=$(realpath -m "$2")
 mkdir -p "$run"
