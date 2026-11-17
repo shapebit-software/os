@@ -33,6 +33,14 @@ def test_required_component_notice_is_installed(host, path, notice):
     assert notice in host.file("/usr/share/licenses/" + path).content_string
 
 
+def test_the_collected_notices_are_a_package_under_the_licenses_they_are_for(host, sh):
+    assert host.run("rpm -V --nomtime license-notices").rc == 0
+    files = sh("rpm -qL license-notices").split()
+    assert "/usr/share/licenses/xorg-x11-server-Xwayland/COPYING" in files
+    license = sh("rpm -q --qf '%{LICENSE}' license-notices")
+    assert sh("rpm -q --qf '%{LICENSE}' xorg-x11-server-Xwayland") in license
+
+
 def test_all_rpm_license_paths_are_readable(sh):
     sh("""python3 - <<'PY'
 import pathlib, subprocess
@@ -96,10 +104,11 @@ NOTHING_TO_LICENSE = {
     "kde-filesystem", "libreport-filesystem", "qt6-filesystem",
 }
 # Their license text is not in their own source package, so no rule of
-# image/license-notices.py can take it; reported to Fedora (docs/License.md).
+# license-notices/license-notices.py can take it; reported to Fedora (docs/License.md).
 REPORTED = {"ca-certificates", "microcode_ctl", "shim-x64"}
-# ShapeBit's own packages: their license is ShapeBit's, in /usr/share/licenses/shapebit.
-SHAPEBITS = {"desktop", "system", "release"}
+# ShapeBit's own packages: their license is ShapeBit's, in /usr/share/licenses/shapebit;
+# license-notices holds other packages' notices, in their folders.
+SHAPEBITS = {"desktop", "system", "release", "license-notices"}
 
 
 def test_every_installed_package_has_its_license_text():

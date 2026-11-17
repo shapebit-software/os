@@ -8,22 +8,29 @@
 # directory with the sealed system archive, image.tar, which is BASE.
 # BASE has no default: the Makefile always passes it.
 ARG BASE
+# The installer's package (build context `installer`, installer.spec), at the
+# image's version, which BASE's os-release records; its BuildRequires come from
+# the spec.
 FROM ${BASE} AS build
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
-    dnf -y install cmake ninja-build gcc-c++ qt6-qtbase-devel qt6-qtdeclarative-devel libxkbcommon-devel
-COPY --from=installer . /src
-RUN cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr && \
-    cmake --build /build && DESTDIR=/out cmake --install /build
+    --mount=type=bind,from=installer,source=installer.spec,target=/run/installer.spec \
+    dnf -y install rpm-build dnf5-plugins && \
+    dnf -y builddep --define "image_version 0" /run/installer.spec
+RUN --mount=type=bind,from=installer,target=/src \
+    . /usr/lib/os-release && \
+    rpmbuild -bb --quiet --define "_topdir /tmp/rpm" --define "image_version $IMAGE_VERSION" \
+      --define "source_dir /src" /src/installer.spec && \
+    mkdir /out && cp /tmp/rpm/RPMS/*/*.rpm /out/
 
 FROM ${BASE}
-# cage shows the installer full screen; nothing else of a desktop is needed.
+# The installer and its Requires (installer.spec). It is built in this build,
+# so it carries no signature; the repositories' packages are still checked.
 # dnf's cache is a build cache, never in the image; the rest of its state in
 # /var and /run is removed, since bootc ignores it on install.
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
-    dnf -y install cage qt6-qtbase-gui qt6-qtdeclarative qt6-qtwayland mesa-dri-drivers \
-      google-noto-sans-fonts google-noto-sans-mono-fonts && \
+    --mount=type=bind,from=build,source=/out,target=/run/packages \
+    dnf -y install --setopt=localpkg_gpgcheck=0 /run/packages/*.rpm && \
     rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf
-COPY --from=build /out/ /
 # The units are enabled by the preset that the installer ships, which also
 # holds on the first boot, when systemd applies presets again. The installer
 # takes the screen, so the system's login screen is masked; presets skip

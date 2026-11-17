@@ -125,7 +125,8 @@ image: $(KEYS) ## Build the container image with its signed UKI
 	scripts/build/image.sh image/Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \
 	  --build-arg FEDORA_VERSION=$(FEDORA_VERSION) --build-arg IMAGE_VERSION=$(IMAGE_VERSION) \
 	  --build-arg IMAGE_REVISION=$(IMAGE_REVISION) \
-	  --build-context desktop=$(DESKTOP_SRC) --build-context system-source=system
+	  --build-context desktop=$(DESKTOP_SRC) --build-context system-source=system \
+	  --build-context license-notices=license-notices
 
 colors: ## Write the QML module Colors's values from the system's colors (system/usr/share/colors/colors.toml)
 	python3 scripts/build/colors.py

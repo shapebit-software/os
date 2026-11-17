@@ -39,7 +39,7 @@ A dependency's license texts come in the same change as the dependency:
   `licenses` in `desktop/extras/extras.json`, including `<id>/NOTICE`, which
   `extra` writes from its `credits`; each credit's `license` is an SPDX ID.
 - **A Fedora package that lacks a notice** gets a rule in
-  `image/license-notices.py`; the rule goes when Fedora ships the notice.
+  `license-notices/license-notices.py`; the rule goes when Fedora ships the notice.
 - **A fixed text**, such as the font's, is committed under
   `system/usr/share/licenses/<component>/`, unchanged from upstream.
 

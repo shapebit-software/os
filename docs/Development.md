@@ -55,8 +55,10 @@ The sealed image is saved as `build/image.tar`.
 
 `make installer` builds the medium in the same two phases.
 [Containerfile.installer](https://github.com/shapebit-software/os/blob/main/image/Containerfile.installer) adds, to the sealed
-system (`IMAGE`), the [installer](https://github.com/shapebit-software/os/blob/main/installer/), the
-`cage` kiosk compositor that shows it, and the same sealed system, as an OCI layout, as
+system (`IMAGE`), the [installer](https://github.com/shapebit-software/os/blob/main/installer/) as a
+package ([installer.spec](https://github.com/shapebit-software/os/blob/main/installer/installer.spec)) at the
+image's version, with what it requires, such as the `cage` kiosk compositor that
+shows it, and the same sealed system, as an OCI layout, as
 the payload; sealing then replaces the system's UKI with the medium's own, whose
 composefs digest covers all of it. So the Installer workflow builds from the
 released `os:<version>` alone, and no unsealed image is kept anywhere. The

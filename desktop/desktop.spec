@@ -14,6 +14,8 @@ Release:        1
 Summary:        ShapeBit's desktop
 License:        LicenseRef-PolyForm-Shield-1.0.0
 URL:            https://github.com/shapebit-software/os
+# Marks ShapeBit's own packages, whose sources are this repository (scripts/release/sources.py).
+Vendor:         ShapeBit
 BuildArch:      noarch
 BuildRequires:  make
 

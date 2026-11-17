@@ -25,7 +25,7 @@ def module(name, path):
     return result
 
 
-collector = module("license_notices", "image/license-notices.py")
+collector = module("license_notices", "license-notices/license-notices.py")
 reader = module("license_reader", "desktop/licenses/licenses")
 
 
@@ -176,3 +176,8 @@ def test_each_extra_lists_committed_license_texts():
 def test_installed_shapebit_license_matches_the_repository():
     assert (LICENSES / "shapebit/LICENSE").read_bytes() == (ROOT / "LICENSE.md").read_bytes()
 
+
+
+def test_the_notices_package_is_under_the_licenses_of_the_packages_it_is_for():
+    assert collector.licenses(["MIT", "GPL-2.0-or-later AND BSD-3-Clause", "MIT", "Zlib"]) == (
+        "MIT AND (GPL-2.0-or-later AND BSD-3-Clause) AND Zlib")

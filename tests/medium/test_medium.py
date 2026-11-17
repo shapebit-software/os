@@ -29,6 +29,12 @@ def test_installer_preserves_the_system_license_materials(host, sh):
     assert {"cage", "wlroots", "shapebit"} <= {c["name"] for c in components}
 
 
+def test_the_installer_is_an_unchanged_package_at_the_images_version(host, sh):
+    version = sh(". /usr/lib/os-release && echo $IMAGE_VERSION").strip()
+    assert sh("rpm -q --qf '%{VERSION} %{VENDOR}' installer") == f"{version} ShapeBit"
+    assert host.run("rpm -V --nomtime installer").rc == 0
+
+
 def test_finished_booting_without_failed_units(host, sh):
     host.run("systemctl is-system-running --wait")
     assert sh("systemctl --failed --no-legend --plain") == ""

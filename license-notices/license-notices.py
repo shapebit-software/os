@@ -10,6 +10,8 @@ component, and exactly one member must match, or the build fails. Nothing from
 an archive is extracted onto the filesystem. When Fedora ships a notice itself,
 its rule goes. Runs in the image build; source RPMs stay in CACHE.
 Usage: license-notices.py DESTDIR CACHE
+       license-notices.py --licenses   print the licenses of the packages the
+                                       rules are for, as one SPDX expression
 """
 
 import fnmatch
@@ -160,7 +162,19 @@ def collect(dest, cache, rules=RULES):
         place(root, to, header(text) if only_header else text)
 
 
+def licenses(expressions):
+    """One SPDX expression for all of EXPRESSIONS: each in parentheses when it
+    has an operator, in order, and each only once."""
+    unique = dict.fromkeys(e.strip() for e in expressions)
+    return " AND ".join(e if " " not in e else f"({e})" for e in unique)
+
+
 def main(args):
+    if args == ["--licenses"]:
+        packages = dict.fromkeys(rule[0] for rule in RULES)
+        query = subprocess.check_output(["rpm", "-q", "--qf", "%{LICENSE}\n", *packages], text=True)
+        print(licenses(query.splitlines()))
+        return
     if len(args) != 2:
         raise ValueError(__doc__)
     collect(*map(pathlib.Path, args))

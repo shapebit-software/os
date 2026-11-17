@@ -33,7 +33,7 @@ any change in `desktop/` or `installer/` that the image installs.
   read them from the environment and fail fast on missing values
   (`: "${VAR:?}"`).
 - **Each component is an RPM.** `desktop/`, `system/` (with the `release`
-  package) and `installer/` each have a spec: what the component installs, and
+  package), `installer/` and `license-notices/` each have a spec: what the component installs, and
   its `Requires`, each with the reason for it. The image builds them from the
   same commit; `third-party/` builds what Fedora lacks. `image/` only
   assembles.

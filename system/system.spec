@@ -14,6 +14,8 @@ Summary:        ShapeBit's system: updates, boot, login screen, and settings
 # The font (usr/share/fonts/instrument-sans) is under the SIL Open Font License.
 License:        LicenseRef-PolyForm-Shield-1.0.0 AND OFL-1.1
 URL:            https://github.com/shapebit-software/os
+# Marks ShapeBit's own packages, whose sources are this repository (scripts/release/sources.py).
+Vendor:         ShapeBit
 BuildArch:      noarch
 BuildRequires:  plymouth-theme-spinner
 Requires:       release = %{version}-%{release}

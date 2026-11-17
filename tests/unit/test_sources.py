@@ -15,10 +15,16 @@ spec.loader.exec_module(sources)
 def test_every_installed_package_has_its_sources_whatever_its_license():
     # lzo, clevis-pin-tpm2 and fdk-aac-free were left out by the old copyleft
     # matcher, which read the license labels.
-    lines = "lzo-2.10-17.fc45.src.rpm\nclevis-pin-tpm2-0.5.5-1.fc45.src.rpm\nfdk-aac-free-2.0.3-3.fc45.src.rpm\n"
-    assert sources.source_rpms(lines + "lzo-2.10-17.fc45.src.rpm\n(none)\n") == [
+    lines = "".join(f"{name}\tFedora Project\n" for name in [
+        "lzo-2.10-17.fc45.src.rpm", "clevis-pin-tpm2-0.5.5-1.fc45.src.rpm", "fdk-aac-free-2.0.3-3.fc45.src.rpm", "lzo-2.10-17.fc45.src.rpm"])
+    assert sources.source_rpms(lines + "(none)\t(none)\n") == [
         "clevis-pin-tpm2-0.5.5-1.fc45.src.rpm", "fdk-aac-free-2.0.3-3.fc45.src.rpm", "lzo-2.10-17.fc45.src.rpm",
     ]
+
+
+def test_shapebits_own_packages_have_their_sources_in_the_repository():
+    lines = "desktop-1.2-1.src.rpm\tShapeBit\nsystem-1.2-1.src.rpm\tShapeBit\nlzo-2.10-17.fc45.src.rpm\tFedora Project\n"
+    assert sources.source_rpms(lines) == ["lzo-2.10-17.fc45.src.rpm"]
 
 
 def test_the_tar_is_the_same_for_the_same_files(tmp_path):

@@ -122,7 +122,6 @@ ARG KEYS_ID
 RUN --mount=type=secret,id=signing.crt \
     openssl x509 -in /run/secrets/signing.crt -outform DER -out /out/enroll-this-key.cer
 
-# The desktop's files (build context `desktop`), installed by its Makefile.
 # The desktop's package (build context `desktop`, desktop.spec), at the image's
 # version: what its Makefile installs, so that the RPM database knows every file.
 FROM tools AS desktop-package
@@ -132,20 +131,24 @@ RUN --mount=type=bind,from=desktop,target=/src \
       --define "source_dir /src" /src/desktop.spec && \
     cp /tmp/rpm/RPMS/noarch/*.rpm /out/
 
-# The notices that some installed RPMs lack, from their exact source RPMs
-# (license-notices.py). Source RPMs stay in this build stage.
+# The notices that some installed RPMs lack, from their exact source RPMs, as
+# a package at the image's version (build context `license-notices`,
+# license-notices.spec). Source RPMs stay in this stage's cache.
 FROM tools AS licenses
-RUN --mount=type=bind,source=license-notices.py,target=/run/license-notices.py \
+ARG IMAGE_VERSION
+RUN --mount=type=bind,from=license-notices,target=/src \
     --mount=type=cache,target=/var/cache/licenses,sharing=locked \
-    python3 /run/license-notices.py /out /var/cache/licenses
+    rpmbuild -bb --quiet --define "_topdir /tmp/rpm" --define "image_version $IMAGE_VERSION" \
+      --define "source_dir /src" --define "cache /var/cache/licenses" /src/license-notices.spec && \
+    cp /tmp/rpm/RPMS/noarch/*.rpm /out/
 
 FROM system
 # ShapeBit's own packages need nothing that the image lacks, so rpm installs
 # them without a repository. They are built in this build, so they carry no
 # signature, which the base image's rpm otherwise asks for.
 RUN --mount=type=bind,from=desktop-package,source=/out,target=/run/packages \
-    rpm -i --nosignature /run/packages/*.rpm
-COPY --from=licenses /out/ /
+    --mount=type=bind,from=licenses,source=/out,target=/run/notices \
+    rpm -i --nosignature /run/packages/*.rpm /run/notices/*.rpm
 # The desktop's settings defaults (window-buttons.gschema.override) apply
 # once the schemas are compiled again.
 RUN glib-compile-schemas /usr/share/glib-2.0/schemas

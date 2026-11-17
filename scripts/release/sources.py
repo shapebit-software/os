@@ -57,12 +57,15 @@ def engine():
 
 
 def source_rpms(lines):
-    """Every distinct source RPM, from `rpm -qa` lines of SOURCERPM; public keys have none."""
-    return sorted(set(lines.split()) - {"(none)"})
+    """Every distinct source RPM, from `rpm -qa` lines of SOURCERPM and VENDOR;
+    public keys have none. ShapeBit's own packages, built in the image build,
+    are left out: their sources are this repository at the image's revision."""
+    names = {line.split("\t")[0] for line in lines.splitlines() if not line.endswith("\tShapeBit")}
+    return sorted(names - {"(none)", ""})
 
 
 def image_source_rpms(image):
-    query = "%{SOURCERPM}\n"
+    query = "%{SOURCERPM}\t%{VENDOR}\n"
     lines = subprocess.run(
         [*engine(), "run", "--rm", "--network", "none", "--entrypoint", "rpm", image, "-qa", "--qf", query],
         check=True, capture_output=True, text=True,
