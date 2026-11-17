@@ -41,7 +41,7 @@ A dependency's license texts come in the same change as the dependency:
 - **A Fedora package that lacks a notice** gets a rule in
   `image/license-notices.py`; the rule goes when Fedora ships the notice.
 - **A fixed text**, such as the font's, is committed under
-  `image/rootfs/usr/share/licenses/<component>/`, unchanged from upstream.
+  `system/usr/share/licenses/<component>/`, unchanged from upstream.
 
 Unit tests check the committed texts and the collector; image tests check the
 installed notices and Settings > Licenses.

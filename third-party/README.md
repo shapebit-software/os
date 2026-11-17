@@ -35,8 +35,8 @@ bundles reaches the SBOM (`scripts/release/sbom.py` reads `Provides: bundled(...
    format: `spectool -g NAME.spec`, then `sha512sum --tag FILE... > sources`.
 3. `make rpm RPM=NAME`, then test what it built in a container of the image's
    Fedora version.
-4. Name it in the package list that needs it (`desktop/packages` or
-   `image/packages`), and merge: the workflow publishes it before the next image
+4. Require it in the spec that needs it (`desktop/desktop.spec` or
+   `system/system.spec`), and merge: the workflow publishes it before the next image
    build can use it.
 
 ## The signing key, once

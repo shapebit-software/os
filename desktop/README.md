@@ -160,8 +160,7 @@ listed in its folder's `qmldir`, and a file imports the other folders it uses.
 | `dictation/`  | Dictation: `hear` turns speech into words, for dictation and the assistant; `dictate` is the input method that delivers them. |
 | `extras/`     | The extras (large optional downloads, such as models) with their hashes, and the helper that installs them, and their license texts.         |
 | `licenses/`   | The reader of Settings > Licenses: each component's texts, from `/usr/share/licenses` and the RPM database.          |
-| `packages`    | The packages the desktop runs on, each with its reason; the image installs them.                                         |
-| `desktop.spec` | The RPM of what `make install` installs, which the image builds and installs.                                          |
+| `desktop.spec` | The RPM of what `make install` installs, and the packages the desktop runs on (`Requires`), each with its reason.     |
 | `dev/`        | Development only: the session bus of `make run`, and the Portal Tester.                                                    |
 
 ## Not yet implemented

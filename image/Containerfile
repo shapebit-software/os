@@ -5,18 +5,35 @@
 # KEYS_ID, which changes with it.
 # Only signed binaries and public keys reach the image.
 ARG FEDORA_VERSION=45
-FROM quay.io/fedora/fedora-bootc:${FEDORA_VERSION} AS system
+FROM quay.io/fedora/fedora-bootc:${FEDORA_VERSION} AS base
+
+# ShapeBit's system and identity (build context `system-source`, system.spec): the
+# packages system and release, at the image's version and commit. release
+# stands in for Fedora's identity package at the version of the base image's
+# fedora-release-common, which asks for one. The splash's links need Fedora's
+# spinner theme.
+FROM base AS system-packages
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    dnf -y install rpm-build plymouth-theme-spinner && mkdir /out
+ARG IMAGE_VERSION
+ARG IMAGE_REVISION
+RUN --mount=type=bind,from=system-source,target=/src \
+    rpmbuild -bb --quiet --define "_topdir /tmp/rpm" --define "image_version $IMAGE_VERSION" \
+      --define "image_revision $IMAGE_REVISION" --define "source_dir /src" \
+      --define "fedora_release $(rpm -q --qf '%{VERSION}-%{RELEASE}' fedora-release-common)" /src/system.spec && \
+    cp /tmp/rpm/RPMS/noarch/*.rpm /out/
+
+FROM base AS system
 
 LABEL org.opencontainers.image.title="ShapeBit OS" \
       org.opencontainers.image.url="https://shapebit.software" \
       org.opencontainers.image.source="https://github.com/shapebit-software/os"
 
-# Files under rootfs/ are copied verbatim; their paths mirror the target system.
-COPY rootfs/ /
-
-# The system's packages (image/packages) and the desktop's (build context
-# `desktop`, its file packages), each listed with the reason for it, in one
-# transaction. Fedora has no Hyprland, so it comes from a third-party COPR for
+# What the system and the desktop run on: the Requires of system/system.spec
+# and desktop/desktop.spec, each with the reason for it, in one transaction,
+# without weak dependencies or Fedora's count of systems (as the system package
+# sets for later). Only the specs are read, so this step runs again only when
+# they change. Fedora has no Hyprland, so it comes from a third-party COPR for
 # now (hyprland.repo); what else Fedora lacks, such as sherpa-onnx and llama-server, ShapeBit
 # builds itself (third-party.repo, signed with the key of third-party.asc; third-party/README.md).
 # scripts/release/sources.py reads both repositories too; they are mounted only for
@@ -31,35 +48,34 @@ COPY rootfs/ /
 # Fedora's noopenh264 stands in, and apps get H.264 from Flathub's extension,
 # which downloads from Cisco.
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
-    --mount=type=bind,source=packages,target=/run/system-packages \
-    --mount=type=bind,from=desktop,source=packages,target=/run/desktop-packages \
+    --mount=type=bind,from=system-source,source=system.spec,target=/run/system.spec \
+    --mount=type=bind,from=desktop,source=desktop.spec,target=/run/desktop.spec \
     --mount=type=bind,source=hyprland.repo,target=/etc/yum.repos.d/hyprland.repo \
     --mount=type=bind,source=third-party.repo,target=/etc/yum.repos.d/third-party.repo \
     --mount=type=bind,source=third-party.asc,target=/etc/pki/rpm-gpg/third-party.asc <<'EOF'
 set -euo pipefail
-dnf -y install --disablerepo=fedora-cisco-openh264 $(sed 's/#.*//' /run/system-packages /run/desktop-packages)
+dnf -y install --disablerepo=fedora-cisco-openh264 --setopt=install_weak_deps=False --setopt='*.countme=0' \
+  $(sed -n 's/^Requires: *//p' /run/system.spec /run/desktop.spec | grep -v '^release ')
 rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf /run/sddm /var/cache/libX11
 rm /usr/share/wayland-sessions/hyprland.desktop
 # UWSM's unit manager, which the session needs no person to see in Apps.
 rm /usr/share/applications/uuctl.desktop
 EOF
 
-# The boot splash (Plymouth): ShapeBit's theme, rootfs/usr/share/plymouth/
-# themes/boot, takes the spinner and the password prompt's images from
-# Fedora's spinner theme, and is the default in the distribution defaults.
-# The initramfs, rebuilt below, carries it.
-RUN find /usr/share/plymouth/themes/spinner -name '*.png' ! -name watermark.png \
-      -exec cp -t /usr/share/plymouth/themes/boot {} + && \
-    sed -i 's/^Theme=.*/Theme=boot/' /usr/share/plymouth/plymouthd.defaults && \
+# ShapeBit's system and identity, which need nothing the image lacks; release
+# replaces Fedora's identity package. They are built in this build, so they
+# carry no signature.
+RUN --mount=type=bind,from=system-packages,source=/out,target=/run/packages \
+    dnf -y install --disablerepo='*' --nogpgcheck --allowerasing /run/packages/*.rpm && \
+    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf
+
+# The boot splash (Plymouth): ShapeBit's theme, system/usr/share/plymouth/
+# themes/boot, with the spinner theme's images, is the default in the
+# distribution defaults. The initramfs, rebuilt below, carries it.
+RUN sed -i 's/^Theme=.*/Theme=boot/' /usr/share/plymouth/plymouthd.defaults && \
     test "$(plymouth-set-default-theme)" = boot
 
-# New Distrobox containers start from Fedora's toolbox image of this image's
-# Fedora version, rather than its latest.
-RUN mkdir -p /usr/share/distrobox && \
-    echo "container_image_default=\"registry.fedoraproject.org/fedora-toolbox:$(rpm -E %fedora)\"" \
-      >/usr/share/distrobox/distrobox.conf
-
-# os-update.timer checks for system updates (rootfs/usr/lib/systemd/system).
+# os-update.timer checks for system updates (system/usr/lib/systemd/system).
 # The base image's own timers are masked: rpm-ostree-countme reports to
 # Fedora that this computer exists, and bootc-fetch-apply-updates installs
 # updates and restarts by itself, which os-update does instead. Both now skip
@@ -81,8 +97,8 @@ RUN authselect enable-feature with-systemd-homed && rm -r /var/lib/authselect &&
       /etc/pam.d/sddm && \
     grep -q '^auth .*default=die\] pam_systemd_home\.so' /etc/pam.d/sddm
 
-# The initramfs must carry /usr/lib/composefs/setup-root-conf.toml, so it is
-# rebuilt after rootfs/ is in place.
+# The initramfs must carry /usr/lib/composefs/setup-root-conf.toml and
+# ShapeBit's os-release, so it is rebuilt after the system package is in place.
 RUN kernel=$(basename /usr/lib/modules/*) && \
     dracut --force "/usr/lib/modules/$kernel/initramfs.img" "$kernel"
 
@@ -136,13 +152,11 @@ RUN glib-compile-schemas /usr/share/glib-2.0/schemas
 COPY --from=bootloader /out/ /usr/lib/systemd/boot/efi/
 COPY --from=certificate /out/ /usr/share/secureboot/
 # Identifies this build, the commit it is made from, and where its sources
-# are published once it is released (docs/License.md); last, so a new version
-# rebuilds only this layer.
+# are published once it is released (docs/License.md), as os-release does
+# from the release package.
 ARG IMAGE_VERSION
 ARG IMAGE_REVISION
 LABEL org.opencontainers.image.version="$IMAGE_VERSION" \
       org.opencontainers.image.revision="$IMAGE_REVISION" \
       software.shapebit.sources="ghcr.io/shapebit-software/os:$IMAGE_VERSION-sources"
-RUN test -n "$IMAGE_VERSION" && test -n "$IMAGE_REVISION" && \
-    printf 'IMAGE_VERSION=%s\nIMAGE_REVISION=%s\n' "$IMAGE_VERSION" "$IMAGE_REVISION" >>/usr/lib/os-release
 RUN bootc container lint

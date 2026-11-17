@@ -53,25 +53,31 @@ validate() {
   fi
   rm -rf "$runtime"
 
-  # Every package on the system's and the desktop's lists still exists.
-  local list package unit
-  for list in image/packages desktop/packages; do
-    for package in $(sed 's/#.*//' "$list"); do
-      if [[ -z $(dnf -q repoquery --latest-limit=1 "$package" 2>/dev/null) ]]; then
-        echo "error: $list: no package $package" >&2
+  # Every package that the system and the desktop require still exists, in the
+  # image's Fedora version and ShapeBit's third-party repository; the query
+  # only reads its metadata, so it needs no key.
+  : "${FEDORA_VERSION:?}"
+  local spec package unit third_party
+  third_party=$(sed -n 's/^baseurl=//p' image/third-party.repo | head -1)
+  for spec in system/system.spec desktop/desktop.spec; do
+    for package in $(sed -n 's/^Requires: *//p' "$spec" | grep -v '^release '); do
+      if [[ -z $(dnf -q repoquery --releasever="$FEDORA_VERSION" --latest-limit=1 \
+        --repofrompath="third-party,$third_party" --setopt=third-party.repo_gpgcheck=0 \
+        "$package" 2>/dev/null) ]]; then
+        echo "error: $spec: no package $package" >&2
         status=1
       fi
     done
   done
 
-  # Units parse. Their programs are in rootfs, not on this machine, so only
+  # Units parse. Their programs are in the image, not on this machine, so only
   # syntax counts here; the image and system checks run them.
   while IFS= read -r unit; do
     if systemd-analyze verify --man=no "$unit" 2>&1 | grep -E 'Unknown (key|section)|Failed to parse|Invalid'; then
       echo "error: $unit does not parse" >&2
       status=1
     fi
-  done < <(find image/rootfs -type f \( -name '*.service' -o -name '*.timer' \))
+  done < <(find system/usr -type f \( -name '*.service' -o -name '*.timer' \))
 }
 
 case ${1:-} in

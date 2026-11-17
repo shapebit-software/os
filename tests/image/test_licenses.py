@@ -1,5 +1,5 @@
 """Required notices must reach the image, not just exist in a build stage. The
-committed texts (image/rootfs/usr/share/licenses) are checked in tests/unit."""
+committed texts (system/usr/share/licenses) are checked in tests/unit."""
 
 import json
 import os
@@ -99,7 +99,7 @@ NOTHING_TO_LICENSE = {
 # image/license-notices.py can take it; reported to Fedora (docs/License.md).
 REPORTED = {"ca-certificates", "microcode_ctl", "shim-x64"}
 # ShapeBit's own packages: their license is ShapeBit's, in /usr/share/licenses/shapebit.
-SHAPEBITS = {"desktop"}
+SHAPEBITS = {"desktop", "system", "release"}
 
 
 def test_every_installed_package_has_its_license_text():

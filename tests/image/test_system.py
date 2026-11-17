@@ -17,6 +17,22 @@ def test_os_release_identifies_shapebit(host):
     assert os_release(host)["ID"] == "shapebit"
 
 
+def test_the_system_and_its_identity_are_unchanged_packages_at_the_images_version(host, sh):
+    # system/system.spec: the system's files are the package system, its
+    # identity the package release, in place of Fedora's identity package.
+    version = os_release(host)["IMAGE_VERSION"].strip('"')
+    assert sh("rpm -q --qf '%{VERSION}\\n' system release").split() == [version, version]
+    paths = {"/usr/lib/os-release": "release", "/usr/share/licenses/shapebit/LICENSE": "release",
+             "/usr/libexec/os-update": "system", "/usr/share/distrobox/distrobox.conf": "system",
+             "/usr/share/plymouth/themes/boot/throbber-0001.png": "system"}
+    owners = sh("rpm -qf --qf '%{NAME}\\n' " + " ".join(paths)).split()
+    assert owners == list(paths.values())
+    assert not host.package("fedora-release-identity-basic").is_installed
+    assert host.package("fedora-release-common").is_installed
+    # Unchanged since installed; the image's files keep no times.
+    sh("rpm -V --nomtime system release")
+
+
 def test_logos_are_not_fedoras(host):
     # Fedora's logos are its trademarks; generic-logos stands in (image/Containerfile).
     assert not host.package("fedora-logos").is_installed

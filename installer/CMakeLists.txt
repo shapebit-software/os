@@ -15,7 +15,7 @@ enable_testing()
 # Colors, the system's colors, is a QML module of the image, which the
 # installer medium carries in Qt's own folder. Built from the repository, the
 # installer takes it from the image's source instead, for tooling and tests.
-set(COLORS_IMPORT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../image/rootfs/usr/lib64/qt6/qml"
+set(COLORS_IMPORT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../system/usr/lib64/qt6/qml"
     CACHE PATH "The folder that holds the Colors QML module, if not Qt's own")
 if(NOT EXISTS "${COLORS_IMPORT_PATH}/Colors/qmldir")
     set(COLORS_IMPORT_PATH "")

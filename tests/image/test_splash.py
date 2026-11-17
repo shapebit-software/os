@@ -42,6 +42,10 @@ def test_initramfs_carries_the_splash(sh):
     assert "usr/bin/plymouthd" in files
     assert f"{THEME[1:]}/boot.plymouth" in files
     assert f"{THEME[1:]}/watermark.png" in files
+    # The spinner's images, which the theme links to (system/system.spec).
+    assert f"{THEME[1:]}/throbber-0001.png" in files
+    # And ShapeBit's identity, from the release package.
+    assert "ID=shapebit" in sh("lsinitrd -f usr/lib/initrd-release /usr/lib/modules/*/initramfs.img")
 
 
 def test_login_screen_takes_the_screen_from_the_splash(host):

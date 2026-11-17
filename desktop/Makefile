@@ -8,7 +8,7 @@ share := $(DESTDIR)$(PREFIX)/share
 
 # Colors, the system's colors: a QML module that the image installs in Qt's
 # own folder; here, the image's source of it.
-colors := $(abspath $(CURDIR)/../image/rootfs/usr/lib64/qt6/qml)
+colors := $(abspath $(CURDIR)/../system/usr/lib64/qt6/qml)
 
 # What development adds for the assistant, in the repository's build folder:
 # its models, downloaded in `make run` (EXTRAS_DIR), and its model server and
@@ -17,7 +17,7 @@ dev := $(abspath $(CURDIR)/../build/dev)
 # Settings > Licenses shows the image's committed license texts and the
 # extras', copied together into $(dev)/licenses; the RPMs' own are only in a
 # built image.
-system_licenses := $(abspath $(CURDIR)/../image/rootfs/usr/share/licenses)
+system_licenses := $(abspath $(CURDIR)/../system/usr/share/licenses)
 
 # The host's system bus, which the development container shares here: the
 # shell needs it for the network and Bluetooth.

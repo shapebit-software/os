@@ -13,7 +13,7 @@ import tarfile
 import pytest
 
 ROOT = pathlib.Path(__file__).parents[2]
-LICENSES = ROOT / "image/rootfs/usr/share/licenses"
+LICENSES = ROOT / "system/usr/share/licenses"
 EXTRA_LICENSES = ROOT / "desktop/extras/licenses"
 
 

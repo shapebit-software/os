@@ -1,6 +1,6 @@
 // The colors, the fonts, and the sizes that every part of the shell shares.
 // The colors are roles taken from Colors, the QML module of the system's colors
-// (image/rootfs/usr/share/colors/colors.toml); no other file of the shell names
+// (system/usr/share/colors/colors.toml); no other file of the shell names
 // a color (tests/unit/test_colors.py).
 pragma Singleton
 import QtQuick

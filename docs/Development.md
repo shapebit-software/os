@@ -25,11 +25,13 @@ and pull requests sign with throwaway development keys
    certificate to enroll, systemd-homed login support, the
    login screen, the desktop, and Files (Nautilus). The desktop's files come
    from its source tree (`DESKTOP_SRC`, by default `desktop/`), installed
-   by its Makefile, and so do the packages it runs on, which it lists in
-   `packages`. dnf installs no weak dependencies
-   ([image/rootfs/usr/share/dnf5/libdnf.conf.d](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/share/dnf5/libdnf.conf.d)),
-   so every package is in the image because a list names it or a named
-   package requires it.
+   by its Makefile and packaged as the RPM `desktop`
+   ([desktop.spec](https://github.com/shapebit-software/os/blob/main/desktop/desktop.spec)),
+   whose `Requires` are the packages it runs on. The system's own files are
+   the RPM `system`, and ShapeBit's os-release the RPM `release`
+   ([system/system.spec](https://github.com/shapebit-software/os/blob/main/system/system.spec)).
+   dnf installs no weak dependencies, so every package is in the image
+   because a spec requires it, or a package it requires does.
    Fedora has no Hyprland, so the build installs it from the third-party
    [sdegler/hyprland](https://copr.fedorainfracloud.org/coprs/sdegler/hyprland/)
    COPR for now; the repository is not left in the image.
@@ -103,7 +105,7 @@ Shim trusts our key only after a person enrolls its certificate, once per
 machine, in shim's MOK manager. The first boot of the medium stops there; it
 needs no password. [scripts/test/mok-enroll.sh](https://github.com/shapebit-software/os/blob/main/scripts/test/mok-enroll.sh) does the same
 on the VM, whose firmware starts with Microsoft's keys.
-[esp-shim](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/libexec/esp-shim) places shim on the medium and on the
+[esp-shim](https://github.com/shapebit-software/os/blob/main/system/usr/libexec/esp-shim) places shim on the medium and on the
 installed disk; updates do not replace shim yet.
 
 The installer gives the LUKS2 volume two key slots:
@@ -137,7 +139,7 @@ from `UPDATE_REF`, which the installer records:
 `ghcr.io/shapebit-software/os:stable`.
 
 `os-update.timer` runs `os-update`
-([image/rootfs/usr/libexec/os-update](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/libexec/os-update)) soon after
+([system/usr/libexec/os-update](https://github.com/shapebit-software/os/blob/main/system/usr/libexec/os-update)) soon after
 boot and every 6 hours, except on metered connections; Settings' **Check
 now** starts `os-update@now.service`, which a polkit rule lets the person at
 the computer start. It downloads and stages a new build with
@@ -172,15 +174,15 @@ first owner, an administrator (`wheel`), directly on the installed disk.
 systemd-homework leaves that Btrfs without SELinux labels, which keeps the
 login screen out of the home; homed mounts it with `defcontext=` so it reads
 as a home directory
-([systemd-homed.service.d](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/lib/systemd/system/systemd-homed.service.d)).
+([systemd-homed.service.d](https://github.com/shapebit-software/os/blob/main/system/usr/lib/systemd/system/systemd-homed.service.d)).
 
 ## Boot splash
 
 [Plymouth](https://gitlab.freedesktop.org/plymouth/plymouth) shows the logo and
 a spinner from the initramfs on, instead of boot messages
-([kargs.d/30-splash.toml](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/lib/bootc/kargs.d/30-splash.toml));
+([kargs.d/30-splash.toml](https://github.com/shapebit-software/os/blob/main/system/usr/lib/bootc/kargs.d/30-splash.toml));
 it also asks for the recovery key when the TPM cannot unlock. The theme,
-[image/rootfs/usr/share/plymouth/themes/boot](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/share/plymouth/themes/boot),
+[system/usr/share/plymouth/themes/boot](https://github.com/shapebit-software/os/blob/main/system/usr/share/plymouth/themes/boot),
 is Fedora's spinner theme with the logo. Plymouth shows only messages when
 the kernel console includes a serial port, as it does for development, so
 `plymouth.ignore-serial-consoles` tells it to draw on the screen anyway.
@@ -189,7 +191,7 @@ Errors still reach the console; `Esc` shows the messages during boot.
 Every step up to the desktop shares the splash's night color, `#1f1a3c`, so
 none shows a black frame: the login screen and the installer take the screen
 from Plymouth, which leaves its last picture until they draw
-([sddm.service.d](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/lib/systemd/system/sddm.service.d));
+([sddm.service.d](https://github.com/shapebit-software/os/blob/main/system/usr/lib/systemd/system/sddm.service.d));
 the login screen fades in from the color and back to it after signing in;
 the text console, briefly shown between them, has it as its background; and
 Hyprland paints it until the shell's wallpaper fades in.
@@ -197,7 +199,7 @@ Hyprland paints it until the shell's wallpaper fades in.
 ## Colors
 
 Every color is named once, in
-[image/rootfs/usr/share/colors/colors.toml](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/share/colors/colors.toml),
+[system/usr/share/colors/colors.toml](https://github.com/shapebit-software/os/blob/main/system/usr/share/colors/colors.toml),
 which the image installs, so the installer medium has it too. It holds the
 brand's violet `#5b2fd6`, the default accent; night; ramps of greys, darks,
 lavenders, inks, and reds; the accents to choose from; and the roles on light
@@ -205,7 +207,7 @@ and on dark surfaces. The person's choices, such as the accent, stay in the
 shell's settings; the file holds the defaults and what there is to choose.
 
 QML reads it through the module `Colors`
-([image/rootfs/usr/lib64/qt6/qml/Colors](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/lib64/qt6/qml/Colors)),
+([system/usr/lib64/qt6/qml/Colors](https://github.com/shapebit-software/os/blob/main/system/usr/lib64/qt6/qml/Colors)),
 in Qt's own folder of modules. Its values, `ColorValues.qml`, are generated
 from the file by `make colors` and committed; `Colors.qml` adds what needs
 computing, such as the accent from the person's choice. The shell, the login
@@ -227,13 +229,13 @@ tests take the module and the file from the source tree.
 [SDDM](https://github.com/sddm/sddm) shows the login screen on the first
 virtual terminal; its greeter runs in Hyprland, the desktop's compositor, with
 its own configuration
-([image/rootfs/usr/lib/sddm/compositor.lua](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/lib/sddm/compositor.lua)).
+([system/usr/lib/sddm/compositor.lua](https://github.com/shapebit-software/os/blob/main/system/usr/lib/sddm/compositor.lua)).
 Weston, SDDM's usual compositor, shows it without a cursor. The theme, in
-[image/rootfs/usr/share/sddm/themes/login](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/share/sddm/themes/login), draws
+[system/usr/share/sddm/themes/login](https://github.com/shapebit-software/os/blob/main/system/usr/share/sddm/themes/login), draws
 the screen: the date and time, the accessibility and power menus, and the
 person who signs in with their password. It lists systemd-homed users, uses
 the Instrument Sans font (SIL Open Font License, in
-[image/rootfs/usr/share/fonts/instrument-sans](https://github.com/shapebit-software/os/blob/main/image/rootfs/usr/share/fonts/instrument-sans),
+[system/usr/share/fonts/instrument-sans](https://github.com/shapebit-software/os/blob/main/system/usr/share/fonts/instrument-sans),
 since Fedora has no package of it), and draws its backdrop itself.
 
 Signing in starts the desktop session: Hyprland with the ShapeBit shell, run
@@ -246,7 +248,7 @@ there.
 To change the theme, run it in a window on a machine with SDDM:
 
 ```bash
-sddm-greeter-qt6 --test-mode --theme image/rootfs/usr/share/sddm/themes/login
+sddm-greeter-qt6 --test-mode --theme system/usr/share/sddm/themes/login
 ```
 
 ## Real hardware

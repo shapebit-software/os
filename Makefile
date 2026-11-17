@@ -125,9 +125,9 @@ image: $(KEYS) ## Build the container image with its signed UKI
 	scripts/build/image.sh image/Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \
 	  --build-arg FEDORA_VERSION=$(FEDORA_VERSION) --build-arg IMAGE_VERSION=$(IMAGE_VERSION) \
 	  --build-arg IMAGE_REVISION=$(IMAGE_REVISION) \
-	  --build-context desktop=$(DESKTOP_SRC)
+	  --build-context desktop=$(DESKTOP_SRC) --build-context system-source=system
 
-colors: ## Write the QML module Colors's values from the system's colors (image/rootfs/usr/share/colors/colors.toml)
+colors: ## Write the QML module Colors's values from the system's colors (system/usr/share/colors/colors.toml)
 	python3 scripts/build/colors.py
 
 static-checks: lint validate ## Lint and validate, without building or running the code; in Fedora, as `make dev`
@@ -135,7 +135,7 @@ static-checks: lint validate ## Lint and validate, without building or running t
 lint: $(VENV)/.done ## Lint the shell, the Python, the QML, and the test plans; in Fedora, as `make dev`
 	scripts/test/static-checks.sh lint
 
-validate: ## Validate the compositor configuration, the package list, and the units; in Fedora, as `make dev`
+validate: ## Validate the compositor configuration, the specs' Requires, and the units; in Fedora, as `make dev`
 	scripts/test/static-checks.sh validate
 
 test-unit: $(VENV)/.done ## Run the tests that need no image and no VM; in Fedora, as `make dev`

@@ -66,8 +66,9 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 
 | Path         | Purpose                                                               |
 | ------------ | --------------------------------------------------------------------- |
-| `image/`     | The Containerfiles of the system, the medium, and the seal, and `rootfs/`, copied verbatim into the image. |
-| `desktop/`   | The desktop: compositor configuration, shell, and session.            |
+| `image/`     | The Containerfiles of the system, the medium, and the seal: how the image is put together. |
+| `system/`    | The system's own files (`usr/`, its `/usr`) and `system.spec`: the packages `system` and `release`, and what they run on. |
+| `desktop/`   | The desktop: compositor configuration, shell, and session, and `desktop.spec`. |
 | `installer/` | The installer: backend, UI, and `installerctl`.                       |
 | [`third-party/`](third-party/) | RPMs of third-party software that Fedora lacks, and their signed repository. |
 | `scripts/build/` | Building: keys, the image, the medium, the installed disk, the third-party packages, the colors. |

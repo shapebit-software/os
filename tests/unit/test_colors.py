@@ -1,4 +1,4 @@
-"""The system's colors (image/rootfs/usr/share/colors/colors.toml): the QML
+"""The system's colors (system/usr/share/colors/colors.toml): the QML
 module's values are generated from them and up to date, what cannot read them
 keeps copies that match, the parts that use QML name no color of their own,
 and the accent reads where it is used."""
@@ -64,7 +64,7 @@ def test_no_name_reads_as_a_signal_handler():
 
 
 def test_roles_are_the_ones_qml_declares():
-    declared = set(re.findall(r"property color (\w+)", read("image/rootfs/usr/lib64/qt6/qml/Colors/Roles.qml")))
+    declared = set(re.findall(r"property color (\w+)", read("system/usr/lib64/qt6/qml/Colors/Roles.qml")))
     for surface, roles in TABLE["roles"].items():
         assert set(roles) <= declared, surface
 
@@ -92,7 +92,7 @@ def test_portal_computes_colors_as_the_generator_does():
 
 def test_boot_splash_has_the_colors():
     splash = dict(re.findall(r"^(\w+)=0x([0-9a-f]{6})$",
-                             read("image/rootfs/usr/share/plymouth/themes/boot/boot.plymouth"), re.M))
+                             read("system/usr/share/plymouth/themes/boot/boot.plymouth"), re.M))
     assert "#" + splash["BackgroundStartColor"] == NAMED["night"]
     assert "#" + splash["BackgroundEndColor"] == NAMED["night"]
     assert "#" + splash["ProgressBarBackgroundColor"] == NAMED["nightTrack"]
@@ -100,7 +100,7 @@ def test_boot_splash_has_the_colors():
 
 
 def test_console_background_is_night():
-    kargs = read("image/rootfs/usr/lib/bootc/kargs.d/30-splash.toml")
+    kargs = read("system/usr/lib/bootc/kargs.d/30-splash.toml")
     channels = {name: re.search(rf"vt\.default_{name}=0x([0-9a-f]{{2}})", kargs)[1] for name in ("red", "grn", "blu")}
     assert "#" + channels["red"] + channels["grn"] + channels["blu"] == NAMED["night"]
 
@@ -129,7 +129,7 @@ def test_accent_text_reads_on_night_for_every_custom_hue(hue):
 
 # Every QML file that takes its colors from Colors, by way of its Theme.qml.
 THEMED = [*sorted((ROOT / "desktop/shell").rglob("*.qml")),
-          *sorted((ROOT / "image/rootfs/usr/share/sddm/themes/login").glob("*.qml")),
+          *sorted((ROOT / "system/usr/share/sddm/themes/login").glob("*.qml")),
           *sorted((ROOT / "installer/ui/qml").glob("*.qml"))]
 # Artwork, whose colors are its own: the wallpapers.
 ARTWORK = ["desktop/shell/wallpaper/"]

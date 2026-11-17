@@ -32,7 +32,12 @@ any change in `desktop/` or `installer/` that the image installs.
 - **Make owns configuration.** Defaults live only in the `Makefile`. Scripts
   read them from the environment and fail fast on missing values
   (`: "${VAR:?}"`).
-- **`image/rootfs/` mirrors the target filesystem.** Put vendor defaults under `/usr`.
+- **Each component is an RPM.** `desktop/`, `system/` (with the `release`
+  package) and `installer/` each have a spec: what the component installs, and
+  its `Requires`, each with the reason for it. The image builds them from the
+  same commit; `third-party/` builds what Fedora lacks. `image/` only
+  assembles.
+- **`system/usr/` is the system's `/usr`.** Put vendor defaults under `/usr`.
   `/etc` and `/var` are machine state.
 - **Every behavior gets a check.** See [docs/Testing.md](docs/Testing.md). Image
   content goes in `tests/image/`; the installer medium in `tests/medium/`;

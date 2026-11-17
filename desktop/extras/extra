@@ -3,7 +3,7 @@
 # and language models, for Welcome and Settings > Assistant (shell/services/Extras.qml).
 # extras.json lists them; to add one is to add an entry there. They go to /var/lib/
 # extras/ID, for everyone on the computer; administrators may write there
-# (image/rootfs/usr/lib/tmpfiles.d/extras.conf). What was downloaded stays until it is
+# (system/usr/lib/tmpfiles.d/extras.conf). What was downloaded stays until it is
 # complete and its hash is right, and a later try goes on from where this one stopped.
 # Only a whole extra ever appears under its ID.
 #

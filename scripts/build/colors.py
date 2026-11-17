@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Write the values of the QML module Colors (ColorValues.qml) from the
-system's colors, image/rootfs/usr/share/colors/colors.toml, which is where to
+system's colors, system/usr/share/colors/colors.toml, which is where to
 change them. The generated file is committed, so the image's tree stays the
 installed system; tests/unit/test_colors.py fails when it is out of date.
 
@@ -14,8 +14,8 @@ import sys
 import tomllib
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "image/rootfs/usr/share/colors/colors.toml"
-TARGET = ROOT / "image/rootfs/usr/lib64/qt6/qml/Colors/ColorValues.qml"
+SOURCE = ROOT / "system/usr/share/colors/colors.toml"
+TARGET = ROOT / "system/usr/lib64/qt6/qml/Colors/ColorValues.qml"
 
 
 def linear(l, c, h):

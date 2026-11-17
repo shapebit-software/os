@@ -1,7 +1,7 @@
 // The colors, fonts, and sizes every page shares. The colors are the roles on
 // dark surfaces, as on the login screen, from Colors: the system's one list of
 // colors, which the installer medium carries in Qt's QML folder
-// (image/rootfs/usr/lib64/qt6/qml/Colors in the source). Before anyone signs
+// (system/usr/lib64/qt6/qml/Colors in the source). Before anyone signs
 // in, the accent is the default one.
 pragma Singleton
 import QtQuick
