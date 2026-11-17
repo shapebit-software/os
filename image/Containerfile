@@ -11,17 +11,32 @@ FROM quay.io/fedora/fedora-bootc:${FEDORA_VERSION} AS base
 # packages system and release, at the image's version and commit. release
 # stands in for Fedora's identity package at the version of the base image's
 # fedora-release-common, which asks for one. The splash's links need Fedora's
-# spinner theme.
+# spinner theme. systemd-boot is signed here, with the certificate that the
+# person enrolls; the key is a build secret, and only the signed binary and the
+# certificate enter the package. KEYS_ID changes with the key.
 FROM base AS system-packages
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
-    dnf -y install rpm-build plymouth-theme-spinner && mkdir /out
+    dnf -y install rpm-build plymouth-theme-spinner systemd-boot-unsigned sbsigntools openssl && \
+    mkdir /out
 ARG IMAGE_VERSION
 ARG IMAGE_REVISION
+ARG KEYS_ID
 RUN --mount=type=bind,from=system-source,target=/src \
+    --mount=type=secret,id=signing.key --mount=type=secret,id=signing.crt \
+    mkdir /tmp/signed && \
+    sbsign --key /run/secrets/signing.key --cert /run/secrets/signing.crt \
+      --output /tmp/signed/systemd-bootx64.efi.signed /usr/lib/systemd/boot/efi/systemd-bootx64.efi && \
+    openssl x509 -in /run/secrets/signing.crt -outform DER -out /tmp/signed/enroll-this-key.cer && \
     rpmbuild -bb --quiet --define "_topdir /tmp/rpm" --define "image_version $IMAGE_VERSION" \
-      --define "image_revision $IMAGE_REVISION" --define "source_dir /src" \
-      --define "fedora_release $(rpm -q --qf '%{VERSION}-%{RELEASE}' fedora-release-common)" /src/system.spec && \
+      --define "image_revision $IMAGE_REVISION" --define "source_dir /src" --define "signed_dir /tmp/signed" \
+      --define "fedora_release $(rpm -q --qf '%{VERSION}-%{RELEASE}' fedora-release-common)" \
+      --define "systemd_boot $(rpm -q --qf '%{VERSION}-%{RELEASE}' systemd-boot-unsigned)" /src/system.spec && \
     cp /tmp/rpm/RPMS/noarch/*.rpm /out/
+
+# What under /usr no RPM has as it is in the base image (packaged.py).
+FROM base AS base-packaged
+RUN --mount=type=bind,source=packaged.py,target=/run/packaged.py \
+    mkdir /out && python3 /run/packaged.py list >/out/base
 
 FROM base AS system
 
@@ -41,8 +56,10 @@ LABEL org.opencontainers.image.title="ShapeBit OS" \
 # build cache, kept between builds and never in the image. The rest of dnf's
 # state in /var and /run is removed, since bootc ignores it on install; so are
 # SDDM's runtime directory, which tmpfiles.d creates on each boot, and libX11's
-# empty cache. Hyprland's own session entries are removed, so the login screen
-# offers only the desktop's. Fedora's Cisco repository is left out: Cisco pays
+# empty cache. Hyprland's own session entry is not installed, so the login
+# screen offers only the desktop's, nor is UWSM's unit manager, which no person
+# needs to see in Apps: rpm's %_netsharedpath skips them and records them as not
+# installed, so the packages still verify (packaged.py). Fedora's Cisco repository is left out: Cisco pays
 # the H.264 patent royalties only for the openh264 that people download from
 # Cisco, so an image that carried it would redistribute it unlicensed;
 # Fedora's noopenh264 stands in, and apps get H.264 from Flathub's extension,
@@ -54,12 +71,11 @@ RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
     --mount=type=bind,source=third-party.repo,target=/etc/yum.repos.d/third-party.repo \
     --mount=type=bind,source=third-party.asc,target=/etc/pki/rpm-gpg/third-party.asc <<'EOF'
 set -euo pipefail
+echo '%_netsharedpath /usr/share/wayland-sessions/hyprland.desktop:/usr/share/applications/uuctl.desktop' \
+  >/etc/rpm/macros.netshared
 dnf -y install --disablerepo=fedora-cisco-openh264 --setopt=install_weak_deps=False --setopt='*.countme=0' \
-  $(sed -n 's/^Requires: *//p' /run/system.spec /run/desktop.spec | grep -v '^release ')
-rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf /run/sddm /var/cache/libX11
-rm /usr/share/wayland-sessions/hyprland.desktop
-# UWSM's unit manager, which the session needs no person to see in Apps.
-rm /usr/share/applications/uuctl.desktop
+  $(sed -n 's/^Requires: *//p' /run/system.spec /run/desktop.spec | grep -v '%{')
+rm -rf /etc/rpm/macros.netshared /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf /run/sddm /var/cache/libX11
 EOF
 
 # ShapeBit's system and identity, which need nothing the image lacks; release
@@ -103,24 +119,10 @@ RUN kernel=$(basename /usr/lib/modules/*) && \
     dracut --force "/usr/lib/modules/$kernel/initramfs.img" "$kernel"
 
 # Build tools, used by the stages below and never part of the final image:
-# sbsigntools signs; rpm-build and make build ShapeBit's own packages.
+# rpm-build and make build ShapeBit's own packages.
 FROM system AS tools
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
-    dnf -y install sbsigntools rpm-build make && mkdir /out
-
-# systemd-boot, signed; bootctl installs the *.signed copy when present.
-FROM tools AS bootloader
-ARG KEYS_ID
-RUN --mount=type=secret,id=signing.key --mount=type=secret,id=signing.crt \
-    sbsign --key /run/secrets/signing.key --cert /run/secrets/signing.crt \
-      --output /out/systemd-bootx64.efi.signed \
-      /usr/lib/systemd/boot/efi/systemd-bootx64.efi
-
-# The certificate that the person enrolls in shim's MOK manager (esp-shim).
-FROM tools AS certificate
-ARG KEYS_ID
-RUN --mount=type=secret,id=signing.crt \
-    openssl x509 -in /run/secrets/signing.crt -outform DER -out /out/enroll-this-key.cer
+    dnf -y install rpm-build make && mkdir /out
 
 # The desktop's package (build context `desktop`, desktop.spec), at the image's
 # version: what its Makefile installs, so that the RPM database knows every file.
@@ -152,8 +154,6 @@ RUN --mount=type=bind,from=desktop-package,source=/out,target=/run/packages \
 # The desktop's settings defaults (window-buttons.gschema.override) apply
 # once the schemas are compiled again.
 RUN glib-compile-schemas /usr/share/glib-2.0/schemas
-COPY --from=bootloader /out/ /usr/lib/systemd/boot/efi/
-COPY --from=certificate /out/ /usr/share/secureboot/
 # Identifies this build, the commit it is made from, and where its sources
 # are published once it is released (docs/License.md), as os-release does
 # from the release package.
@@ -162,4 +162,9 @@ ARG IMAGE_REVISION
 LABEL org.opencontainers.image.version="$IMAGE_VERSION" \
       org.opencontainers.image.revision="$IMAGE_REVISION" \
       software.shapebit.sources="ghcr.io/shapebit-software/os:$IMAGE_VERSION-sources"
+# Every file this build adds to /usr belongs to a package, as the package has
+# it, so that its license, sources and SBOM entry come with it (packaged.py).
+RUN --mount=type=bind,source=packaged.py,target=/run/packaged.py \
+    --mount=type=bind,from=base-packaged,source=/out/base,target=/run/base \
+    python3 /run/packaged.py check /run/base
 RUN bootc container lint

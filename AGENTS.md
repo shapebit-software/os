@@ -36,7 +36,8 @@ any change in `desktop/` or `installer/` that the image installs.
   package), `installer/` and `license-notices/` each have a spec: what the component installs, and
   its `Requires`, each with the reason for it. The image builds them from the
   same commit; `third-party/` builds what Fedora lacks. `image/` only
-  assembles.
+  assembles: the build fails on a file under `/usr` that no package owns, or
+  that differs from its package (`image/packaged.py`).
 - **`system/usr/` is the system's `/usr`.** Put vendor defaults under `/usr`.
   `/etc` and `/var` are machine state.
 - **Every behavior gets a check.** See [docs/Testing.md](docs/Testing.md). Image

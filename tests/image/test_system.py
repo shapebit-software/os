@@ -120,8 +120,14 @@ def test_initramfs_leaves_var_to_fstab(sh):
     assert re.search(r'^mount = "none"', conf, re.M)
 
 
-def test_signed_systemd_boot_is_present(host):
-    assert host.file("/usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed").size > 0
+def test_signed_systemd_boot_is_the_system_packages_signed_from_the_installed_version(host, sh):
+    signed = "/usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed"
+    assert host.file(signed).size > 0
+    assert sh(f"rpm -qf --qf '%{{NAME}}' {signed} /usr/share/secureboot/enroll-this-key.cer") == "systemsystem"
+    # system requires the version it was signed from, so a newer
+    # systemd-boot-unsigned cannot come without a newly signed copy.
+    installed = sh("rpm -q --qf '%{VERSION}-%{RELEASE}' systemd-boot-unsigned")
+    assert f"systemd-boot-unsigned = {installed}" in sh("rpm -q --requires system")
 
 
 def test_uki_carries_a_signed_pcr_policy():

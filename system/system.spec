@@ -4,8 +4,14 @@
 # never published: its version is the image's, and its sources are this
 # repository. Build it with
 #   rpmbuild -bb --define "image_version VERSION" --define "image_revision COMMIT" \
-#     --define "fedora_release VERSION-RELEASE" --define "source_dir SYSTEM" system.spec
-# where fedora_release is that of the image's fedora-release-common.
+#     --define "fedora_release VERSION-RELEASE" --define "systemd_boot VERSION-RELEASE" \
+#     --define "signed_dir SIGNED" --define "source_dir SYSTEM" system.spec
+# where fedora_release is that of the image's fedora-release-common, and SIGNED
+# holds systemd-bootx64.efi.signed, signed from systemd-boot-unsigned at
+# version systemd_boot, and enroll-this-key.cer, the certificate that signed it.
+# Only these signed and public files reach the package; the key stays in the
+# build (image/Containerfile). Requires with a macro are left out of the list
+# that the image build installs from.
 
 Name:           system
 Version:        %{image_version}
@@ -20,8 +26,11 @@ BuildArch:      noarch
 BuildRequires:  plymouth-theme-spinner
 Requires:       release = %{version}-%{release}
 
-# The base image ships only GRUB; bootc installs systemd-boot from this package.
+# The base image ships only GRUB; bootc installs systemd-boot from this package,
+# and the *.signed copy in it when present: this package's, signed from
+# exactly that version.
 Requires:       systemd-boot-unsigned
+Requires:       systemd-boot-unsigned = %{systemd_boot}
 # The base image has only the C locale; the langpacks add the locales that the
 # installer offers.
 Requires:       glibc-all-langpacks
@@ -99,6 +108,10 @@ for image in /usr/share/plymouth/themes/spinner/*.png; do
   name=$(basename "$image")
   [ "$name" = watermark.png ] || ln -s "../spinner/$name" %{buildroot}/usr/share/plymouth/themes/boot/"$name"
 done
+# systemd-boot, signed with ShapeBit's key, and the certificate that the person
+# enrolls in shim's MOK manager (usr/libexec/esp-shim).
+install -Dm644 %{signed_dir}/systemd-bootx64.efi.signed %{buildroot}/usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed
+install -Dm644 %{signed_dir}/enroll-this-key.cer %{buildroot}/usr/share/secureboot/enroll-this-key.cer
 # Every other file it installs is this package's.
 (cd %{buildroot} && find . ! -type d | sed 's|^\.||' |
   grep -vx -e /usr/lib/os-release -e /usr/share/licenses/shapebit/LICENSE) >files

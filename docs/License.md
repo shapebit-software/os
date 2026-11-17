@@ -26,6 +26,14 @@ empty folders) and three whose text is not in their source package
 corresponding-source publication below or component-specific decisions about
 license compatibility and distribution.
 
+Every file under `/usr` comes from an RPM, as the RPM has it: ShapeBit's own
+code is packaged too (`desktop`, `system`, `release`, `installer`,
+`license-notices`), so the RPM database is the complete list of what the
+system contains, and each entry brings its license, its source and its SBOM
+entry. The image build fails on a file that no RPM owns, or that differs from
+its RPM, beyond what the Fedora base image already has
+([image/packaged.py](https://github.com/shapebit-software/os/blob/main/image/packaged.py)).
+
 ### Maintaining
 
 A dependency's license texts come in the same change as the dependency:
