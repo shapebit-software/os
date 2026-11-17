@@ -117,7 +117,7 @@ The shell starts the assistant (`assistant/assistant serve`) itself, on a
 socket of its own. The container has neither its model server nor the speech
 engine: `make dev-assistant` in the repository's root, on the host and after
 `make image`, copies `llama-server` out of the image and installs sherpa-onnx
-with pip, into `build/dev`. `make run` then starts the model's server with
+with pip, at the version the image builds (`third-party/sherpa-onnx`), into `build/dev`. `make run` then starts the model's server with
 the first request, and voice and dictation write speech down. The models are
 extras as in the installed system, but the person's own here, in
 `build/dev/extras`: Settings > Assistant downloads them for real, without an

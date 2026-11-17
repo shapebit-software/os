@@ -17,10 +17,9 @@ container=$($ENGINE create "$IMAGE" true)
 trap '$ENGINE rm "$container" >/dev/null' EXIT
 $ENGINE cp "$container:/usr/libexec/llama/." "$dev/llama/"
 
-# The versions the image has (desktop/dictation/requirements.txt), without its
-# hashes, which are of the wheels for the image's Python.
-packages=$(grep -o '^sherpa-onnx[a-z-]*==[0-9.]*' desktop/dictation/requirements.txt)
-# shellcheck disable=SC2086 # Several words on purpose.
-env $DEV_ENTER -- python3 -m pip install --quiet --upgrade --target "$dev/python" $packages
+# The version the image builds (third-party/sherpa-onnx), as upstream's wheel: the
+# container's Python is not the image's, so the image's RPM does not fit it.
+version=$(sed -n 's/^%global ver //p' third-party/sherpa-onnx/sherpa-onnx.spec)
+env $DEV_ENTER -- python3 -m pip install --quiet --upgrade --target "$dev/python" "sherpa-onnx==$version"
 
 echo "The assistant's model server and speech engine are in $dev: now \`make run\` in desktop/."

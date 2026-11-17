@@ -1,0 +1,69 @@
+# Builds ShapeBit's own packages of what Fedora lacks (third-party/README.md) and
+# publishes their dnf repository. A package whose version has no release yet is
+# built offline (make rpm) and released as rpm-<name>-<version>-<release>, with
+# its binary and source RPMs as assets; those releases are never "latest", so
+# they stay apart from the OS's. Then the repository of every rpm-* release is
+# written, signed (make rpm-repo), and deployed to GitHub Pages, where the image
+# build and scripts/sources.py read it (image/third-party.repo). The signing key is the
+# secret RPM_SIGNING_KEY of the environment "Signing".
+name: Third-party packages
+
+on:
+  push:
+    branches: [main]
+    paths: [third-party/**, scripts/rpm-build.sh, scripts/rpm-repo.sh, image/third-party.asc, .github/workflows/third-party.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: third-party
+  cancel-in-progress: false
+
+env:
+  ENGINE: docker
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  packages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    environment: Signing
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build and release each package version that has no release
+        run: |
+          fedora=$(make -s --eval 'fedora-version: ; @echo $(FEDORA_VERSION)' fedora-version)
+          for dir in third-party/*/; do
+            name=$(basename "$dir")
+            nvr=$(docker run --rm -v "$PWD/$dir:/package:ro" "registry.fedoraproject.org/fedora:$fedora" \
+              rpmspec -q --srpm --qf '%{name}-%{version}-%{release}' "/package/$name.spec")
+            if gh release view "rpm-$nvr" >/dev/null 2>&1; then echo "rpm-$nvr is released"; continue; fi
+            make rpm RPM="$name"
+            gh release create "rpm-$nvr" build/rpms/"$name"/*.rpm --latest=false \
+              --title "$nvr (package)" --notes "Built from third-party/$name at $GITHUB_SHA, for ShapeBit's package repository (third-party/README.md)."
+          done
+      - name: Write the signed repository of every package release
+        env:
+          RPM_SIGNING_KEY: ${{ secrets.RPM_SIGNING_KEY }}
+        run: |
+          gh release list --limit 1000 --json tagName -q '.[].tagName | select(startswith("rpm-"))' | while read -r tag; do
+            gh release download "$tag" --pattern '*.rpm' --dir "build/rpms/releases/$tag"
+          done
+          make rpm-repo
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: build/rpms/pages
+
+  deploy:
+    needs: packages
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
