@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Give `make run` (run-desktop) what the assistant needs and the development
+# Give `make run` (run-desktop.sh) what the assistant needs and the development
 # container lacks: llama-server, copied out of the built image, and sherpa-onnx,
 # which writes speech down, installed with pip in the container. Both go to
 # $BUILD/dev, where `make run` looks for them. The models are not fetched here:

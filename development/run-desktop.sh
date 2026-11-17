@@ -1,12 +1,14 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Runs the desktop in a window for development (make run), with a session bus
 # of its own, so that what runs inside reaches the desktop's own services
 # rather than the host's: the shell's notification server, and the portals as
 # the image sets them up (packages/portal/), from this tree: xdg-desktop-portal with
 # portals.conf, the shell's backend, and Hyprland's portal with the shell's
-# share picker. Apps also offers the Portal Tester (portal-tester), which
+# share picker. Apps also offers the Portal Tester (portal-tester.py), which
 # asks each portal. Nothing here is installed.
-set -eu
+# Usage: run-desktop.sh (called by `make run`, inside the development container,
+# with the environment development/Makefile sets).
+set -euo pipefail
 
 packages=$(cd "$(dirname "$0")/../packages" && pwd)
 dev=$(cd "$(dirname "$0")" && pwd)
@@ -87,7 +89,7 @@ Type=Application
 Name=Portal Tester
 Comment=Ask each of the desktop's portals
 Icon=preferences-system
-Exec=$dev/portal-tester
+Exec=$dev/portal-tester.py
 EOF
 
 export data_dirs

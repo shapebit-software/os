@@ -1,12 +1,12 @@
 #!/usr/bin/python3
 # The Portal Tester, for development only: Apps offers it in the desktop that
-# make run starts (run-desktop), never in the image. Each button asks a portal as
+# make run starts (run-desktop.sh), never in the image. Each button asks a portal as
 # an application does, through xdg-desktop-portal, and the log shows the
 # answer. The portal does not ask the person for permissions and background
 # activity on behalf of applications outside Flatpak, as this one is, so the
 # last buttons ask the shell's backend (portal/portal) those questions
 # directly. A button is off when the portal does not offer its interface.
-# Name buttons to press them at the start, as `portal-tester open_files`.
+# Name buttons to press them at the start, as `portal-tester.py open_files`.
 import itertools
 import os
 import sys

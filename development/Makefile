@@ -18,7 +18,7 @@ host_bus := /run/host/run/dbus/system_bus_socket
 
 # The host session's desktop name is not this one's; Hyprland sets its own.
 # The fonts include the OS image's (fonts.conf). The desktop has a session bus
-# of its own, with its portals and the Portal Tester (run-desktop). The extras are the
+# of its own, with its portals and the Portal Tester (run-desktop.sh). The extras are the
 # person's own here, so Settings > Assistant downloads them without an
 # administrator.
 run:
@@ -34,4 +34,4 @@ run:
 	$(if $(wildcard $(dev)/llama/llama-server),ASSISTANT_LLAMA=$(dev)/llama/llama-server) \
 	$(if $(wildcard $(dev)/python),PYTHONPATH=$(dev)/python) \
 	$(if $(wildcard $(host_bus)),DBUS_SYSTEM_BUS_ADDRESS=unix:path=$(host_bus)) \
-	./run-desktop
+	./run-desktop.sh

@@ -7,11 +7,11 @@ in a window from this tree. Image builds and VMs run on the host
 | File | What it is |
 | --- | --- |
 | `distrobox.ini` | The development container, `shapebit-dev`: Fedora with everything the desktop, the installer, and the unit tests need. CI installs the same packages (`.github/actions/fedora-dev`). |
-| `Makefile` | `make run`: installs every feature into `build/dev/system`, as the image does, and starts `run-desktop`. |
-| `run-desktop` | Runs the desktop in a window, with a session bus of its own. |
+| `Makefile` | `make run`: installs every feature into `build/dev/system`, as the image does, and starts `run-desktop.sh`. |
+| `run-desktop.sh` | Runs the desktop in a window, with a session bus of its own. |
 | `fonts.conf` | Adds the fonts the image ships (`packages/font`), which the container lacks. |
 | `assistant.sh` | `make dev-assistant`: gives `make run` the assistant's model server and the speech engine. |
-| `portal-tester` | The Portal Tester, an app that asks each portal. |
+| `portal-tester.py` | The Portal Tester, an app that asks each portal. |
 
 Nothing here is installed in the image.
 
@@ -45,10 +45,10 @@ host. The desktop works on the host's real devices and accounts:
 - The lock screen checks the container account's password, which distrobox
   leaves empty, so any password unlocks it; set one with `sudo passwd $USER`.
 
-The desktop has its own session bus (`run-desktop`), so apps inside reach its
+The desktop has its own session bus (`run-desktop.sh`), so apps inside reach its
 notification server and portals, from this tree, not the host's. Apps offers
 the **Portal Tester**; a button's name presses it at the start, as in
-`development/portal-tester open_files`.
+`development/portal-tester.py open_files`.
 
 Welcome opens until it is finished or skipped (`welcomed` in
 `~/.config/desktop/settings.json`). Settings live in `~/.config/desktop/`, the
