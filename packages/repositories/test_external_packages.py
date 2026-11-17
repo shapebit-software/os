@@ -68,11 +68,11 @@ def test_every_source_is_pinned_by_its_hash(package):
 
 
 def test_development_container_runs_the_version_the_image_builds():
-    # development/dev-assistant.sh installs sherpa-onnx==<the spec's `%global ver`>.
+    # development/assistant.sh installs sherpa-onnx==<the spec's `%global ver`>.
     spec = (ROOT / "packages/dictation/sherpa-onnx/sherpa-onnx.spec").read_text()
     assert re.search(r"^Version:\s*%\{ver\}$", spec, re.M)
     assert re.search(r"^%global ver \d+\.\d+\.\d+$", spec, re.M)
-    script = (ROOT / "development/dev-assistant.sh").read_text()
+    script = (ROOT / "development/assistant.sh").read_text()
     assert "sed -n 's/^%global ver //p' packages/dictation/sherpa-onnx/sherpa-onnx.spec" in script
 
 

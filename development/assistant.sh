@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Give `make run` (dev/run) what the assistant needs and the development
+# Give `make run` (run-desktop) what the assistant needs and the development
 # container lacks: llama-server, copied out of the built image, and sherpa-onnx,
 # which writes speech down, installed with pip in the container. Both go to
 # $BUILD/dev, where `make run` looks for them. The models are not fetched here:
 # `make run` downloads them for real, from Settings > Assistant, into
 # $BUILD/dev/extras.
-# Usage: dev-assistant.sh (called by `make dev-assistant` on the host, after `make image`).
+# Usage: assistant.sh (called by `make dev-assistant` on the host, after `make image`).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 : "${ENGINE:?}" "${IMAGE:?}" "${BUILD:?}" "${DEV_ENTER:?}"

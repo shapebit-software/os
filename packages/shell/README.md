@@ -73,76 +73,9 @@ to eight; a workspace goes away once it has no windows.
 
 ## Development
 
-From the monorepo root, create and enter the shared Fedora development
-environment (see the [setup instructions](https://github.com/shapebit-software/os#development)).
-Then run the checks:
-
-```sh
-DBX_CONTAINER_MANAGER=docker distrobox assemble create --file development/distrobox.ini
-DBX_CONTAINER_MANAGER=docker distrobox enter shapebit-dev
-make lint validate   # lint the shell, verify the compositor configuration, ...
-make run             # run the desktop in a window, inside the current Wayland session
-make help            # all targets
-```
-
-`make run` needs a Wayland session and a GPU on the host. The desktop then
-works on the host's real devices: Apps lists the container's applications and,
-through the shared home, the host's exported ones; the bar's panels change the
-host's volume, Wi-Fi, and Bluetooth; captures go to the host's Pictures and
-Videos. Only the power actions are held back: they log instead of suspending,
-restarting, or shutting down the host.
-
-The desktop has a session bus of its own (`development/run`, at the repository's root), so what runs inside
-reaches its own notification server and portals, as in the image, from this
-tree; not the host's. Apps there offers the **Portal Tester**
-(`development/portal-tester`), which asks each portal and logs the answer; a button's
-name, as its tooltip shows, presses it at the start, such as
-`development/portal-tester open_files`. Neither is installed.
-
-The connection agent (`packages/network/connection-agent`) joins networks and pairs
-devices on the host's NetworkManager and BlueZ for real. In development it
-does not take over from the host's own agents, so a network asking for its
-password again asks the host's desktop.
-
-Welcome opens until it is finished or skipped (`welcomed` in
-`~/.config/desktop/settings.json`), and Settings > Account opens it again.
-Its **Installing** step, Settings > Apps, and Settings > Downloads go through
-the queue (`packages/downloads/downloads`), which runs its jobs with the host's
-`systemd-run --user`: the browser and the apps install into the host
-account's own Flatpak installation for real, and the browser becomes the
-default. Its state is `~/.local/state/desktop/downloads.json`.
-
-The shell starts the assistant (`packages/assistant/assistant serve`) itself, on a
-socket of its own. The container has neither its model server nor the speech
-engine: `make dev-assistant` in the repository's root, on the host and after
-`make image`, copies `llama-server` out of the image and installs sherpa-onnx
-with pip, at the version the image builds (`packages/dictation/sherpa-onnx`), into `build/dev`. `make run` then starts the model's server with
-the first request, and voice and dictation write speech down. The models are
-extras as in the installed system, but the person's own here, in
-`build/dev/extras`: Settings > Assistant downloads them for real, without an
-administrator. Another model can be listed in
-`~/.config/assistant/models.json`, for example
-`{"id": "dev", "name": "Dev", "where": "online", "url": "http://127.0.0.1:8080/v1"}`.
-The model reads pictures of the screen once its Screen understanding extra is
-downloaded, from the next `make run`, which loads it. The assistant's actions
-run the real commands, so they change the host. The host's desktop may keep
-the Super key for itself, as GNOME does: pressed alone, Super then opens the
-host's overview, its letting go never arrives here, and every key after it
-counts as a shortcut until `make run` starts again. So here the right Ctrl
-key stands in for Super alone: a tap opens the assistant, and held, it
-listens. The assistant's button does the same.
-
-Settings > Apps (`packages/apps/app-catalog`, `packages/apps/app-remove`) lists and changes
-the same installation, through Flatpak on the host; without one, it says so.
-
-The lock screen checks the password of the container's account, which
-distrobox leaves empty, so any password unlocks it. Set one with
-`sudo passwd $USER` in the container to try it for real.
-
-Each feature's `make install DESTDIR=<directory>` installs its files as the
-image does: the image packages each as its RPM, `shapebit-<feature>`, at its
-own version (see [packages](../)); `make run` installs them all into
-`build/dev/system`.
+`make lint validate` checks the shell and the compositor's configuration, and
+`make run` runs the desktop in a window, inside the development container
+([development](../../development/README.md)).
 
 Each folder of `shell/` is a QML module, `qs.<folder>`. Every QML file must be
 listed in its folder's `qmldir`, and a file imports the other folders it uses.
@@ -167,8 +100,7 @@ package:
 | `extras/`          | The extras (large optional downloads, such as models) with their hashes, the helper that installs them, and their license texts. |
 | `licenses/`        | The reader of Settings > Licenses: each component's texts, from `/usr/share/licenses` and the RPM database.     |
 
-Development tools are in [`development/`](../../development/), at the repository's root: the
-session bus of `make run`, and the Portal Tester.
+Development tools are in [`development/`](../../development/README.md).
 
 ## Not yet implemented
 

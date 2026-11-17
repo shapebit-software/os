@@ -119,7 +119,7 @@ dev: ## Enter the development container of the desktop and installer
 	$(DEV_ENTER)
 
 dev-assistant: ## Give `make run` the assistant's model server and speech engine, from the built image
-	development/dev-assistant.sh
+	development/assistant.sh
 
 run: ## Run the desktop in a window, inside the current Wayland session; in Fedora, as `make dev`
 	$(MAKE) -C development run

@@ -14,22 +14,17 @@ git clone https://github.com/shapebit-software/os.git
 
 ## Development
 
-The desktop and installer share one Fedora development container, configured
-in `development/distrobox.ini`. Run these commands from the monorepo root:
+Work on the desktop and the installer happens in one Fedora development
+container ([development](development/README.md)):
 
 ```sh
 DBX_CONTAINER_MANAGER=docker distrobox assemble create --file development/distrobox.ini
-DBX_CONTAINER_MANAGER=docker distrobox enter shapebit-dev
+make dev      # enter it
+make run      # inside: the desktop in a window
 ```
 
-Later, `make dev` enters it. Inside the container, `make run` runs the desktop
-in a window (see [packages/shell](packages/shell/README.md)); for the
-installer, follow [packages/installer](packages/installer/README.md). Both use the same installed tools and
-libraries. Use the same container manager for creation and entry; replace
-`docker` with `podman` if that is your host's engine.
-
-Image builds and VM tests still use the host's container engine and QEMU;
-see [Requirements](#requirements). The website lives in its own repository,
+Image builds and VM tests use the host's container engine and QEMU; see
+[Requirements](#requirements). The website lives in its own repository,
 [shapebit-software/website](https://github.com/shapebit-software/website).
 
 ## Requirements
@@ -69,7 +64,7 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 | ------------ | --------------------------------------------------------------------- |
 | `packages/`  | ShapeBit's own packages, one folder per feature: `apps`, `assistant`, `boot`, `capture`, `colors`, `dictation`, `downloads`, `extras`, `font`, `homes`, `installer`, `licenses`, `login`, `network`, `portal`, `release`, `repositories`, `screen-sharing`, `shell`, `sound`, `splash`, `system` (requires them all), `updates`, `windows`. |
 | `distribution/`     | The OS image, assembled from those packages, and everything about it as a whole: its build (here), `release/`, `vm/`, and its checks: `content/`, `medium/`, `installed/`, `update/`, `openqa/` (see [distribution](distribution/README.md)). |
-| `development/`       | Development: the container (`distrobox.ini`) and the desktop in a window (`make run`). |
+| `development/`       | The development container, and the desktop in a window (`make run`). |
 | `guide/`     | The guide for people who use ShapeBit, published to the Wiki and the website. |
 | `.agents/`   | Skills for coding agents.                                             |
 | `build/`     | Generated outputs (ignored by Git).                                   |

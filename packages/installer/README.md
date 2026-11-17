@@ -80,14 +80,11 @@ medium holds no secrets.
 
 ## Development
 
-From the monorepo root, create and enter the shared Fedora development
-environment (see the [setup instructions](https://github.com/shapebit-software/os#development)).
-Then build and test:
+Inside the development container ([development](../../development/README.md)),
+from the repository's root, build and test:
 
 ```sh
-DBX_CONTAINER_MANAGER=docker distrobox assemble create --file development/distrobox.ini
-DBX_CONTAINER_MANAGER=docker distrobox enter shapebit-dev
-cmake -S installer -B build/installer -G Ninja
+cmake -S packages/installer -B build/installer -G Ninja
 cmake --build build/installer
 ctest --test-dir build/installer --output-on-failure
 ```
