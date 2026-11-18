@@ -59,13 +59,6 @@ def test_sha256_is_the_files(tmp_path):
     assert provenance.sha256(tmp_path / "medium") == hashlib.sha256(b"medium").hexdigest()
 
 
-def test_field_prints_one_value_of_a_record(tmp_path, capsys):
-    record = tmp_path / "record.json"
-    record.write_text(json.dumps({"image_digest": "sha256:abc"}))
-    provenance.main("field", str(record), "image_digest")
-    assert capsys.readouterr().out == "sha256:abc\n"
-
-
 def labelled(tmp_path, labels):
     """An image whose config has these labels."""
     index = {"manifests": [{"digest": "sha256:man", "mediaType": MANIFEST}]}
@@ -90,16 +83,6 @@ def test_a_medium_records_its_system_and_its_own_commit(tmp_path):
         "revision": "3794e90",
         "medium_sha256": hashlib.sha256(b"medium").hexdigest(),
     }
-
-
-def test_a_field_older_records_lack_gives_its_default(tmp_path, capsys):
-    record = tmp_path / "record.json"
-    record.write_text(json.dumps({"version": "1"}))
-    provenance.main("field", str(record), "revision", "")
-    provenance.main("field", str(record), "version", "")
-    assert capsys.readouterr().out == "\n1\n"
-    with pytest.raises(KeyError):
-        provenance.main("field", str(record), "revision")
 
 
 def test_sources_add_their_sha256_to_the_record(tmp_path):

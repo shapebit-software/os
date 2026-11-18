@@ -62,19 +62,14 @@ jobs:
           docker push -q "$FOUNDATIONS:$GITHUB_SHA"
           docker push -q "$FOUNDATIONS:latest"
 
-  static-checks:
-    name: Static checks
+  code-checks:
+    name: Static checks and unit tests
     needs: foundation
-    uses: ./.github/workflows/stage-static-checks.yml
-
-  unit-tests:
-    name: Unit tests
-    needs: static-checks
-    uses: ./.github/workflows/stage-unit-tests.yml
+    uses: ./.github/workflows/stage-code-checks.yml
 
   build:
     name: Build and sign
-    needs: unit-tests
+    needs: code-checks
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 300
@@ -86,13 +81,8 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       digest: ${{ steps.push.outputs.digest }}
     steps:
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
-          docker image prune -af >/dev/null
-          df -h /
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/disk-space
       - uses: ./.github/actions/image-store
       - uses: ./.github/actions/ghcr-login
 
@@ -153,7 +143,7 @@ jobs:
           make -o image sources ${stable:+SOURCES_PREVIOUS=$REPOSITORY:$stable-sources}
           release/sources.py push build/sources "$CANDIDATES:$IMAGE_VERSION-sources" "ShapeBit $IMAGE_VERSION: sources"
 
-      # What the image is made of, in SPDX and CycloneDX (release/README.md). Release publishes it
+      # What the image is made of, in SPDX (release/README.md). Release publishes it
       # with the image.
       - name: Write and push the image's SBOM
         run: |
@@ -194,8 +184,8 @@ jobs:
           path: build/results
           if-no-files-found: ignore
 
-  # Install stable through the installer's UI, update to the candidate, and test
-  # the candidate's desktop, with openQA.
+  # Install stable without the UI, whose screens its own release tested, update
+  # to the candidate, and test the candidate's desktop, with openQA.
   openqa:
     name: Test the candidate's desktop
     needs: build
@@ -215,12 +205,8 @@ jobs:
         run: |
           make pull-installer
           skopeo copy -q --preserve-digests "docker://$CANDIDATES:$VERSION" oci-archive:build/image.tar
-      # Stable's screens may look as they did at its commit: the test takes its
-      # needles too.
       - name: Update to the candidate and test its desktop with openQA
-        run: |
-          stable=$(skopeo inspect "docker://$REPOSITORY:stable" --format '{{index .Labels "org.opencontainers.image.revision"}}')
-          make test-release FLOW=update UPDATE_ARCHIVE=build/image.tar STABLE_REVISION="${stable#<no value>}"
+        run: make test-release FLOW=update UPDATE_ARCHIVE=build/image.tar
       - name: Keep the test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

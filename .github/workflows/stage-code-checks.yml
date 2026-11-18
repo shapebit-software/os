@@ -1,6 +1,8 @@
-# The second stage: tests that need no image, no VM, and no secrets. Called by
-# Verification and Candidate.
-name: "Stage: Unit tests"
+# The first stage: lints and validates, then runs the tests that need no image,
+# no VM, and no secrets, in one job, so that the development image is built
+# once. Unit tests run only if lint and validate passed. Called by
+# Verification, Candidate, and Installer.
+name: "Stage: Static checks and unit tests"
 
 on:
   workflow_call:
@@ -16,7 +18,7 @@ env:
   FOUNDATION_CACHE: ghcr.io/shapebit-software/os/foundation:latest
 
 jobs:
-  unit-tests:
+  code-checks:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -24,5 +26,10 @@ jobs:
       # In the development image (images/development/Containerfile), as on a developer's computer.
       - name: Development image
         run: make dev-image
+      - name: Lint
+        run: make lint
+      - name: Validate
+        if: ${{ !cancelled() }}
+        run: make validate
       - name: Unit tests
         run: make test-unit

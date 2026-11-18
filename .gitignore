@@ -1,4 +1,4 @@
 /build/
-/tests/checks/.deps/
+/tests/image/.deps/
 __pycache__/
 .vscode/

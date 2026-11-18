@@ -11,21 +11,16 @@ permissions:
   packages: read
 
 jobs:
-  static-checks:
-    name: Static checks
-    uses: ./.github/workflows/stage-static-checks.yml
-
-  unit-tests:
-    name: Unit tests
-    needs: static-checks
-    uses: ./.github/workflows/stage-unit-tests.yml
+  code-checks:
+    name: Static checks and unit tests
+    uses: ./.github/workflows/stage-code-checks.yml
 
   # GitHub filters paths only for a whole workflow, not for a job. A new branch
   # compares with main; a base it cannot compare with, as after a force-push,
   # counts as a change.
   image-changes:
     name: Look for image changes
-    needs: unit-tests
+    needs: code-checks
     runs-on: ubuntu-24.04
     outputs:
       changed: ${{ steps.diff.outputs.changed }}
@@ -38,7 +33,8 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           if [[ $BASE =~ ^0+$ ]]; then BASE=$(git merge-base origin/main HEAD); fi
-          if git diff --quiet "$BASE" HEAD -- images/foundation images/os images/seal tests/checks/content \
+          if git diff --quiet "$BASE" HEAD -- images/foundation images/os images/seal tests/image tests/conftest.py \
+            tests/machine.py tests/pytest.ini \
             packages ':!packages/installer'; then
             echo "changed=false" >>"$GITHUB_OUTPUT"
           else

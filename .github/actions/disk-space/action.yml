@@ -1,0 +1,13 @@
+# Frees the runner's disk for images, disks and media: its preinstalled
+# toolchains, which no job here uses, and its preloaded images.
+name: Disk space
+description: Free disk space on the runner
+runs:
+  using: composite
+  steps:
+    - name: Free disk space
+      shell: bash
+      run: |
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
+        docker image prune -af >/dev/null
+        df -h /

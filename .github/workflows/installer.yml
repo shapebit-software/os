@@ -38,18 +38,13 @@ env:
   INSTALLERS: ghcr.io/shapebit-software/os/installer
 
 jobs:
-  static-checks:
-    name: Static checks
-    uses: ./.github/workflows/stage-static-checks.yml
-
-  unit-tests:
-    name: Unit tests
-    needs: static-checks
-    uses: ./.github/workflows/stage-unit-tests.yml
+  code-checks:
+    name: Static checks and unit tests
+    uses: ./.github/workflows/stage-code-checks.yml
 
   build:
     name: Build and sign
-    needs: unit-tests
+    needs: code-checks
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 240
@@ -60,13 +55,8 @@ jobs:
     outputs:
       version: ${{ steps.system.outputs.version }}
     steps:
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
-          docker image prune -af >/dev/null
-          df -h /
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/disk-space
       - uses: ./.github/actions/image-store
       - uses: ./.github/actions/ghcr-login
 
@@ -138,7 +128,7 @@ jobs:
       - uses: ./.github/actions/ghcr-login
       - run: make pull-installer
       - name: Install from the medium, and test the system
-        run: make -o installer disk && make test-plan PLAN=installed
+        run: make -o installer disk && make test-installed
       - name: Keep the test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -188,9 +178,8 @@ jobs:
       VERSION: ${{ needs.build.outputs.version }}
       SERVER: installer-bot@download.shapebit.software
     steps:
-      - name: Free disk space
-        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/disk-space
       - uses: ./.github/actions/ghcr-login
 
       # The tar is the build's again, byte for byte: the record says which.
@@ -202,7 +191,7 @@ jobs:
           python3 release/artifact.py unpack build/installer-artifact build/upload
           release/sources.py pull "$INSTALLERS:$VERSION-sources" build/installer-sources
           release/sources.py tar build/installer-sources build/upload/shapebit-installer-sources.tar
-          expected=$(python3 images/installer/provenance.py field build/upload/shapebit-installer.img.json sources_sha256)
+          expected=$(jq -r .sources_sha256 build/upload/shapebit-installer.img.json)
           echo "$expected  build/upload/shapebit-installer-sources.tar" | sha256sum -c --quiet -
 
       - name: Prepare the upload key

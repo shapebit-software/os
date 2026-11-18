@@ -1,46 +1,60 @@
 #!/usr/bin/env python3
-"""What tests/openqa/openqa.sh needs around isotovideo: the variables of a run, its
-needles, and its result. The variables that do not change are in vars.json.
+"""Level 2 (tests/README.md): test the installer medium MEDIUM itself, whole,
+as a person uses it, with isotovideo, openQA's test engine: enroll the key,
+install, boot, sign in, and so on (main.pm). The medium is never written, and
+its checksum is checked against its record first; the target disk and the TPM
+are new. Results stay in RESULTS/<time>-release-FLOW; a module that fails
+keeps its screenshots. It runs in the development image, with a network of
+its own, as isotovideo's VNC server listens on every address.
 
-Usage: run.py vars RECORD PUBLIC_KEY OWNER MEDIUM_SIZE DISK_SIZE CASEDIR MEDIUM POOL FLOW UPDATE_DIGEST OUT
-       run.py needles NEEDLES OUT [OLDER...]   the run's needles, in OUT
-       run.py check TESTRESULTS   fail unless every test module passed
-
-CASEDIR is this test distribution, MEDIUM the medium, and POOL the run's
-working directory, with its needles and, for update, the candidate's layout.
-FLOW is install or update (tests/openqa/main.pm); UPDATE_DIGEST is the digest of
-the build that update moves to, and empty for install. OLDER are needle
-directories of earlier commits, each named after its commit.
+Usage: run.py install           everything from the medium
+       run.py update ARCHIVE    install, then update to ARCHIVE's build, which the
+                                machine gets as an OCI layout, and test its desktop
 """
 
 import base64
+import hashlib
 import json
+import os
 import pathlib
 import secrets
 import shutil
 import string
+import subprocess
 import sys
 
+HERE = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent))
+import machine as machines  # noqa: E402
 
-def run_vars(record, public_key, owner, medium_size, disk_size, casedir, medium, pool, flow="install",
-             update_digest=""):
-    """The sizes are in gigabytes, as `7G`; update needs the digest it moves to.
-    The machine lives for this run, and so does its owner's password; vars.json,
-    with it, stays with the results. Only letters and digits: the keys typed are
-    the US layout's."""
+# Large enough, and sparse, that the installer leaves the whole reserve beside
+# the home (packages/homes/README.md), as on a real computer.
+DISK_SIZE = "256G"
+# The port that vars.json forwards to the machine's SSH.
+SSH_PORT = "2222"
+
+
+def run_vars(record, public_key, owner, medium_size, medium, pool, flow="install", update_digest=""):
+    """The variables of a run, beside the fixed ones in vars.json. The sizes are
+    in gigabytes, as `7G`; update needs the digest it moves to. The machine
+    lives for this run, and so does its owner's password; vars.json, with it,
+    stays with the results. Only letters and digits: the keys typed are the
+    US layout's."""
     if flow not in ("install", "update") or (flow == "update") != bool(update_digest):
         raise ValueError(f"FLOW {flow!r} with UPDATE_DIGEST {update_digest!r}")
     credential = base64.b64encode(pathlib.Path(public_key).read_bytes()).decode()
-    static = pathlib.Path(__file__).with_name("vars.json").read_text()
     pool = pathlib.Path(pool)
-    return json.loads(static) | {
-        "CASEDIR": str(casedir),
-        "PRODUCTDIR": str(casedir),
-        "NEEDLES_DIR": str(pool / "needles"),
+    return json.loads((HERE / "vars.json").read_text()) | {
+        "CASEDIR": str(HERE),
+        "PRODUCTDIR": str(HERE),
+        "NEEDLES_DIR": str(HERE / "needles"),
+        # The firmware of every test machine.
+        "UEFI_PFLASH_CODE": machines.FIRMWARE_CODE,
+        "UEFI_PFLASH_VARS": machines.FIRMWARE_VARS,
         "HDD_1": str(medium),
         "QEMUTPM_PATH_PREFIX": str(pool / "tpm"),
         "HDDSIZEGB_1": int(medium_size.removesuffix("G")),
-        "HDDSIZEGB_2": int(disk_size.removesuffix("G")),
+        "HDDSIZEGB_2": int(DISK_SIZE.removesuffix("G")),
         "QEMU_APPEND": "global driver=cfi.pflash01,property=secure,value=on "
         f"-smbios type=11,value=io.systemd.credential.binary:ssh.authorized_keys.root={credential}",
         "OWNER_NAME": owner,
@@ -48,25 +62,6 @@ def run_vars(record, public_key, owner, medium_size, disk_size, casedir, medium,
         "IMAGE_DIGEST": json.loads(pathlib.Path(record).read_text())["image_digest"],
         "FLOW": flow,
     } | ({"UPDATE_DIGEST": update_digest, "CANDIDATE": str(pool / "candidate")} if flow == "update" else {})
-
-
-def needles(current, out, *older):
-    """The tree's needles, and each of an older commit's that differs from the
-    tree's, under its own tags and named after its commit: the update flow
-    installs the stable release, whose screens may still look as they did at
-    the commits it and its installer were built from."""
-    current, out = pathlib.Path(current), pathlib.Path(out)
-    shutil.copytree(current, out)
-    for directory in map(pathlib.Path, older):
-        for needle in sorted(directory.glob("*.json")):
-            image = needle.with_suffix(".png")
-            ours = current / needle.name
-            if ours.exists() and ours.read_bytes() == needle.read_bytes() \
-                    and ours.with_suffix(".png").read_bytes() == image.read_bytes():
-                continue
-            name = f"{needle.stem}-{directory.name}"
-            shutil.copyfile(needle, out / f"{name}.json")
-            shutil.copyfile(image, out / f"{name}.png")
 
 
 def passed(testresults):
@@ -77,16 +72,54 @@ def passed(testresults):
     return bool(results) and all(result == "ok" for result in results)
 
 
-def main(command, *args):
-    if command == "vars":
-        *values, out = args
-        pathlib.Path(out).write_text(json.dumps(run_vars(*values), indent=2) + "\n")
-    elif command == "needles":
-        needles(*args)
-    elif command == "check":
-        sys.exit(not passed(*args))
-    else:
+def sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as file:
+        while chunk := file.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def main(flow=None, *archive):
+    if (flow, len(archive)) not in (("install", 0), ("update", 1)):
         sys.exit(__doc__)
+    medium = machines.path("MEDIUM")
+    record = medium.with_name(medium.name + ".json")
+    if not record.exists():
+        sys.exit(f"error: {record} not found; run 'make installer'")
+    if sha256(medium) != machines.recorded(medium, "medium_sha256"):
+        sys.exit(f"error: {medium} differs from what was built")
+
+    run = machines.new_run(f"release-{flow}")
+    pool = run / "pool"
+    pool.mkdir()
+    update_digest = ""
+    if flow == "update":
+        update_digest = machines.archive_digest(archive[0])
+        # A layout, as the installer's payload is: skopeo flattens Docker's
+        # nested index, which bootc cannot read in a layout.
+        subprocess.run(["skopeo", "copy", "-q", "--preserve-digests", f"oci-archive:{archive[0]}",
+                        f"oci:{pool}/candidate"], check=True)
+    key = machines.ssh_key()
+    owner = machines.setting("OWNER_NAME")
+    values = run_vars(record, f"{key}.pub", owner, machines.setting("MEDIUM_SIZE"), medium, pool, flow, update_digest)
+    (pool / "vars.json").write_text(json.dumps(values, indent=2) + "\n")
+
+    # isotovideo works in its pool; its output also goes to the results.
+    env = os.environ | {"LC_ALL": "C.UTF-8", "SSH_KEY": str(key), "SSH_PORT": SSH_PORT, "OWNER_NAME": owner}
+    with open(run / "isotovideo.log", "w") as log, \
+            subprocess.Popen(["isotovideo", "-d"], cwd=pool, env=env, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, text=True, errors="replace") as engine:
+        for line in engine.stdout:
+            sys.stdout.write(line)
+            log.write(line)
+    # The machine's disks and the candidate are not results.
+    for name in ("raid", "tpm1", "qemuscreenshot", "candidate"):
+        shutil.rmtree(pool / name, ignore_errors=True)
+
+    ok = passed(pool / "testresults") and engine.returncode == 0
+    print(f"{'passed' if ok else 'failed'}: release-{flow} (results in {run})")
+    sys.exit(not ok)
 
 
 if __name__ == "__main__":

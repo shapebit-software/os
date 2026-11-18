@@ -30,8 +30,7 @@ FROM ${FOUNDATION} AS foundation
 FROM foundation AS packages-build
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
     --mount=type=bind,from=packages,target=/src \
-    dnf -y install rpm-build rpmlint sbsigntools openssl $(/src/requires.sh --build) && \
-    mkdir /out
+    dnf -y install rpm-build rpmlint sbsigntools openssl $(/src/requires.sh --build)
 ARG IMAGE_VERSION
 ARG IMAGE_REVISION
 ARG SOURCE_DATE_EPOCH
@@ -39,21 +38,14 @@ ARG KEYS_ID
 RUN --mount=type=bind,from=packages,target=/src \
     --mount=type=secret,id=signing.key --mount=type=secret,id=signing.crt <<'EOF'
 set -euo pipefail
-: "${SOURCE_DATE_EPOCH:?}"
-export SOURCE_DATE_EPOCH
 mkdir /tmp/signed
 sbsign --key /run/secrets/signing.key --cert /run/secrets/signing.crt \
   --output /tmp/signed/systemd-bootx64.efi.signed /usr/lib/systemd/boot/efi/systemd-bootx64.efi
 openssl x509 -in /run/secrets/signing.crt -outform DER -out /tmp/signed/enroll-this-key.cer
-for spec in /src/*/*.spec; do
-  case $spec in /src/installer/* | /src/licenses/*) continue ;; esac
-  rpmbuild -bb --quiet --define "_topdir /tmp/rpm" --define "packages /src" \
-    --define "image_version $IMAGE_VERSION" --define "image_revision $IMAGE_REVISION" \
-    --define "signed_dir /tmp/signed" \
-    --define "fedora_release $(rpm -q --qf '%{VERSION}-%{RELEASE}' fedora-release-common)" \
-    --define "systemd_boot $(rpm -q --qf '%{VERSION}-%{RELEASE}' systemd-boot-unsigned)" "$spec"
-done
-cp /tmp/rpm/RPMS/*/*.rpm /out/
+/src/rpmbuild.sh /out --define "signed_dir /tmp/signed" \
+  --define "fedora_release $(rpm -q --qf '%{VERSION}-%{RELEASE}' fedora-release-common)" \
+  --define "systemd_boot $(rpm -q --qf '%{VERSION}-%{RELEASE}' systemd-boot-unsigned)" \
+  $(ls /src/*/*.spec | grep -v -e '^/src/installer/' -e '^/src/licenses/')
 rpmlint --config /src/rpmlint.toml /out/*.rpm
 EOF
 
@@ -118,17 +110,13 @@ RUN kernel=$(basename /usr/lib/modules/*) && \
 # cache; rpm-build is never part of the image.
 FROM system AS licenses
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
-    dnf -y install rpm-build make && mkdir /out
+    dnf -y install rpm-build make
 ARG IMAGE_VERSION
 ARG IMAGE_REVISION
 ARG SOURCE_DATE_EPOCH
 RUN --mount=type=bind,from=packages,target=/src \
     --mount=type=cache,target=/var/cache/licenses,sharing=locked \
-    SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:?} \
-    rpmbuild -bb --quiet --define "_topdir /tmp/rpm" --define "packages /src" \
-      --define "image_version $IMAGE_VERSION" --define "image_revision $IMAGE_REVISION" \
-      --define "cache /var/cache/licenses" /src/licenses/licenses.spec && \
-    cp /tmp/rpm/RPMS/noarch/*.rpm /out/
+    /src/rpmbuild.sh /out --define "cache /var/cache/licenses" /src/licenses/licenses.spec
 
 FROM system
 # shapebit-licenses, with the collected notices, and shapebit-system, which requires every feature: rpm

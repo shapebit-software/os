@@ -1,34 +1,33 @@
 """The system under test, as commands see it: pairs what the screen shows with
 the state underneath. Access is the development SSH key that QEMU passes as a
-systemd credential, as for every VM; nothing is baked into the medium."""
+systemd credential, as for every machine (tests/machine.py); nothing is baked
+into the medium."""
 
 import json
 import os
 import pathlib
 import shlex
 import subprocess
+import sys
 import time
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+import machine as machines  # noqa: E402
+
 OWNER = os.environ["OWNER_NAME"]
+# The machine restarts during the modules, so each command has its own connection.
+MACHINE = machines.Machine(port=os.environ["SSH_PORT"], multiplex=False)
 
 
 def ssh(command):
-    return subprocess.run(
-        ["ssh", "-i", os.environ["SSH_KEY"], "-p", os.environ["SSH_PORT"],
-         "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
-         "-o", "LogLevel=ERROR", "-o", "ConnectTimeout=5",
-         "root@127.0.0.1", command],
-        capture_output=True, text=True, encoding="utf-8",
-    )  # fmt: skip
+    return MACHINE.ssh(command)
 
 
 def copy_dir(local, remote):
     """Copy a directory to the machine, through tar over SSH."""
     with subprocess.Popen(["tar", "-C", local, "-c", "."], stdout=subprocess.PIPE) as tar:
         done = subprocess.run(
-            ["ssh", "-i", os.environ["SSH_KEY"], "-p", os.environ["SSH_PORT"],
-             "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
-             "-o", "LogLevel=ERROR", "root@127.0.0.1",
+            ["ssh", *MACHINE.ssh_options(), "root@127.0.0.1",
              f"mkdir -p {shlex.quote(remote)} && tar -C {shlex.quote(remote)} -x"],
             stdin=tar.stdout, capture_output=True, text=True,
         )  # fmt: skip
@@ -44,12 +43,7 @@ def run(command, check=True):
 
 
 def wait_for_ssh(timeout=300):
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if ssh("true").returncode == 0:
-            return
-        time.sleep(3)
-    raise AssertionError(f"no SSH after {timeout}s")
+    MACHINE.wait_for_ssh(timeout)
 
 
 def wait_for_page(name, timeout=30):
@@ -77,6 +71,14 @@ def remove_medium(query_isotovideo):
             "execute": "qom-set",
             "arguments": {"path": f"/machine/peripheral/{device}", "property": "bootindex", "value": index},
         }})  # fmt: skip
+
+
+def install_without_ui(password):
+    """Install as `make disk` does, through installerctl: the update flow's
+    installer is the download site's, whose pages its own run tested."""
+    MACHINE.run("umask 077 && cat >/run/owner-password", input=password)
+    run(f"installerctl install --disk serial-target --user {OWNER} --password-file /run/owner-password "
+        "--recovery-key-file /run/recovery-key")
 
 
 def as_owner(command, check=True):

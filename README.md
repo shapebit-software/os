@@ -66,7 +66,7 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 | ------------ | --------------------------------------------------------------------- |
 | `packages/`  | ShapeBit's own packages, one folder per feature: `apps`, `assistant`, `boot`, `capture`, `colors`, `dictation`, `downloads`, `extras`, `font`, `homes`, `installer`, `licenses`, `login`, `network`, `portal`, `release`, `repositories`, `screen-sharing`, `shell`, `sound`, `splash`, `system` (requires them all), `updates`, `windows`. |
 | `images/`    | How the images are built, one folder per image: `foundation/`, which the others start from; `os/`, the OS; `installer/`, the installer medium; `development/`, with the desktop in a window (`make run`); and `seal/`, the signed UKI of `os` and `installer` ([images](images/README.md)). |
-| `tests/`     | How the built OS is checked: `vm/` (the machines), `checks/` (tmt), `openqa/` (the UI) ([tests](tests/README.md)). |
+| `tests/`     | How the built OS is checked: `machine.py` (the machines), `image/`, `medium/`, `installed/`, `update/` (pytest and Testinfra), `openqa/` (the UI) ([tests](tests/README.md)). |
 | `release/`   | How a tested build is published and trusted: its tags, sources, SBOM, notes, and signing keys ([release](release/README.md), [keys](release/keys.md)). |
 | `guidebook/` | The guidebook for people who use ShapeBit, published to the Wiki and the website. |
 | `.agents/`   | Skills for coding agents.                                             |

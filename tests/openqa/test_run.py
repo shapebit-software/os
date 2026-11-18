@@ -16,14 +16,14 @@ def run_vars(tmp_path, *flow):
     record.write_text(json.dumps({"image_digest": "sha256:abc"}))
     key = tmp_path / "id.pub"
     key.write_bytes(b"ssh-ed25519 AAAA")
-    return run.run_vars(record, key, "dev", "7G", "20G", "/distri", "/medium.img", tmp_path / "pool", *flow)
+    return run.run_vars(record, key, "dev", "7G", "/medium.img", tmp_path / "pool", *flow)
 
 
 def test_vars_add_the_runs_values_to_the_fixed_ones(tmp_path):
     values = run_vars(tmp_path)
     assert values["DISTRI"] == "shapebit"
     assert values["HDDSIZEGB_1"] == 7
-    assert values["HDDSIZEGB_2"] == 20
+    assert values["HDDSIZEGB_2"] == 256
     assert values["OWNER_NAME"] == "dev"
     assert values["IMAGE_DIGEST"] == "sha256:abc"
     assert values["QEMU_APPEND"].endswith("ssh.authorized_keys.root=c3NoLWVkMjU1MTkgQUFBQQ==")
@@ -31,9 +31,19 @@ def test_vars_add_the_runs_values_to_the_fixed_ones(tmp_path):
 
 def test_vars_name_the_runs_paths(tmp_path):
     values = run_vars(tmp_path)
-    assert (values["CASEDIR"], values["HDD_1"]) == ("/distri", "/medium.img")
-    assert values["NEEDLES_DIR"] == str(tmp_path / "pool/needles")
+    assert (values["CASEDIR"], values["HDD_1"]) == (str(run.HERE), "/medium.img")
+    assert values["NEEDLES_DIR"] == str(run.HERE / "needles")
     assert values["QEMUTPM_PATH_PREFIX"] == str(tmp_path / "pool/tpm")
+
+
+def test_openqa_boots_the_firmware_of_every_test_machine(tmp_path):
+    # With edk2-ovmf's 2 MB build, the installer's check that the TPM unlocks
+    # the new volume fails, so a firmware that only some machines have hides or
+    # causes that.
+    values = run_vars(tmp_path)
+    assert (values["UEFI_PFLASH_CODE"], values["UEFI_PFLASH_VARS"]) == (
+        run.machines.FIRMWARE_CODE, run.machines.FIRMWARE_VARS)
+    assert "_4M." in values["UEFI_PFLASH_CODE"]
 
 
 def test_install_is_the_flow_by_default(tmp_path):
@@ -60,36 +70,6 @@ def test_owner_password_can_be_typed_and_is_new_for_each_run(tmp_path):
     first, second = run_vars(tmp_path)["OWNER_PASSWORD"], run_vars(tmp_path)["OWNER_PASSWORD"]
     assert first.isalnum() and first.isascii()
     assert first != second
-
-
-def needle(directory, name, tag, image):
-    directory.mkdir(exist_ok=True)
-    (directory / f"{name}.json").write_text(json.dumps({"tags": [tag]}))
-    (directory / f"{name}.png").write_bytes(image)
-
-
-def test_needles_add_an_older_commits_look_under_the_same_tag(tmp_path):
-    needle(tmp_path / "tree", "login-screen", "login-screen", b"violet")
-    needle(tmp_path / "3794e90", "login-screen", "login-screen", b"plum")
-    run.needles(tmp_path / "tree", tmp_path / "out", tmp_path / "3794e90")
-    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == [
-        "login-screen-3794e90.json", "login-screen-3794e90.png", "login-screen.json", "login-screen.png"]
-    assert (tmp_path / "out" / "login-screen-3794e90.png").read_bytes() == b"plum"
-    assert json.loads((tmp_path / "out" / "login-screen-3794e90.json").read_text())["tags"] == ["login-screen"]
-
-
-def test_needles_skip_what_did_not_change_and_keep_what_went(tmp_path):
-    needle(tmp_path / "tree", "boot-splash", "boot-splash", b"same")
-    needle(tmp_path / "old", "boot-splash", "boot-splash", b"same")
-    needle(tmp_path / "old", "installer-welcome", "installer-welcome", b"old")
-    run.needles(tmp_path / "tree", tmp_path / "out", tmp_path / "old")
-    assert sorted(p.stem for p in (tmp_path / "out").glob("*.png")) == ["boot-splash", "installer-welcome-old"]
-
-
-def test_needles_without_older_commits_are_the_trees(tmp_path):
-    needle(tmp_path / "tree", "boot-splash", "boot-splash", b"same")
-    run.needles(tmp_path / "tree", tmp_path / "out")
-    assert sorted(p.name for p in (tmp_path / "out").iterdir()) == ["boot-splash.json", "boot-splash.png"]
 
 
 def results(tmp_path, *outcomes):

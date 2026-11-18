@@ -1,4 +1,0 @@
-summary: Update to a new build, stage a newer one, and roll back
-test: ./update.sh
-framework: shell
-duration: 90m

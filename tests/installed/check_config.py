@@ -1,7 +1,6 @@
 """The installed system: what the installer was told, and the first owner."""
 
 import json
-import os
 import re
 
 import pytest
@@ -31,9 +30,9 @@ def test_first_owner_has_a_luks2_home(sh, setting):
     assert [binding["storage"] for binding in record["binding"].values()] == ["luks"]
 
 
-@pytest.mark.skipif(bool(os.environ.get("NEXT_VERSION")),
-                    reason="the update test installs with the download site's installer, not the one under test")
-def test_first_owner_home_leaves_room_for_updates(sh, setting):
+def test_first_owner_home_leaves_room_for_updates(sh, setting, updating):
+    if updating:
+        pytest.skip("the update test installs with the download site's installer, not the one under test")
     # The installer sizes the home and turns rebalancing off, so that systemd-
     # homed never grows it into the space an update needs: a home that the disk
     # cannot hold whole does not open, and its owner cannot sign in. The

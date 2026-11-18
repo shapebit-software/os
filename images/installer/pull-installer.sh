@@ -19,6 +19,6 @@ python3 release/artifact.py unpack "$work/layout" "$work/files" shapebit-install
 
 xz -dc -T0 "$work/files/shapebit-installer.img.xz" >"$MEDIUM"
 cp "$work/files/shapebit-installer.img.json" "$MEDIUM.json"
-expected=$(python3 images/installer/provenance.py field "$MEDIUM.json" medium_sha256)
+expected=$(jq -r .medium_sha256 "$MEDIUM.json")
 echo "$expected  $MEDIUM" | sha256sum -c --quiet -
-echo "Pulled installer $(python3 images/installer/provenance.py field "$MEDIUM.json" version) from $ref"
+echo "Pulled installer $(jq -r .version "$MEDIUM.json") from $ref"

@@ -10,7 +10,7 @@ import shlex
 import time
 
 import pytest
-from conftest import wait_until
+from machine import wait_until
 
 USER = "shapebit-test"
 AUTOLOGIN = "/etc/sddm.conf.d/zz-desktop-check.conf"

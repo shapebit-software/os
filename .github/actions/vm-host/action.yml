@@ -7,13 +7,8 @@ runs:
   using: composite
   steps:
     - uses: ./.github/actions/image-store
-    # The disks need about 30 GB; the runner's preinstalled toolchains are not used.
-    - name: Free disk space
-      shell: bash
-      run: |
-        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
-        docker image prune -af >/dev/null
-        df -h /
+    # The disks need about 30 GB.
+    - uses: ./.github/actions/disk-space
     - name: Open KVM to the job
       shell: bash
       run: |

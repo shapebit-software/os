@@ -204,7 +204,3 @@ def test_no_secure_boot_keys_to_enroll(host):
     # systemd-boot would enroll these on a PC in setup mode, which then refuses shim.
     assert not host.file("/usr/lib/bootc/install/secureboot-keys").exists
 
-
-def test_tmt_can_reach_guests(sh):
-    # Otherwise tmt builds a derived image and tests that instead.
-    sh("rsync --version")

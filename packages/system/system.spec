@@ -43,9 +43,6 @@ Requires:       shapebit-windows = %{version}-%{release}
 # The base image has only the C locale; the langpacks add the locales that the
 # installer offers.
 Requires:       glibc-all-langpacks
-# rsync is how tmt reaches a guest: without it, tmt would build a derived image
-# and test that instead of this one. Nothing built in replaces it.
-Requires:       rsync
 
 %description
 ShapeBit OS: every feature of the installed system, at the image's version.

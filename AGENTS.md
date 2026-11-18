@@ -53,9 +53,10 @@ that makes `os` and `installer` boot only as built), how it is checked
   QEMU already provide, such as `kargs.d`, systemd credentials, tmpfiles.d,
   sysusers.d, and presets. Add a package, script, or service only when nothing
   built in fits, and say why in a comment.
-- **Make owns configuration.** Defaults live only in the `Makefile`. Scripts
-  read them from the environment and fail fast on missing values
-  (`: "${VAR:?}"`).
+- **Make owns the build's configuration.** Its defaults live only in the
+  `Makefile`. Scripts read them from the environment and fail fast on missing
+  values (`: "${VAR:?}"`). The tests' own settings, such as the first owner,
+  live only in `tests/machine.py`, each overridable from the environment.
 - **`images/` only assembles.** One foundation has what the specs require
   (`packages/requires.sh`); the OS and the development image start from it,
   so no package list is written twice. The OS image builds every package of
@@ -67,13 +68,13 @@ that makes `os` and `installer` boot only as built), how it is checked
   and `/var` are machine state.
 - **Every behavior gets a check, beside what it checks.** See
   [tests/README.md](tests/README.md). Logic that needs no machine gets a unit
-  test next to its code. The built OS is checked in `tests/checks/`: its
-  content in `content/`; the installer medium in `medium/`; the installed,
-  running system in `installed/`; updates in `update/`; what a person sees and
-  does in `tests/openqa/`. Write checks in Python with pytest and Testinfra. The system
-  under test gets nothing installed for a check: use the commands it ships. Only checks that
-  need a host-side secret, such as the recovery key, run from the host, in
-  `tests/checks/installed/check_recovery_key.py`.
+  test next to its code. The built OS is checked in `tests/`: the image's
+  files in `image/`; the installer medium in `medium/`; the installed, running
+  system in `installed/`; updates in `update/`; what a person sees and does in
+  `openqa/`. Write checks in Python with pytest and Testinfra, which reach the
+  machine from the development image over SSH (`tests/machine.py`). The system
+  under test gets nothing installed or copied for a check: use the commands it
+  ships.
 - **A bug becomes a regression test** at the lowest level that shows it.
 - **Disks are installed by the installer.** `make disk` boots the installer
   medium and installs through it, so the tests cover what users run. Do not

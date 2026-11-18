@@ -16,11 +16,12 @@ RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
     # and the external packages' RPMs that make run unpacks (rpm2cpio, cpio).
     git make python3 rpm-build license-validate cpio python3-pyflakes python3-pytest \
     # The checks of the built OS: the VMs (QEMU with Secure Boot firmware and
-    # a software TPM, in a window for make installer-vm), SSH into them, tmt,
-    # Testinfra, pip for the checks' own dependencies (tests/checks/.deps),
+    # a software TPM, in a window for make installer-vm), SSH into them,
+    # pytest and Testinfra, pip for the image checks' own dependencies
+    # (tests/image/.deps),
     # skopeo for the update registry, and OpenSSL for the signing keys.
     qemu-system-x86-core qemu-device-display-virtio-vga qemu-img qemu-ui-gtk edk2-ovmf swtpm \
-    openssh-clients tmt python3-pytest-testinfra python3-pip skopeo openssl \
+    openssh-clients python3-pytest-testinfra python3-pip skopeo openssl \
     # The installer's unit tests: what it builds with.
     $(/src/requires.sh --build installer/installer.spec) \
     # make run's own session bus, whose activation environment Hyprland sets

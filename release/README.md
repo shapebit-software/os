@@ -59,7 +59,7 @@ artifact `<version>-sources`, which the image label `software.shapebit.sources`
 names. The Sources workflow collects them for a released version that has
 none.
 
-The SBOM ([sbom.py](sbom.py)) lists the RPMs and Python packages that syft
+The SBOM ([sbom.py](sbom.py)), in SPDX 2.3, lists the RPMs and Python packages that syft
 finds, the code each RPM declares it bundles (`Provides: bundled(...)`),
 ShapeBit itself, and the downloadable models as optional components; its RPMs
 are checked to be exactly the installed ones. `make sbom` writes it for a

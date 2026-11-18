@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""The software bill of materials of IMAGE, as SPDX 2.3 JSON and CycloneDX 1.6
-JSON, with the same content (release/README.md).
+"""The software bill of materials of IMAGE, as SPDX 2.3 JSON (release/README.md).
 
-syft (SYFT_IMAGE) scans the image's filesystem from inside a container of it,
-once for both formats: its binary is mounted read-only, the container has no
-network, and nothing is installed. It finds the RPMs and the Python packages.
-This fails unless syft's RPMs are exactly `rpm -qa`'s, whose source RPMs
-release/sources.py publishes, and adds to both documents what syft cannot see:
+syft (SYFT_IMAGE) scans the image's filesystem from inside a container of it:
+its binary is mounted read-only, the container has no network, and nothing is
+installed. syft cannot read the archive that Docker saves, whose index nests
+another. It finds the RPMs and the Python packages. This fails
+unless syft's RPMs are exactly `rpm -qa`'s, whose source RPMs
+release/sources.py publishes, and adds to the document what syft cannot see:
 ShapeBit itself (its version and revision from the image's os-release), the code
 that each RPM declares it bundles (Fedora's `Provides: bundled(...)`, as in
 the external packages), and the models that are extras (the image's extras.json), as
 optional components.
 
-Usage: sbom.py generate IMAGE DIR    write IMAGE's sbom.spdx.json and sbom.cdx.json to DIR
-       sbom.py push DIR REF TITLE    push both as one OCI artifact to REF
+Usage: sbom.py generate IMAGE DIR    write IMAGE's sbom.spdx.json to DIR
+       sbom.py push DIR REF TITLE    push it as an OCI artifact to REF
 ENGINE runs the containers; skopeo copies the artifact.
 """
 
@@ -31,7 +31,7 @@ import urllib.parse
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 TYPE = "application/vnd.shapebit.sbom.v1"
-FILES = {"spdx": "sbom.spdx.json", "cyclonedx": "sbom.cdx.json"}
+FILE = "sbom.spdx.json"
 SHAPEBIT_LICENSE_NAME = "PolyForm Shield License 1.0.0"
 SHAPEBIT_LICENSE_URL = "https://polyformproject.org/licenses/shield/1.0.0"
 SHAPEBIT_LICENSE = "LicenseRef-PolyForm-Shield-1.0.0"
@@ -115,7 +115,7 @@ def check(found, rpm_names):
 
 
 def additions(release, extras, bundles):
-    """What syft cannot see, for both formats: each with a key, its fields, and
+    """What syft cannot see: each with a key, its fields, and
     `parent`, the RPM that bundles it, or `optional` for a model."""
     version, revision = release["IMAGE_VERSION"], release["IMAGE_REVISION"]
     items = [{"key": ("shapebit",), "name": "ShapeBit OS", "version": version, "license": SHAPEBIT_LICENSE,
@@ -165,44 +165,6 @@ def to_spdx(doc, items, rpm_names, license_text):
     return doc
 
 
-def to_cyclonedx(doc, items, rpm_names, license_text):
-    """ITEMS added to syft's CycloneDX document: bundled code nested in the
-    component of its RPM, models with the scope "optional"."""
-    components = doc.setdefault("components", [])
-    rpms = {}
-    for c in components:
-        if name := rpm_name(c.get("purl")):
-            rpms.setdefault(name, c)
-    check(rpms.keys(), rpm_names)
-    for item in items:
-        component = {"bom-ref": "shapebit:" + ":".join(item["key"]),
-                     "type": "machine-learning-model" if item.get("optional") else "library",
-                     "name": item["name"], "description": item["comment"]}
-        for field in ("version", "purl"):
-            if item.get(field):
-                component[field] = item[field]
-        if item.get("supplier"):
-            component["supplier"] = {"name": item["supplier"]}
-        if item.get("license") == SHAPEBIT_LICENSE:
-            component["licenses"] = [{"license": {"name": SHAPEBIT_LICENSE_NAME, "url": SHAPEBIT_LICENSE_URL,
-                                                  "text": {"content": license_text}}}]
-        elif item.get("license"):
-            component["licenses"] = [{"expression": item["license"]}]
-        if item.get("location"):
-            kind = "vcs" if item["location"].startswith("git+") else "distribution"
-            component["externalReferences"] = [{"type": kind, "url": item["location"].removeprefix("git+")}]
-        if item.get("optional"):
-            component["scope"] = "optional"
-        if "parent" in item:
-            rpms[item["parent"]].setdefault("components", []).append(component)
-        else:
-            components.append(component)
-    tools = doc.setdefault("metadata", {}).setdefault("tools", {})
-    if isinstance(tools, dict):
-        tools.setdefault("components", []).append({"type": "application", "name": "shapebit-sbom"})
-    return doc
-
-
 def image_run(image, command, *args):
     return subprocess.run([*engine(), "run", "--rm", "--network", "none", "--entrypoint", command, image, *args],
                           check=True, capture_output=True, text=True).stdout
@@ -213,8 +175,7 @@ def image_file(image, path):
 
 
 def scan(image, version):
-    """syft's SPDX and CycloneDX documents of IMAGE's filesystem, from one scan
-    inside a container of it."""
+    """syft's SPDX document of IMAGE's filesystem, scanned inside a container of it."""
     with tempfile.TemporaryDirectory() as tool:
         container = subprocess.run([*engine(), "create", os.environ["SYFT_IMAGE"]],
                                    check=True, capture_output=True, text=True).stdout.strip()
@@ -230,9 +191,9 @@ def scan(image, version):
             *engine(), "run", "--rm", "--network", "none", "-v", f"{tool}:/sbom-tool:z",
             "-e", "HOME=/tmp", "-e", "SYFT_CHECK_FOR_APP_UPDATE=false", "--entrypoint", "/sbom-tool/syft",
             image, "dir:/", *excluded, "--source-name", "shapebit-os", "--source-version", version,
-            "-o", "spdx-json=/sbom-tool/spdx.json", "-o", "cyclonedx-json=/sbom-tool/cyclonedx.json", "-q",
+            "-o", "spdx-json=/sbom-tool/spdx.json", "-q",
         ], check=True)  # fmt: skip
-        return {kind: json.loads((pathlib.Path(tool) / f"{kind}.json").read_text()) for kind in FILES}
+        return json.loads((pathlib.Path(tool) / "spdx.json").read_text())
 
 
 def generate(image, directory):
@@ -244,14 +205,11 @@ def generate(image, directory):
     # Each installed RPM provides at least itself, so this lists every one.
     provides = image_run(image, "rpm", "-qa", "--qf", "[%{=NAME}\t%{PROVIDENAME}\t%{PROVIDEVERSION}\n]")
     items = additions(release, json.loads(image_file(image, "/usr/share/desktop/extras.json")), bundled(provides))
-    docs = scan(image, release["IMAGE_VERSION"])
-    docs = {"spdx": to_spdx(docs["spdx"], items, installed(provides), license_text),
-            "cyclonedx": to_cyclonedx(docs["cyclonedx"], items, installed(provides), license_text)}
+    doc = to_spdx(scan(image, release["IMAGE_VERSION"]), items, installed(provides), license_text)
     directory = pathlib.Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
-    for kind, doc in docs.items():
-        (directory / FILES[kind]).write_text(json.dumps(doc, indent=1) + "\n")
-    print(f"{directory}: {len(docs['spdx']['packages'])} SPDX packages, {len(docs['cyclonedx']['components'])} CycloneDX components")
+    (directory / FILE).write_text(json.dumps(doc, indent=1) + "\n")
+    print(f"{directory / FILE}: {len(doc['packages'])} packages")
 
 
 def main(argv):
@@ -268,7 +226,7 @@ def main(argv):
     if args.command == "generate":
         generate(args.image, args.directory)
     else:
-        artifact.push(args.ref, TYPE, args.title, [pathlib.Path(args.directory) / name for name in FILES.values()])
+        artifact.push(args.ref, TYPE, args.title, [pathlib.Path(args.directory) / FILE])
 
 
 if __name__ == "__main__":

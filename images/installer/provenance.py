@@ -3,10 +3,12 @@
 and booting would change the file.
 
 Usage: provenance.py digest IMAGE_TAR                 print an image's digest
-       provenance.py label IMAGE_TAR KEY              print one of an image's labels
        provenance.py medium IMAGE_TAR MEDIUM REVISION OUT   record a new medium
        provenance.py sources RECORD TAR               add the medium's sources to its record
-       provenance.py field RECORD KEY [DEFAULT]       print one value of a record
+
+A record is JSON, which `jq -r .KEY` reads. The digest is that of the image's
+own manifest, which `bootc status` reports; `skopeo inspect` reports Docker's
+outer index instead.
 
 A medium's record names the system it installs: its version, which is also the
 installer's, and its image digest; the commit the installer was built from,
@@ -64,8 +66,6 @@ def sha256(path):
 def main(command, *args):
     if command == "digest":
         print(image_digest(*args))
-    elif command == "label":
-        print(label(*args))
     elif command == "medium":
         archive, medium, revision, out = args
         record = {
@@ -79,11 +79,6 @@ def main(command, *args):
         record, tar = args
         values = json.loads(pathlib.Path(record).read_text()) | {"sources_sha256": sha256(tar)}
         pathlib.Path(record).write_text(json.dumps(values, indent=2) + "\n")
-    elif command == "field":
-        # A default for a key that older records lack.
-        record, key, *default = args
-        values = json.loads(pathlib.Path(record).read_text())
-        print(values.get(key, *default) if default else values[key])
     else:
         sys.exit(__doc__)
 

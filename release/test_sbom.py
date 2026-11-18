@@ -1,4 +1,4 @@
-"""The SBOM, in SPDX and in CycloneDX, must add what syft cannot see, and fail
+"""The SBOM, in SPDX, must add what syft cannot see, and fail
 unless syft found exactly the installed RPMs, whose sources are published."""
 
 import importlib.util
@@ -47,20 +47,8 @@ def spdx_scan(rpms=INSTALLED):
         {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-Root"}]}
 
 
-def cyclonedx_scan(rpms=INSTALLED):
-    """A minimal syft CycloneDX document."""
-    components = [{"bom-ref": url, "type": "library", "name": name, "purl": url}
-                  for name, url in [(n, purl(n)) for n in rpms] + [("audit", NOTE)]]
-    return {"bomFormat": "CycloneDX", "specVersion": "1.6", "components": components,
-            "metadata": {"tools": {"components": [{"type": "application", "name": "syft"}]}}}
-
-
 def spdx(rpms=INSTALLED):
     return sbom.to_spdx(spdx_scan(rpms), ITEMS, sbom.installed(PROVIDES), "PolyForm Shield")
-
-
-def cyclonedx(rpms=INSTALLED):
-    return sbom.to_cyclonedx(cyclonedx_scan(rpms), ITEMS, sbom.installed(PROVIDES), "PolyForm Shield")
 
 
 def related(doc, relation, target):
@@ -106,39 +94,10 @@ def test_spdx_identifiers_are_unique_and_valid():
     assert all(re.fullmatch(r"SPDXRef-[A-Za-z0-9.-]+", i) for i in ids)
 
 
-def test_cyclonedx_has_the_same_additions():
-    doc = cyclonedx()
-    top = {c["name"]: c for c in doc["components"]}
-    nested = {c["name"]: c for parent in doc["components"] for c in parent.get("components", [])}
-    assert top["ShapeBit OS"]["version"] == "202611160900"
-    assert top["ShapeBit OS"]["licenses"][0]["license"]["text"]["content"] == "PolyForm Shield"
-    assert {"utf8proc", "kissfft"} == {c["name"] for c in top["python3-sherpa-onnx"]["components"]}
-    assert nested["crate(serde)"]["purl"] == "pkg:cargo/serde@1.0.228"
-    assert "version" not in nested["gnulib"]
-    models = {name: c for name, c in top.items() if name in WORKS}
-    assert models.keys() == WORKS
-    assert all(c["scope"] == "optional" and c["licenses"][0]["expression"] for c in models.values())
-    assert "shapebit-sbom" in {t["name"] for t in doc["metadata"]["tools"]["components"]}
-
-
-def test_cyclonedx_references_are_unique():
-    doc = cyclonedx()
-    refs = [c["bom-ref"] for parent in doc["components"] for c in [parent, *parent.get("components", [])]]
-    assert len(refs) == len(set(refs))
-
-
-def test_both_formats_list_the_same_additions():
-    spdx_names = {p["name"] for p in spdx()["packages"]}
-    doc = cyclonedx()
-    cyclonedx_names = {c["name"] for parent in doc["components"] for c in [parent, *parent.get("components", [])]}
-    assert spdx_names == cyclonedx_names
-
-
-@pytest.mark.parametrize("make", [spdx, cyclonedx])
 @pytest.mark.parametrize("rpms", [(), INSTALLED[1:], (*INSTALLED, "kernel")])
-def test_a_scan_that_differs_from_the_installed_rpms_fails(make, rpms):
+def test_a_scan_that_differs_from_the_installed_rpms_fails(rpms):
     with pytest.raises(ValueError, match="syft"):
-        make(rpms)
+        spdx(rpms)
 
 
 def test_os_release_is_parsed():
@@ -152,9 +111,9 @@ def test_each_credit_has_an_spdx_license_id():
 
 def test_the_command_line_names_the_image_and_the_directory(monkeypatch):
     calls = []
-    monkeypatch.setattr(sbom, "generate", lambda image, directory: calls.append(("generate", image, directory)))
+    monkeypatch.setattr(sbom, "generate", lambda *args: calls.append(("generate", *args)))
     monkeypatch.setattr(sbom.artifact, "push", lambda ref, kind, title, files: calls.append(("push", ref, files)))
     sbom.main(["generate", "localhost/os:dev", "build/sbom"])
     sbom.main(["push", "build/sbom", "ghcr.io/x/os:1-sbom", "SBOM"])
-    assert calls == [("generate", "localhost/os:dev", "build/sbom"), ("push", "ghcr.io/x/os:1-sbom", [
-        sbom.pathlib.Path("build/sbom/sbom.spdx.json"), sbom.pathlib.Path("build/sbom/sbom.cdx.json")])]
+    assert calls == [("generate", "localhost/os:dev", "build/sbom"),
+                     ("push", "ghcr.io/x/os:1-sbom", [sbom.pathlib.Path("build/sbom/sbom.spdx.json")])]

@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from conftest import wait_until
+from machine import wait_until
 
 
 @pytest.mark.parametrize("unit", ["sddm", "sshd", "NetworkManager", "systemd-homed", "os-update.timer"])

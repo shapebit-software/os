@@ -33,8 +33,8 @@ that release can be downloaded:
 ## Software bill of materials
 
 Each release since November 2026 has a software bill of materials (SBOM): every
-component, with its version and license, in SPDX 2.3 (`sbom.spdx.json`) and
-CycloneDX 1.6 (`sbom.cdx.json`):
+component, with its version and license, in SPDX 2.3 (`sbom.spdx.json`);
+those of November 2026 also in CycloneDX 1.6 (`sbom.cdx.json`):
 
 ```sh
 podman artifact pull ghcr.io/shapebit-software/os:<version>-sbom

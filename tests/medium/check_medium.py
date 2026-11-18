@@ -2,11 +2,10 @@
 with the serial "medium" and the target disk with the serial "target"."""
 
 import json
-import os
 import re
 
 import pytest
-from conftest import wait_until
+from machine import wait_until
 
 STUB_INFO = "/sys/firmware/efi/efivars/StubInfo-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
 
@@ -40,8 +39,8 @@ def test_finished_booting_without_failed_units(host, sh):
     assert sh("systemctl --failed --no-legend --plain") == ""
 
 
-def test_booted_from_a_uki():
-    assert os.path.exists(STUB_INFO)
+def test_booted_from_a_uki(host):
+    assert host.file(STUB_INFO).exists
 
 
 def test_secure_boot_is_enabled(sh):
@@ -86,7 +85,7 @@ def test_medium_has_no_desktop(host):
     for package in ["shapebit-system", "shapebit-shell", "hyprland", "llama-server", "flatpak"]:
         assert not host.package(package).is_installed
     # What the whole system needs stays (packages/system/system.spec).
-    for package in ["rsync", "glibc-all-langpacks"]:
+    for package in ["glibc-all-langpacks"]:
         assert host.package(package).is_installed
 
 

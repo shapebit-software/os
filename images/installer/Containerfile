@@ -9,8 +9,8 @@
 # BASE has no default: the Makefile always passes it.
 ARG BASE
 # The installer's package (packages/installer/installer.spec), at the image's
-# version and commit, which BASE's os-release records, with every time in it
-# the commit's (SOURCE_DATE_EPOCH); its BuildRequires come from the spec.
+# version and commit, which BASE's os-release records (packages/rpmbuild.sh);
+# its BuildRequires come from the spec.
 FROM ${BASE} AS build
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
     --mount=type=bind,from=packages,target=/src \
@@ -18,12 +18,8 @@ RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
     dnf -y builddep --define "packages /src" --define "image_version 0" /src/installer/installer.spec
 ARG SOURCE_DATE_EPOCH
 RUN --mount=type=bind,from=packages,target=/src \
-    . /usr/lib/os-release && \
-    SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:?} \
-    rpmbuild -bb --quiet --define "_topdir /tmp/rpm" --define "packages /src" \
-      --define "image_version $IMAGE_VERSION" --define "image_revision $IMAGE_REVISION" \
-      /src/installer/installer.spec && \
-    mkdir /out && cp /tmp/rpm/RPMS/*/*.rpm /out/ && \
+    . /usr/lib/os-release && export IMAGE_VERSION IMAGE_REVISION && \
+    /src/rpmbuild.sh /out /src/installer/installer.spec && \
     rpmlint --config /src/rpmlint.toml /out/*.rpm
 
 FROM ${BASE}
@@ -39,7 +35,7 @@ RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
 # fits its drive beside the payload: the desktop, its apps and models' runtime,
 # and the login screen go, with what only they require. A new feature stays
 # off the medium unless it is named here. What shapebit-system requires for
-# the whole system, such as rsync for tmt and the locales, stays too. The
+# the whole system, such as the locales, stays too. The
 # license texts of everything stay, since the payload holds it all.
 RUN keep=$(printf 'shapebit-%s\n' boot colors font homes installer licenses network release repositories splash) && \
     cp -a /usr/share/licenses /tmp/licenses && \

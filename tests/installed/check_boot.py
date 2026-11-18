@@ -1,7 +1,6 @@
 """The installed system: how it booted, and what it boots from."""
 
 import json
-import os
 import re
 
 STUB_INFO = "/sys/firmware/efi/efivars/StubInfo-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
@@ -52,8 +51,8 @@ def test_booted_by_systemd_boot(sh):
     assert re.search(r"^ +Product: systemd-boot ", sh("bootctl status 2>/dev/null"), re.M)
 
 
-def test_booted_from_a_uki():
-    assert os.path.exists(STUB_INFO)
+def test_booted_from_a_uki(host):
+    assert host.file(STUB_INFO).exists
 
 
 def test_root_is_sealed_by_a_composefs_digest(host):

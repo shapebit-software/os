@@ -10,6 +10,7 @@ import pytest
 @pytest.fixture
 def sut(monkeypatch):
     monkeypatch.setenv("OWNER_NAME", "dev")
+    monkeypatch.setenv("SSH_PORT", "2222")
     path = pathlib.Path(__file__).with_name("sut.py")
     spec = importlib.util.spec_from_file_location("sut", path)
     module = importlib.util.module_from_spec(spec)

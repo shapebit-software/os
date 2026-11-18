@@ -1,4 +1,6 @@
-"""Install through the medium's UI, as a person does."""
+"""Install through the medium's UI, as a person does. The update flow installs
+with the download site's installer, whose pages its own run tested, so there
+only the result counts, and it installs through installerctl."""
 
 import sys
 
@@ -20,13 +22,25 @@ def page(name, timeout=30):
     save_screenshot()
 
 
+def install_without_ui():
+    sut.wait_for_ssh()
+    sut.wait_for(lambda: sut.ssh("installerctl disks").returncode == 0, 300)
+    sut.install_without_ui(PASSWORD)
+    assert "shapebit" in sut.run("lsblk -no PARTLABEL /dev/disk/by-id/virtio-target")
+    sut.remove_medium(perl.autotest.query_isotovideo)
+    sut.run("systemctl reboot", check=False)
+
+
 def run(self):
+    if get_var("FLOW") == "update":
+        install_without_ui()
+        return
     assert_screen("installer-welcome", 300)
     sut.wait_for_ssh()
     page("welcome")
     # The screen says that it is the installer; the system agrees.
     assert sut.run("systemctl is-active installer.service").strip() == "active"
-    # The medium has no login screen (tests/checks/medium/check_medium.py).
+    # The medium has no login screen (tests/medium/check_medium.py).
     assert sut.ssh("rpm -q sddm").returncode != 0
     disks = sut.run("installerctl disks")
     assert '"id":"serial-target"' in disks

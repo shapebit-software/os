@@ -19,6 +19,6 @@
 - **Every behavior gets a check, beside its code.** Backend rules go in
   `backend/tst_backend.cpp`, the D-Bus interface in
   `interface/test_interface.sh`, pages in `ui/tst_ui.cpp`. Behavior on a real
-  disk is checked by the OS checks in `tests/` (`tests/checks/medium/`,
-  `tests/checks/installed/`).
+  disk is checked by the OS checks in `tests/` (`tests/medium/`,
+  `tests/installed/`).
 - **Name files by function.** No product prefix in file names.
