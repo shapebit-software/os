@@ -68,7 +68,9 @@ system (`IMAGE`), the installer as a
 package ([installer.spec](installer.spec)) at the
 image's version, with what it requires, such as the `cage` kiosk compositor that
 shows it, and the same sealed system, as an OCI layout, as
-the payload; sealing then replaces the system's UKI with the medium's own, whose
+the payload. Of the system, the medium keeps only the features it boots and
+installs with, and every license text; the desktop and its apps go, so that it
+fits beside the payload. Sealing then replaces the system's UKI with the medium's own, whose
 composefs digest covers all of it. So the Installer workflow builds from the
 released `os:<version>` alone, and no unsealed image is kept anywhere. The
 medium's record, `build/installer.img.json`, names the system it installs: its

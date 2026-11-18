@@ -35,13 +35,26 @@ RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
     --mount=type=bind,from=build,source=/out,target=/run/packages \
     dnf -y install --setopt=localpkg_gpgcheck=0 /run/packages/*.rpm && \
     rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf
+# Only the features that the medium boots and installs with stay, so that it
+# fits its drive beside the payload: the desktop, its apps and models' runtime,
+# and the login screen go, with what only they require. A new feature stays
+# off the medium unless it is named here. What shapebit-system requires for
+# the whole system, such as rsync for tmt and the locales, stays too. The
+# license texts of everything stay, since the payload holds it all.
+RUN keep=$(printf 'shapebit-%s\n' boot colors font homes installer licenses network release repositories splash) && \
+    cp -a /usr/share/licenses /tmp/licenses && \
+    drop=$(rpm -qa --qf '%{NAME}\n' 'shapebit-*' | grep -vxF "$keep") && \
+    needs=$(rpm -q --requires $(echo "$drop" | grep -vx shapebit-system) | grep -v -e '^shapebit-' -e '^rpmlib(' -e '^/' | cut -d ' ' -f 1 | sort -u) && \
+    needs=$(rpm -q --qf '%{NAME}\n' --whatprovides $needs | sort -u) && \
+    dnf -y -q --disablerepo='*' remove $drop && \
+    dnf -y -q --disablerepo='*' mark dependency $needs && \
+    dnf -y -q --disablerepo='*' autoremove && \
+    cp -an /tmp/licenses/. /usr/share/licenses/ && \
+    rm -rf /tmp/licenses /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf
 # The units are enabled by the preset that the installer ships, which also
-# holds on the first boot, when systemd applies presets again. The installer
-# takes the screen, so the system's login screen is masked; presets skip
-# masked units.
+# holds on the first boot, when systemd applies presets again.
 RUN systemctl set-default graphical.target && \
-    systemctl preset installer-backend.service installer.service && \
-    systemctl mask sddm.service
+    systemctl preset installer-backend.service installer.service
 
 # What the installer installs, and where the installed system updates from. An
 # OCI layout, not the archive: bootc would unpack an archive into /var/tmp first,

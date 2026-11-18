@@ -18,8 +18,7 @@ Signing in starts the desktop session: Hyprland with the ShapeBit shell, run
 by UWSM. The login screen offers no other session, since Hyprland's own
 entries are removed; without one it says so. Consoles are on the other
 virtual terminals (Ctrl+Alt+F3). The
-installer medium masks `sddm.service`, because the installer takes the screen
-there.
+installer medium has no login screen: the installer takes the screen there.
 
 To change the theme, run it in a window on a machine with SDDM:
 

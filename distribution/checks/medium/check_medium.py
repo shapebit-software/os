@@ -78,7 +78,16 @@ def test_installer_is_running(host, unit):
 
 
 def test_installer_has_the_screen_no_login_screen(host):
-    assert host.service("sddm").is_masked
+    assert not host.package("sddm").is_installed
+
+
+def test_medium_has_no_desktop(host):
+    # Only what the medium boots and installs with (medium/Containerfile).
+    for package in ["shapebit-system", "shapebit-shell", "hyprland", "llama-server", "flatpak"]:
+        assert not host.package(package).is_installed
+    # What the whole system needs stays (packages/system/system.spec).
+    for package in ["rsync", "glibc-all-langpacks"]:
+        assert host.package(package).is_installed
 
 
 def test_installer_took_the_screen_from_the_splash(host):
