@@ -11,9 +11,12 @@ permissions:
 jobs:
   unit-tests:
     runs-on: ubuntu-24.04
-    container: registry.fedoraproject.org/fedora-toolbox:45
+    env:
+      ENGINE: docker
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/fedora-dev
+      # In the development image (development/Containerfile), as on a developer's computer.
+      - name: Development image
+        run: make dev-image
       - name: Unit tests
         run: make test-unit

@@ -3,7 +3,7 @@
 # leaves in RUN_DIR: tmt's workdir, with logs, per-test data, and reports.
 # Usage: tmt.sh PLAN RUN_DIR
 set -euo pipefail
-: "${VENV:?}" "${SSH_PORT:?}" "${SSH_KEY:?}"
+: "${SSH_PORT:?}" "${SSH_KEY:?}"
 : "${IMAGE_DIGEST:?}" "${OWNER_NAME:?}" "${LOCALE:?}" "${KEYBOARD_LAYOUT:?}" "${TIME_ZONE:?}" "${DEV_UPDATE_REF:?}"
 # Only the update test has these (distribution/vm/test-machine.sh).
 NEXT_VERSION=${NEXT_VERSION:-} NEXT2_VERSION=${NEXT2_VERSION:-}
@@ -16,7 +16,7 @@ workdir=$(mktemp -d /var/tmp/shapebit-tmt.XXXXXX)
 trap 'mv "$workdir" "$run/tmt"' EXIT
 
 # distribution/checks/ is the tree that tmt copies to the guest, with the checks' dependencies.
-"$VENV/bin/tmt" --root distribution/checks run --id "$workdir" --scratch --all \
+tmt --root distribution/checks run --id "$workdir" --scratch --all \
   --environment "IMAGE_DIGEST=$IMAGE_DIGEST OWNER_NAME=$OWNER_NAME" \
   --environment "LOCALE=$LOCALE KEYBOARD_LAYOUT=$KEYBOARD_LAYOUT TIME_ZONE=$TIME_ZONE" \
   --environment "DEV_UPDATE_REF=$DEV_UPDATE_REF NEXT_VERSION=$NEXT_VERSION NEXT2_VERSION=$NEXT2_VERSION" \

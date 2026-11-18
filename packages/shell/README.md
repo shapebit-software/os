@@ -74,7 +74,7 @@ to eight; a workspace goes away once it has no windows.
 ## Development
 
 `make lint validate` checks the shell and the compositor's configuration, and
-`make run` runs the desktop in a window, inside the development container
+`make run` runs the desktop in a window, in the development image
 ([development](../../development/README.md)).
 
 Each folder of `shell/` is a QML module, `qs.<folder>`. Every QML file must be
@@ -105,8 +105,8 @@ Development tools are in [`development/`](../../development/README.md).
 ## Not yet implemented
 
 - The assistant reads no files' contents and no clipboard. `make run` needs
-  sherpa-onnx and Parakeet in the development container to dictate
-  (`DICTATION_PYTHON`, `DICTATION_PARAKEET`). The OS image has sherpa-onnx;
+  sherpa-onnx, built by `make rpm`, and Parakeet to dictate
+  ([development](../../development/README.md#the-assistant-and-dictation)). The OS image has sherpa-onnx;
   Parakeet is an extra, downloaded from Welcome or Settings > Assistant
   (`extras/`).
 - Settings has only what works: no first day of the week.

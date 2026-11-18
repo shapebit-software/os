@@ -13,9 +13,13 @@ hl.on("hyprland.start", function()
     -- UWSM runs the session (session/desktop.desktop) and waits for the
     -- compositor to give systemd its environment; then the session's units
     -- start, such as XDG autostart. UWSM sets NOTIFY_SOCKET; make run does
-    -- not, since there the systemd user manager is the developer's own.
+    -- not, since there the systemd user manager is the developer's own: the
+    -- desktop's own session bus (development/run-desktop.sh) gets the
+    -- environment instead, for the portals it starts.
     if os.getenv("NOTIFY_SOCKET") then
         hl.exec_cmd("uwsm finalize HYPRLAND_INSTANCE_SIGNATURE")
+    else
+        hl.exec_cmd("dbus-update-activation-environment WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE XDG_DATA_DIRS")
     end
 end)
 

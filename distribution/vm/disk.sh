@@ -14,7 +14,7 @@ source distribution/vm/results.sh
 [[ -f $MEDIUM ]] || { echo "error: $MEDIUM not found; run 'make installer'" >&2; exit 1; }
 
 # A new disk is a new machine: fresh EFI variables and TPM (see vm.sh).
-rm -rf "$DISK" "$DISK.json" "$RECOVERY_KEY" "$BUILD/efivars.fd" "$BUILD/tpm" "$BUILD/serial.log"
+rm -rf "$DISK" "$DISK.json" "$RECOVERY_KEY" "$BUILD/efivars.qcow2" "$BUILD/tpm" "$BUILD/serial.log"
 truncate -s "$DISK_SIZE" "$DISK"
 
 if [[ ${1:-} == --window ]]; then

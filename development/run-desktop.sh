@@ -4,51 +4,20 @@
 # rather than the host's: the shell's notification server, and the portals as
 # the image sets them up (packages/portal/), from this tree: xdg-desktop-portal with
 # portals.conf, the shell's backend, and Hyprland's portal with the shell's
-# share picker. Apps also offers the Portal Tester (portal-tester.py), which
-# asks each portal. Nothing here is installed.
-# Usage: run-desktop.sh (called by `make run`, inside the development container,
-# with the environment development/Makefile sets).
+# share picker. Hyprland gives the bus its display (packages/windows/hyprland.lua).
+# Nothing here is installed.
+# Usage: run-desktop.sh (called by `make run`, in the development image, with
+# the environment the Makefile sets).
 set -euo pipefail
 
 packages=$(cd "$(dirname "$0")/../packages" && pwd)
-dev=$(cd "$(dirname "$0")" && pwd)
-
-# Inside the bus: Hyprland, and, once it runs, its display and instance for
-# the services D-Bus starts, which ask the shell and Hyprland.
-session() {
-  before=$(hyprctl instances -j 2>/dev/null | python3 -c 'import json, sys; print(" ".join(i["instance"] for i in json.load(sys.stdin)))' 2>/dev/null || true)
-  XDG_DATA_DIRS=$data_dirs start-hyprland -- --config "$packages/windows/hyprland.lua" &
-  hyprland=$!
-  for _ in $(seq 100); do
-    found=$(hyprctl instances -j 2>/dev/null | python3 -c '
-import json, sys
-before = set(sys.argv[1].split())
-for i in json.load(sys.stdin):
-    if i["instance"] not in before:
-        print(i["instance"], i["wl_socket"])' "$before" 2>/dev/null || true)
-    [ -z "$found" ] || break
-    sleep 0.1
-  done
-  if [ -n "$found" ]; then
-    set -- $found
-    gdbus call --session -d org.freedesktop.DBus -o /org/freedesktop/DBus \
-      -m org.freedesktop.DBus.UpdateActivationEnvironment \
-      "{'WAYLAND_DISPLAY': '$2', 'HYPRLAND_INSTANCE_SIGNATURE': '$1', 'XDG_DATA_DIRS': '$data_dirs'}" >/dev/null
-  fi
-  wait "$hyprland"
-}
-
-if [ "${1:-}" = session ]; then
-  session
-  exit
-fi
 
 dir=$(mktemp -d "${XDG_RUNTIME_DIR:?}/desktop-dev.XXXXXX")
 trap 'rm -rf "$dir"' EXIT
-mkdir -p "$dir/services" "$dir/portals" "$dir/hypr" "$dir/data/applications"
+mkdir -p "$dir/services" "$dir/portals" "$dir/hypr"
 
 # The portals and their configuration: the frontend reads both from here,
-# for the desktop name ShapeBit, and finds the Portal Tester's desktop entry.
+# for the desktop name ShapeBit.
 cp "$packages/portal/shell.portal" "$dir/portals/"
 for portal in hyprland oo7-portal; do
   [ ! -e "/usr/share/xdg-desktop-portal/portals/$portal.portal" ] ||
@@ -59,7 +28,14 @@ sed "s|/usr/libexec/desktop/share-picker|$packages/screen-sharing/share-picker|"
 # The person's Flatpak apps too, which the host's session may not know of if it
 # started before Flatpak was installed; and the system's colors, installed
 # from the image's source by make run (DEV_SYSTEM), for the portal.
-data_dirs="$dir/data:${DEV_SYSTEM:?}/usr/share:${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/exports/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+data_dirs="${DEV_SYSTEM:?}/usr/share:${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/exports/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+# The external packages that make run installed there, if `make rpm` built
+# them: the assistant's model server, and dictation's speech engine.
+llama=$DEV_SYSTEM/usr/libexec/llama/llama-server
+[ ! -x "$llama" ] || export ASSISTANT_LLAMA=$llama
+for site in "$DEV_SYSTEM"/usr/lib64/python3*/site-packages; do
+  [ ! -d "$site" ] || export PYTHONPATH=$site
+done
 
 # D-Bus starts them on the first request, from here before the system's.
 cat >"$dir/services/org.freedesktop.portal.Desktop.service" <<EOF
@@ -83,17 +59,9 @@ cat >"$dir/bus.conf" <<EOF
   <include>/usr/share/dbus-1/session.conf</include>
 </busconfig>
 EOF
-cat >"$dir/data/applications/dev.PortalTester.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Name=Portal Tester
-Comment=Ask each of the desktop's portals
-Icon=preferences-system
-Exec=$dev/portal-tester.py
-EOF
 
-export data_dirs
 # The session bus here has no keyring; the assistant keeps keys and sign-ins
 # in the host's, which is unlocked (assistant/providers.py).
 [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] || export ASSISTANT_KEYRING_BUS="$DBUS_SESSION_BUS_ADDRESS"
-dbus-run-session --config-file="$dir/bus.conf" -- "$0" session
+dbus-run-session --config-file="$dir/bus.conf" -- \
+  env XDG_DATA_DIRS="$data_dirs" start-hyprland -- --config "$packages/windows/hyprland.lua"

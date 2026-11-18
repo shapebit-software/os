@@ -23,7 +23,7 @@ package in it would be installed instead. What limits it: packages are checked
 against the COPR's key; installed systems ship it turned off, so they never
 fetch from it; the source RPMs are kept with each release's sources. Drop it
 as soon as Fedora ships Hyprland: remove `hyprland.repo` and the COPR from
-`development/distrobox.ini`.
+`development/Containerfile`.
 
 ## External packages
 

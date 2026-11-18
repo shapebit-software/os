@@ -14,27 +14,28 @@ git clone https://github.com/shapebit-software/os.git
 
 ## Development
 
-Work on the desktop and the installer happens in one Fedora development
-container ([development](development/README.md)):
+Every tool that works on ShapeBit, from lint and the unit tests to the
+desktop in a window and the VMs that check the built OS, is in one
+development image, which `make` builds and enters by itself
+([development](development/README.md)). Only the container engine, which
+builds the OS image, runs on the host.
 
 ```sh
-DBX_CONTAINER_MANAGER=docker distrobox assemble create --file development/distrobox.ini
-make dev      # enter it
-make run      # inside: the desktop in a window
+make test-unit   # the unit tests
+make run         # the desktop in a window
+make dev         # a shell in the development image
 ```
 
-Image builds and VM tests use the host's container engine and QEMU; see
-[Requirements](#requirements). The website lives in its own repository,
+The website lives in its own repository,
 [shapebit-software/website](https://github.com/shapebit-software/website).
 
 ## Requirements
 
-A Linux x86-64 host with KVM, a container engine, QEMU, Secure Boot capable
-UEFI firmware, a software TPM, OpenSSH, and OpenSSL:
+A Linux x86-64 host with KVM, Git, Make, OpenSSL, and Docker or Podman:
 
 ```bash
-sudo dnf install podman skopeo make qemu-kvm edk2-ovmf swtpm openssh-clients openssl   # Fedora
-sudo apt install podman skopeo make qemu-system-x86 ovmf swtpm openssh-client openssl  # Debian/Ubuntu
+sudo dnf install git make openssl podman      # Fedora
+sudo apt install git make openssl podman      # Debian/Ubuntu
 ```
 
 The default engine is `sudo podman`, because installing to a disk needs root.
@@ -43,8 +44,8 @@ To use Docker instead, add `ENGINE=docker` to any command.
 ## Usage
 
 ```bash
-make static-checks # lint and validate, without building or running the code; inside `make dev`
-make test-unit     # tests that need no image and no VM; inside `make dev`
+make static-checks # lint and validate, without building or running the code
+make test-unit     # tests that need no image and no VM
 make test          # build, test the image, install with the installer, and check a clone of the installed machine
 make test-update   # the same install, then update a clone to a new build and roll back
 make test-release  # the medium itself, through its UI, with openQA; after `make installer`
@@ -64,7 +65,7 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 | ------------ | --------------------------------------------------------------------- |
 | `packages/`  | ShapeBit's own packages, one folder per feature: `apps`, `assistant`, `boot`, `capture`, `colors`, `dictation`, `downloads`, `extras`, `font`, `homes`, `installer`, `licenses`, `login`, `network`, `portal`, `release`, `repositories`, `screen-sharing`, `shell`, `sound`, `splash`, `system` (requires them all), `updates`, `windows`. |
 | `distribution/`     | The OS as a whole, assembled from those packages: `image/` (its build), `checks/` and `openqa/` (its tests), `vm/`, and `release/` ([distribution](distribution/README.md)). |
-| `development/`       | The development container, and the desktop in a window (`make run`). |
+| `development/`       | The development image, and the desktop in a window (`make run`). |
 | `guidebook/` | The guidebook for people who use ShapeBit, published to the Wiki and the website. |
 | `.agents/`   | Skills for coding agents.                                             |
 | `build/`     | Generated outputs (ignored by Git).                                   |

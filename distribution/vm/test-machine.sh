@@ -6,7 +6,7 @@
 # RESULTS/<time>-<plan>.
 # Usage: test-machine.sh PLAN
 set -euo pipefail
-: "${BUILD:?}" "${DISK:?}" "${RESULTS:?}" "${TEST_SSH_PORT:?}" "${VENV:?}" "${RECOVERY_KEY:?}"
+: "${BUILD:?}" "${DISK:?}" "${RESULTS:?}" "${TEST_SSH_PORT:?}" "${RECOVERY_KEY:?}"
 plan=$1
 cd "$(dirname "$0")/../.."
 source distribution/vm/results.sh
@@ -29,7 +29,7 @@ start_run "$plan"
 machine=$run/machine
 mkdir -p "$machine"
 qemu-img create -q -f qcow2 -F raw -b "$(realpath "$DISK")" "$machine/disk.qcow2"
-cp "$BUILD/efivars.fd" "$machine/efivars.fd"
+cp "$BUILD/efivars.qcow2" "$machine/efivars.qcow2"
 cp -a "$BUILD/tpm" "$machine/tpm"
 export BUILD=$machine DISK=$machine/disk.qcow2 DISK_FORMAT=qcow2 SSH_PORT=$TEST_SSH_PORT
 
@@ -44,7 +44,7 @@ distribution/vm/vm.sh --background
 
 distribution/vm/tmt.sh "$plan" "$run" || outcome=failed
 if [[ $plan == installed ]]; then
-  "$VENV/bin/pytest" -c distribution/checks/pytest.ini --rootdir=distribution/checks -p no:cacheprovider \
+  python3 -m pytest -c distribution/checks/pytest.ini --rootdir=distribution/checks -p no:cacheprovider \
     --junitxml="$run/junit-host.xml" distribution/checks/installed/check_recovery_key.py || outcome=failed
 fi
 finish_run

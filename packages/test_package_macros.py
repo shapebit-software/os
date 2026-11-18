@@ -25,7 +25,7 @@ def install(feature, buildroot, workdir, *options):
 @pytest.fixture
 def rpm():
     if not shutil.which("rpm"):
-        pytest.skip("rpm is missing: run in Fedora, as `make dev`")
+        pytest.skip("rpm is missing: run in the development image, as `make test-unit` does")
 
 
 def test_lists_the_installed_files_and_the_license_once(rpm, tmp_path):

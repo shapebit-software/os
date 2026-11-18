@@ -1,8 +1,7 @@
 """External packages: software that ShapeBit builds and publishes in its own
 repository (README.md), each in the feature folder that needs it, as a folder
 with its spec and a sources file. Each Source is pinned by its hash, so a build
-gets exactly what was reviewed; the feature requires the package it holds; and
-the development container runs the version the image installs."""
+gets exactly what was reviewed; and the feature requires the package it holds."""
 
 import pathlib
 import re
@@ -65,15 +64,6 @@ def test_every_source_is_pinned_by_its_hash(package):
     lines = (package / "sources").read_text().splitlines()
     pinned = dict(re.fullmatch(r"SHA512 \((.+)\) = ([0-9a-f]{128})", line).groups() for line in lines)
     assert sorted(pinned) == sorted(spec_sources(package / f"{package.name}.spec"))
-
-
-def test_development_container_runs_the_version_the_image_builds():
-    # development/assistant.sh installs sherpa-onnx==<the spec's `%global ver`>.
-    spec = (ROOT / "packages/dictation/sherpa-onnx/sherpa-onnx.spec").read_text()
-    assert re.search(r"^Version:\s*%\{ver\}$", spec, re.M)
-    assert re.search(r"^%global ver \d+\.\d+\.\d+$", spec, re.M)
-    script = (ROOT / "development/assistant.sh").read_text()
-    assert "sed -n 's/^%global ver //p' packages/dictation/sherpa-onnx/sherpa-onnx.spec" in script
 
 
 @pytest.mark.parametrize("package", PACKAGES, ids=lambda p: p.name)

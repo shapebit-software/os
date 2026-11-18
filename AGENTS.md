@@ -40,7 +40,7 @@ These rules cover the image: `packages/`, `distribution/`, `development/` and th
   names are unique across the repository. `packages/test_install.py` fails on
   a file that no install rule installs.
 
-- **Verify with unit tests.** Run `make test-unit` inside `make dev`. A change is
+- **Verify with unit tests.** Run `make test-unit`; make runs it in the development image. A change is
   done only when it passes. Everything else, such as `make static-checks`,
   `make test`, and `make test-release`, is optional, because CI runs it
   ([distribution/README.md](distribution/README.md#testing)); say which of these you did not run. Add

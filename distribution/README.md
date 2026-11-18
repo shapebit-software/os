@@ -94,7 +94,7 @@ boots the medium in QEMU with an empty disk of `DISK_SIZE`, checks the medium
 client of the installer's D-Bus interface. It never builds a disk any other
 way. `make installer-vm` opens the same VM in a window.
 
-The VM's EFI variables (`build/efivars.fd`) and TPM state (`build/tpm/`)
+The VM's EFI variables (`build/efivars.qcow2`) and TPM state (`build/tpm/`)
 belong to the machine, which the medium and the disk share; `make disk`
 resets them. [vm/mok-enroll.sh](vm/mok-enroll.sh) accepts the MOK on the VM,
 whose firmware starts with Microsoft's keys.
@@ -106,8 +106,9 @@ installer the first owner, `OWNER_NAME`, with the password in
 `build/owner-password`, and `LOCALE`, `KEYBOARD_LAYOUT`, and `TIME_ZONE`; the
 recovery key goes to `build/recovery-key`. There is no root password.
 
-**Updates from a local build.** `make publish` ([update/publish.sh](checks/update/publish.sh))
-pushes the image to a registry container on the host. The VM marks it
+**Updates from a local build.** `make publish` pushes the image
+([update/publish.sh](checks/update/publish.sh)) to a registry container on the
+host ([update/registry.sh](checks/update/registry.sh)). The VM marks it
 insecure, as it serves plain HTTP, and switches to it through `10.0.2.2`:
 
 ```bash
@@ -171,6 +172,9 @@ plans, in [plans.fmf](checks/plans.fmf), are `/plans/medium` (run by `make disk`
 function in a `check_*.py` of the fitting folder; a new file needs an entry
 in that folder's `main.fmf`.
 
+- **Where it runs.** The VMs, tmt, and pytest run in the development image
+  ([development](../development/README.md)), with KVM; only the engine's work,
+  such as image builds and the registry, runs on the host.
 - **Machines.** [vm/test-machine.sh](vm/test-machine.sh) clones the installed
   machine for each plan (a disk overlay with copies of its EFI variables and
   TPM state), runs tmt with `provision --how connect`, and discards the

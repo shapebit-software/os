@@ -39,29 +39,21 @@ fi
 
 [[ -f $DISK ]] || { echo "error: $DISK not found; run 'make disk'" >&2; exit 1; }
 
-# Secure Boot capable UEFI firmware (code:vars) on Fedora and Debian/Ubuntu.
-# The vars hold Microsoft's keys with Secure Boot on, as a factory PC has, so
-# shim starts and the image's certificate must be enrolled once. Override with
-# OVMF_CODE and OVMF_VARS.
-if [[ -z ${OVMF_CODE:-} ]]; then
-  for pair in \
-    /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd:/usr/share/edk2/ovmf/OVMF_VARS.secboot.fd \
-    /usr/share/OVMF/OVMF_CODE_4M.secboot.fd:/usr/share/OVMF/OVMF_VARS_4M.ms.fd; do
-    if [[ -f ${pair%%:*} ]]; then
-      OVMF_CODE=${pair%%:*} OVMF_VARS=${pair##*:}
-      break
-    fi
-  done
-fi
-[[ -n ${OVMF_CODE:-} ]] || { echo "error: OVMF firmware not found; set OVMF_CODE and OVMF_VARS" >&2; exit 1; }
+# Secure Boot capable UEFI firmware, edk2-ovmf's 4 MB build in the development
+# image, as openQA's machine has (distribution/openqa/vars.json): with the 2 MB
+# one, the installer's check that the TPM unlocks the new volume fails. The
+# vars hold Microsoft's keys with Secure Boot on, as a factory PC has, so shim
+# starts and the image's certificate must be enrolled once.
+code=/usr/share/edk2/ovmf/OVMF_CODE_4M.secboot.qcow2
+[[ -f $code ]] || { echo "error: $code not found; run this in the development image" >&2; exit 1; }
 
 # The EFI variables and the TPM state belong to the machine; disk.sh removes
 # both when it creates a new disk. The installer enrolls the machine's TPM, so
 # the medium and the installed disk must boot on the same machine.
-vars=$BUILD/efivars.fd
+vars=$BUILD/efivars.qcow2
 new_machine=0
 if [[ ! -f $vars ]]; then
-  cp "$OVMF_VARS" "$vars"
+  cp /usr/share/edk2/ovmf/OVMF_VARS_4M.secboot.qcow2 "$vars"
   new_machine=1
 fi
 tpm=$BUILD/tpm
@@ -76,8 +68,8 @@ swtpm socket --tpm2 --tpmstate dir="$tpm" --ctrl type=unixio,path="$tpm/swtpm.so
 args=(
   -machine q35,smm=on,accel=kvm -cpu host -m 4096 -smp 4
   -global driver=cfi.pflash01,property=secure,value=on
-  -drive "if=pflash,format=raw,unit=0,readonly=on,file=$OVMF_CODE"
-  -drive "if=pflash,format=raw,unit=1,file=$vars"
+  -drive "if=pflash,format=qcow2,unit=0,readonly=on,file=$code"
+  -drive "if=pflash,format=qcow2,unit=1,file=$vars"
   -drive "if=none,id=target,format=$DISK_FORMAT,discard=unmap,file=$DISK"
   -device "virtio-blk-pci,drive=target,serial=target,bootindex=2"
   -chardev "socket,id=tpm,path=$tpm/swtpm.sock"

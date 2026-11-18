@@ -1064,8 +1064,8 @@ Singleton {
     // In development only: the model's server, which systemd starts on
     // demand in the installed system (assistant/language-model@.socket). Here
     // it starts with the first request, where the assistant looks for it
-    // (assistant/models.py), and ends with the shell. `make dev-assistant`
-    // provides it (ASSISTANT_LLAMA).
+    // (assistant/models.py), and ends with the shell. Its RPM, which make run
+    // installs into its system from `make rpm`, provides it (ASSISTANT_LLAMA).
     readonly property string llama: tree ? Quickshell.env("ASSISTANT_LLAMA") ?? "" : ""
     property bool modelWanted
     // A model kept ready loads a little after the start, as the service has
