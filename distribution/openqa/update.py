@@ -20,7 +20,7 @@ LAYOUT = "/var/tmp/candidate"
 
 
 def run(self):
-    sut.copy_dir("/candidate", LAYOUT)
+    sut.copy_dir(get_var("CANDIDATE"), LAYOUT)
     sut.run(f"bootc switch --quiet --transport oci {LAYOUT}")
     boot_id = sut.run("cat /proc/sys/kernel/random/boot_id")
     sut.run("systemctl reboot", check=False)

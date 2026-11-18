@@ -197,7 +197,7 @@ in that folder's `main.fmf`.
 ### Level 2: openQA
 
 [openqa/](openqa/) is an openQA test distribution, run without a server by
-isotovideo in a container (`openqa.sh`). Modules are Python; `main.pm` lists
+isotovideo in the development image, with a network of its own (`openqa.sh`). Modules are Python; `main.pm` lists
 them, in the order `FLOW` chooses. The update flow installs with the
 published installer, so needles from the commits it was built from go along
 (`run.py needles`).

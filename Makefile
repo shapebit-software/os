@@ -35,8 +35,7 @@ DISK_FORMAT    ?= raw
 RESULTS        ?= $(BUILD)/results
 TEST_DEPS      ?= distribution/checks/.deps
 TEST_SSH_PORT  ?= 2223
-# The engine of the full OS tests (openQA's isotovideo), built from distribution/openqa/Containerfile.
-OPENQA_IMAGE   ?= localhost/shapebit-openqa:dev
+# The full OS tests' openQA test distribution, which isotovideo runs.
 OPENQA_DISTRI  ?= distribution/openqa
 # openQA's target disk: sparse, and large enough that the installer leaves the
 # whole reserve beside the home (packages/homes/README.md), as on a real computer.
@@ -103,7 +102,7 @@ RPMS           ?= $(BUILD)/rpms
 RPM_RELEASES   ?= https://github.com/shapebit-software/os/releases/download
 RPM_PUBLIC_KEY ?= packages/repositories/third-party.asc
 EXPORTS := SYFT_IMAGE RPM_RELEASES RPM_PUBLIC_KEY \
-  OPENQA_DISK_SIZE INSTALLER_REF IMAGE_REVISION IMAGE_ARCHIVE NEXT_ARCHIVE NEXT2_ARCHIVE FLOW UPDATE_ARCHIVE STABLE_REVISION OPENQA_DISTRI OPENQA_IMAGE RESULTS TEST_SSH_PORT DISK_FORMAT ENGINE IMAGE FEDORA_VERSION IMAGE_VERSION BUILD DISK DISK_SIZE INSTALLER_IMAGE MEDIUM MEDIUM_SIZE SSH_PORT SSH_KEY OWNER_NAME OWNER_PASSWORD RECOVERY_KEY LOCALE KEYBOARD_LAYOUT TIME_ZONE KEYS_DIR SIGNING_KEY BOOT_TIMEOUT REGISTRY_PORT UPDATE_REF DEV_UPDATE_REF
+  OPENQA_DISK_SIZE INSTALLER_REF IMAGE_REVISION IMAGE_ARCHIVE NEXT_ARCHIVE NEXT2_ARCHIVE FLOW UPDATE_ARCHIVE STABLE_REVISION OPENQA_DISTRI RESULTS TEST_SSH_PORT DISK_FORMAT ENGINE IMAGE FEDORA_VERSION IMAGE_VERSION BUILD DISK DISK_SIZE INSTALLER_IMAGE MEDIUM MEDIUM_SIZE SSH_PORT SSH_KEY OWNER_NAME OWNER_PASSWORD RECOVERY_KEY LOCALE KEYBOARD_LAYOUT TIME_ZONE KEYS_DIR SIGNING_KEY BOOT_TIMEOUT REGISTRY_PORT UPDATE_REF DEV_UPDATE_REF
 export $(EXPORTS) DEV_IMAGE DEV_ENGINE
 # The scripts get the same settings in the development image (development/dev.sh).
 export DEV_ENV := $(EXPORTS)
@@ -284,8 +283,8 @@ test-update: disk update-builds registry $(TEST_DEPS)/.done | $(DEV_DEP) ## On a
 	$(DEV_RUN) distribution/checks/update/publish.sh $(NEXT2_ARCHIVE) next2
 	$(DEV_RUN) distribution/vm/test-machine.sh update
 
-test-release: $(SSH_KEY) ## Full OS and UI tests of the built medium itself, with openQA (FLOW=install|update)
-	distribution/openqa/openqa.sh
+test-release: $(SSH_KEY) | $(DEV_DEP) ## Full OS and UI tests of the built medium itself, with openQA (FLOW=install|update)
+	DEV_NETWORK=private $(DEV_RUN) distribution/openqa/openqa.sh
 
 test-guest: $(TEST_DEPS)/.done | $(DEV_DEP) ## Run the system checks on another machine: GUEST=address IMAGE_DIGEST=sha256:...
 	$(DEV_RUN) env TEST_GUEST=$(GUEST) SSH_PORT=22 distribution/vm/tmt.sh installed $(RESULTS)/$(GUEST)-$$(date -u +%Y%m%dT%H%M%SZ)

@@ -4,14 +4,17 @@
 # KVM for the VMs, and the settings make exports (DEV_ENV, their names). With
 # --desktop, also with what a window needs from the host's session: its
 # Wayland display, its runtime folder (PipeWire, the session bus, the user
-# manager), the system bus, and the GPU.
+# manager), the system bus, and the GPU. With DEV_NETWORK=private, the command
+# gets a network of its own instead of the host's, for servers that listen on
+# every address, such as openQA's VNC.
 # Usage: dev.sh [--desktop] COMMAND... (called by make, with DEV_ENGINE, DEV_IMAGE, and DEV_ENV).
 set -euo pipefail
 : "${DEV_ENGINE:?}" "${DEV_IMAGE:?}" "${DEV_ENV:?}"
 
-args=(--rm --init --network host --security-opt label=disable
+args=(--rm --init --security-opt label=disable
   -v "$HOME:$HOME" -v "$PWD:$PWD" -w "$PWD" -e HOME -e USER -e MAKEFLAGS -e TERM)
 for name in $DEV_ENV; do args+=(-e "$name"); done
+[ "${DEV_NETWORK:-host}" = private ] || args+=(--network host)
 [ ! -t 0 ] || args+=(-it)
 
 # The developer's own user ID, so that what the command writes is theirs.

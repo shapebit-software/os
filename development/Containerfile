@@ -39,6 +39,11 @@ RUN dnf -y install dnf5-plugins && dnf -y copr enable sdegler/hyprland && dnf -y
     pipewire-utils wtype espeak-ng python3-onnxruntime python3-jwt python3-cryptography \
     && dnf clean all
 
+# isotovideo, openQA's test engine (distribution/openqa/), with Inline::Python
+# for the Python modules. Weak dependencies are off: they bring QEMU for every
+# architecture.
+RUN dnf -y install --setopt=install_weak_deps=False os-autoinst perl-Inline-Python && dnf clean all
+
 # The system's font (packages/font), which the shell draws with.
 COPY --from=font InstrumentSans.ttf /usr/share/fonts/instrument-sans/
 # The person's apps are the host's Flatpaks (flatpak).

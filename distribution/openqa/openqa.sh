@@ -9,9 +9,11 @@
 # with an earlier installer and release, whose screens may look as they did:
 # the needles of their commits, the record's revision and STABLE_REVISION, that
 # differ go along (distribution/openqa/run.py needles).
+# It runs in the development image (development/Containerfile), with a network
+# of its own, as isotovideo's VNC server listens on every address.
 # Usage: openqa.sh (called by `make test-release`).
 set -euo pipefail
-: "${ENGINE:?}" "${MEDIUM:?}" "${RESULTS:?}" "${SSH_KEY:?}" "${OWNER_NAME:?}" "${OPENQA_IMAGE:?}" "${OPENQA_DISTRI:?}" "${OPENQA_DISK_SIZE:?}" "${MEDIUM_SIZE:?}" "${FLOW:?}" "${FEDORA_VERSION:?}"
+: "${MEDIUM:?}" "${RESULTS:?}" "${SSH_KEY:?}" "${OWNER_NAME:?}" "${OPENQA_DISTRI:?}" "${OPENQA_DISK_SIZE:?}" "${MEDIUM_SIZE:?}" "${FLOW:?}"
 cd "$(dirname "$0")/../.."
 source distribution/vm/results.sh
 
@@ -24,25 +26,20 @@ if [[ $(sha256sum "$MEDIUM" | cut -d ' ' -f 1) != "$checksum" ]]; then
 fi
 
 start_run "release-$FLOW"
-mkdir "$run/pool"
+pool=$run/pool
+mkdir "$pool"
 
-$ENGINE build -q --build-arg FEDORA_VERSION="$FEDORA_VERSION" -t "$OPENQA_IMAGE" -f distribution/openqa/Containerfile distribution/openqa >/dev/null
-# ENGINE is unquoted on purpose: it may be a command with arguments, e.g. "sudo podman".
-update_digest= candidate=() older=()
+update_digest= older=()
 if [[ $FLOW == update ]]; then
   : "${UPDATE_ARCHIVE:?}"
   update_digest=$(python3 packages/installer/medium/provenance.py digest "$UPDATE_ARCHIVE")
   # A layout, as the installer's payload is: skopeo flattens Docker's nested
   # index, which bootc cannot read in a layout.
-  mkdir "$run/pool/candidate"
-  $ENGINE run --rm --entrypoint skopeo \
-    -v "$(realpath "$UPDATE_ARCHIVE"):/image.tar:ro,z" -v "$run/pool/candidate:/candidate:z" \
-    "$OPENQA_IMAGE" copy -q --preserve-digests oci-archive:/image.tar oci:/candidate
-  candidate=(-v "$run/pool/candidate:/candidate:ro,z")
+  skopeo copy -q --preserve-digests "oci-archive:$UPDATE_ARCHIVE" "oci:$pool/candidate"
 
   # A medium recorded before records had the revision has none.
   for revision in "$(python3 packages/installer/medium/provenance.py field "$record" revision '')" "${STABLE_REVISION:-}"; do
-    directory=$run/pool/older/${revision:0:7}
+    directory=$pool/older/${revision:0:7}
     [[ -n $revision && ! -d $directory ]] || continue
     # A shallow checkout, as CI's, lacks the commit.
     git cat-file -e "$revision^{commit}" 2>/dev/null || git fetch -q --depth=1 origin "$revision"
@@ -55,22 +52,16 @@ if [[ $FLOW == update ]]; then
     older+=("$directory")
   done
 fi
-python3 distribution/openqa/run.py needles "$OPENQA_DISTRI/needles" "$run/pool/needles" "${older[@]}"
+python3 distribution/openqa/run.py needles "$OPENQA_DISTRI/needles" "$pool/needles" "${older[@]}"
 python3 distribution/openqa/run.py vars "$record" "$SSH_KEY.pub" "$OWNER_NAME" "$MEDIUM_SIZE" "$OPENQA_DISK_SIZE" \
-  "$FLOW" "$update_digest" "$run/pool/vars.json"
+  "$(realpath "$OPENQA_DISTRI")" "$(realpath "$MEDIUM")" "$pool" "$FLOW" "$update_digest" "$pool/vars.json"
 
-$ENGINE run --rm --device /dev/kvm -w /pool \
-  -v "$(realpath "$OPENQA_DISTRI"):/distri:ro,z" -v "$run/pool/needles:/distri/needles:ro,z" \
-  -v "$(realpath "$MEDIUM"):/medium/installer.img:ro,z" \
-  -v "$(realpath "$SSH_KEY"):/ssh/key:ro,z" \
-  -v "$run/pool:/pool:z" "${candidate[@]}" \
-  -e LC_ALL=C.UTF-8 -e SSH_KEY=/ssh/key -e SSH_PORT=2222 -e OWNER_NAME="$OWNER_NAME" \
-  "$OPENQA_IMAGE" -d 2>&1 | tee "$run/isotovideo.log" || outcome=failed
+# isotovideo works in its pool; the port is the one vars.json forwards.
+key=$(realpath "$SSH_KEY")
+(cd "$pool" && LC_ALL=C.UTF-8 SSH_KEY=$key SSH_PORT=2222 isotovideo -d) 2>&1 | tee "$run/isotovideo.log" || outcome=failed
 
-# The container wrote as root; the results are the caller's, and the machine's
-# disks and the candidate are not results.
-$ENGINE run --rm -v "$run/pool:/pool:z" --entrypoint sh "$OPENQA_IMAGE" -c \
-  "rm -rf /pool/raid /pool/tpm1 /pool/qemuscreenshot /pool/candidate /pool/older /pool/needles; chown -R $(id -u):$(id -g) /pool"
+# The machine's disks and the candidate are not results.
+rm -rf "$pool/raid" "$pool/tpm1" "$pool/qemuscreenshot" "$pool/candidate" "$pool/older" "$pool/needles"
 
-python3 distribution/openqa/run.py check "$run/pool/testresults" || outcome=failed
+python3 distribution/openqa/run.py check "$pool/testresults" || outcome=failed
 finish_run

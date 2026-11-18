@@ -16,7 +16,7 @@ def run_vars(tmp_path, *flow):
     record.write_text(json.dumps({"image_digest": "sha256:abc"}))
     key = tmp_path / "id.pub"
     key.write_bytes(b"ssh-ed25519 AAAA")
-    return run.run_vars(record, key, "dev", "7G", "20G", *flow)
+    return run.run_vars(record, key, "dev", "7G", "20G", "/distri", "/medium.img", tmp_path / "pool", *flow)
 
 
 def test_vars_add_the_runs_values_to_the_fixed_ones(tmp_path):
@@ -29,6 +29,13 @@ def test_vars_add_the_runs_values_to_the_fixed_ones(tmp_path):
     assert values["QEMU_APPEND"].endswith("ssh.authorized_keys.root=c3NoLWVkMjU1MTkgQUFBQQ==")
 
 
+def test_vars_name_the_runs_paths(tmp_path):
+    values = run_vars(tmp_path)
+    assert (values["CASEDIR"], values["HDD_1"]) == ("/distri", "/medium.img")
+    assert values["NEEDLES_DIR"] == str(tmp_path / "pool/needles")
+    assert values["QEMUTPM_PATH_PREFIX"] == str(tmp_path / "pool/tpm")
+
+
 def test_install_is_the_flow_by_default(tmp_path):
     values = run_vars(tmp_path)
     assert values["FLOW"] == "install"
@@ -39,6 +46,7 @@ def test_update_moves_to_the_digest_given(tmp_path):
     values = run_vars(tmp_path, "update", "sha256:new")
     assert values["FLOW"] == "update"
     assert values["UPDATE_DIGEST"] == "sha256:new"
+    assert values["CANDIDATE"] == str(tmp_path / "pool/candidate")
     assert values["IMAGE_DIGEST"] == "sha256:abc"
 
 

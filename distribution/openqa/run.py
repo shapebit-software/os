@@ -2,10 +2,12 @@
 """What distribution/openqa/openqa.sh needs around isotovideo: the variables of a run, its
 needles, and its result. The variables that do not change are in vars.json.
 
-Usage: run.py vars RECORD PUBLIC_KEY OWNER MEDIUM_SIZE DISK_SIZE FLOW UPDATE_DIGEST OUT
+Usage: run.py vars RECORD PUBLIC_KEY OWNER MEDIUM_SIZE DISK_SIZE CASEDIR MEDIUM POOL FLOW UPDATE_DIGEST OUT
        run.py needles NEEDLES OUT [OLDER...]   the run's needles, in OUT
        run.py check TESTRESULTS   fail unless every test module passed
 
+CASEDIR is this test distribution, MEDIUM the medium, and POOL the run's
+working directory, with its needles and, for update, the candidate's layout.
 FLOW is install or update (distribution/openqa/main.pm); UPDATE_DIGEST is the digest of
 the build that update moves to, and empty for install. OLDER are needle
 directories of earlier commits, each named after its commit.
@@ -20,7 +22,8 @@ import string
 import sys
 
 
-def run_vars(record, public_key, owner, medium_size, disk_size, flow="install", update_digest=""):
+def run_vars(record, public_key, owner, medium_size, disk_size, casedir, medium, pool, flow="install",
+             update_digest=""):
     """The sizes are in gigabytes, as `7G`; update needs the digest it moves to.
     The machine lives for this run, and so does its owner's password; vars.json,
     with it, stays with the results. Only letters and digits: the keys typed are
@@ -29,7 +32,13 @@ def run_vars(record, public_key, owner, medium_size, disk_size, flow="install", 
         raise ValueError(f"FLOW {flow!r} with UPDATE_DIGEST {update_digest!r}")
     credential = base64.b64encode(pathlib.Path(public_key).read_bytes()).decode()
     static = pathlib.Path(__file__).with_name("vars.json").read_text()
+    pool = pathlib.Path(pool)
     return json.loads(static) | {
+        "CASEDIR": str(casedir),
+        "PRODUCTDIR": str(casedir),
+        "NEEDLES_DIR": str(pool / "needles"),
+        "HDD_1": str(medium),
+        "QEMUTPM_PATH_PREFIX": str(pool / "tpm"),
         "HDDSIZEGB_1": int(medium_size.removesuffix("G")),
         "HDDSIZEGB_2": int(disk_size.removesuffix("G")),
         "QEMU_APPEND": "global driver=cfi.pflash01,property=secure,value=on "
@@ -38,7 +47,7 @@ def run_vars(record, public_key, owner, medium_size, disk_size, flow="install", 
         "OWNER_PASSWORD": "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(24)),
         "IMAGE_DIGEST": json.loads(pathlib.Path(record).read_text())["image_digest"],
         "FLOW": flow,
-    } | ({"UPDATE_DIGEST": update_digest} if flow == "update" else {})
+    } | ({"UPDATE_DIGEST": update_digest, "CANDIDATE": str(pool / "candidate")} if flow == "update" else {})
 
 
 def needles(current, out, *older):
