@@ -127,8 +127,9 @@ def test_accent_text_reads_on_night_for_every_custom_hue(hue):
     assert contrast(accent_ink(*ACCENTS["custom"], hue), NAMED["night"]) >= 4.5
 
 
-# Every QML file that takes its colors from Colors, by way of its Theme.qml.
-THEMED = [*sorted((ROOT / "packages/shell").rglob("*.qml")),
+# Every QML file that takes its colors from Colors, by way of its Theme.qml;
+# not the QML tests (tst_*.qml), whose colors are data.
+THEMED = [*sorted(p for p in (ROOT / "packages/shell").rglob("*.qml") if not p.name.startswith("tst_")),
           *sorted((ROOT / "packages/login/theme").glob("*.qml")),
           *sorted((ROOT / "packages/installer/ui/qml").glob("*.qml"))]
 # Artwork, whose colors are its own: the wallpapers.

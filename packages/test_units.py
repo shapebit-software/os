@@ -10,7 +10,9 @@ import subprocess
 import pytest
 
 PACKAGES = pathlib.Path(__file__).parent
-UNITS = sorted(p for pattern in ("*/*.service", "*/*.timer") for p in PACKAGES.glob(pattern))
+# Not D-Bus's service files (*.dbus.service), which only share the suffix.
+UNITS = sorted(p for pattern in ("*/*.service", "*/*.timer") for p in PACKAGES.glob(pattern)
+               if not p.name.endswith(".dbus.service"))
 # Every feature with a spec, but the installer, which is only on the medium,
 # and shapebit-system itself.
 FEATURES = sorted(p.parent.name for p in PACKAGES.glob("*/*.spec") if p.parent.name not in {"installer", "system"})

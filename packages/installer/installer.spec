@@ -37,10 +37,13 @@ Requires:       google-noto-sans-mono-fonts
 
 %description
 ShapeBit's installer: the full-screen interface, the backend that installs the
-system with bootc, installerctl, and their units, presets, user, and D-Bus policy.
+system with bootc, installerctl, and their units, presets, user, and D-Bus
+policy.
 
 %build
-%cmake -G Ninja
+# Qt's project setup gives installed binaries an $ORIGIN RUNPATH; in /usr/bin,
+# with their libraries in the system's, they need none.
+%cmake -G Ninja -DCMAKE_SKIP_INSTALL_RPATH=ON
 %cmake_build
 
 %install

@@ -37,7 +37,7 @@ echo '%%license /usr/share/licenses/shapebit/LICENSE' >>files
 %shapebit_install(n) \
 make -C %{packages}/%1 install DESTDIR=%{buildroot} FEDORA=%{fedora} IMAGE_VERSION=%{image_version} IMAGE_REVISION=%{image_revision} \
 (cd %{buildroot} \
- find . ! -type d | sed -e 's|^\.||' -e '\|^/usr/share/licenses/shapebit/|d' \
- find . -mindepth 1 -type d | sed -e 's|^\.||' -e '\|^/usr/share/licenses/shapebit$|d' | while read -r d; do [ -d "$d" ] || echo "%%dir $d"; done \
+ find . ! -type d | cut -c2- | awk 'index($0, "/usr/share/licenses/shapebit/") != 1' \
+ find . -mindepth 1 -type d | cut -c2- | awk '$0 != "/usr/share/licenses/shapebit"' | while read -r d; do [ -d "$d" ] || echo "%%dir $d"; done \
 ) >files \
 %{!-n:%shapebit_license_install}

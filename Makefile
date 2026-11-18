@@ -136,7 +136,7 @@ colors: ## Write the QML module Colors's values from the system's colors (packag
 static-checks: lint validate ## Lint and validate, without building or running the code; in Fedora, as `make dev`
 
 # Every shell and Python file of the repository, by its extension or its first
-# line. openQA's modules are left out: their API comes from
+# line; a file with a #! line must be executable. openQA's modules are left out: their API comes from
 # `from testapi import *`, so pyflakes cannot tell which of its names exist.
 lint: $(VENV)/.done ## Lint the shell, the Python, the QML, and the test plans; in Fedora, as `make dev`
 	$(MAKE) -C packages/shell lint
@@ -145,6 +145,7 @@ lint: $(VENV)/.done ## Lint the shell, the Python, the QML, and the test plans; 
 	for file in $$(git ls-files -co --exclude-standard); do \
 	  [ -f "$$file" ] || continue; \
 	  first=$$(head -c 100 "$$file" | head -n 1); \
+	  case $$first in '#!'*) [ -x "$$file" ] || { echo "error: $$file has a #! line but is not executable" >&2; status=1; } ;; esac; \
 	  case $$file:$$first in \
 	    *.sh:* | *:'#!'*bash* | *:'#!'*/sh*) bash -n "$$file" || status=1 ;; \
 	    *.py:* | *:'#!'*python*) grep -q '^from testapi import' "$$file" || python="$$python $$file" ;; \

@@ -10,4 +10,10 @@ Filters = [
     # shapebit-system only requires the features; it installs nothing itself.
     'shapebit-system.noarch: E: no-binary',
     'shapebit-system.noarch: W: no-documentation',
+    # Summaries and descriptions name programs and formats, such as Flathub,
+    # TOML, bootc, and Hyprland, which no dictionary knows.
+    'spelling-error',
+    # Qt finds QML modules only in its own folder, which is under /usr/lib64;
+    # the module itself is text, the same on every architecture.
+    'shapebit-colors.noarch: E: noarch-with-lib64',
 ]

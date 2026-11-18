@@ -30,11 +30,15 @@ def test_every_feature_is_an_unchanged_package_at_the_images_version(host, sh):
     required = {line.split()[0] for line in sh("rpm -q --requires shapebit-system").splitlines()}
     assert set(own) - {"shapebit-system"} <= required
     assert set(sh("rpm -q --qf '%{VERSION}\\n' " + " ".join(own)).split()) == {version}
-    paths = {"/usr/lib/os-release": "shapebit-release", "/usr/share/licenses/shapebit/LICENSE": "shapebit-licenses",
+    paths = {"/usr/lib/os-release": "shapebit-release",
              "/usr/libexec/os-update": "shapebit-updates", "/usr/share/distrobox/distrobox.conf": "shapebit-apps",
              "/usr/share/plymouth/themes/boot/throbber-0001.png": "shapebit-splash"}
     owners = sh("rpm -qf --qf '%{NAME}\\n' " + " ".join(paths)).split()
     assert owners == list(paths.values())
+    # ShapeBit's license is one file that every package of its own code owns;
+    # the font is others' work, with its own (packages/package.macros).
+    license_owners = sh("rpm -qf --qf '%{NAME}\\n' /usr/share/licenses/shapebit/LICENSE").split()
+    assert sorted(license_owners) == [name for name in own if name != "shapebit-font"]
     # shapebit-release stands in for Fedora's identity package.
     assert not host.package("fedora-release-identity-basic").is_installed
     assert host.package("fedora-release-common").is_installed
