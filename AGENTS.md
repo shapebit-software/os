@@ -17,8 +17,11 @@
 
 ## Image
 
-These rules cover the image: `packages/`, `distribution/`, `development/` and the
-`Makefile`.
+These rules cover the image: `packages/`, `images/`, `tests/`, `release/`
+and the `Makefile`. The top level reads as the pipeline: what the OS is made
+of (`packages/`), how it is built (`images/`: `foundation`, `development`,
+`system`, `seal`), how it is checked (`tests/`), and how it is published
+(`release/`).
 
 - **A folder in `packages/` is a feature and a package.** It holds
   everything about the feature, side by side: its code, its scripts, its
@@ -43,8 +46,8 @@ These rules cover the image: `packages/`, `distribution/`, `development/` and th
 - **Verify with unit tests.** Run `make test-unit`; make runs it in the development image. A change is
   done only when it passes. Everything else, such as `make static-checks`,
   `make test`, and `make test-release`, is optional, because CI runs it
-  ([distribution/README.md](distribution/README.md#testing)); say which of these you did not run. Add
-  `ENGINE=docker` on hosts without Podman.
+  ([tests/README.md](tests/README.md)); say which of these you did not run. One
+  engine builds and runs every image: set `ENGINE=docker` on hosts without Podman.
 - **Prefer built-in tools.** Use what bootc, systemd, the Fedora base image, or
   QEMU already provide, such as `kargs.d`, systemd credentials, tmpfiles.d,
   sysusers.d, and presets. Add a package, script, or service only when nothing
@@ -52,22 +55,24 @@ These rules cover the image: `packages/`, `distribution/`, `development/` and th
 - **Make owns configuration.** Defaults live only in the `Makefile`. Scripts
   read them from the environment and fail fast on missing values
   (`: "${VAR:?}"`).
-- **`distribution/` only assembles.** It builds every package of `packages/` from
-  the same commit, reproducibly (`SOURCE_DATE_EPOCH`), checks them with
-  rpmlint (`packages/rpmlint.toml`), and installs them with what they require.
+- **`images/` only assembles.** One foundation has what the specs require
+  (`packages/requires.sh`); the OS and the development image start from it,
+  so no package list is written twice. The OS image builds every package of
+  `packages/` from the same commit, reproducibly (`SOURCE_DATE_EPOCH`), checks
+  them with rpmlint (`packages/rpmlint.toml`), and installs them on it.
   The build fails on a file under `/usr` that no package owns, or that differs
-  from its package (`distribution/image/packaged.py`).
+  from its package (`images/system/packaged.py`).
 - **Vendor defaults go under `/usr`,** by a feature's install rules. `/etc`
   and `/var` are machine state.
 - **Every behavior gets a check, beside what it checks.** See
-  [distribution/README.md](distribution/README.md#testing). Logic that needs no machine gets a unit
-  test next to its code. The built OS is checked in `distribution/`: its content in
-  `content/`; the installer medium in `medium/`; the installed, running system
-  in `installed/`; updates in `update/`; what a person sees and does in
-  `openqa/`. Write checks in Python with pytest and Testinfra. The system
+  [tests/README.md](tests/README.md). Logic that needs no machine gets a unit
+  test next to its code. The built OS is checked in `tests/checks/`: its
+  content in `content/`; the installer medium in `medium/`; the installed,
+  running system in `installed/`; updates in `update/`; what a person sees and
+  does in `tests/openqa/`. Write checks in Python with pytest and Testinfra. The system
   under test gets nothing installed for a check: use the commands it ships. Only checks that
   need a host-side secret, such as the recovery key, run from the host, in
-  `distribution/checks/installed/check_recovery_key.py`.
+  `tests/checks/installed/check_recovery_key.py`.
 - **A bug becomes a regression test** at the lowest level that shows it.
 - **Disks are installed by the installer.** `make disk` boots the installer
   medium and installs through it, so the tests cover what users run. Do not
@@ -84,6 +89,7 @@ These rules cover the image: `packages/`, `distribution/`, `development/` and th
   shapebit.software/docs. It describes what they see and do, in plain words;
   nothing about how it is built, and nothing that isn't built yet.
 - **Developer documentation lives beside its code:** a feature's README in
-  `packages/`, the OS as a whole in `distribution/README.md`. A README says
+  `packages/`, the build in `images/README.md`, testing in `tests/README.md`,
+  releases in `release/README.md`. A README says
   only what the code and its comments can't: the intent, the structure, the
   rules, and what is planned. Comments cite the README that owns a fact.

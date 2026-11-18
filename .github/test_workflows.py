@@ -30,7 +30,7 @@ SIGNING_BUILD = re.compile(r"make (-o image )?(image|installer|update-builds)( [
 
 
 def test_release_keys_are_on_the_runner_only_for_signing_builds():
-    # distribution/README.md: the keys come only through the release-keys
+    # images/README.md: the keys come only through the release-keys
     # action, and between it and their removal only builds that sign run.
     restored = 0
     for path in GITHUB.glob("workflows/*.yml"):

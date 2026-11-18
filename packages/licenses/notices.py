@@ -132,7 +132,7 @@ def rpm_source(package, cache):
     path = directory / name
     if not path.exists():
         # dnf uses the source repository metadata; Koji retains older versions
-        # that have left the mirrors, as in distribution/release/sources.py.
+        # that have left the mirrors, as in release/sources.py.
         subprocess.run(["dnf", "-q", "download", "--enablerepo=*-source", "--skip-unavailable",
                         "--destdir", str(directory), name.removesuffix(".src.rpm") + ".src"], check=False)
         if not path.exists():

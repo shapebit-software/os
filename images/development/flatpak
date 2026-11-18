@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# The host's Flatpak, in the development image (images/development/Containerfile): the
+# person's apps there are the host's. The host's user manager runs it, reached
+# through the runtime folder that make run shares, with the desktop's display
+# and session bus, so the apps open in the desktop under development and ask
+# its portals.
+# Usage: flatpak ARGUMENT... (installed as /usr/bin/flatpak in the image).
+set -euo pipefail
+exec systemd-run --user --quiet --collect --pipe --wait \
+  -E WAYLAND_DISPLAY -E DBUS_SESSION_BUS_ADDRESS flatpak "$@"

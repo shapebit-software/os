@@ -82,7 +82,7 @@ medium holds no secrets.
 
 ## Development
 
-In the development image (`make dev`, [development](../../development/README.md)),
+In the development image (`make dev`, [development](../../images/development/README.md)),
 from the repository's root, build and test:
 
 ```sh

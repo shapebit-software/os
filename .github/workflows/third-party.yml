@@ -6,7 +6,7 @@
 # its binary and source RPMs as assets; those releases are never "latest", so
 # they stay apart from the OS's. Then the repository of every rpm-* release is
 # written, signed (make rpm-repo), and deployed to GitHub Pages, where the image
-# build and distribution/release/sources.py read it (packages/repositories/third-party.repo).
+# build and release/sources.py read it (packages/repositories/third-party.repo).
 # The signing key is the secret RPM_SIGNING_KEY of the environment "Signing".
 name: Third-party packages
 

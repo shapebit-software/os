@@ -75,7 +75,7 @@ to eight; a workspace goes away once it has no windows.
 
 `make lint validate` checks the shell and the compositor's configuration, and
 `make run` runs the desktop in a window, in the development image
-([development](../../development/README.md)).
+([development](../../images/development/README.md)).
 
 Each folder of `shell/` is a QML module, `qs.<folder>`. Every QML file must be
 listed in its folder's `qmldir`, and a file imports the other folders it uses.
@@ -100,13 +100,13 @@ package:
 | `extras/`          | The extras (large optional downloads, such as models) with their hashes, the helper that installs them, and their license texts. |
 | `licenses/`        | The reader of Settings > Licenses: each component's texts, from `/usr/share/licenses` and the RPM database.     |
 
-Development tools are in [`development/`](../../development/README.md).
+Development tools are in [`images/development/`](../../images/development/README.md).
 
 ## Not yet implemented
 
 - The assistant reads no files' contents and no clipboard. `make run` needs
   sherpa-onnx, built by `make rpm`, and Parakeet to dictate
-  ([development](../../development/README.md#the-assistant-and-dictation)). The OS image has sherpa-onnx;
+  ([development](../../images/development/README.md#the-assistant-and-dictation)). The OS image has sherpa-onnx;
   Parakeet is an extra, downloaded from Welcome or Settings > Assistant
   (`extras/`).
 - Settings has only what works: no first day of the week.

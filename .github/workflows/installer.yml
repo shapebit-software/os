@@ -21,6 +21,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 # Not os-releases: this one waits for approval, and must not hold up Candidate
 # and Release meanwhile. It pins os:stable by digest when it starts.
@@ -30,6 +31,9 @@ concurrency:
 
 env:
   ENGINE: docker
+  # The foundation that Candidate published last (images/README.md#foundation),
+  # which make takes when what the specs require is unchanged.
+  FOUNDATION_CACHE: ghcr.io/shapebit-software/os/foundation:latest
   REPOSITORY: ghcr.io/shapebit-software/os
   INSTALLERS: ghcr.io/shapebit-software/os/installer
 
@@ -87,7 +91,7 @@ jobs:
         run: |
           mkdir -p build
           skopeo copy -q --preserve-digests "docker://$IMAGE" oci-archive:build/image.tar
-          distribution/release/sources.py pull "$REPOSITORY:$VERSION-sources" "$RUNNER_TEMP/os-sources"
+          release/sources.py pull "$REPOSITORY:$VERSION-sources" "$RUNNER_TEMP/os-sources"
 
       - uses: ./.github/actions/release-keys
         with:
@@ -111,10 +115,10 @@ jobs:
         run: |
           xz -T0 -c build/installer.img >build/shapebit-installer.img.xz
           cp build/installer.img.json build/shapebit-installer.img.json
-          python3 distribution/release/artifact.py pack build/installer-artifact application/vnd.shapebit.installer.v1 \
+          python3 release/artifact.py pack build/installer-artifact application/vnd.shapebit.installer.v1 \
             "ShapeBit installer $VERSION" build/shapebit-installer.img.xz build/shapebit-installer.img.json
           skopeo copy -q oci:build/installer-artifact "docker://$INSTALLERS:$VERSION"
-          distribution/release/sources.py push build/installer-sources "$INSTALLERS:$VERSION-sources" \
+          release/sources.py push build/installer-sources "$INSTALLERS:$VERSION-sources" \
             "ShapeBit installer $VERSION: sources"
 
   # Install from the medium, without its UI, and check the system.
@@ -195,9 +199,9 @@ jobs:
           # skopeo does not create the destination's parent: a fresh checkout has no build/.
           mkdir -p build
           skopeo copy -q "docker://$INSTALLERS:$VERSION" oci:build/installer-artifact
-          python3 distribution/release/artifact.py unpack build/installer-artifact build/upload
-          distribution/release/sources.py pull "$INSTALLERS:$VERSION-sources" build/installer-sources
-          distribution/release/sources.py tar build/installer-sources build/upload/shapebit-installer-sources.tar
+          python3 release/artifact.py unpack build/installer-artifact build/upload
+          release/sources.py pull "$INSTALLERS:$VERSION-sources" build/installer-sources
+          release/sources.py tar build/installer-sources build/upload/shapebit-installer-sources.tar
           expected=$(python3 packages/installer/medium/provenance.py field build/upload/shapebit-installer.img.json sources_sha256)
           echo "$expected  build/upload/shapebit-installer-sources.tar" | sha256sum -c --quiet -
 

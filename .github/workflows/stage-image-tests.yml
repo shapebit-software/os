@@ -8,9 +8,13 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 env:
   ENGINE: docker
+  # The foundation that Candidate published last (images/README.md#foundation),
+  # which make takes when what the specs require is unchanged.
+  FOUNDATION_CACHE: ghcr.io/shapebit-software/os/foundation:latest
 
 jobs:
   image-tests:
@@ -22,5 +26,6 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
           docker image prune -af >/dev/null
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/ghcr-login
       - name: Build and test the image
         run: make test-image

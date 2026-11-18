@@ -15,7 +15,7 @@ trap 'rm -rf "$work"' EXIT
 # skopeo creates neither: a fresh checkout has no BUILD.
 mkdir -p "$work" "$(dirname "$MEDIUM")"
 skopeo copy -q "docker://$ref" "oci:$work/layout"
-python3 distribution/release/artifact.py unpack "$work/layout" "$work/files" shapebit-installer.img.xz shapebit-installer.img.json
+python3 release/artifact.py unpack "$work/layout" "$work/files" shapebit-installer.img.xz shapebit-installer.img.json
 
 xz -dc -T0 "$work/files/shapebit-installer.img.xz" >"$MEDIUM"
 cp "$work/files/shapebit-installer.img.json" "$MEDIUM.json"

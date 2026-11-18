@@ -7,15 +7,21 @@ on:
 
 permissions:
   contents: read
+  packages: read
+
+env:
+  ENGINE: docker
+  # The foundation that Candidate published last (images/README.md#foundation),
+  # which make takes when what the specs require is unchanged.
+  FOUNDATION_CACHE: ghcr.io/shapebit-software/os/foundation:latest
 
 jobs:
   static-checks:
     runs-on: ubuntu-24.04
-    env:
-      ENGINE: docker
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # In the development image (development/Containerfile), as on a developer's computer.
+      - uses: ./.github/actions/ghcr-login
+      # In the development image (images/development/Containerfile), as on a developer's computer.
       - name: Development image
         run: make dev-image
       - name: Lint

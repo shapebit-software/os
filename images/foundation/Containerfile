@@ -1,0 +1,51 @@
+# check=skip=InvalidDefaultArgInFrom
+# The foundation (images/README.md#foundation): Fedora's bootc image with what
+# ShapeBit's packages run on, their specs' Requires, and none of ShapeBit's own
+# files. The OS image and the development image start from it, so both have
+# the same packages. BASE is the bootc image by digest, and RECIPE what the
+# foundation is made from; foundation.sh passes both, and labels record them.
+ARG BASE
+FROM ${BASE} AS base
+
+# Only the list of packages, so that the install below runs again only when the
+# list changes, not with every change to a package.
+FROM base AS needs
+RUN --mount=type=bind,from=packages,target=/src mkdir /out && /src/requires.sh >/out/requires
+
+# In one transaction, without weak dependencies, so that every package is there
+# because a spec requires it, and without Fedora's count of systems (as the
+# repositories package sets for later). Fedora has no Hyprland, so it comes from
+# a third-party COPR for now (hyprland.repo); what else Fedora lacks, such as
+# sherpa-onnx and llama-server, ShapeBit builds itself (third-party.repo, signed
+# with the key of third-party.asc; packages/repositories/README.md). The
+# repositories package ships both beside Fedora's repositories, turned off; here
+# they are mounted from its source and turned on. dnf's cache is a build cache,
+# kept between builds and never in the image. The rest of dnf's state in /var
+# and /run is removed, since bootc ignores it on install; so are SDDM's runtime
+# directory, which tmpfiles.d creates on each boot, and libX11's empty cache.
+# Hyprland's own session entry is not installed, so the login screen offers
+# only the desktop's, nor is UWSM's unit manager, which no person needs to see
+# in Apps: rpm's %_netsharedpath skips them and records them as not installed,
+# so the packages still verify (images/system/packaged.py). Fedora's Cisco
+# repository is left out: Cisco pays the H.264 patent royalties only for the
+# openh264 that people download from Cisco, so an image that carried it would
+# redistribute it unlicensed; Fedora's noopenh264 stands in, and apps get H.264
+# from Flathub's extension, which downloads from Cisco.
+FROM base
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    --mount=type=bind,from=needs,source=/out,target=/run/needs \
+    --mount=type=bind,from=packages,source=repositories/hyprland.repo,target=/etc/yum.repos.d/hyprland.repo \
+    --mount=type=bind,from=packages,source=repositories/third-party.repo,target=/etc/yum.repos.d/third-party.repo \
+    --mount=type=bind,from=packages,source=repositories/third-party.asc,target=/usr/share/pki/rpm-gpg/third-party.asc <<'EOF'
+set -euo pipefail
+echo '%_netsharedpath /usr/share/wayland-sessions/hyprland.desktop:/usr/share/applications/uuctl.desktop' \
+  >/etc/rpm/macros.netshared
+dnf -y install --disablerepo=fedora-cisco-openh264 --enablerepo=hyprland,shapebit --setopt=install_weak_deps=False \
+  --setopt='*.countme=0' $(cat /run/needs/requires)
+rm -rf /etc/rpm/macros.netshared /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf /run/sddm /var/cache/libX11
+EOF
+
+ARG BASE
+ARG RECIPE
+LABEL software.shapebit.foundation.base="$BASE" \
+      software.shapebit.foundation.recipe="$RECIPE"

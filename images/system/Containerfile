@@ -1,0 +1,155 @@
+# check=skip=InvalidDefaultArgInFrom
+# ShapeBit OS: bootc image, booted by systemd-boot from a signed UKI.
+# This is the unsealed system; images/seal adds the UKI (see
+# images/seal/seal.sh), and packages/installer/medium/Containerfile builds the
+# installer medium from it. It is ShapeBit's own packages (build context
+# `packages`: a folder with a spec is a package; see packages/package.macros),
+# built here from the same commit, on FOUNDATION, the foundation image, which
+# has what they require (images/foundation). BASE is the Fedora bootc image
+# that the foundation was built from, by digest (its label
+# software.shapebit.foundation.base); make passes both. Signing needs the key
+# as build secrets signing.key and signing.crt, and KEYS_ID, which changes
+# with it. Only signed binaries and public keys reach the image.
+ARG FOUNDATION
+ARG BASE
+FROM ${FOUNDATION} AS foundation
+
+# ShapeBit's own packages, at the image's version and commit, with every time
+# in them the commit's (SOURCE_DATE_EPOCH): the same commit gives the same
+# packages. systemd-boot is signed here, with the certificate that the person
+# enrolls; the key is a build secret, and only the signed binary and the
+# certificate enter the boot package. shapebit-release stands in for Fedora's
+# identity package at the version of the base image's fedora-release-common,
+# which asks for one. rpmlint checks every package for packaging mistakes;
+# packages/rpmlint.toml says which of its findings are accepted, and why.
+# shapebit-licenses is built last (the licenses stage), once everything its
+# reads is installed. A spec at the top of a feature folder is ShapeBit's own;
+# an external package (a folder with a sources file, below a feature) is in
+# the foundation, from ShapeBit's repository. The installer is only on the
+# medium.
+FROM foundation AS packages-build
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    --mount=type=bind,from=packages,target=/src \
+    dnf -y install rpm-build rpmlint sbsigntools openssl $(/src/requires.sh --build) && \
+    mkdir /out
+ARG IMAGE_VERSION
+ARG IMAGE_REVISION
+ARG SOURCE_DATE_EPOCH
+ARG KEYS_ID
+RUN --mount=type=bind,from=packages,target=/src \
+    --mount=type=secret,id=signing.key --mount=type=secret,id=signing.crt <<'EOF'
+set -euo pipefail
+: "${SOURCE_DATE_EPOCH:?}"
+export SOURCE_DATE_EPOCH
+mkdir /tmp/signed
+sbsign --key /run/secrets/signing.key --cert /run/secrets/signing.crt \
+  --output /tmp/signed/systemd-bootx64.efi.signed /usr/lib/systemd/boot/efi/systemd-bootx64.efi
+openssl x509 -in /run/secrets/signing.crt -outform DER -out /tmp/signed/enroll-this-key.cer
+for spec in /src/*/*.spec; do
+  case $spec in /src/installer/* | /src/licenses/*) continue ;; esac
+  rpmbuild -bb --quiet --define "_topdir /tmp/rpm" --define "packages /src" \
+    --define "image_version $IMAGE_VERSION" --define "image_revision $IMAGE_REVISION" \
+    --define "signed_dir /tmp/signed" \
+    --define "fedora_release $(rpm -q --qf '%{VERSION}-%{RELEASE}' fedora-release-common)" \
+    --define "systemd_boot $(rpm -q --qf '%{VERSION}-%{RELEASE}' systemd-boot-unsigned)" "$spec"
+done
+cp /tmp/rpm/RPMS/*/*.rpm /out/
+rpmlint --config /src/rpmlint.toml /out/*.rpm
+EOF
+
+# What under /usr no RPM has as it is in the base image (images/system/packaged.py):
+# the one the foundation was built from, before it installed anything.
+FROM ${BASE} AS base-packaged
+RUN --mount=type=bind,source=packaged.py,target=/run/packaged.py \
+    mkdir /out && python3 /run/packaged.py list >/out/base
+
+# The foundation has what the packages run on: their specs' Requires, each with
+# the reason for it there (images/foundation/Containerfile).
+FROM foundation AS system
+
+LABEL org.opencontainers.image.title="ShapeBit OS" \
+      org.opencontainers.image.url="https://shapebit.software" \
+      org.opencontainers.image.source="https://github.com/shapebit-software/os"
+
+# ShapeBit's own packages, which need nothing the image lacks; shapebit-release
+# replaces Fedora's identity package. They are built in this build, so they
+# carry no signature. shapebit-system, which requires them all, comes last, with
+# shapebit-licenses, which holds the collected license notices.
+RUN --mount=type=bind,from=packages-build,source=/out,target=/run/packages \
+    dnf -y install --disablerepo='*' --nogpgcheck --allowerasing $(ls /run/packages/*.rpm | grep -v '/shapebit-system-') && \
+    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf
+
+# The boot splash (Plymouth): ShapeBit's theme, packages/splash, with the
+# spinner theme's images, is the default in the distribution defaults. The
+# initramfs, rebuilt below, carries it.
+RUN sed -i 's/^Theme=.*/Theme=boot/' /usr/share/plymouth/plymouthd.defaults && \
+    test "$(plymouth-set-default-theme)" = boot
+
+# os-update.timer checks for system updates (packages/updates).
+# The base image's own timers are masked: rpm-ostree-countme reports to
+# Fedora that this computer exists, and bootc-fetch-apply-updates installs
+# updates and restarts by itself, which os-update does instead. Both now skip
+# themselves, since they need /run/ostree-booted, which a composefs system
+# lacks; masking keeps them off if that changes. bootc enables its timer in
+# /usr, which a preset cannot undo.
+RUN systemctl set-default graphical.target && systemctl preset os-update.timer && \
+    systemctl mask rpm-ostree-countme.timer bootc-fetch-apply-updates.timer
+
+# Logins for systemd-homed users need pam_systemd_home. authselect's checksum
+# in /var is dropped, as in the base image; the configuration lives in /etc.
+# authselect's stack ignores pam_systemd_home's other failures and lets
+# pam_unix accept the password, so a home that cannot open, for lack of disk
+# space say, still signs in to a session without one, which ends at once. The
+# login screen asks pam_systemd_home first and stops on any failure; users that
+# systemd-homed does not manage pass on to authselect's stack.
+RUN authselect enable-feature with-systemd-homed && rm -r /var/lib/authselect && \
+    sed -i '/^auth .*pam_selinux_permit\.so/a auth        [success=ok user_unknown=ignore default=die] pam_systemd_home.so' \
+      /etc/pam.d/sddm && \
+    grep -q '^auth .*default=die\] pam_systemd_home\.so' /etc/pam.d/sddm
+
+# The initramfs must carry /usr/lib/composefs/setup-root-conf.toml and
+# ShapeBit's os-release, so it is rebuilt after the packages are in place.
+RUN kernel=$(basename /usr/lib/modules/*) && \
+    dracut --force "/usr/lib/modules/$kernel/initramfs.img" "$kernel"
+
+# The notices that some installed RPMs lack, from their exact source RPMs, as
+# part of shapebit-licenses (packages/licenses), at the image's version: built on the
+# installed system, whose packages it reads. Source RPMs stay in this stage's
+# cache; rpm-build is never part of the image.
+FROM system AS licenses
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    dnf -y install rpm-build make && mkdir /out
+ARG IMAGE_VERSION
+ARG IMAGE_REVISION
+ARG SOURCE_DATE_EPOCH
+RUN --mount=type=bind,from=packages,target=/src \
+    --mount=type=cache,target=/var/cache/licenses,sharing=locked \
+    SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:?} \
+    rpmbuild -bb --quiet --define "_topdir /tmp/rpm" --define "packages /src" \
+      --define "image_version $IMAGE_VERSION" --define "image_revision $IMAGE_REVISION" \
+      --define "cache /var/cache/licenses" /src/licenses/licenses.spec && \
+    cp /tmp/rpm/RPMS/noarch/*.rpm /out/
+
+FROM system
+# shapebit-licenses, with the collected notices, and shapebit-system, which requires every feature: rpm
+# refuses it if one is missing.
+RUN --mount=type=bind,from=licenses,source=/out,target=/run/notices \
+    --mount=type=bind,from=packages-build,source=/out,target=/run/packages \
+    rpm -i --nosignature /run/notices/*.rpm /run/packages/shapebit-system-*.rpm
+# The windows' settings defaults (window-buttons.gschema.override) apply once
+# the schemas are compiled again.
+RUN glib-compile-schemas /usr/share/glib-2.0/schemas
+# Identifies this build, the commit it is made from, and where its sources
+# are published once it is released (release/README.md), as os-release does
+# from the release package.
+ARG IMAGE_VERSION
+ARG IMAGE_REVISION
+LABEL org.opencontainers.image.version="$IMAGE_VERSION" \
+      org.opencontainers.image.revision="$IMAGE_REVISION" \
+      software.shapebit.sources="ghcr.io/shapebit-software/os:$IMAGE_VERSION-sources"
+# Every file this build adds to /usr belongs to a package, as the package has
+# it, so that its license, sources and SBOM entry come with it (images/system/packaged.py).
+RUN --mount=type=bind,source=packaged.py,target=/run/packaged.py \
+    --mount=type=bind,from=base-packaged,source=/out/base,target=/run/base \
+    python3 /run/packaged.py check /run/base
+RUN bootc container lint

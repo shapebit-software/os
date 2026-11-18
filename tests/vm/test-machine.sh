@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Run a tmt plan on a disposable clone of the installed machine, then discard
+# the clone. The clone has its own disk overlay, EFI variables, and TPM: the
+# installed disk unlocks only with the TPM it was sealed to, so all three go
+# together, and the installed disk itself is never written. Results stay in
+# RESULTS/<time>-<plan>.
+# Usage: test-machine.sh PLAN
+set -euo pipefail
+: "${BUILD:?}" "${DISK:?}" "${RESULTS:?}" "${TEST_SSH_PORT:?}" "${RECOVERY_KEY:?}"
+plan=$1
+cd "$(dirname "$0")/../.."
+source tests/vm/results.sh
+
+record=$DISK.json
+[[ -f $record ]] || { echo "error: $record not found; run 'make disk'" >&2; exit 1; }
+IMAGE_DIGEST=$(python3 packages/installer/medium/provenance.py field "$record" image_digest)
+# The update test moves the machine to NEXT_ARCHIVE's build, where the system
+# checks run, then on to NEXT2_ARCHIVE's: `make test-update` published both.
+if [[ $plan == update ]]; then
+  : "${NEXT_ARCHIVE:?}" "${NEXT2_ARCHIVE:?}"
+  IMAGE_DIGEST=$(python3 packages/installer/medium/provenance.py digest "$NEXT_ARCHIVE")
+  NEXT_VERSION=$(python3 packages/installer/medium/provenance.py label "$NEXT_ARCHIVE" org.opencontainers.image.version)
+  NEXT2_VERSION=$(python3 packages/installer/medium/provenance.py label "$NEXT2_ARCHIVE" org.opencontainers.image.version)
+  export NEXT_VERSION NEXT2_VERSION
+fi
+export IMAGE_DIGEST
+
+start_run "$plan"
+machine=$run/machine
+mkdir -p "$machine"
+qemu-img create -q -f qcow2 -F raw -b "$(realpath "$DISK")" "$machine/disk.qcow2"
+cp "$BUILD/efivars.qcow2" "$machine/efivars.qcow2"
+cp -a "$BUILD/tpm" "$machine/tpm"
+export BUILD=$machine DISK=$machine/disk.qcow2 DISK_FORMAT=qcow2 SSH_PORT=$TEST_SSH_PORT
+
+finish() {
+  tests/vm/vm.sh --stop
+  # What the machine printed stays; the machine does not.
+  mv "$machine/serial.log" "$run/" 2>/dev/null || true
+  rm -rf "$machine"
+}
+trap finish EXIT
+tests/vm/vm.sh --background
+
+tests/vm/tmt.sh "$plan" "$run" || outcome=failed
+if [[ $plan == installed ]]; then
+  python3 -m pytest -c tests/checks/pytest.ini --rootdir=tests/checks -p no:cacheprovider \
+    --junitxml="$run/junit-host.xml" tests/checks/installed/check_recovery_key.py || outcome=failed
+fi
+finish_run

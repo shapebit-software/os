@@ -17,7 +17,7 @@ git clone https://github.com/shapebit-software/os.git
 Every tool that works on ShapeBit, from lint and the unit tests to the
 desktop in a window and the VMs that check the built OS, is in one
 development image, which `make` builds and enters by itself
-([development](development/README.md)). Only the container engine, which
+([development](images/development/README.md)). Only the container engine, which
 builds the OS image, runs on the host.
 
 ```sh
@@ -38,8 +38,9 @@ sudo dnf install git make openssl podman      # Fedora
 sudo apt install git make openssl podman      # Debian/Ubuntu
 ```
 
-The default engine is `sudo podman`, because installing to a disk needs root.
-To use Docker instead, add `ENGINE=docker` to any command.
+One engine builds and runs every image. The default is `sudo podman`, because
+building the installer medium needs root. To use Docker instead, set it once:
+`export ENGINE=docker` in the shell's profile, or `ENGINE=docker` on a command.
 
 ## Usage
 
@@ -64,8 +65,9 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 | Path         | Purpose                                                               |
 | ------------ | --------------------------------------------------------------------- |
 | `packages/`  | ShapeBit's own packages, one folder per feature: `apps`, `assistant`, `boot`, `capture`, `colors`, `dictation`, `downloads`, `extras`, `font`, `homes`, `installer`, `licenses`, `login`, `network`, `portal`, `release`, `repositories`, `screen-sharing`, `shell`, `sound`, `splash`, `system` (requires them all), `updates`, `windows`. |
-| `distribution/`     | The OS as a whole, assembled from those packages: `image/` (its build), `checks/` and `openqa/` (its tests), `vm/`, and `release/` ([distribution](distribution/README.md)). |
-| `development/`       | The development image, and the desktop in a window (`make run`). |
+| `images/`    | How the images are built, one folder per step: `foundation/`, which the others start from; `development/`, with the desktop in a window (`make run`); `system/`, the OS; and `seal/`, its signed UKI ([images](images/README.md)). |
+| `tests/`     | How the built OS is checked: `vm/` (the machines), `checks/` (tmt), `openqa/` (the UI) ([tests](tests/README.md)). |
+| `release/`   | How a tested build is published: its tags, sources, SBOM, and notes ([release](release/README.md)). |
 | `guidebook/` | The guidebook for people who use ShapeBit, published to the Wiki and the website. |
 | `.agents/`   | Skills for coding agents.                                             |
 | `build/`     | Generated outputs (ignored by Git).                                   |
@@ -82,8 +84,9 @@ unit tests (`make test-unit`); `check_*.py` check the built OS
 ## Documentation
 
 - [Guidebook](guidebook/Home.md), for people who use ShapeBit.
-- [Distribution](distribution/README.md): how the image is built, signed,
-  installed, and tested; [releases](distribution/release/README.md).
+- [Images](images/README.md): how the images are built and signed;
+  [testing](tests/README.md): how the built OS is installed and tested;
+  [releases](release/README.md).
 - Each feature's README in [`packages/`](packages/), where its code doesn't
   say it all: its goals, structure, and rules.
 

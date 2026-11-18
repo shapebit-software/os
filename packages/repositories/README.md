@@ -23,14 +23,14 @@ package in it would be installed instead. What limits it: packages are checked
 against the COPR's key; installed systems ship it turned off, so they never
 fetch from it; the source RPMs are kept with each release's sources. Drop it
 as soon as Fedora ships Hyprland: remove `hyprland.repo` and the COPR from
-`development/Containerfile`.
+`images/development/Containerfile`.
 
 ## External packages
 
 ShapeBit builds what the image needs and Fedora lacks as RPMs, so it installs
 like any other package: its license texts reach `/usr/share/licenses`, its
-source RPM reaches the published sources (`distribution/release/sources.py`), and
-what it bundles reaches the SBOM (`distribution/release/sbom.py` reads
+source RPM reaches the published sources (`release/sources.py`), and
+what it bundles reaches the SBOM (`release/sbom.py` reads
 `Provides: bundled(...)`). Each lives in the feature that needs it, which
 requires it:
 
@@ -58,7 +58,7 @@ requires it:
   repository of all those releases, signed (`rpm-repo.sh`), and deploys it to
   GitHub Pages:
   `https://shapebit-software.github.io/os/rpms/fedora-VERSION-{x86_64,source}/`.
-- The image build and `distribution/release/sources.py` read it through
+- The image build and `release/sources.py` read it through
   `third-party.repo`; dnf checks the repository's signature with
   `third-party.asc`; the metadata holds each RPM's SHA-256. `make validate`
   checks each external package's `License` against Fedora's list.

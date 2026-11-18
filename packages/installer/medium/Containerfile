@@ -1,7 +1,7 @@
 # check=skip=InvalidDefaultArgInFrom
 # The installer medium: the ShapeBit system plus the installer and the system
 # to install. It is built from the sealed system, BASE, and then sealed in the
-# same way (see distribution/image/image.sh), which replaces BASE's UKI with one whose
+# same way (see images/seal/seal.sh), which replaces BASE's UKI with one whose
 # composefs digest also covers the payload. So the released os:<version> is
 # both the payload and the base, and no unsealed image needs to be kept.
 # Build contexts: `packages` is ShapeBit's packages, the installer among them;

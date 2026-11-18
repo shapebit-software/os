@@ -26,7 +26,7 @@ queue, and `app-update.timer` updates the apps daily.
 ## Planned
 
 - A second source in Settings > Apps: ShapeBit's own Flatpak repository
-  ([distribution/release](../../distribution/release/README.md)).
+  ([release](../../release/README.md)).
 - **Diagnostics**, a built-in app for processes and resources.
 - **AppImage**: opening one offers **Run once**, **Add to Apps**, or
   **Cancel**; ShapeBit watches Downloads, Desktop, and added folders,

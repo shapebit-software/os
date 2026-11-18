@@ -1,15 +1,21 @@
 # ShapeBit OS image. Run `make help` to list targets.
 # Every variable below can be overridden, e.g. `make test ENGINE=docker`.
 
-# Installing to a disk needs a root-capable engine: rootful Podman or Docker.
+# The container engine that builds and runs every image, on the host. It must
+# be root-capable, rootful Podman or Docker, for the images' and the medium's
+# privileged steps. To change it everywhere, set it in the environment, such as
+# `export ENGINE=docker` in the shell's profile; CI sets it in each workflow.
 ENGINE         ?= sudo podman
-IMAGE          ?= localhost/shapebit-os:dev
-# The development image (development/Containerfile), and the engine that runs
-# it: ENGINE's, without sudo. On the host, dev, lint, validate, test-unit, and
-# run run in it (development/dev.sh).
-DEV_IMAGE      ?= localhost/shapebit-dev
-DEV_ENGINE     ?= $(filter-out sudo,$(ENGINE))
 FEDORA_VERSION ?= 45
+# The images (images/README.md): the foundation that the OS and the development
+# image start from; with FOUNDATION_CACHE, a published foundation that
+# `make foundation` takes instead of building one, when it has the same recipe.
+FOUNDATION       ?= localhost/shapebit-foundation:$(FEDORA_VERSION)
+FOUNDATION_CACHE ?=
+IMAGE          ?= localhost/shapebit-os:dev
+# On the host, dev, lint, validate, test-unit, and run run in the development
+# image (images/development/dev.sh).
+DEV_IMAGE      ?= localhost/shapebit-dev
 IMAGE_VERSION  ?= dev
 # The commit that the image is made from, and its time, which is every time in
 # ShapeBit's own packages (packages/package.macros).
@@ -33,10 +39,10 @@ DISK_FORMAT    ?= raw
 # Test results, and what the checks need where they run. Each disposable test
 # machine has this SSH port, so that `make vm` can run beside it.
 RESULTS        ?= $(BUILD)/results
-TEST_DEPS      ?= distribution/checks/.deps
+TEST_DEPS      ?= tests/checks/.deps
 TEST_SSH_PORT  ?= 2223
 # The full OS tests' openQA test distribution, which isotovideo runs.
-OPENQA_DISTRI  ?= distribution/openqa
+OPENQA_DISTRI  ?= tests/openqa
 # openQA's target disk: sparse, and large enough that the installer leaves the
 # whole reserve beside the home (packages/homes/README.md), as on a real computer.
 OPENQA_DISK_SIZE ?= 256G
@@ -69,7 +75,7 @@ DEV_UPDATE_REF ?= 10.0.2.2:$(REGISTRY_PORT)/shapebit-os:dev
 UPDATE_TAGS    ?= next next2
 NEXT_ARCHIVE   ?= $(BUILD)/image-next.tar
 NEXT2_ARCHIVE  ?= $(BUILD)/image-next2.tar
-# The order of the openQA modules (distribution/openqa/main.pm): install, everything
+# The order of the openQA modules (tests/openqa/main.pm): install, everything
 # from the medium; or update, which also updates the installed system to
 # UPDATE_ARCHIVE's build before the desktop's modules.
 FLOW           ?= install
@@ -79,7 +85,7 @@ UPDATE_ARCHIVE ?= $(IMAGE_ARCHIVE)
 # commit is in its record.
 STABLE_REVISION ?=
 # The source RPMs of the image, and of the installer
-# (distribution/release/sources.py, distribution/release/README.md). SOURCES_PREVIOUS names an earlier
+# (release/sources.py, release/README.md). SOURCES_PREVIOUS names an earlier
 # version's sources to compare with; SOURCES_CACHE, a directory of source RPMs
 # to take instead of downloading them. Both are optional.
 SOURCES_DIR           ?= $(BUILD)/sources
@@ -88,7 +94,7 @@ INSTALLER_SOURCES     ?= $(BUILD)/installer-sources.tar
 SOURCES_PREVIOUS      ?=
 SOURCES_CACHE         ?=
 # The directory of the image's software bill of materials, in SPDX and
-# CycloneDX (distribution/release/sbom.py, distribution/release/README.md), and the syft that scans it,
+# CycloneDX (release/sbom.py, release/README.md), and the syft that scans it,
 # pinned by digest.
 SBOM       ?= $(BUILD)/sbom
 SYFT_IMAGE ?= docker.io/anchore/syft:v1.18.1@sha256:b8c170b8e51bfc4779ec3ef4399942c57290f5ce76a9c3af564c9d00d4946a6b
@@ -103,19 +109,19 @@ RPM_RELEASES   ?= https://github.com/shapebit-software/os/releases/download
 RPM_PUBLIC_KEY ?= packages/repositories/third-party.asc
 EXPORTS := SYFT_IMAGE RPM_RELEASES RPM_PUBLIC_KEY \
   OPENQA_DISK_SIZE INSTALLER_REF IMAGE_REVISION IMAGE_ARCHIVE NEXT_ARCHIVE NEXT2_ARCHIVE FLOW UPDATE_ARCHIVE STABLE_REVISION OPENQA_DISTRI RESULTS TEST_SSH_PORT DISK_FORMAT ENGINE IMAGE FEDORA_VERSION IMAGE_VERSION BUILD DISK DISK_SIZE INSTALLER_IMAGE MEDIUM MEDIUM_SIZE SSH_PORT SSH_KEY OWNER_NAME OWNER_PASSWORD RECOVERY_KEY LOCALE KEYBOARD_LAYOUT TIME_ZONE KEYS_DIR SIGNING_KEY BOOT_TIMEOUT REGISTRY_PORT UPDATE_REF DEV_UPDATE_REF
-export $(EXPORTS) DEV_IMAGE DEV_ENGINE
-# The scripts get the same settings in the development image (development/dev.sh).
+export $(EXPORTS) DEV_IMAGE FOUNDATION FOUNDATION_CACHE
+# The scripts get the same settings in the development image (images/development/dev.sh).
 export DEV_ENV := $(EXPORTS)
 # On the host, a command that needs the tools runs in the development image,
 # which is built first; in the image, it runs as it is.
-DEV_RUN := $(if $(IN_DEV_IMAGE),,development/dev.sh)
+DEV_RUN := $(if $(IN_DEV_IMAGE),,images/development/dev.sh)
 DEV_DEP := $(if $(IN_DEV_IMAGE),,dev-image)
 
 # Checks that run on this host leave no bytecode in the tree that tmt copies.
 export PYTHONDONTWRITEBYTECODE := 1
 
 .DEFAULT_GOAL := help
-.PHONY: dev dev-image run release-key help colors image static-checks lint validate test-unit test-image publish registry installer sbom rpm rpm-repo sources installer-sources pull-installer disk vm installer-vm ssh test test-plan update-builds test-update test-release test-guest clean
+.PHONY: foundation dev dev-image run release-key help colors image static-checks lint validate test-unit test-image publish registry installer sbom rpm rpm-repo sources installer-sources pull-installer disk vm installer-vm ssh test test-plan update-builds test-update test-release test-guest clean
 
 help: ## List targets
 	@awk -F ':.*## ' '/^[a-z-]+:.*## / { printf "  %-12s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -123,9 +129,15 @@ help: ## List targets
 KEYS := $(KEYS_DIR)/$(SIGNING_KEY)-secureboot.key $(KEYS_DIR)/$(SIGNING_KEY)-secureboot.crt \
         $(KEYS_DIR)/$(SIGNING_KEY)-pcr.key
 
-image: $(KEYS) ## Build the container image with its signed UKI
-	distribution/image/image.sh distribution/image/Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \
-	  --build-arg FEDORA_VERSION=$(FEDORA_VERSION) --build-arg IMAGE_VERSION=$(IMAGE_VERSION) \
+# Candidate builds it with FOUNDATION_FRESH=1: from Fedora's latest, without a cache.
+foundation: ## Build the foundation image, which the OS and the development image start from
+	images/foundation/foundation.sh $(if $(FOUNDATION_FRESH),--fresh)
+
+image: $(KEYS) foundation ## Build the container image with its signed UKI
+	images/seal/seal.sh images/system/Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \
+	  --build-arg FOUNDATION=$(FOUNDATION) \
+	  --build-arg BASE=$$($(ENGINE) image inspect --format '{{index .Config.Labels "software.shapebit.foundation.base"}}' $(FOUNDATION)) \
+	  --build-arg IMAGE_VERSION=$(IMAGE_VERSION) \
 	  --build-arg IMAGE_REVISION=$(IMAGE_REVISION) --build-arg SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) \
 	  --build-context packages=packages
 
@@ -134,22 +146,22 @@ colors: ## Write the QML module Colors's values from the system's colors (packag
 
 static-checks: lint validate ## Lint and validate, without building or running the code
 
-dev-image: ## Build the development image (development/Containerfile)
-	$(DEV_ENGINE) build -t $(DEV_IMAGE) --build-arg FEDORA_VERSION=$(FEDORA_VERSION) \
-	  --build-context font=packages/font -f development/Containerfile development
+dev-image: foundation ## Build the development image (images/development/Containerfile)
+	$(ENGINE) build -t $(DEV_IMAGE) --build-arg FOUNDATION=$(FOUNDATION) \
+	  --build-context packages=packages -f images/development/Containerfile images/development
 
 ifndef IN_DEV_IMAGE
 # On the host, these run in the development image.
 dev: dev-image ## Open a shell in the development image
-	development/dev.sh bash
+	images/development/dev.sh bash
 
 lint validate test-unit: dev-image
-	development/dev.sh $(MAKE) $@
+	images/development/dev.sh $(MAKE) $@
 
 run: dev-image ## Run the desktop in a window, inside the current Wayland session
-	development/dev.sh --desktop $(MAKE) $@
+	images/development/dev.sh --desktop $(MAKE) $@
 else
-# The desktop in a window, from this tree (development/README.md). Every
+# The desktop in a window, from this tree (images/development/README.md). Every
 # feature is installed into DEV_SYSTEM, as the image installs it, for what
 # reads installed files, such as Settings > Licenses and the portal's colors;
 # so are the external packages that `make rpm` built, such as the assistant's
@@ -169,14 +181,14 @@ run:
 	for rpm in $(DEV_RPMS); do rpm2cpio $$rpm | (cd $(DEV_SYSTEM) && cpio -idm --quiet) || exit 1; done
 	env -u XDG_CURRENT_DESKTOP DESKTOP_SHELL=$(CURDIR)/packages/shell QML_IMPORT_PATH=$(CURDIR)/packages/colors \
 	  DEV_SYSTEM=$(DEV_SYSTEM) EXTRAS_DIR=$(DEV)/extras DICTATION_PARAKEET=$(DEV)/extras/parakeet \
-	  LICENSES_DIR=$(DEV_SYSTEM)/usr/share/licenses development/run-desktop.sh
+	  LICENSES_DIR=$(DEV_SYSTEM)/usr/share/licenses images/development/run-desktop.sh
 
 # Every shell and Python file of the repository, by its extension or its first
 # line; a file with a #! line must be executable. openQA's modules are left out: their API comes from
 # `from testapi import *`, so pyflakes cannot tell which of its names exist.
 lint: ## Lint the shell, the Python, the QML, and the test plans
 	$(MAKE) -C packages/shell lint
-	tmt --root distribution/checks lint >/dev/null
+	tmt --root tests/checks lint >/dev/null
 	@status=0; python=; \
 	for file in $$(git ls-files -co --exclude-standard); do \
 	  [ -f "$$file" ] || continue; \
@@ -194,7 +206,7 @@ lint: ## Lint the shell, the Python, the QML, and the test plans
 # (license-validate); ShapeBit's own license is not, so its packages are left out.
 validate: ## Validate the compositor configuration, the specs' Requires, and the external packages' licenses
 	$(MAKE) -C packages/windows validate
-	distribution/image/requires.sh
+	packages/requires.sh --check
 	@status=0; \
 	for sources in $$(git ls-files 'packages/*/*/sources'); do \
 	  spec=$$(dirname $$sources)/$$(basename $$(dirname $$sources)).spec; \
@@ -213,26 +225,26 @@ test-unit: ## Run the tests that need no image and no VM
 endif
 
 test-image: image $(TEST_DEPS)/.done ## Build the image and test its files; nothing boots
-	$(ENGINE) run --rm --network none -v "$(CURDIR)/distribution/checks:/tests:ro,z" $(IMAGE) /tests/pytest.sh /tests/content
+	$(ENGINE) run --rm --network none -v "$(CURDIR)/tests/checks:/tests:ro,z" $(IMAGE) /tests/pytest.sh /tests/content
 
 publish: image registry | $(DEV_DEP) ## Push the image to the local update registry
-	$(DEV_RUN) distribution/checks/update/publish.sh $(IMAGE_ARCHIVE)
+	$(DEV_RUN) tests/checks/update/publish.sh $(IMAGE_ARCHIVE)
 
 registry: ## Start the local update registry, unless it runs
-	distribution/checks/update/registry.sh
+	tests/checks/update/registry.sh
 
 # The payload's build context holds only the image: the engine copies a context
 # whole, and BUILD also holds disks and other builds. A hard link costs no space.
 installer: image ## Build the installer medium, which carries the image
 	mkdir -p $(BUILD)/payload
 	ln -f $(IMAGE_ARCHIVE) $(BUILD)/payload/image.tar 2>/dev/null || cp $(IMAGE_ARCHIVE) $(BUILD)/payload/image.tar
-	distribution/image/image.sh packages/installer/medium/Containerfile $(INSTALLER_IMAGE) $(BUILD)/installer.tar \
+	images/seal/seal.sh packages/installer/medium/Containerfile $(INSTALLER_IMAGE) $(BUILD)/installer.tar \
 	  --build-arg BASE=$(IMAGE) --build-arg UPDATE_REF=$(UPDATE_REF) --build-arg SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) \
 	  --build-context packages=packages --build-context payload=$(BUILD)/payload
 	packages/installer/medium/medium.sh
 
 sbom: image ## Write the image's software bill of materials, SPDX and CycloneDX, into SBOM
-	distribution/release/sbom.py generate $(IMAGE) $(SBOM)
+	release/sbom.py generate $(IMAGE) $(SBOM)
 
 rpm: ## Build the external package RPM (a folder with a sources file), offline, into RPMS/NAME
 	packages/repositories/rpm-build.sh $(RPM) $(RPMS)/$(notdir $(RPM))
@@ -241,12 +253,12 @@ rpm-repo: ## Write the signed repository of RPMS/releases (a directory per tag) 
 	packages/repositories/rpm-repo.sh $(RPMS)/releases $(RPMS)/pages/rpms
 
 sources: image ## Collect the image's source RPMs into SOURCES_DIR
-	distribution/release/sources.py collect $(IMAGE) $(SOURCES_DIR) \
+	release/sources.py collect $(IMAGE) $(SOURCES_DIR) \
 	  $(if $(SOURCES_CACHE),--cache $(SOURCES_CACHE)) $(if $(SOURCES_PREVIOUS),--previous $(SOURCES_PREVIOUS))
 
 installer-sources: installer ## Write the installer's sources as INSTALLER_SOURCES, and record them with the medium
-	distribution/release/sources.py collect $(INSTALLER_IMAGE) $(INSTALLER_SOURCES_DIR) $(if $(SOURCES_CACHE),--cache $(SOURCES_CACHE))
-	distribution/release/sources.py tar $(INSTALLER_SOURCES_DIR) $(INSTALLER_SOURCES)
+	release/sources.py collect $(INSTALLER_IMAGE) $(INSTALLER_SOURCES_DIR) $(if $(SOURCES_CACHE),--cache $(SOURCES_CACHE))
+	release/sources.py tar $(INSTALLER_SOURCES_DIR) $(INSTALLER_SOURCES)
 	python3 packages/installer/medium/provenance.py sources $(MEDIUM).json $(INSTALLER_SOURCES)
 
 pull-installer: | $(DEV_DEP) ## Pull an installer medium from GHCR instead of building it: INSTALLER_REF=...
@@ -255,22 +267,22 @@ pull-installer: | $(DEV_DEP) ## Pull an installer medium from GHCR instead of bu
 # The VMs and the checks run in the development image, with its QEMU, tmt, and
 # pytest; only the engine's work, such as building images, stays on the host.
 disk: installer $(SSH_KEY) $(OWNER_PASSWORD) $(TEST_DEPS)/.done | $(DEV_DEP) ## Install to a new disk: boot the medium in QEMU and run the installer
-	$(DEV_RUN) distribution/vm/disk.sh
+	$(DEV_RUN) tests/vm/disk.sh
 
 vm: $(SSH_KEY) | $(DEV_DEP) ## Boot the installed disk in QEMU on this terminal (Ctrl-A X quits)
-	$(DEV_RUN) distribution/vm/vm.sh
+	$(DEV_RUN) tests/vm/vm.sh
 
 installer-vm: installer $(SSH_KEY) | $(DEV_DEP) ## Boot the medium with a new disk in a window, to install by hand
-	$(DEV_RUN) $(if $(DEV_RUN),--desktop) distribution/vm/disk.sh --window
+	$(DEV_RUN) $(if $(DEV_RUN),--desktop) tests/vm/disk.sh --window
 
 ssh: $(SSH_KEY) | $(DEV_DEP) ## Open a root shell in the running VM
-	$(DEV_RUN) distribution/vm/ssh.sh
+	$(DEV_RUN) tests/vm/ssh.sh
 
 test: test-image disk | $(DEV_DEP) ## Install, then run tmt's checks on a disposable clone of the installed machine
-	$(DEV_RUN) distribution/vm/test-machine.sh installed
+	$(DEV_RUN) tests/vm/test-machine.sh installed
 
 test-plan: $(TEST_DEPS)/.done | $(DEV_DEP) ## Run one tmt plan on a clone of the disk as it is, without installing: PLAN=installed
-	$(DEV_RUN) distribution/vm/test-machine.sh $(PLAN)
+	$(DEV_RUN) tests/vm/test-machine.sh $(PLAN)
 
 update-builds: $(KEYS) ## Build the newer images that the update test moves through (UPDATE_TAGS)
 	set -e; for tag in $(UPDATE_TAGS); do \
@@ -279,26 +291,26 @@ update-builds: $(KEYS) ## Build the newer images that the update test moves thro
 	done
 
 test-update: disk update-builds registry $(TEST_DEPS)/.done | $(DEV_DEP) ## On a disposable clone: update to a new build, then roll back
-	$(DEV_RUN) distribution/checks/update/publish.sh $(NEXT_ARCHIVE) next
-	$(DEV_RUN) distribution/checks/update/publish.sh $(NEXT2_ARCHIVE) next2
-	$(DEV_RUN) distribution/vm/test-machine.sh update
+	$(DEV_RUN) tests/checks/update/publish.sh $(NEXT_ARCHIVE) next
+	$(DEV_RUN) tests/checks/update/publish.sh $(NEXT2_ARCHIVE) next2
+	$(DEV_RUN) tests/vm/test-machine.sh update
 
 test-release: $(SSH_KEY) | $(DEV_DEP) ## Full OS and UI tests of the built medium itself, with openQA (FLOW=install|update)
-	DEV_NETWORK=private $(DEV_RUN) distribution/openqa/openqa.sh
+	DEV_NETWORK=private $(DEV_RUN) tests/openqa/openqa.sh
 
 test-guest: $(TEST_DEPS)/.done | $(DEV_DEP) ## Run the system checks on another machine: GUEST=address IMAGE_DIGEST=sha256:...
-	$(DEV_RUN) env TEST_GUEST=$(GUEST) SSH_PORT=22 distribution/vm/tmt.sh installed $(RESULTS)/$(GUEST)-$$(date -u +%Y%m%dT%H%M%SZ)
+	$(DEV_RUN) env TEST_GUEST=$(GUEST) SSH_PORT=22 tests/vm/tmt.sh installed $(RESULTS)/$(GUEST)-$$(date -u +%Y%m%dT%H%M%SZ)
 
 release-key: | $(DEV_DEP) ## Generate the release keys once, in KEYS_DIR outside build/; store them safely
-	$(DEV_RUN) distribution/image/keys.sh --release
+	$(DEV_RUN) images/seal/keys.sh --release
 
 clean: ## Remove build outputs
 	rm -rf $(BUILD)
 
 # What the checks need where they run. tmt carries it to the guest.
-$(TEST_DEPS)/.done: distribution/checks/requirements.txt | $(DEV_DEP)
+$(TEST_DEPS)/.done: tests/checks/requirements.txt | $(DEV_DEP)
 	rm -rf $(TEST_DEPS)
-	$(DEV_RUN) python3 -m pip install -q --target $(TEST_DEPS) -r distribution/checks/requirements.txt
+	$(DEV_RUN) python3 -m pip install -q --target $(TEST_DEPS) -r tests/checks/requirements.txt
 	touch $@
 
 $(SSH_KEY): | $(DEV_DEP)
@@ -312,4 +324,4 @@ $(OWNER_PASSWORD):
 
 # The signing keys.
 $(KEYS) &: | $(DEV_DEP)
-	$(DEV_RUN) distribution/image/keys.sh
+	$(DEV_RUN) images/seal/keys.sh

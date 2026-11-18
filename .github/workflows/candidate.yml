@@ -4,9 +4,11 @@
 # (os/installer:stable), update to the candidate, and test it: the path that
 # existing systems take. Only if every test passes does it write a draft release
 # of its notes, for the Release workflow. Its sources are collected as it is
-# built, to os/candidate:<version>-sources, and its SBOM to -sbom. The build has no cache, so that it picks
-# up Fedora's updates; only the build job has the release keys, in the
-# environment "Signing", and only while it builds; a failed test job can be re-run on the same build (distribution/README.md).
+# built, to os/candidate:<version>-sources, and its SBOM to -sbom. Its first job builds the
+# foundation without a cache, so that it picks up Fedora's updates, and pushes it
+# to os/foundation, as latest, which every later job and Verification take
+# (images/README.md#foundation); only the build job has the release keys, in the
+# environment "Signing", and only while it builds; a failed test job can be re-run on the same build (tests/README.md).
 # Actions artifacts, which anyone signed in to GitHub can download, hold test
 # results only, never an image. "Bootstrap" is for when no installer exists yet,
 # and so nothing to update from: it skips the update tests, and the Installer
@@ -25,6 +27,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: os-releases
@@ -34,10 +37,34 @@ env:
   ENGINE: docker
   REPOSITORY: ghcr.io/shapebit-software/os
   CANDIDATES: ghcr.io/shapebit-software/os/candidate
+  FOUNDATIONS: ghcr.io/shapebit-software/os/foundation
+  # The foundation that Candidate published last (images/README.md#foundation),
+  # which make takes when what the specs require is unchanged.
+  FOUNDATION_CACHE: ghcr.io/shapebit-software/os/foundation:latest
 
 jobs:
+  foundation:
+    name: Build the foundation
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/image-store
+      - uses: ./.github/actions/ghcr-login
+      - name: Build the foundation without a cache, and push it
+        run: |
+          make foundation FOUNDATION_FRESH=1 FOUNDATION="$FOUNDATIONS:$GITHUB_SHA"
+          docker tag "$FOUNDATIONS:$GITHUB_SHA" "$FOUNDATIONS:latest"
+          docker push -q "$FOUNDATIONS:$GITHUB_SHA"
+          docker push -q "$FOUNDATIONS:latest"
+
   static-checks:
     name: Static checks
+    needs: foundation
     uses: ./.github/workflows/stage-static-checks.yml
 
   unit-tests:
@@ -86,7 +113,7 @@ jobs:
           echo "version=$version" >>"$GITHUB_OUTPUT"
 
       # The keys are on the runner only for the builds that sign, never while
-      # tests run (distribution/README.md).
+      # tests run (images/README.md).
       - uses: ./.github/actions/release-keys
         with:
           secureboot-key: ${{ secrets.RELEASE_SECUREBOOT_KEY }}
@@ -119,19 +146,19 @@ jobs:
 
       # COPR deletes old builds, and Fedora's repositories drop a version once an
       # update replaces it, so the sources are collected now, while they match
-      # the build (distribution/release/README.md). Release publishes them with the image.
+      # the build (release/README.md). Release publishes them with the image.
       - name: Collect and push the image's sources
         run: |
           stable=$(skopeo inspect "docker://$REPOSITORY:stable" --format '{{index .Labels "org.opencontainers.image.version"}}' || true)
           make -o image sources ${stable:+SOURCES_PREVIOUS=$REPOSITORY:$stable-sources}
-          distribution/release/sources.py push build/sources "$CANDIDATES:$IMAGE_VERSION-sources" "ShapeBit $IMAGE_VERSION: sources"
+          release/sources.py push build/sources "$CANDIDATES:$IMAGE_VERSION-sources" "ShapeBit $IMAGE_VERSION: sources"
 
-      # What the image is made of, in SPDX and CycloneDX (distribution/release/README.md). Release publishes it
+      # What the image is made of, in SPDX and CycloneDX (release/README.md). Release publishes it
       # with the image.
       - name: Write and push the image's SBOM
         run: |
           make -o image sbom
-          distribution/release/sbom.py push build/sbom "$CANDIDATES:$IMAGE_VERSION-sbom" "ShapeBit $IMAGE_VERSION: SBOM"
+          release/sbom.py push build/sbom "$CANDIDATES:$IMAGE_VERSION-sbom" "ShapeBit $IMAGE_VERSION: SBOM"
 
   # Install stable without the UI, update to the candidate through the update
   # registry, run the system checks on it, then update again and roll back.
@@ -235,7 +262,7 @@ jobs:
             if [ -n "$stable" ] && [ "$stable" != "<no value>" ]; then range=$stable..HEAD; fi
           fi
           git log --oneline "$range" >commits
-          python3 distribution/release/release-notes.py "$DIGEST" "$REPOSITORY:$VERSION-sources" "$GITHUB_SHA" commits \
+          python3 release/release-notes.py "$DIGEST" "$REPOSITORY:$VERSION-sources" "$GITHUB_SHA" commits \
             old-packages packages.txt >notes.md
           if [ "$BOOTSTRAP" = true ]; then
             { echo "**Bootstrap:** not tested by an update, as no installer existed; the Installer workflow tests it in full."

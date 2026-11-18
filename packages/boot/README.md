@@ -2,7 +2,7 @@
 
 How a computer starts ShapeBit with trust, and unlocks its disk: the package
 `shapebit-boot`. The UKI itself is made by
-[distribution/image/Containerfile.seal](../../distribution/image/Containerfile.seal).
+[images/seal/Containerfile](../../images/seal/Containerfile).
 
 ## Chain of trust
 

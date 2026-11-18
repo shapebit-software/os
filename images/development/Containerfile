@@ -1,0 +1,55 @@
+# check=skip=InvalidDefaultArgInFrom
+# The development image: the foundation (images/foundation), which the OS image
+# also starts from, with every tool that works on ShapeBit (README.md): lint,
+# validate, the unit tests, the desktop in a window, and the VMs and checks of
+# the built OS. So the desktop under development runs on the OS's own
+# packages, and this file lists only the tools. make builds it (dev-image) and
+# runs those targets in it, for developers and CI alike; only the engine that
+# builds the images stays on the host.
+ARG FOUNDATION
+FROM ${FOUNDATION}
+
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    --mount=type=bind,from=packages,target=/src \
+    dnf -y install \
+    # Lint, validate (rpmspec, and Fedora's list of licenses), the unit tests,
+    # and the external packages' RPMs that make run unpacks (rpm2cpio, cpio).
+    git make python3 rpm-build license-validate cpio python3-pyflakes python3-pytest \
+    # The checks of the built OS: the VMs (QEMU with Secure Boot firmware and
+    # a software TPM, in a window for make installer-vm), SSH into them, tmt,
+    # Testinfra, pip for the checks' own dependencies (tests/checks/.deps),
+    # skopeo for the update registry, and OpenSSL for the signing keys.
+    qemu-system-x86-core qemu-device-display-virtio-vga qemu-img qemu-ui-gtk edk2-ovmf swtpm \
+    openssh-clients tmt python3-pytest-testinfra python3-pip skopeo openssl \
+    # The installer's unit tests: what it builds with.
+    $(/src/requires.sh --build installer/installer.spec) \
+    # make run's own session bus, whose activation environment Hyprland sets
+    # (dbus-tools), and the portals' frontend on it.
+    dbus-daemon dbus-tools xdg-desktop-portal \
+    # Applications to open in the desktop under development: a terminal, a
+    # browser, and a file manager. Not Firefox, whose profile the host's may
+    # use, nor Nautilus, which the host's GNOME owns on the host's session bus.
+    foot epiphany Thunar \
+    # The ChatGPT integration tests' signed identities.
+    python3-jwt python3-cryptography
+
+# isotovideo, openQA's test engine (tests/openqa/), with Inline::Python
+# for the Python modules. Weak dependencies are off: they bring QEMU for every
+# architecture.
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    dnf -y install --setopt=install_weak_deps=False os-autoinst perl-Inline-Python
+
+# The system's font (packages/font), which the shell draws with.
+COPY --from=packages font/InstrumentSans.ttf /usr/share/fonts/instrument-sans/
+# The person's apps are the host's Flatpaks (flatpak).
+COPY flatpak /usr/bin/flatpak
+# The lock screen of make run unlocks with any password: the account here has
+# none, and this image is never a computer's system.
+RUN printf 'auth sufficient pam_permit.so\naccount sufficient pam_permit.so\n' >/etc/pam.d/login
+# The account of editors' dev containers (.devcontainer), which they give the
+# developer's user ID; images/development/dev.sh runs as the developer instead.
+# In a bootc image, /home is a link to /var/home, which a booted system creates.
+RUN mkdir -p "$(readlink -f /home)" && useradd --create-home dev
+
+# make runs the targets here as they are, rather than in this image again.
+ENV IN_DEV_IMAGE=1

@@ -1,6 +1,6 @@
 # What a job needs to run this repository's VMs: disk space, and access to
 # KVM. QEMU, its firmware, and the software TPM are in the development image
-# (development/Containerfile), where make runs the VMs.
+# (images/development/Containerfile), where make runs the VMs.
 name: VM host
 description: Prepare the runner to boot ShapeBit in QEMU
 runs:

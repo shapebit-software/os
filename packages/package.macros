@@ -1,7 +1,7 @@
 # What ShapeBit's own packages share: each spec loads this file first, with
 #   %{load:%{packages}/package.macros}
 # Each package is built in every image build from the same commit
-# (distribution/image/Containerfile), never published: its version is the image's, and its
+# (images/system/Containerfile), never published: its version is the image's, and its
 # sources are this repository, so it has no sources file. Build one with
 #   rpmbuild -bb --define "packages PACKAGES" --define "image_version VERSION" \
 #     --define "image_revision COMMIT" FEATURE/FEATURE.spec
@@ -11,7 +11,7 @@
 %shapebit_license   LicenseRef-PolyForm-Shield-1.0.0
 %shapebit_url       https://github.com/shapebit-software/os
 # Marks ShapeBit's own packages, whose sources are this repository
-# (distribution/release/sources.py leaves them out).
+# (release/sources.py leaves them out).
 %shapebit_vendor    ShapeBit
 
 # The same commit gives the same packages: every time in them is the commit's

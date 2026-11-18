@@ -1,8 +1,8 @@
 // VS Code, JetBrains, and GitHub Codespaces: the development image
-// (development/README.md), which make builds on the host first.
+// (images/development/README.md), which make builds on the host first.
 {
   "name": "ShapeBit",
-  "initializeCommand": "make dev-image DEV_ENGINE=${localEnv:DEV_ENGINE:docker}",
+  "initializeCommand": "make dev-image ENGINE=${localEnv:ENGINE:docker}",
   "image": "localhost/shapebit-dev",
   "remoteUser": "dev",
   "updateRemoteUserUID": true
