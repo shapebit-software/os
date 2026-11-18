@@ -349,6 +349,18 @@ def test_a_room_that_is_never_quiet_still_ends_requests_and_voice_mode(hear):
     assert hearing.ended() == 0
 
 
+@pytest.fixture
+def hear_module(monkeypatch, tmp_path):
+    """hear's code, for its functions: loading it reads XDG_RUNTIME_DIR, which
+    a test's environment may not have."""
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    loader = importlib.machinery.SourceFileLoader("hear", str(HEAR))
+    spec = importlib.util.spec_from_loader("hear", loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
 @pytest.mark.parametrize(
     ("said", "ends"),
     [
@@ -365,12 +377,8 @@ def test_a_room_that_is_never_quiet_still_ends_requests_and_voice_mode(hear):
         ("", ""),
     ],
 )
-def test_how_the_words_end_tells_whether_the_person_is_done(said, ends):
-    loader = importlib.machinery.SourceFileLoader("hear", str(HEAR))
-    spec = importlib.util.spec_from_loader("hear", loader)
-    module = importlib.util.module_from_spec(spec)
-    loader.exec_module(module)
-    assert module.ending(said) == ends
+def test_how_the_words_end_tells_whether_the_person_is_done(hear_module, said, ends):
+    assert hear_module.ending(said) == ends
 
 
 def test_voice_mode_waits_longer_after_words_that_lead_on(hear):
@@ -410,12 +418,8 @@ def test_voice_mode_waits_longer_after_words_that_lead_on(hear):
         ("leading", 0.1, 2),
     ],
 )
-def test_the_voice_decides_and_words_that_lead_on_only_add_to_the_wait(ends, turn, scale):
-    loader = importlib.machinery.SourceFileLoader("hear", str(HEAR))
-    spec = importlib.util.spec_from_loader("hear", loader)
-    module = importlib.util.module_from_spec(spec)
-    loader.exec_module(module)
-    assert module.pause_scale(ends, turn) == scale
+def test_the_voice_decides_and_words_that_lead_on_only_add_to_the_wait(hear_module, ends, turn, scale):
+    assert hear_module.pause_scale(ends, turn) == scale
 
 
 def test_voice_mode_waits_while_the_voice_says_the_person_is_not_done(hear):

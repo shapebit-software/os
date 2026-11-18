@@ -26,7 +26,8 @@ def run(self):
     page("welcome")
     # The screen says that it is the installer; the system agrees.
     assert sut.run("systemctl is-active installer.service").strip() == "active"
-    assert sut.run("systemctl is-enabled sddm.service", check=False).strip() == "masked"
+    # The medium has no login screen (distribution/checks/medium/check_medium.py).
+    assert sut.ssh("rpm -q sddm").returncode != 0
     disks = sut.run("installerctl disks")
     assert '"id":"serial-target"' in disks
 
