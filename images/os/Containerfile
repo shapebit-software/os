@@ -1,7 +1,7 @@
 # check=skip=InvalidDefaultArgInFrom
 # ShapeBit OS: bootc image, booted by systemd-boot from a signed UKI.
-# This is the unsealed system; images/seal adds the UKI (see
-# images/seal/seal.sh), and packages/installer/medium/Containerfile builds the
+# This is the unsealed OS; images/seal adds the UKI (see
+# images/seal/seal.sh), and images/installer/Containerfile builds the
 # installer medium from it. It is ShapeBit's own packages (build context
 # `packages`: a folder with a spec is a package; see packages/package.macros),
 # built here from the same commit, on FOUNDATION, the foundation image, which
@@ -57,7 +57,7 @@ cp /tmp/rpm/RPMS/*/*.rpm /out/
 rpmlint --config /src/rpmlint.toml /out/*.rpm
 EOF
 
-# What under /usr no RPM has as it is in the base image (images/system/packaged.py):
+# What under /usr no RPM has as it is in the base image (images/os/packaged.py):
 # the one the foundation was built from, before it installed anything.
 FROM ${BASE} AS base-packaged
 RUN --mount=type=bind,source=packaged.py,target=/run/packaged.py \
@@ -148,7 +148,7 @@ LABEL org.opencontainers.image.version="$IMAGE_VERSION" \
       org.opencontainers.image.revision="$IMAGE_REVISION" \
       software.shapebit.sources="ghcr.io/shapebit-software/os:$IMAGE_VERSION-sources"
 # Every file this build adds to /usr belongs to a package, as the package has
-# it, so that its license, sources and SBOM entry come with it (images/system/packaged.py).
+# it, so that its license, sources and SBOM entry come with it (images/os/packaged.py).
 RUN --mount=type=bind,source=packaged.py,target=/run/packaged.py \
     --mount=type=bind,from=base-packaged,source=/out/base,target=/run/base \
     python3 /run/packaged.py check /run/base

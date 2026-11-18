@@ -6,7 +6,7 @@
 # Usage: pull-installer.sh REF   e.g. ghcr.io/shapebit-software/os/installer:stable
 set -euo pipefail
 : "${BUILD:?}" "${MEDIUM:?}"
-cd "$(dirname "$0")/../../.."
+cd "$(dirname "$0")/../.."
 ref=$1
 
 work=$BUILD/pulled-installer
@@ -19,6 +19,6 @@ python3 release/artifact.py unpack "$work/layout" "$work/files" shapebit-install
 
 xz -dc -T0 "$work/files/shapebit-installer.img.xz" >"$MEDIUM"
 cp "$work/files/shapebit-installer.img.json" "$MEDIUM.json"
-expected=$(python3 packages/installer/medium/provenance.py field "$MEDIUM.json" medium_sha256)
+expected=$(python3 images/installer/provenance.py field "$MEDIUM.json" medium_sha256)
 echo "$expected  $MEDIUM" | sha256sum -c --quiet -
-echo "Pulled installer $(python3 packages/installer/medium/provenance.py field "$MEDIUM.json" version) from $ref"
+echo "Pulled installer $(python3 images/installer/provenance.py field "$MEDIUM.json" version) from $ref"

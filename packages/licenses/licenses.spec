@@ -1,7 +1,7 @@
 # Licenses: ShapeBit's license, Settings > Licenses, and the license notices
 # that some installed Fedora packages lack, taken from their exact source RPMs
 # by notices.py into /usr/share/licenses/<package>/. See ../package.macros.
-# Built last in the image build (images/system/Containerfile), where the
+# Built last in the image build (images/os/Containerfile), where the
 # packages the notices are for are installed, with
 #   --define "cache CACHE"
 # where CACHE keeps the downloaded source RPMs between builds.

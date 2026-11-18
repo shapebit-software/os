@@ -1,25 +1,27 @@
 # Images
 
-Every container image ShapeBit builds, one folder per step. They share one
-foundation, so the OS and the tools that work on it have the same packages:
+Every container image ShapeBit builds, one folder per image, named as it is
+published, and `seal/`, the step that makes the bootable ones boot only as
+built. They share one foundation, so the OS and the tools that work on it
+have the same packages:
 
 ```
 fedora-bootc
   └─ foundation        what ShapeBit's packages run on (their specs' Requires)
        ├─ development  + the tools that work on ShapeBit, and the desktop in a window
-       └─ system       + ShapeBit's packages: the unsealed OS
-            └─ seal    + the signed UKI, which pins the system's contents
-                         (the installer medium is sealed the same way)
+       └─ os           + ShapeBit's packages ─ seal ─▶ os
+            └─ installer  + the installer and os as its payload ─ seal ─▶ installer
 ```
 
-| Folder | What it holds |
-| --- | --- |
-| `foundation/` | Fedora's bootc image with every package that ShapeBit's packages require, from Fedora, the Hyprland COPR, and ShapeBit's repository; none of ShapeBit's own files. |
-| `development/` | The development image, and the scripts that run commands and the desktop in it ([README](development/README.md)). |
-| `system/` | The OS image before it is sealed: ShapeBit's packages, built from this commit and installed on the foundation, and the check that every file is packaged. |
-| `seal/` | Pins an image's contents in a signed UKI, so that it boots only as built: the system, and the installer medium. With the script that builds both phases, and the signing keys. |
+| Folder | Publishes | What it holds |
+| --- | --- | --- |
+| `foundation/` | `os/foundation` | Fedora's bootc image with every package that ShapeBit's packages require, from Fedora, the Hyprland COPR, and ShapeBit's repository; none of ShapeBit's own files. |
+| `os/` | `os` | ShapeBit's packages, built from this commit and installed on the foundation, and the check that every file is packaged. |
+| `installer/` | `os/installer` | The installer medium: the sealed OS with the installer and the OS as its payload, the disk it is written to, and its record. |
+| `development/` | — | The development image, and the scripts that run commands and the desktop in it ([README](development/README.md)). |
+| `seal/` | — | Pins an image's contents in a signed UKI, so that it boots only as built: the OS, and the installer. The keys it signs with are [release](../release/keys.md)'s. |
 
-CI tags the sealed system `os/candidate:<version>`; once its tests pass,
+CI tags the sealed OS `os/candidate:<version>`; once its tests pass,
 Release copies it, unchanged, to `os:<version>` and `os:stable`
 ([release](../release/README.md)). What each feature does is in its own
 folder of [`packages/`](../packages/); how the built OS is tested is in
@@ -46,72 +48,42 @@ image start from the same foundation (`FOUNDATION`), built by the same engine
 
 `make image` ([seal.sh](seal/seal.sh)) builds in two phases:
 
-1. [system/Containerfile](system/Containerfile) builds every package at the image's
+1. [os/Containerfile](os/Containerfile) builds every package at the image's
    version and commit on the foundation, with every time in them the
    commit's, so a commit always gives the same packages; rpmlint checks them.
-   [packaged.py](system/packaged.py) fails the build on a file under `/usr` that
+   [packaged.py](os/packaged.py) fails the build on a file under `/usr` that
    no RPM owns, or that differs from its RPM, compared with Fedora's bootc
    image. The image ships no AI model, and `generic-logos` replaces Fedora's,
    as Fedora's trademark guidelines ask.
 2. [seal/Containerfile](seal/Containerfile) adds the signed UKI, whose
-   command line pins the system's composefs digest and which carries signed
-   PCR 11 values ([packages/boot](../packages/boot/README.md)).
+   command line pins the OS's composefs digest and which carries signed
+   PCR 11 values ([packages/boot](../packages/boot/README.md)), with the keys
+   of `SIGNING_KEY` ([release/keys.md](../release/keys.md)).
 
-The result is `build/image.tar`. `make installer` builds the medium
-([packages/installer](../packages/installer/README.md#medium)).
+The result is `build/image.tar`.
 
-## Signing keys
+## Installer
 
-A build is signed with two keys of `SIGNING_KEY`, so that each can be
-replaced on its own:
+`make installer` builds the medium in the same two phases.
+[installer/Containerfile](installer/Containerfile) adds, to the sealed
+OS (`IMAGE`), the installer as a package
+([packages/installer](../packages/installer/README.md)) at the image's
+version, with what it requires, such as the `cage` kiosk compositor that
+shows it, and the same sealed OS, as an OCI layout, as the payload. Of the
+OS, the medium keeps only the features it boots and installs with, and every
+license text; the desktop and its apps go, so that it fits beside the
+payload. Sealing then replaces the OS's UKI with the medium's own, whose
+composefs digest covers all of it. So the Installer workflow builds from the
+released `os:<version>` alone, and no unsealed image is kept anywhere.
 
-| Key | Signs | If it leaks |
-| --- | --- | --- |
-| Secure Boot (`*-secureboot.key`, `.crt`, the MOK people enroll) | systemd-boot and the UKI | Its holder can boot their code on every machine that enrolled it; without the PCR key, the TPM still refuses to unlock the disk. |
-| PCR (`*-pcr.key`) | The expected PCR 11 values in each UKI | Alone, nothing boots. |
-
-- **Development keys** (`dev-*`, "ShapeBit Development") are generated in
-  `build/keys/` by [keys.sh](seal/keys.sh). The checks of pushes and pull requests
-  use throwaway ones. They are trusted only by the developer's machines.
-- **Release keys** ("ShapeBit") sign every candidate, so every release.
-  `make release-key KEYS_DIR=<directory>` generates them once; builds never
-  do. They are the secrets `RELEASE_SECUREBOOT_KEY` and `RELEASE_PCR_KEY` of
-  the GitHub environment **Signing**, used only by the build jobs of the
-  Candidate and Installer workflows on `main`, and removed from the runner
-  before tests run ([test_workflows.py](../.github/test_workflows.py)).
-  Inside a build, only the steps that sign see them, as build secrets.
-- Promotion never re-signs, so a development build can never become a
-  release. Whoever can approve a release can ship code to every computer.
-- Both are RSA-2048, which shim and every TPM accept. Firmware and shim don't
-  check certificate dates; replacing a key retires it.
-- An installer enrolls the TPM with the PCR key of its own UKI, so an
-  installer and the release it carries share the PCR key.
-
-**Limit.** During those builds the keys are files on a GitHub-hosted runner,
-which also runs the packages' scripts. Next: sign in jobs that receive only
-unsigned binaries, or through PKCS#11 from a KMS or HSM (`sbsign` and `ukify`
-support it); it takes two rounds, because the signed systemd-boot is in
-`/usr`, inside the digest that the UKI pins. The goal is an offline root key
-that delegates to release, boot, PCR, and repository keys in hardware-backed
-storage.
-
-**Rotation** (planned; it needs code in a release that runs on every machine):
-
-- *PCR key*: release a UKI whose PCR 11 values are signed with both keys
-  (`ukify` takes several `--pcr-private-key`), with a one-time service that
-  enrolls a TPM slot for the new key with `systemd-cryptenroll` and wipes the
-  old one. Once every machine has run it, sign with the new key only. A
-  machine that missed it asks for its recovery key once.
-- *Secure Boot key*: release a build, still signed with the old key, that
-  queues the new certificate with `mokutil --import`, which the person
-  confirms at the next boot. The same release must enroll a TPM slot for the
-  new PCR 7 value (predicted with `systemd-pcrlock`), since shim measures the
-  certificate into PCR 7. Then sign with the new key and queue removal of the
-  old one (`mokutil --delete`).
-- *After a Secure Boot key leak*, nobody can revoke it remotely: every MOK
-  change needs the person at the machine. Also queue the old certificate in
-  shim's deny list (`mokutil --mokx --import`). This is why the keys stay off
-  runners as much as possible and have an offline backup.
+[medium.sh](installer/medium.sh) writes the result to `build/installer.img`:
+an EFI System Partition and one unencrypted, compressed Btrfs filesystem,
+7 GiB in all, so that it fits a USB drive sold as 8 GB. The medium holds no
+secrets. Its record, `build/installer.img.json`
+([provenance.py](installer/provenance.py)), names the OS it installs: its
+version, which is also the installer's, and its image digest.
+`make pull-installer` ([pull-installer.sh](installer/pull-installer.sh)) takes
+a published one instead.
 
 ## Not yet implemented
 

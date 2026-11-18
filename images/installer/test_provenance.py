@@ -1,4 +1,4 @@
-"""packages/installer/medium/provenance.py, on made-up artifacts."""
+"""images/installer/provenance.py, on made-up artifacts."""
 
 import hashlib
 import importlib.util

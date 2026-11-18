@@ -23,7 +23,7 @@ fi
 
 trap 'tests/vm/vm.sh --stop' EXIT
 tests/vm/vm.sh --installer --background
-IMAGE_DIGEST=$(python3 packages/installer/medium/provenance.py field "$MEDIUM.json" image_digest)
+IMAGE_DIGEST=$(python3 images/installer/provenance.py field "$MEDIUM.json" image_digest)
 export IMAGE_DIGEST
 start_run medium
 tests/vm/tmt.sh medium "$run" || outcome=failed

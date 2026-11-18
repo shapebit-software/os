@@ -26,7 +26,7 @@ RUN --mount=type=bind,from=packages,target=/src mkdir /out && /src/requires.sh >
 # Hyprland's own session entry is not installed, so the login screen offers
 # only the desktop's, nor is UWSM's unit manager, which no person needs to see
 # in Apps: rpm's %_netsharedpath skips them and records them as not installed,
-# so the packages still verify (images/system/packaged.py). Fedora's Cisco
+# so the packages still verify (images/os/packaged.py). Fedora's Cisco
 # repository is left out: Cisco pays the H.264 patent royalties only for the
 # openh264 that people download from Cisco, so an image that carried it would
 # redistribute it unlicensed; Fedora's noopenh264 stands in, and apps get H.264

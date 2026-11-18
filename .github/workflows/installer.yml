@@ -202,7 +202,7 @@ jobs:
           python3 release/artifact.py unpack build/installer-artifact build/upload
           release/sources.py pull "$INSTALLERS:$VERSION-sources" build/installer-sources
           release/sources.py tar build/installer-sources build/upload/shapebit-installer-sources.tar
-          expected=$(python3 packages/installer/medium/provenance.py field build/upload/shapebit-installer.img.json sources_sha256)
+          expected=$(python3 images/installer/provenance.py field build/upload/shapebit-installer.img.json sources_sha256)
           echo "$expected  build/upload/shapebit-installer-sources.tar" | sha256sum -c --quiet -
 
       - name: Prepare the upload key

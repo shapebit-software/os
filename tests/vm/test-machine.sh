@@ -13,14 +13,14 @@ source tests/vm/results.sh
 
 record=$DISK.json
 [[ -f $record ]] || { echo "error: $record not found; run 'make disk'" >&2; exit 1; }
-IMAGE_DIGEST=$(python3 packages/installer/medium/provenance.py field "$record" image_digest)
+IMAGE_DIGEST=$(python3 images/installer/provenance.py field "$record" image_digest)
 # The update test moves the machine to NEXT_ARCHIVE's build, where the system
 # checks run, then on to NEXT2_ARCHIVE's: `make test-update` published both.
 if [[ $plan == update ]]; then
   : "${NEXT_ARCHIVE:?}" "${NEXT2_ARCHIVE:?}"
-  IMAGE_DIGEST=$(python3 packages/installer/medium/provenance.py digest "$NEXT_ARCHIVE")
-  NEXT_VERSION=$(python3 packages/installer/medium/provenance.py label "$NEXT_ARCHIVE" org.opencontainers.image.version)
-  NEXT2_VERSION=$(python3 packages/installer/medium/provenance.py label "$NEXT2_ARCHIVE" org.opencontainers.image.version)
+  IMAGE_DIGEST=$(python3 images/installer/provenance.py digest "$NEXT_ARCHIVE")
+  NEXT_VERSION=$(python3 images/installer/provenance.py label "$NEXT_ARCHIVE" org.opencontainers.image.version)
+  NEXT2_VERSION=$(python3 images/installer/provenance.py label "$NEXT2_ARCHIVE" org.opencontainers.image.version)
   export NEXT_VERSION NEXT2_VERSION
 fi
 export IMAGE_DIGEST

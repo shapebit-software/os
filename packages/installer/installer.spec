@@ -1,6 +1,6 @@
 # The installer: its interface, backend, command-line client, units, and what it
 # runs on, each with the reason for it. Built in every installer medium build
-# from the same commit (medium/Containerfile), never published: its version is
+# from the same commit (images/installer/Containerfile), never published: its version is
 # the image's, and its sources are this repository. See ../package.macros.
 %{load:%{packages}/package.macros}
 

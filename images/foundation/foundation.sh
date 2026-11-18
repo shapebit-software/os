@@ -26,7 +26,7 @@ if [[ -z $fresh && -n ${FOUNDATION_CACHE:-} ]] && $ENGINE pull -q "$FOUNDATION_C
 fi
 
 # The bootc image by digest, which the OS image's packaging check compares with
-# (images/system/Containerfile). The engine's copy is used until --fresh pulls.
+# (images/os/Containerfile). The engine's copy is used until --fresh pulls.
 base=quay.io/fedora/fedora-bootc:$FEDORA_VERSION
 if [[ -n $fresh ]] || ! $ENGINE image inspect "$base" >/dev/null 2>&1; then
   $ENGINE pull -q "$base" >/dev/null

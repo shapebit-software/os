@@ -65,9 +65,9 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 | Path         | Purpose                                                               |
 | ------------ | --------------------------------------------------------------------- |
 | `packages/`  | ShapeBit's own packages, one folder per feature: `apps`, `assistant`, `boot`, `capture`, `colors`, `dictation`, `downloads`, `extras`, `font`, `homes`, `installer`, `licenses`, `login`, `network`, `portal`, `release`, `repositories`, `screen-sharing`, `shell`, `sound`, `splash`, `system` (requires them all), `updates`, `windows`. |
-| `images/`    | How the images are built, one folder per step: `foundation/`, which the others start from; `development/`, with the desktop in a window (`make run`); `system/`, the OS; and `seal/`, its signed UKI ([images](images/README.md)). |
+| `images/`    | How the images are built, one folder per image: `foundation/`, which the others start from; `os/`, the OS; `installer/`, the installer medium; `development/`, with the desktop in a window (`make run`); and `seal/`, the signed UKI of `os` and `installer` ([images](images/README.md)). |
 | `tests/`     | How the built OS is checked: `vm/` (the machines), `checks/` (tmt), `openqa/` (the UI) ([tests](tests/README.md)). |
-| `release/`   | How a tested build is published: its tags, sources, SBOM, and notes ([release](release/README.md)). |
+| `release/`   | How a tested build is published and trusted: its tags, sources, SBOM, notes, and signing keys ([release](release/README.md), [keys](release/keys.md)). |
 | `guidebook/` | The guidebook for people who use ShapeBit, published to the Wiki and the website. |
 | `.agents/`   | Skills for coding agents.                                             |
 | `build/`     | Generated outputs (ignored by Git).                                   |
@@ -84,7 +84,8 @@ unit tests (`make test-unit`); `check_*.py` check the built OS
 ## Documentation
 
 - [Guidebook](guidebook/Home.md), for people who use ShapeBit.
-- [Images](images/README.md): how the images are built and signed;
+- [Images](images/README.md): how the images are built and sealed;
+  [keys](release/keys.md): what signs them;
   [testing](tests/README.md): how the built OS is installed and tested;
   [releases](release/README.md).
 - Each feature's README in [`packages/`](packages/), where its code doesn't

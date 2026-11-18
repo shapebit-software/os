@@ -62,23 +62,10 @@ volume during the installation never leaves memory.
 
 ## Medium
 
-`make installer` builds the medium in the same two phases as the image.
-[medium/Containerfile](medium/Containerfile) adds, to the sealed
-system (`IMAGE`), the installer as a
-package ([installer.spec](installer.spec)) at the
-image's version, with what it requires, such as the `cage` kiosk compositor that
-shows it, and the same sealed system, as an OCI layout, as
-the payload. Of the system, the medium keeps only the features it boots and
-installs with, and every license text; the desktop and its apps go, so that it
-fits beside the payload. Sealing then replaces the system's UKI with the medium's own, whose
-composefs digest covers all of it. So the Installer workflow builds from the
-released `os:<version>` alone, and no unsealed image is kept anywhere. The
-medium's record, `build/installer.img.json`, names the system it installs: its
-version, which is also the installer's, and its image digest.
-[medium/medium.sh](medium/medium.sh) writes the result to
-`build/installer.img`: an EFI System Partition and one unencrypted, compressed
-Btrfs filesystem, 7 GiB in all, so that it fits a USB drive sold as 8 GB. The
-medium holds no secrets.
+The medium is the installer image, built with the others in
+[images/installer](../../images/README.md#installer): the sealed OS, this
+package, and the OS as its payload, on a disk that fits a USB drive sold as
+8 GB.
 
 ## Development
 

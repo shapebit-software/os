@@ -1,7 +1,7 @@
 # What ShapeBit's own packages share: each spec loads this file first, with
 #   %{load:%{packages}/package.macros}
 # Each package is built in every image build from the same commit
-# (images/system/Containerfile), never published: its version is the image's, and its
+# (images/os/Containerfile), never published: its version is the image's, and its
 # sources are this repository, so it has no sources file. Build one with
 #   rpmbuild -bb --define "packages PACKAGES" --define "image_version VERSION" \
 #     --define "image_revision COMMIT" FEATURE/FEATURE.spec

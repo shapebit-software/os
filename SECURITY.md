@@ -22,7 +22,7 @@ fixes. Installed systems update to it on their own (Settings > Updates).
   [packages/boot](packages/boot/README.md); encrypted homes:
   [packages/homes](packages/homes/README.md).
 - Signing keys, their protection and rotation:
-  [images](images/README.md#signing-keys).
+  [release/keys.md](release/keys.md).
 - Releases, withdrawal, and what must happen before a public release:
   [release](release/README.md).
 - The third-party Hyprland repository:

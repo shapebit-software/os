@@ -35,7 +35,7 @@ GENERATED = [
 # Changes that the build makes on purpose, each with the reason for it, as
 # `rpm -V` lines without the attribute column.
 CHANGED = {
-    # The boot splash is ShapeBit's (images/system/Containerfile); plymouth reads its
+    # The boot splash is ShapeBit's (images/os/Containerfile); plymouth reads its
     # theme from here before the system's /etc exists.
     "..5...... /usr/share/plymouth/plymouthd.defaults",
     # Fedora's onnxruntime links libonnxruntime.so.1 to an OpenVINO build that it

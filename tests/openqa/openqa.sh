@@ -19,7 +19,7 @@ source tests/vm/results.sh
 
 record=$MEDIUM.json
 [[ -f $record ]] || { echo "error: $record not found; run 'make installer'" >&2; exit 1; }
-checksum=$(python3 packages/installer/medium/provenance.py field "$record" medium_sha256)
+checksum=$(python3 images/installer/provenance.py field "$record" medium_sha256)
 if [[ $(sha256sum "$MEDIUM" | cut -d ' ' -f 1) != "$checksum" ]]; then
   echo "error: $MEDIUM differs from what was built" >&2
   exit 1
@@ -32,13 +32,13 @@ mkdir "$pool"
 update_digest= older=()
 if [[ $FLOW == update ]]; then
   : "${UPDATE_ARCHIVE:?}"
-  update_digest=$(python3 packages/installer/medium/provenance.py digest "$UPDATE_ARCHIVE")
+  update_digest=$(python3 images/installer/provenance.py digest "$UPDATE_ARCHIVE")
   # A layout, as the installer's payload is: skopeo flattens Docker's nested
   # index, which bootc cannot read in a layout.
   skopeo copy -q --preserve-digests "oci-archive:$UPDATE_ARCHIVE" "oci:$pool/candidate"
 
   # A medium recorded before records had the revision has none.
-  for revision in "$(python3 packages/installer/medium/provenance.py field "$record" revision '')" "${STABLE_REVISION:-}"; do
+  for revision in "$(python3 images/installer/provenance.py field "$record" revision '')" "${STABLE_REVISION:-}"; do
     directory=$pool/older/${revision:0:7}
     [[ -n $revision && ! -d $directory ]] || continue
     # A shallow checkout, as CI's, lacks the commit.

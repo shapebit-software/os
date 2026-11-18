@@ -134,7 +134,7 @@ foundation: ## Build the foundation image, which the OS and the development imag
 	images/foundation/foundation.sh $(if $(FOUNDATION_FRESH),--fresh)
 
 image: $(KEYS) foundation ## Build the container image with its signed UKI
-	images/seal/seal.sh images/system/Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \
+	images/seal/seal.sh images/os/Containerfile $(IMAGE) $(IMAGE_ARCHIVE) \
 	  --build-arg FOUNDATION=$(FOUNDATION) \
 	  --build-arg BASE=$$($(ENGINE) image inspect --format '{{index .Config.Labels "software.shapebit.foundation.base"}}' $(FOUNDATION)) \
 	  --build-arg IMAGE_VERSION=$(IMAGE_VERSION) \
@@ -238,10 +238,10 @@ registry: ## Start the local update registry, unless it runs
 installer: image ## Build the installer medium, which carries the image
 	mkdir -p $(BUILD)/payload
 	ln -f $(IMAGE_ARCHIVE) $(BUILD)/payload/image.tar 2>/dev/null || cp $(IMAGE_ARCHIVE) $(BUILD)/payload/image.tar
-	images/seal/seal.sh packages/installer/medium/Containerfile $(INSTALLER_IMAGE) $(BUILD)/installer.tar \
+	images/seal/seal.sh images/installer/Containerfile $(INSTALLER_IMAGE) $(BUILD)/installer.tar \
 	  --build-arg BASE=$(IMAGE) --build-arg UPDATE_REF=$(UPDATE_REF) --build-arg SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) \
 	  --build-context packages=packages --build-context payload=$(BUILD)/payload
-	packages/installer/medium/medium.sh
+	images/installer/medium.sh
 
 sbom: image ## Write the image's software bill of materials, SPDX and CycloneDX, into SBOM
 	release/sbom.py generate $(IMAGE) $(SBOM)
@@ -259,10 +259,10 @@ sources: image ## Collect the image's source RPMs into SOURCES_DIR
 installer-sources: installer ## Write the installer's sources as INSTALLER_SOURCES, and record them with the medium
 	release/sources.py collect $(INSTALLER_IMAGE) $(INSTALLER_SOURCES_DIR) $(if $(SOURCES_CACHE),--cache $(SOURCES_CACHE))
 	release/sources.py tar $(INSTALLER_SOURCES_DIR) $(INSTALLER_SOURCES)
-	python3 packages/installer/medium/provenance.py sources $(MEDIUM).json $(INSTALLER_SOURCES)
+	python3 images/installer/provenance.py sources $(MEDIUM).json $(INSTALLER_SOURCES)
 
 pull-installer: | $(DEV_DEP) ## Pull an installer medium from GHCR instead of building it: INSTALLER_REF=...
-	$(DEV_RUN) packages/installer/medium/pull-installer.sh $(INSTALLER_REF)
+	$(DEV_RUN) images/installer/pull-installer.sh $(INSTALLER_REF)
 
 # The VMs and the checks run in the development image, with its QEMU, tmt, and
 # pytest; only the engine's work, such as building images, stays on the host.
@@ -302,7 +302,7 @@ test-guest: $(TEST_DEPS)/.done | $(DEV_DEP) ## Run the system checks on another 
 	$(DEV_RUN) env TEST_GUEST=$(GUEST) SSH_PORT=22 tests/vm/tmt.sh installed $(RESULTS)/$(GUEST)-$$(date -u +%Y%m%dT%H%M%SZ)
 
 release-key: | $(DEV_DEP) ## Generate the release keys once, in KEYS_DIR outside build/; store them safely
-	$(DEV_RUN) images/seal/keys.sh --release
+	$(DEV_RUN) release/keys.sh --release
 
 clean: ## Remove build outputs
 	rm -rf $(BUILD)
@@ -324,4 +324,4 @@ $(OWNER_PASSWORD):
 
 # The signing keys.
 $(KEYS) &: | $(DEV_DEP)
-	$(DEV_RUN) images/seal/keys.sh
+	$(DEV_RUN) release/keys.sh

@@ -59,14 +59,14 @@ def test_the_third_party_repositories_ship_turned_off_with_their_keys(host, sh):
 
 
 def test_logos_are_not_fedoras(host):
-    # Fedora's logos are its trademarks; generic-logos stands in (images/system/Containerfile).
+    # Fedora's logos are its trademarks; generic-logos stands in (images/os/Containerfile).
     assert not host.package("fedora-logos").is_installed
     assert host.package("generic-logos").is_installed
 
 
 def test_openh264_is_not_redistributed(host):
     # Cisco's patent license covers only the openh264 that Cisco serves itself
-    # (images/system/Containerfile).
+    # (images/os/Containerfile).
     assert not host.package("openh264").is_installed
     assert host.package("noopenh264").is_installed
 
@@ -124,7 +124,7 @@ def test_pam_uses_homed(host):
 
 def test_login_screen_stops_when_the_home_cannot_open(host):
     # Before authselect's stack, whose pam_unix would accept the password of a
-    # home that systemd-homed could not open (images/system/Containerfile).
+    # home that systemd-homed could not open (images/os/Containerfile).
     auth = [line.split() for line in host.file("/etc/pam.d/sddm").content_string.splitlines() if line.startswith("auth")]
     homed = auth.index(["auth", "[success=ok", "user_unknown=ignore", "default=die]", "pam_systemd_home.so"])
     assert homed < auth.index(["auth", "substack", "password-auth"])
@@ -181,7 +181,7 @@ def pe_section(content, name):
 
 
 def test_pcr_policy_key_is_not_the_secure_boot_key(host):
-    # Separate keys can be replaced separately (images/README.md). The
+    # Separate keys can be replaced separately (release/keys.md). The
     # certificate holds its public key as DER, the UKI's .pcrpkey as PEM.
     with open(glob.glob("/boot/EFI/Linux/*.efi")[0], "rb") as uki:
         pem = pe_section(uki.read(), b".pcrpkey").decode()

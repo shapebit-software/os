@@ -113,7 +113,7 @@ jobs:
           echo "version=$version" >>"$GITHUB_OUTPUT"
 
       # The keys are on the runner only for the builds that sign, never while
-      # tests run (images/README.md).
+      # tests run (release/keys.md).
       - uses: ./.github/actions/release-keys
         with:
           secureboot-key: ${{ secrets.RELEASE_SECUREBOOT_KEY }}
@@ -138,7 +138,7 @@ jobs:
       - name: Push the images to os/candidate
         id: push
         run: |
-          digest=$(python3 packages/installer/medium/provenance.py digest build/image.tar)
+          digest=$(python3 images/installer/provenance.py digest build/image.tar)
           skopeo copy -q --preserve-digests oci-archive:build/image.tar "docker://$CANDIDATES:$IMAGE_VERSION"
           [ "$(skopeo inspect "docker://$CANDIDATES:$IMAGE_VERSION" --format '{{.Digest}}')" = "$digest" ]
           skopeo copy -q --preserve-digests oci-archive:build/image-next2.tar "docker://$CANDIDATES:$IMAGE_VERSION-update"

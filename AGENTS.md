@@ -19,9 +19,10 @@
 
 These rules cover the image: `packages/`, `images/`, `tests/`, `release/`
 and the `Makefile`. The top level reads as the pipeline: what the OS is made
-of (`packages/`), how it is built (`images/`: `foundation`, `development`,
-`system`, `seal`), how it is checked (`tests/`), and how it is published
-(`release/`).
+of (`packages/`), how it is built (`images/`: one folder per image, named as
+published, `foundation`, `os`, `installer`, `development`, and `seal`, the step
+that makes `os` and `installer` boot only as built), how it is checked
+(`tests/`), and how it is published and trusted (`release/`, with the keys).
 
 - **A folder in `packages/` is a feature and a package.** It holds
   everything about the feature, side by side: its code, its scripts, its
@@ -61,7 +62,7 @@ of (`packages/`), how it is built (`images/`: `foundation`, `development`,
   `packages/` from the same commit, reproducibly (`SOURCE_DATE_EPOCH`), checks
   them with rpmlint (`packages/rpmlint.toml`), and installs them on it.
   The build fails on a file under `/usr` that no package owns, or that differs
-  from its package (`images/system/packaged.py`).
+  from its package (`images/os/packaged.py`).
 - **Vendor defaults go under `/usr`,** by a feature's install rules. `/etc`
   and `/var` are machine state.
 - **Every behavior gets a check, beside what it checks.** See
@@ -90,6 +91,6 @@ of (`packages/`), how it is built (`images/`: `foundation`, `development`,
   nothing about how it is built, and nothing that isn't built yet.
 - **Developer documentation lives beside its code:** a feature's README in
   `packages/`, the build in `images/README.md`, testing in `tests/README.md`,
-  releases in `release/README.md`. A README says
+  releases in `release/README.md`, the signing keys in `release/keys.md`. A README says
   only what the code and its comments can't: the intent, the structure, the
   rules, and what is planned. Comments cite the README that owns a fact.
