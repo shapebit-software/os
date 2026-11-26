@@ -1,0 +1,7 @@
+# Applications that draw their own title bars (GTK, libadwaita, and those
+# that follow them, such as Firefox) show no window buttons: windows close,
+# go full screen, and move through the shell and the shortcuts, the same for
+# every application. Flatpak applications read this through the portal
+# (portals.conf).
+[org.gnome.desktop.wm.preferences]
+button-layout=':'

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Downloads and stages the image that the system follows (bootc status shows
+# it; the installer sets ghcr.io/shapebit-software/os:stable). The next restart
+# or shutdown installs it; this never restarts. Writes the state for the shell
+# to /run/os-update/status.json (made at boot, os-update.conf; written in
+# place, so the shell's watch on it holds): checking, current, skipped (a metered
+# connection), ready (with the version), or failed (with the reason).
+# Usage: os-update auto|now (os-update@.service; auto skips metered connections)
+set -euo pipefail
+dir=/run/os-update
+
+status() {
+  jq -n --arg state "$1" --arg version "${2-}" --arg error "${3-}" \
+    '{state: $state, version: $version, error: $error, checked: (now | todate)}' >"$dir/status.json"
+}
+
+# One run at a time, whether the timer or Check now started it.
+exec 9>"$dir/lock"
+flock 9
+trap 'status failed "" "$(tail -n 1 "$dir/log" 2>/dev/null)"' ERR
+
+# NetworkManager's Metered: 1 yes, 3 guessed yes.
+metered=$(busctl get-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager \
+  org.freedesktop.NetworkManager Metered | cut -d ' ' -f 2)
+if [[ $1 == auto && $metered =~ ^[13]$ ]]; then
+  status skipped
+  exit 0
+fi
+
+status checking
+bootc upgrade --quiet >"$dir/log" 2>&1
+bootc status --format=json >"$dir/bootc.json"
+digest=$(jq -r '.status.staged.image.imageDigest // ""' "$dir/bootc.json")
+if [[ -z $digest ]]; then
+  status current
+  exit 0
+fi
+# bootc's composefs backend does not report the version, so it comes from the
+# image's label, by the digest that was staged. The update is ready whether or
+# not that lookup works; without it, the digest stands in, since the shell
+# announces each version once.
+ref=$(jq -r '.status.staged.image.image.image' "$dir/bootc.json")
+version=$(skopeo inspect --no-tags "docker://${ref%:*}@$digest" \
+  --format '{{index .Labels "org.opencontainers.image.version"}}') || version=${digest:7:12}
+status ready "$version"

@@ -1,0 +1,40 @@
+# A laptop on battery, on a Wi-Fi network with others around, with Bluetooth
+# headphones connected: what `make simulate` starts with.
+
+[upower]
+parameters = { OnBattery = true }
+calls = [
+  { method = "AddDischargingBattery", args = ["BAT0", "Battery", 64.0, 14400] },
+  # What the shell shows (UPower.displayDevice): a battery (2), discharging (2),
+  # at 64 %, its energy now, full, and its rate, 4 hours to empty, present,
+  # its icon, and no warning (1).
+  { method = "SetupDisplayDevice", args = [2, 2, 64.0, 32.0, 50.0, 8.0, 14400, 0, true, "battery-good-symbolic", 1] },
+]
+
+[upower_power_profiles_daemon]
+parameters = { ActiveProfile = "balanced" }
+
+[logind]
+parameters = { CanSuspend = "yes", CanHibernate = "no" }
+
+[networkmanager]
+calls = [
+  # 100: activated.
+  { method = "AddWiFiDevice", args = ["wlan0", "wlan0", 100], name = "wifi" },
+  # Infrastructure mode, 2.4 GHz, 54 Mb/s, the strength, then the security:
+  # 256 is a pre-shared key (WPA), 0 none.
+  { method = "AddAccessPoint", args = ["$wifi", "home", "Home", "02:00:00:00:00:01", 2, 2437, 54000, 82, 256], name = "home" },
+  { method = "AddAccessPoint", args = ["$wifi", "cafe", "Cafe Guest", "02:00:00:00:00:02", 2, 5180, 54000, 47, 0] },
+  { method = "AddAccessPoint", args = ["$wifi", "neighbour", "Neighbour 5G", "02:00:00:00:00:03", 2, 5500, 54000, 21, 256] },
+  { method = "AddWiFiConnection", args = ["$wifi", "home", "Home", "wpa-psk"], name = "connection" },
+  # 2: activated.
+  { method = "AddActiveConnection", args = [["$wifi"], "$connection", "$home", "Home", 2] },
+]
+
+[bluez5]
+calls = [
+  { method = "AddAdapter", args = ["hci0", "ShapeBit"] },
+  { method = "AddDevice", args = ["hci0", "02:00:00:00:10:01", "Headphones"] },
+  { method = "PairDevice", args = ["hci0", "02:00:00:00:10:01"] },
+  { method = "ConnectDevice", args = ["hci0", "02:00:00:00:10:01"] },
+]

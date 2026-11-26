@@ -1,0 +1,4 @@
+# Lets a developer's VM borrow this computer's cameras and Bluetooth radios
+# (make vm, DEVICES): the group kvm, whose members may run VMs, may open them.
+# Installed once on the developer's computer (README.md#devices).
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0e????:*|*:e00101:*", GROUP="kvm", MODE="0660"

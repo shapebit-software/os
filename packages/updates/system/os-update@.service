@@ -1,0 +1,13 @@
+# Checks for a new system image, downloads it, and stages it for the next
+# restart (os-update). %i: auto, from os-update.timer, which skips metered
+# connections, or now, from Settings' Check now (os-update.rules).
+[Unit]
+Description=Check for a system update
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/os-update %i
+Nice=10
+IOSchedulingClass=idle

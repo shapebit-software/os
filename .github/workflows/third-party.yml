@@ -1,0 +1,86 @@
+# Builds the external packages, what Fedora lacks, which ShapeBit packages
+# itself: each a folder with its spec and a sources file, in the feature that
+# needs it (packages/repositories/README.md); and publishes their dnf
+# repository. A package whose version has no release yet is
+# built offline (packages/repositories/tools/rpm-build.sh) and released as rpm-<name>-<version>-<release>, with
+# its binary and source RPMs as assets; those releases are never "latest", so
+# they stay apart from the OS's. Then the repository of every rpm-* release is
+# written, signed (rpm-repo.sh), and deployed to GitHub Pages, where the image
+# build and distribution/sources/sources.py read it (packages/repositories/system/third-party.repo).
+# The signing key is the secret RPM_SIGNING_KEY of the environment "Signing".
+name: Third-party packages
+
+on:
+  push:
+    branches: [main]
+    paths: ['packages/*/external/**', 'packages/repositories/**', packages/rpmlint.toml, .github/workflows/third-party.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: third-party
+  cancel-in-progress: false
+
+env:
+  ENGINE: docker
+  GH_TOKEN: ${{ github.token }}
+  # Where the published packages are (release assets, by tag), and the public
+  # key of the repository's signature.
+  RPM_RELEASES: https://github.com/shapebit-software/os/releases/download
+  RPM_PUBLIC_KEY: packages/repositories/data/third-party.asc
+
+# Named, the shell runs with -o pipefail, so that a failing command piped to
+# tee fails its step; unnamed, it runs with -e alone.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  packages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    environment: Signing
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build and release each package version that has no release
+        run: |
+          # The Makefile's FEDORA_VERSION, whose packages the image installs.
+          export FEDORA_VERSION=$(sed -n 's/^FEDORA_VERSION *?= *//p' Makefile)
+          fedora=$FEDORA_VERSION
+          # An external package is a folder with a sources file.
+          for sources in packages/*/external/*/sources; do
+            dir=$(dirname "$sources")
+            name=$(basename "$dir")
+            # Fedora's container lacks rpmspec, which comes with rpm-build.
+            nvr=$(docker run --rm -v "$PWD/$dir:/package:ro" "registry.fedoraproject.org/fedora:$fedora" \
+              bash -c "dnf -q -y install rpm-build >/dev/null 2>&1 && rpmspec -q --srpm --qf '%{name}-%{version}-%{release}' /package/$name.spec")
+            if gh release view "rpm-$nvr" >/dev/null 2>&1; then echo "rpm-$nvr is released"; continue; fi
+            packages/repositories/tools/rpm-build.sh "$dir" "build/rpms/$name"
+            gh release create "rpm-$nvr" build/rpms/"$name"/*.rpm --latest=false \
+              --title "$nvr (package)" --notes "Built from $dir at $GITHUB_SHA, for ShapeBit's package repository (packages/repositories/README.md)."
+          done
+      - name: Write the signed repository of every package release
+        env:
+          RPM_SIGNING_KEY: ${{ secrets.RPM_SIGNING_KEY }}
+        run: |
+          gh release list --limit 1000 --json tagName -q '.[].tagName | select(startswith("rpm-"))' | while read -r tag; do
+            gh release download "$tag" --pattern '*.rpm' --dir "build/rpms/releases/$tag"
+          done
+          packages/repositories/tools/rpm-repo.sh build/rpms/releases build/rpms/pages/rpms
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: build/rpms/pages
+
+  deploy:
+    needs: packages
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

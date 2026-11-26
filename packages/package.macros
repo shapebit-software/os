@@ -1,0 +1,62 @@
+# What ShapeBit's own packages share: each spec loads this file first, with
+#   %{load:%{packages}/package.macros}
+# Each package is built in every image build from the same commit
+# (image/Containerfile), never published: its version is the image's, and its
+# sources are this repository, so it has no sources file. Build one with
+#   rpmbuild -bb --define "packages PACKAGES" --define "image_version VERSION" \
+#     --define "image_revision COMMIT" FEATURE/FEATURE.spec
+# with SOURCE_DATE_EPOCH set to the commit's time.
+
+%shapebit_release   1%{?dist}
+# ShapeBit's licenses, by kind of file (REUSE.toml, LICENSES/): programs;
+# code that other programs embed; configuration and snippets that people copy;
+# artwork; and the brand artwork, which no open license covers. A package's
+# License names those of the files it installs (packages/test_licenses.py).
+%shapebit_program   GPL-3.0-or-later
+%shapebit_library   LGPL-3.0-or-later
+%shapebit_config    MIT
+%shapebit_artwork   CC-BY-SA-4.0
+%shapebit_brand     LicenseRef-ShapeBit-Brand
+%shapebit_url       https://github.com/shapebit-software/os
+# Marks ShapeBit's own packages, whose sources are this repository
+# (distribution/sources/sources.py leaves them out).
+%shapebit_vendor    ShapeBit
+
+# The same commit gives the same packages: every time in them is the commit's
+# (SOURCE_DATE_EPOCH), not the build's, and the build host has no name.
+%source_date_epoch_from_changelog   0
+%use_source_date_epoch_as_buildtime 1
+%clamp_mtime_to_source_epoch        1
+%_buildhost                         shapebit
+
+# The texts of ShapeBit's licenses that the package's License names, from
+# licenses/shapebit: each is one file, such as
+# /usr/share/licenses/shapebit/LICENSE-MIT.txt, which rpm lets every package
+# that names it own, so that Settings > Licenses lists it once. Appends them to
+# the file list; a package of others' work (font) names none.
+%shapebit_license_install %{lua: \
+local data = rpm.expand("%{packages}/licenses/shapebit/") \
+local share = rpm.expand("%{buildroot}/usr/share/licenses/shapebit/") \
+local seen = {} \
+local nl = string.char(10) \
+for id in rpm.expand("%{?license}"):gmatch("[%w.+-]+") do \
+  local name = "LICENSE-" .. (id:gsub("^LicenseRef%-", "")) .. ".txt" \
+  if not seen[name] and posix.access(data .. name) then \
+    if next(seen) == nil then print("echo '%dir /usr/share/licenses/shapebit' >>files" .. nl) end \
+    seen[name] = true \
+    print("install -Dm644 " .. data .. name .. " " .. share .. name .. nl) \
+    print("echo '%license /usr/share/licenses/shapebit/" .. name .. "' >>files" .. nl) \
+  end \
+end}
+
+# Installs the feature folder FEATURE with its Makefile, and lists what it
+# installed as the package's files: every file, and every folder that the
+# build's own system lacks, which no other package owns; then the texts of its
+# licenses.
+%shapebit_install() \
+make -C %{packages}/%1 install DESTDIR=%{buildroot} FEDORA=%{fedora} IMAGE_VERSION=%{image_version} IMAGE_REVISION=%{image_revision} \
+(cd %{buildroot} \
+ find . ! -type d | cut -c2- | awk 'index($0, "/usr/share/licenses/shapebit/") != 1' \
+ find . -mindepth 1 -type d | cut -c2- | awk '$0 != "/usr/share/licenses/shapebit"' | while read -r d; do [ -d "$d" ] || echo "%%dir $d"; done \
+) >files \
+%shapebit_license_install

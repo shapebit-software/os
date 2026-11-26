@@ -1,0 +1,15 @@
+# A desktop computer: no battery, wired, no Bluetooth.
+
+[upower]
+parameters = { OnBattery = false, LidIsPresent = false }
+
+[upower_power_profiles_daemon]
+parameters = { ActiveProfile = "balanced" }
+
+[logind]
+
+[networkmanager]
+calls = [
+  # 100: activated.
+  { method = "AddEthernetDevice", args = ["eth0", "eth0", 100] },
+]

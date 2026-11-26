@@ -1,0 +1,373 @@
+# check=skip=InvalidDefaultArgInFrom
+# ShapeBit OS: bootc image, booted by systemd-boot from a signed UKI
+# (README.md). Built with packages/ as the context: a folder with a
+# spec is a package (packages/package.macros). These images come from here, each
+# a --target:
+#
+# - foundation: Fedora's bootc image, BASE, by digest, with what ShapeBit's
+#   packages run on, their specs' Requires, and none of ShapeBit's own files.
+#   image/foundation.sh builds it (--target foundation) or takes a
+#   published one, and passes it to the others as FOUNDATION; without it,
+#   they start from the stage here. RECIPE is what it is made from; labels
+#   record both.
+# - development (--target development): the foundation with every tool that
+#   works on ShapeBit (development/README.md).
+# - os: ShapeBit's own packages, built here from the same commit and installed
+#   on the foundation. It is unsealed. Signing needs the key as build secrets
+#   signing.key and signing.crt, and KEYS_ID, which changes with it. Only
+#   signed binaries and public keys reach the image.
+# - seal: any unsealed image, UNSEALED, with its signed UKI.
+#   image/seal.sh builds it after the image, which it needs to run.
+# - installer: the installer medium, built from the sealed OS, OS, and then
+#   sealed too.
+#
+# BASE has no default: image/foundation.sh and the Makefile pass it. UNSEALED
+# and OS default to scratch, so that the engines can read the stages that a
+# target does not build; they are always passed for those that do.
+ARG BASE
+ARG UNSEALED=scratch
+ARG OS=scratch
+ARG FOUNDATION=foundation
+
+# ---- The foundation ---------------------------------------------------------
+FROM ${BASE} AS base
+
+# Only the list of packages, so that the install below runs again only when the
+# list changes, not with every change to a package.
+FROM base AS needs
+RUN --mount=type=bind,target=/src mkdir /out && /src/requires.sh >/out/requires
+
+# In one transaction, without weak dependencies, so that every package is there
+# because a spec requires it, and without Fedora's count of systems (as the
+# repositories package sets for later). Fedora has no Hyprland, so it comes from
+# a third-party COPR for now (hyprland.repo); what else Fedora lacks, such as
+# sherpa-onnx and llama-server, ShapeBit builds itself (third-party.repo, signed
+# with the key of third-party.asc; packages/repositories/README.md). The
+# repositories package ships both beside Fedora's repositories, turned off; here
+# they are mounted from its source and turned on. dnf's cache is a build cache,
+# kept between builds and never in the image. The rest of dnf's state in /var
+# and /run is removed, since bootc ignores it on install; so are SDDM's runtime
+# directory, which tmpfiles.d creates on each boot, and libX11's empty cache.
+# Hyprland's own session entry is not installed, so the login screen offers
+# only the desktop's, nor is UWSM's unit manager, which no person needs to see
+# in Apps: rpm's %_netsharedpath skips them and records them as not installed,
+# so the packages still verify (image/packaged.py). Fedora's Cisco
+# repository is left out: Cisco pays the H.264 patent royalties only for the
+# openh264 that people download from Cisco, so an image that carried it would
+# redistribute it unlicensed; Fedora's noopenh264 stands in, and apps get H.264
+# from Flathub's extension, which downloads from Cisco.
+FROM base AS foundation
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    --mount=type=bind,from=needs,source=/out,target=/run/needs \
+    --mount=type=bind,source=repositories/system/hyprland.repo,target=/etc/yum.repos.d/hyprland.repo \
+    --mount=type=bind,source=repositories/system/third-party.repo,target=/etc/yum.repos.d/third-party.repo \
+    --mount=type=bind,source=repositories/data/third-party.asc,target=/usr/share/pki/rpm-gpg/third-party.asc <<'EOF'
+set -euo pipefail
+echo '%_netsharedpath /usr/share/wayland-sessions/hyprland.desktop:/usr/share/applications/uuctl.desktop' \
+  >/etc/rpm/macros.netshared
+dnf -y install --disablerepo=fedora-cisco-openh264 --enablerepo=hyprland,shapebit --setopt=install_weak_deps=False \
+  --setopt='*.countme=0' $(cat /run/needs/requires)
+rm -rf /etc/rpm/macros.netshared /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf /run/sddm /var/cache/libX11
+EOF
+
+ARG BASE
+ARG RECIPE
+LABEL software.shapebit.foundation.base="$BASE" \
+      software.shapebit.foundation.recipe="$RECIPE"
+
+# ---- The development image --------------------------------------------------
+# The foundation, which the OS also starts from, so the desktop under
+# development runs on the OS's own packages, and only the tools here. make
+# builds it (dev-image) and runs every target in it, for developers and CI
+# alike; only the engine that builds the images stays on the host, which its
+# client here reaches (development/dev.sh).
+
+# Only what the installer builds with, so that the install below runs again
+# only when that changes, not with every change to a package: make builds this
+# image again whenever a spec changes.
+FROM ${FOUNDATION} AS development-needs
+RUN --mount=type=bind,target=/src \
+    mkdir /out && /src/requires.sh --build installer/installer.spec >/out/installer-build
+
+FROM ${FOUNDATION} AS development
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    --mount=type=bind,from=development-needs,source=/out,target=/run/needs \
+    dnf -y install \
+    # Lint, validate (rpmspec, Fedora's list of licenses, and every file's
+    # license with reuse), the unit tests, and the license notices' tool,
+    # which unpacks RPMs (cpio).
+    git make python3 rpm-build license-validate reuse cpio python3-pyflakes python3-pytest \
+    # The checks of the built OS: the VMs (QEMU with Secure Boot firmware and
+    # a software TPM; for make vm and make installer-vm, in a window that the
+    # host's GPU renders for, through virglrenderer, which virtio-gpu-gl
+    # brings), SSH into them, pytest and Testinfra, skopeo for the registries,
+    # OpenSSL for the signing keys, and xz for the media.
+    qemu-system-x86-core qemu-device-display-virtio-vga qemu-device-display-virtio-vga-gl \
+    qemu-device-display-virtio-gpu-gl qemu-img qemu-ui-gtk qemu-ui-opengl edk2-ovmf swtpm \
+    # The window's machine plays and records through the host's PipeWire, and
+    # borrows its USB devices, such as the camera (make vm, DEVICES).
+    qemu-audio-pipewire qemu-device-usb-host \
+    openssh-clients python3-pytest-testinfra skopeo openssl xz \
+    # The client of a host's Docker, with BuildKit's (dev.sh); Podman, already
+    # here, is the client of a host's Podman.
+    docker-cli docker-buildx \
+    # The installer's unit tests: what it builds with, and a session bus of
+    # their own (dbus-run-session).
+    $(cat /run/needs/installer-build) dbus-daemon \
+    # The ChatGPT integration tests' signed identities.
+    python3-jwt python3-cryptography \
+    # make watch's file events, and the simulator's fake system services.
+    inotify-tools python3-dbusmock
+
+# isotovideo, openQA's test engine (quality/openqa/), with Inline::Python
+# for the Python modules. Weak dependencies are off: they bring QEMU for every
+# architecture.
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    dnf -y install --setopt=install_weak_deps=False os-autoinst perl-Inline-Python
+
+# /home is a folder here, not the bootc image's link to /var/home, so that the
+# developer's folders, which dev.sh mounts at their paths on the host, resolve
+# to those paths, which the host's engine reads. The account of editors' dev
+# containers (.devcontainer), which they give the developer's user ID; dev.sh
+# runs as the developer instead.
+RUN rm /home && mkdir /home && useradd --create-home dev
+
+# make runs the targets here as they are, rather than in this image again.
+ENV IN_DEV_IMAGE=1
+
+# ---- The OS -----------------------------------------------------------------
+
+# ShapeBit's own packages, at the image's version and commit, with every time
+# in them the commit's (SOURCE_DATE_EPOCH): the same commit gives the same
+# packages. systemd-boot is signed here, with the certificate that the person
+# enrolls; the key is a build secret, and only the signed binary and the
+# certificate enter the boot package. shapebit-release replaces Fedora's
+# identity packages (packages/release). rpmlint checks every package for packaging mistakes;
+# packages/rpmlint.toml says which of its findings are accepted, and why.
+# shapebit-licenses is built last (the licenses stage), once everything its
+# reads is installed. A spec at the top of a feature folder is ShapeBit's own;
+# an external package (a folder with a sources file, below a feature) is in
+# the foundation, from ShapeBit's repository. The installer is only on the
+# medium.
+FROM ${FOUNDATION} AS packages-build
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    --mount=type=bind,target=/src \
+    dnf -y install rpm-build rpmlint sbsigntools openssl $(/src/requires.sh --build)
+ARG IMAGE_VERSION
+ARG IMAGE_REVISION
+ARG SOURCE_DATE_EPOCH
+ARG KEYS_ID
+RUN --mount=type=bind,target=/src \
+    --mount=type=secret,id=signing.key --mount=type=secret,id=signing.crt <<'EOF'
+set -euo pipefail
+mkdir /tmp/signed
+sbsign --key /run/secrets/signing.key --cert /run/secrets/signing.crt \
+  --output /tmp/signed/systemd-bootx64.efi.signed /usr/lib/systemd/boot/efi/systemd-bootx64.efi
+openssl x509 -in /run/secrets/signing.crt -outform DER -out /tmp/signed/enroll-this-key.cer
+/src/rpmbuild.sh /out --define "signed_dir /tmp/signed" \
+  --define "systemd_boot $(rpm -q --qf '%{VERSION}-%{RELEASE}' systemd-boot-unsigned)" \
+  $(ls /src/*/*.spec | grep -v -e '^/src/installer/' -e '^/src/licenses/')
+rpmlint --config /src/rpmlint.toml /out/*.rpm
+EOF
+
+# What under /usr no RPM has as it is in the base image (image/packaged.py):
+# the one the foundation was built from, before it installed anything.
+FROM base AS base-packaged
+RUN --mount=type=bind,from=image,source=packaged.py,target=/run/packaged.py \
+    mkdir /out && python3 /run/packaged.py list >/out/base
+
+# The foundation has what the packages run on: their specs' Requires, each with
+# the reason for it there (the foundation stage).
+FROM ${FOUNDATION} AS system
+
+LABEL org.opencontainers.image.title="ShapeBit OS" \
+      org.opencontainers.image.url="https://shapebit.software" \
+      org.opencontainers.image.source="https://github.com/shapebit-software/os"
+
+# ShapeBit's own packages, which need nothing the image lacks; shapebit-release
+# replaces Fedora's identity package. They are built in this build, so they
+# carry no signature. shapebit-system, which requires them all, comes last, with
+# shapebit-licenses, which holds the collected license notices.
+RUN --mount=type=bind,from=packages-build,source=/out,target=/run/packages \
+    dnf -y install --disablerepo='*' --nogpgcheck --allowerasing $(ls /run/packages/*.rpm | grep -v '/shapebit-system-') && \
+    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf
+
+# The boot splash (Plymouth): ShapeBit's theme, packages/splash, with the
+# spinner theme's images, is the default in the distribution defaults. The
+# initramfs, rebuilt below, carries it.
+RUN sed -i 's/^Theme=.*/Theme=boot/' /usr/share/plymouth/plymouthd.defaults && \
+    test "$(plymouth-set-default-theme)" = boot
+
+# os-update.timer checks for system updates (packages/updates).
+# The base image's own timers are masked: rpm-ostree-countme reports to
+# Fedora that this computer exists, and bootc-fetch-apply-updates installs
+# updates and restarts by itself, which os-update does instead. Both now skip
+# themselves, since they need /run/ostree-booted, which a composefs system
+# lacks; masking keeps them off if that changes. bootc enables its timer in
+# /usr, which a preset cannot undo.
+RUN systemctl set-default graphical.target && systemctl preset os-update.timer && \
+    systemctl mask rpm-ostree-countme.timer bootc-fetch-apply-updates.timer
+
+# Logins for systemd-homed users need pam_systemd_home. authselect's checksum
+# in /var is dropped, as in the base image; the configuration lives in /etc.
+# authselect's stack ignores pam_systemd_home's other failures and lets
+# pam_unix accept the password, so a home that cannot open, for lack of disk
+# space say, still signs in to a session without one, which ends at once. The
+# login screen asks pam_systemd_home first and stops on any failure; users that
+# systemd-homed does not manage pass on to authselect's stack.
+RUN authselect enable-feature with-systemd-homed && rm -r /var/lib/authselect && \
+    sed -i '/^auth .*pam_selinux_permit\.so/a auth        [success=ok user_unknown=ignore default=die] pam_systemd_home.so' \
+      /etc/pam.d/sddm && \
+    grep -q '^auth .*default=die\] pam_systemd_home\.so' /etc/pam.d/sddm
+
+# The initramfs must carry /usr/lib/composefs/setup-root-conf.toml and
+# ShapeBit's os-release, so it is rebuilt after the packages are in place.
+RUN kernel=$(basename /usr/lib/modules/*) && \
+    dracut --force "/usr/lib/modules/$kernel/initramfs.img" "$kernel"
+
+# The notices that some installed RPMs lack, from their exact source RPMs, as
+# part of shapebit-licenses (packages/licenses), at the image's version: built on the
+# installed system, whose packages it reads. Source RPMs stay in this stage's
+# cache; rpm-build is never part of the image.
+FROM system AS licenses
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    dnf -y install rpm-build make
+ARG IMAGE_VERSION
+ARG IMAGE_REVISION
+ARG SOURCE_DATE_EPOCH
+RUN --mount=type=bind,target=/src \
+    --mount=type=cache,target=/var/cache/licenses,sharing=locked \
+    /src/rpmbuild.sh /out --define "cache /var/cache/licenses" /src/licenses/licenses.spec
+
+FROM system AS os
+# shapebit-licenses, with the collected notices, and shapebit-system, which requires every feature: rpm
+# refuses it if one is missing.
+RUN --mount=type=bind,from=licenses,source=/out,target=/run/notices \
+    --mount=type=bind,from=packages-build,source=/out,target=/run/packages \
+    rpm -i --nosignature /run/notices/*.rpm /run/packages/shapebit-system-*.rpm
+# The windows' settings defaults (window-buttons.gschema.override) apply once
+# the schemas are compiled again.
+RUN glib-compile-schemas /usr/share/glib-2.0/schemas
+# Identifies this build, the commit it is made from, and where its sources
+# are published once it is released (distribution/README.md), as os-release does
+# from the release package.
+ARG IMAGE_VERSION
+ARG IMAGE_REVISION
+LABEL org.opencontainers.image.version="$IMAGE_VERSION" \
+      org.opencontainers.image.revision="$IMAGE_REVISION" \
+      software.shapebit.sources="ghcr.io/shapebit-software/os:$IMAGE_VERSION-sources"
+# Every file this build adds to /usr belongs to a package, as the package has
+# it, so that its license, sources and SBOM entry come with it (image/packaged.py).
+RUN --mount=type=bind,from=image,source=packaged.py,target=/run/packaged.py \
+    --mount=type=bind,from=base-packaged,source=/out/base,target=/run/base \
+    python3 /run/packaged.py check /run/base
+RUN bootc container lint
+
+# ---- Sealing ----------------------------------------------------------------
+# Adds a signed UKI, whose command line pins the image's composefs digest, and
+# which carries expected PCR 11 values for TPM2 unlock, signed with a key of
+# their own (pcr.key) and not the Secure Boot one. image/seal.sh
+# computes COMPOSEFS_DIGEST from the built image, as `bootc install` does; a
+# digest computed inside a build differs, since builds do not see the image's
+# exact file metadata (packages/boot/README.md).
+FROM ${UNSEALED} AS uki
+ARG COMPOSEFS_DIGEST
+ARG KEYS_ID
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    dnf -y install systemd-ukify sbsigntools && mkdir /out
+RUN --mount=type=secret,id=signing.key --mount=type=secret,id=signing.crt --mount=type=secret,id=pcr.key <<'EOF'
+set -euo pipefail
+: "${COMPOSEFS_DIGEST:?}"
+kernel=$(basename /usr/lib/modules/*)
+kargs=$(python3 -c '
+import glob, tomllib
+print(" ".join(karg for path in sorted(glob.glob("/usr/lib/bootc/kargs.d/*.toml"))
+               for karg in tomllib.load(open(path, "rb")).get("kargs", [])))')
+ukify build \
+  --linux "/usr/lib/modules/$kernel/vmlinuz" \
+  --initrd "/usr/lib/modules/$kernel/initramfs.img" \
+  --uname "$kernel" \
+  --os-release @/usr/lib/os-release \
+  --cmdline "$kargs composefs=$COMPOSEFS_DIGEST" \
+  --signtool sbsign \
+  --secureboot-private-key /run/secrets/signing.key \
+  --secureboot-certificate /run/secrets/signing.crt \
+  --pcr-private-key /run/secrets/pcr.key \
+  --output "/out/$kernel.efi"
+EOF
+
+# /boot is outside the composefs digest, so adding the UKI keeps it valid. An
+# image built from a sealed one, as the installer is, carries that one's UKI,
+# which this one replaces.
+FROM ${UNSEALED} AS seal
+RUN rm -rf /boot/EFI/Linux
+COPY --from=uki /out/ /boot/EFI/Linux/
+
+# ---- The installer medium ---------------------------------------------------
+# The ShapeBit system plus the installer and the system to install. It is built
+# from the sealed system, OS, and then sealed in the same way
+# (image/seal.sh), which replaces the OS's UKI with one whose composefs
+# digest also covers the payload. So the released os:<version> is both the
+# payload and the base, and no unsealed image needs to be kept. The build
+# context `payload` is the directory with the sealed system archive, image.tar,
+# which is OS.
+# The installer's package (packages/installer/installer.spec), at the image's
+# version and commit, which the OS's os-release records (packages/rpmbuild.sh);
+# its BuildRequires come from the spec.
+FROM ${OS} AS installer-build
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    --mount=type=bind,target=/src \
+    dnf -y install rpm-build rpmlint dnf5-plugins && \
+    dnf -y builddep --define "packages /src" --define "image_version 0" /src/installer/installer.spec
+ARG SOURCE_DATE_EPOCH
+RUN --mount=type=bind,target=/src \
+    . /usr/lib/os-release && export IMAGE_VERSION IMAGE_REVISION && \
+    /src/rpmbuild.sh /out /src/installer/installer.spec && \
+    rpmlint --config /src/rpmlint.toml /out/*.rpm
+
+FROM ${OS} AS installer
+# The installer and its Requires (packages/installer/installer.spec). It is built in this build,
+# so it carries no signature; the repositories' packages are still checked.
+# dnf's cache is a build cache, never in the image; the rest of its state in
+# /var and /run is removed, since bootc ignores it on install.
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    --mount=type=bind,from=installer-build,source=/out,target=/run/packages \
+    dnf -y install --setopt=localpkg_gpgcheck=0 /run/packages/*.rpm && \
+    rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf
+# Only the features that the medium boots and installs with stay, so that it
+# fits its drive beside the payload: the desktop, its apps and models' runtime,
+# and the login screen go, with what only they require. A new feature stays
+# off the medium unless it is named here. What shapebit-system requires for
+# the whole system, such as the locales, stays too. The
+# license texts of everything stay, since the payload holds it all. A
+# package's config() requirement is on itself.
+RUN keep=$(printf 'shapebit-%s\n' boot colors font homes installer licenses network release repositories splash) && \
+    cp -a /usr/share/licenses /tmp/licenses && \
+    drop=$(rpm -qa --qf '%{NAME}\n' 'shapebit-*' | grep -vxF "$keep") && \
+    needs=$(rpm -q --requires $(echo "$drop" | grep -vx shapebit-system) | grep -v -e '^shapebit-' -e '^rpmlib(' -e '^config(' -e '^/' | cut -d ' ' -f 1 | sort -u) && \
+    needs=$(rpm -q --qf '%{NAME}\n' --whatprovides $needs | sort -u) && \
+    dnf -y -q --disablerepo='*' remove $drop && \
+    dnf -y -q --disablerepo='*' mark dependency $needs && \
+    dnf -y -q --disablerepo='*' autoremove && \
+    cp -an /tmp/licenses/. /usr/share/licenses/ && \
+    rm -rf /tmp/licenses /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf
+# The units are enabled by the preset that the installer ships, which also
+# holds on the first boot, when systemd applies presets again.
+RUN systemctl set-default graphical.target && \
+    systemctl preset installer-backend.service installer.service
+
+# What the installer installs, and where the installed system updates from. An
+# OCI layout, not the archive: bootc would unpack an archive into /var/tmp first,
+# which the medium has no room for, and fs-verity misreads a file of about 4 GB.
+# skopeo flattens Docker's nested index, which bootc cannot read in a layout.
+RUN --mount=type=bind,from=payload,target=/payload \
+    mkdir -p /usr/share/installer && \
+    skopeo copy -q --preserve-digests oci-archive:/payload/image.tar oci:/usr/share/installer/image
+# The medium's sources, the installer's and those of the system it carries,
+# are published beside it (distribution/medium.py), not with the system's.
+LABEL software.shapebit.sources="https://download.shapebit.software/shapebit-installer-sources.tar"
+ARG UPDATE_REF
+RUN test -n "$UPDATE_REF" && \
+    printf '[Payload]\nSource=oci:/usr/share/installer/image\nUpdateRef=%s\n' "$UPDATE_REF" \
+      >/usr/share/installer/installer.conf
+RUN bootc container lint

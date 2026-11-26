@@ -1,0 +1,19 @@
+# The dev container (devcontainer.json): the development image as make runs
+# it (development/dev.sh), with this repository at its path on the host, the
+# host's network, KVM, and the host's Docker. initialize.sh writes .env.
+services:
+  development:
+    image: localhost/shapebit-dev
+    pull_policy: never
+    command: sleep infinity
+    init: true
+    network_mode: host
+    security_opt: [label=disable]
+    volumes:
+      - ${WORKSPACE}:${WORKSPACE}
+      - /var/run/docker.sock:/var/run/docker.sock
+    devices:
+      - ${KVM}:${KVM}
+    group_add: ["${DOCKER_GID}", "${KVM_GID}"]
+    environment:
+      ENGINE: docker

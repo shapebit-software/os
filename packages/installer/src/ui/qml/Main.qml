@@ -1,0 +1,183 @@
+// The installer window: a header that shows where the user is, and one page
+// at a time. The pages before the destructive confirmation are a stack the
+// user can go back through; from then on, the backend's phase decides which
+// page shows.
+import QtQuick
+import QtQuick.Controls.Basic
+import Installer
+import Colors
+
+ApplicationWindow {
+    id: window
+
+    readonly property int steps: 8
+    readonly property Step page: stack.currentItem as Step
+
+    visible: true
+    width: 1280
+    height: 800
+    title: qsTr("Install ShapeBit")
+    color: Theme.background
+
+    // What the user chose. The password stays here only until it is sent.
+    QtObject {
+        id: plan
+        property string locale
+        property string keyboardLayout
+        property string timeZone
+        property string userName
+        property string realName
+        property string password
+    }
+
+    function show(phase) {
+        switch (phase) {
+        case "":
+        case "idle":
+            break
+        case "awaiting-acknowledgement":
+            stack.replace(null, recoveryKeyPage)
+            break
+        case "completed":
+            stack.replace(null, donePage)
+            break
+        case "failed":
+            stack.replace(null, errorPage)
+            break
+        default:
+            if (!(stack.currentItem instanceof ProgressPage))
+                stack.replace(null, progressPage)
+        }
+    }
+
+    function startOver() {
+        plan.password = ""
+        Backend.refresh()
+        stack.replace(null, Backend.available ? welcomePage : errorPage)
+    }
+
+    Connections {
+        target: Backend
+        function onPhaseChanged() { window.show(Backend.phase) }
+    }
+
+    // The login screen's backdrop, so the installer looks like the system it
+    // installs and follows the boot splash's night without a jump.
+    Backdrop { anchors.fill: parent }
+
+    Item {
+        id: header
+        anchors { left: parent.left; right: parent.right; top: parent.top; margins: 30 }
+        height: 22
+
+        Logo {
+            anchors.verticalCenter: parent.verticalCenter
+            // A page that shows the logo itself does not need it twice.
+            visible: !(window.page && window.page.logoVisible)
+            size: 28
+        }
+        // One dash for each step; the current one is longer.
+        Row {
+            anchors.centerIn: parent
+            spacing: 4
+            Repeater {
+                model: window.steps
+                Rectangle {
+                    required property int index
+                    readonly property int number: window.page ? window.page.number : 1
+                    width: index + 1 === number ? 24 : 10
+                    height: 3
+                    color: index < number ? Theme.accent : Theme.border
+                    Behavior on width { NumberAnimation { duration: 200 } }
+                }
+            }
+        }
+    }
+
+    StackView {
+        id: stack
+        objectName: "stack"
+        // The keyboard works from the first page on, before anything is clicked.
+        focus: true
+        anchors { left: parent.left; right: parent.right; top: header.bottom; bottom: parent.bottom }
+        initialItem: Backend.available ? welcomePage : errorPage
+        Component.onCompleted: window.show(Backend.phase)
+
+        // Pages fade into one another; nothing slides.
+        pushEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 150 } }
+        pushExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 100 } }
+        popEnter: pushEnter
+        popExit: pushExit
+        replaceEnter: pushEnter
+        replaceExit: pushExit
+    }
+
+    Component {
+        id: welcomePage
+        WelcomePage {
+            onNext: {
+                plan.locale = locale
+                stack.push(keyboardPage)
+            }
+        }
+    }
+    Component {
+        id: keyboardPage
+        KeyboardPage {
+            onBack: stack.pop()
+            onNext: {
+                plan.keyboardLayout = layout
+                stack.push(networkPage)
+            }
+        }
+    }
+    Component {
+        id: networkPage
+        NetworkPage {
+            onBack: stack.pop()
+            onNext: stack.push(timeZonePage)
+        }
+    }
+    Component {
+        id: timeZonePage
+        TimeZonePage {
+            onBack: stack.pop()
+            onNext: {
+                plan.timeZone = timeZone
+                stack.push(accountPage)
+            }
+        }
+    }
+    Component {
+        id: accountPage
+        AccountPage {
+            onBack: stack.pop()
+            onNext: {
+                plan.userName = userName
+                plan.realName = realName
+                plan.password = password
+                stack.push(diskPage)
+            }
+        }
+    }
+    Component {
+        id: diskPage
+        DiskPage {
+            onBack: stack.pop()
+            // The destructive confirmation.
+            onNext: {
+                const started = Backend.install({
+                    disk: selected.id, userName: plan.userName, realName: plan.realName,
+                    locale: plan.locale, keyboardLayout: plan.keyboardLayout, timeZone: plan.timeZone
+                }, plan.password)
+                plan.password = ""
+                if (!started)
+                    stack.replace(null, errorPage)
+            }
+        }
+    }
+    Component { id: progressPage; ProgressPage {} }
+    Component { id: recoveryKeyPage; RecoveryKeyPage {} }
+    Component { id: donePage; DonePage {} }
+    Component { id: errorPage; ErrorPage { onNext: window.startOver() } }
+}

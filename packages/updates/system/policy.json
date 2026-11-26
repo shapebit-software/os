@@ -1,0 +1,15 @@
+{
+  "default": [{"type": "insecureAcceptAnything"}],
+  "transports": {
+    "docker": {
+      "ghcr.io/shapebit-software/os": [
+        {
+          "type": "sigstoreSigned",
+          "keyPath": "/usr/share/pki/containers/shapebit-os.pub",
+          "signedIdentity": {"type": "matchRepository"}
+        }
+      ]
+    },
+    "docker-daemon": {"": [{"type": "insecureAcceptAnything"}]}
+  }
+}

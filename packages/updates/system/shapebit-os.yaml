@@ -1,0 +1,5 @@
+# Where the release image key's signatures of ShapeBit's images are: beside
+# each image in the registry, as sigstore attachments (README.md).
+docker:
+  ghcr.io/shapebit-software/os:
+    use-sigstore-attachments: true

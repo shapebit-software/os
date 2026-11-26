@@ -1,0 +1,56 @@
+# Verifies every push and pull request (quality/README.md#in-ci): the static
+# checks and unit tests, then, when the image's inputs changed, the image's
+# files, built with a throwaway key; it publishes nothing. A new check goes in
+# the stage it fits.
+name: Verification
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  ENGINE: docker
+  FOUNDATION_CACHE: ghcr.io/shapebit-software/os/foundation:latest
+
+# Named, the shell runs with -o pipefail, so that a failing command piped to
+# tee fails its step; unnamed, it runs with -e alone.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  checks:
+    name: Static checks and unit tests
+    uses: ./.github/workflows/checks.yml
+
+  # GitHub filters paths only for a whole workflow, not for a job. A new branch
+  # compares with main; a base it cannot compare with, as after a force-push,
+  # counts as a change.
+  image-tests:
+    name: Image tests
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Look for image changes
+        id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ $BASE =~ ^0+$ ]]; then BASE=$(git merge-base origin/main HEAD); fi
+          if git diff --quiet "$BASE" HEAD -- image Makefile development \
+            packages ':!packages/installer'; then
+            echo "changed=false" >>"$GITHUB_OUTPUT"
+          fi
+      - if: steps.diff.outputs.changed != 'false'
+        uses: ./.github/actions/runner
+      - name: Build and test the image
+        if: steps.diff.outputs.changed != 'false'
+        run: make test-image

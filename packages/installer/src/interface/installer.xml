@@ -1,0 +1,90 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+  "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<!--
+  The only interface between the unprivileged UI and the privileged backend.
+  Plans, capabilities, signals, and errors never carry secrets: the owner
+  password and the recovery key each cross through a one-shot channel that the
+  backend creates (OpenSecret, TakeRecoveryKey).
+
+  Phase is one of: idle, validating, preparing, creating-storage,
+  installing-system, configuring, verifying, awaiting-acknowledgement,
+  completed, failed.
+-->
+<node>
+  <interface name="software.shapebit.Installer1">
+    <property name="Phase" type="s" access="read"/>
+
+    <!-- uefi, secureBoot, setupMode, tpm2: booleans. locales: the locales
+         the installed system supports, as strings. -->
+    <method name="GetCapabilities">
+      <arg type="a{sv}" direction="out"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.Out0" value="QVariantMap"/>
+    </method>
+
+    <!-- Each disk: id (stable, from WWN or serial), path, model, transport,
+         size, removable, eligible, and reason when not eligible. -->
+    <method name="ListDisks">
+      <arg type="aa{sv}" direction="out"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.Out0" value="QList&lt;QVariantMap&gt;"/>
+    </method>
+
+    <!-- Each Wi-Fi network in range: ssid, strength (0 to 100), security
+         (empty if open), connected. -->
+    <method name="ListNetworks">
+      <arg type="aa{sv}" direction="out"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.Out0" value="QList&lt;QVariantMap&gt;"/>
+    </method>
+
+    <!-- Connects to a Wi-Fi network, with the wifi-password sent before, if
+         the network needs one. Accepted while Phase is idle. -->
+    <method name="ConnectNetwork">
+      <arg name="ssid" type="s" direction="in"/>
+    </method>
+
+    <!-- disk (id), userName, realName; optional locale, keyboardLayout (an XKB
+         layout, with its variant in parentheses), and timeZone; optional
+         homeSize in bytes, which only development tooling sets. Discards a
+         secret sent earlier. -->
+    <method name="SetPlan">
+      <arg name="plan" type="a{sv}" direction="in"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.In0" value="QVariantMap"/>
+    </method>
+
+    <!-- Returns the write end of a one-way channel; write the secret and close it.
+         kind: owner-password or wifi-password. Opening one discards the other. -->
+    <method name="OpenSecret">
+      <arg name="kind" type="s" direction="in"/>
+      <arg type="h" direction="out"/>
+    </method>
+
+    <!-- The destructive confirmation: erases the disk and installs. diskId
+         must be the plan's disk and still name the same device. -->
+    <method name="Install">
+      <arg name="diskId" type="s" direction="in"/>
+    </method>
+
+    <!-- Accepted until the disk is touched (validating, preparing). -->
+    <method name="Cancel"/>
+
+    <!-- Returns the read end of a one-way channel that carries the device recovery key.
+         Available while Phase is awaiting-acknowledgement. -->
+    <method name="TakeRecoveryKey">
+      <arg type="h" direction="out"/>
+    </method>
+
+    <!-- The user saved the recovery key; the backend forgets it. -->
+    <method name="Acknowledge"/>
+
+    <!-- Accepted once Phase is completed. -->
+    <method name="Reboot"/>
+
+    <signal name="PhaseChanged">
+      <arg name="phase" type="s"/>
+    </signal>
+    <signal name="Failed">
+      <arg name="code" type="s"/>
+      <arg name="message" type="s"/>
+    </signal>
+    <signal name="Completed"/>
+  </interface>
+</node>

@@ -1,0 +1,17 @@
+# The privileged installer backend, on the system bus. The UI reaches it only
+# through D-Bus (see the policy in /usr/share/dbus-1/system.d/installer.conf).
+[Unit]
+Description=Installer backend
+After=dbus.socket systemd-homed.service
+Requires=dbus.socket
+
+[Service]
+Type=dbus
+BusName=software.shapebit.Installer1
+ExecStart=/usr/libexec/installer-backend
+# bootc install must switch to SELinux's install_t domain, which the policy
+# allows from unconfined_t but not from a service's default domain.
+SELinuxContext=-system_u:system_r:unconfined_t:s0
+
+[Install]
+WantedBy=multi-user.target

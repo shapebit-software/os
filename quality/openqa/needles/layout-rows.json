@@ -1,0 +1,15 @@
+{
+  "area": [
+    {
+      "xpos": 600,
+      "ypos": 372,
+      "width": 60,
+      "height": 26,
+      "type": "match"
+    }
+  ],
+  "properties": [],
+  "tags": [
+    "layout-rows"
+  ]
+}

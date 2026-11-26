@@ -1,0 +1,72 @@
+// Options side by side in Settings, the selected one raised.
+pragma ComponentBehavior: Bound
+import QtQuick
+import QtQuick.Effects
+import qs.services
+
+Rectangle {
+    id: choice
+
+    // Each option is a label, or [label, value].
+    property var options: []
+    property var selected
+    signal picked(var value)
+
+    width: row.width + 4
+    height: row.height + 4
+    color: Theme.fill
+
+    Row {
+        id: row
+
+        x: 2
+        y: 2
+        spacing: 2
+
+        Repeater {
+            model: choice.options
+
+            Item {
+                id: option
+
+                required property int index
+                // Read from the options themselves: a Repeater's modelData
+                // of an [label, value] pair is no JavaScript array to
+                // Array.isArray, and as a string it is garbled.
+                readonly property var entry: choice.options[index]
+                readonly property string label: Array.isArray(entry) ? entry[0] : entry
+                readonly property var value: Array.isArray(entry) ? entry[1] : entry
+                readonly property bool current: choice.selected === value
+
+                width: text.width + 20
+                height: 26
+
+                RectangularShadow {
+                    visible: option.current
+                    anchors.fill: parent
+                    offset.y: 1
+                    blur: 2
+                    color: Theme.shadow(0.14)
+                }
+                Rectangle {
+                    anchors.fill: parent
+                    color: option.current ? Theme.surface : "transparent"
+                }
+                Text {
+                    id: text
+                    anchors.centerIn: parent
+                    text: option.label
+                    color: option.current ? Theme.textStrong : Theme.textSoft
+                    font { family: Theme.font; pixelSize: 12 }
+                }
+
+                TapHandler {
+                    onTapped: choice.picked(option.value)
+                }
+                HoverHandler {
+                    cursorShape: Qt.PointingHandCursor
+                }
+            }
+        }
+    }
+}

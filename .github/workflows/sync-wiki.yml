@@ -1,0 +1,45 @@
+# Copies guidebook/ on main to this repository's Wiki tab, whose links name pages
+# without .md. guidebook/ is the source: an edit made in the Wiki is overwritten.
+name: Sync Wiki
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - guidebook/**
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Named, the shell runs with -o pipefail, so that a failing command piped to
+# tee fails its step; unnamed, it runs with -e alone.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out the Wiki
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+      - name: Copy the documentation
+        run: |
+          rm -rf wiki/*.md wiki/assets
+          cp -r guidebook/*.md guidebook/assets wiki/
+          sed -i -E 's/\]\(([A-Za-z_-]+)\.md(#[^)]*)?\)/](\1\2)/g' wiki/*.md
+      - name: Publish
+        working-directory: wiki
+        run: |
+          git add -A
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Sync from ${GITHUB_SHA::7}"
+          git push

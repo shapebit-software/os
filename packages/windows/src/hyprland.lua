@@ -1,0 +1,104 @@
+-- The compositor configuration of ShapeBit Desktop (Hyprland, Lua).
+-- The session starts Hyprland with this file (see session/desktop.desktop);
+-- people's own settings do not live here.
+
+hl.on("hyprland.start", function()
+    -- UWSM runs the session (session/desktop.desktop) and waits for the
+    -- compositor to give systemd its environment; then the session's units
+    -- start: the shell (shell/system/shell.service), which draws the
+    -- wallpaper, the bar, and every panel, and XDG autostart.
+    hl.exec_cmd("uwsm finalize HYPRLAND_INSTANCE_SIGNATURE")
+end)
+
+hl.monitor({
+    output   = "",
+    mode     = "preferred",
+    position = "auto",
+    scale    = "auto",
+})
+
+-- The person's displays as Settings > Display arranges them, which the shell
+-- keeps up to date (shell/src/services/Displays.qml): starting with them, the session
+-- opens on the primary display with each display where it belongs.
+pcall(dofile, (os.getenv("XDG_CONFIG_HOME") or os.getenv("HOME") .. "/.config") .. "/desktop/displays.lua")
+
+-- The layouts (layouts.lua) and the workspaces (workspaces.lua), next to
+-- this file. The shell calls these globals through dispatch requests.
+local here = debug.getinfo(1, "S").source:match("^@(.*/)")
+layouts = dofile(here .. "layouts.lua")
+workspaces = dofile(here .. "workspaces.lua")
+
+-- Windows are tiles with one gap everywhere: straight corners and a hairline
+-- border until the shell applies the person's settings (Compositor.qml
+-- setDecoration). Blur is only for the shell's glass (the layer rules below);
+-- tiles are opaque, so nothing shows through them.
+local gap = 10
+
+hl.config({
+    general = {
+        gaps_in     = gap / 2,
+        gaps_out    = gap,
+        border_size = 1,
+        -- windowEdge at 48% (/usr/share/colors/colors.toml).
+        col         = { active_border = "rgba(0b08127a)", inactive_border = "rgba(0b08127a)" },
+        layout      = "lua:" .. layouts.default,
+    },
+
+    decoration = {
+        rounding = 0,
+        shadow   = { enabled = false },
+        blur     = { enabled = true },
+    },
+
+    -- Windows take the keyboard when clicked, not when the pointer passes
+    -- over them, as on macOS.
+    input = { follow_mouse = 2 },
+
+    -- The pointer stays where the person left it. Hyprland otherwise moves
+    -- it to the middle of a window focused by a key or by the shell, such as
+    -- a tab of Tabs or a strip of Accordion.
+    cursor = { no_warps = true },
+
+    -- Hyprland's own windows, which ask for donations and announce new
+    -- versions, are not part of the desktop. The image updates Hyprland.
+    ecosystem = { no_update_news = true, no_donation_nag = true },
+
+    misc = {
+        -- The session names the desktop ShapeBit (session/desktop.desktop).
+        disable_xdg_env_checks  = true,
+        -- The shell owns the background. Until its wallpaper fades in (the
+        -- layers animation), the screen has the night color that the boot
+        -- splash and the login screen end on, so signing in has no black frame
+        -- (night in /usr/share/colors/colors.toml).
+        force_default_wallpaper  = 0,
+        disable_hyprland_logo    = true,
+        disable_splash_rendering = true,
+        background_color         = "rgb(1f1a3c)",
+    },
+})
+
+-- The system bar and the panels are glass. Panels cover the screen, and a
+-- panel's shadow is not glass: the blur skips what is mostly transparent.
+hl.layer_rule({ match = { namespace = "^bar$" }, blur = true, ignore_alpha = 0 })
+-- The dock's items are glass too; the blur skips the faint shadows around them.
+hl.layer_rule({ match = { namespace = "^dock$" }, blur = true, ignore_alpha = 0.12 })
+hl.layer_rule({ match = { namespace = "^(panel|capture|corner)$" }, blur = true, ignore_alpha = 0.5 })
+-- The tabs of Tabs and Accordion cover the screen, so only their glass is blurred.
+hl.layer_rule({ match = { namespace = "^tabs$" }, blur = true, ignore_alpha = 0.05 })
+
+-- The capture overlay leaves at once, so it is not in the capture.
+hl.layer_rule({ match = { namespace = "^capture$" }, no_anim = true })
+
+-- Animations are short and ease out, as on macOS: about a fifth of a second
+-- (speeds are in tenths of a second).
+hl.curve("out", { type = "bezier", points = { { 0.23, 1 }, { 0.32, 1 } } })
+hl.animation({ leaf = "global",     enabled = true, speed = 2.5, bezier = "out" })
+hl.animation({ leaf = "windows",    enabled = true, speed = 2.5, bezier = "out" })
+hl.animation({ leaf = "windowsIn",  enabled = true, speed = 2,   bezier = "out", style = "popin 92%" })
+hl.animation({ leaf = "windowsOut", enabled = true, speed = 1.5, bezier = "out", style = "popin 92%" })
+hl.animation({ leaf = "fade",       enabled = true, speed = 1.5, bezier = "out" })
+hl.animation({ leaf = "layers",     enabled = true, speed = 1.5, bezier = "out", style = "fade" })
+hl.animation({ leaf = "workspaces", enabled = true, speed = 2.5, bezier = "out", style = "slide" })
+
+-- The keyboard shortcuts (shortcuts.lua).
+shortcuts = dofile(here .. "shortcuts.lua")

@@ -1,0 +1,11 @@
+// VS Code and JetBrains: the development image (development/README.md), as
+// make runs it, with Docker; initialize.sh builds it on the host first.
+{
+  "name": "ShapeBit",
+  "initializeCommand": ".devcontainer/initialize.sh",
+  "dockerComposeFile": "compose.yaml",
+  "service": "development",
+  "workspaceFolder": "${localWorkspaceFolder}",
+  "remoteUser": "dev",
+  "updateRemoteUserUID": true
+}

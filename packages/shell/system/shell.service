@@ -1,0 +1,18 @@
+# The shell (shell/src), for the session: UWSM starts it with
+# graphical-session.target, once the compositor has given systemd its
+# environment (windows/src/hyprland.lua).
+[Unit]
+Description=Shell
+PartOf=graphical-session.target
+After=graphical-session.target
+Requisite=graphical-session.target
+
+[Service]
+# Flatpak's apps folder must exist first: the shell only notices changes in
+# folders that were there when it started.
+ExecStartPre=/bin/sh -c 'mkdir -p "$${XDG_DATA_HOME:-$$HOME/.local/share}/flatpak/exports/share/applications"'
+ExecStart=/usr/bin/qs --path /usr/share/desktop/shell
+# The shell reads its files again in place, keeping its windows (shell.qml).
+ExecReload=/usr/bin/qs --path /usr/share/desktop/shell ipc call shell reload
+Restart=on-failure
+Slice=session-graphical.slice

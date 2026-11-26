@@ -1,0 +1,10 @@
+# The distribution's RPM macros, in place of Fedora's identity package's: its
+# packages are Fedora's, so %dist and %distcore are Fedora's, at the release
+# that the Makefile appends as %fedora; the rest names ShapeBit.
+%distcore            .fc%{fedora}
+%dist                %{?distprefix}%{distcore}%{?with_bootstrap:~bootstrap}
+%dist_vendor         ShapeBit
+%dist_name           ShapeBit
+%dist_purl_namespace shapebit
+%dist_home_url       https://shapebit.software/
+%dist_bug_report_url https://github.com/shapebit-software/os/issues

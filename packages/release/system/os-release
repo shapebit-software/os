@@ -1,0 +1,10 @@
+NAME="ShapeBit"
+PRETTY_NAME="ShapeBit (Developer Preview)"
+ID=shapebit
+ID_LIKE=fedora
+IMAGE_ID=shapebit
+RELEASE_TYPE=development
+DEFAULT_HOSTNAME=shapebit
+HOME_URL="https://shapebit.software"
+DOCUMENTATION_URL="https://shapebit.software/docs/"
+BUG_REPORT_URL="https://github.com/shapebit-software/os/issues"

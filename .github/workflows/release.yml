@@ -1,0 +1,79 @@
+# Releases the candidate of the draft release, which the Candidate workflow
+# tested (distribution/release.py promote): copies what its record names, by digest,
+# unchanged, to the public os:<version>, -sources and -sbom, signs the image
+# with the release image key, checks the signature as computers do, moves
+# os:stable to it, and publishes the release. With "Undo", instead moves
+# os:stable back to the release before, and marks the last release withdrawn.
+# Runs only by hand, in the environment "Release", which can require a
+# person's approval (Settings > Environments); only its first job has the
+# image key, and only while it promotes. If a step fails, running the workflow
+# again finishes the job. Then it deletes the versions of os that are no longer
+# needed (release.py prune).
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      undo:
+        description: Undo the last release instead
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: os-releases
+  cancel-in-progress: false
+
+env:
+  GH_REPO: ${{ github.repository }}
+  GH_TOKEN: ${{ github.token }}
+
+# Named, the shell runs with -o pipefail, so that a failing command piped to
+# tee fails its step; unnamed, it runs with -e alone.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: Release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/runner
+
+      - name: Undo the last release
+        if: inputs.undo
+        run: distribution/release.py undo
+
+      # image/keys/README.md: the image key is a file only while promote runs.
+      - name: Release the draft's candidate
+        if: ${{ !inputs.undo }}
+        env:
+          IMAGE_KEY: ${{ secrets.RELEASE_IMAGE_KEY }}
+        run: |
+          if [ -z "$IMAGE_KEY" ]; then echo "::error::RELEASE_IMAGE_KEY is not set"; exit 1; fi
+          install -m 600 /dev/null "$RUNNER_TEMP/image.key"
+          trap 'rm -f "$RUNNER_TEMP/image.key"' EXIT
+          printf '%s\n' "$IMAGE_KEY" >"$RUNNER_TEMP/image.key"
+          distribution/release.py promote "$RUNNER_TEMP/image.key"
+
+  # What is no longer downloadable for a reason is deleted, with its sources.
+  # Deleting needs this repository's Admin role on the package (Package
+  # settings > Manage Actions access).
+  prune:
+    needs: release
+    runs-on: ubuntu-24.04
+    environment: Release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/runner
+      - name: Delete the versions of os that are no longer needed
+        run: distribution/release.py prune

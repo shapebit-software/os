@@ -1,0 +1,58 @@
+# One test on VMs, in the development image with KVM: RUN, a few make goals,
+# after PULL, which takes what it tests from GHCR, never a local build; the
+# results are kept as RESULTS. Actions artifacts, which anyone signed in to
+# GitHub can download, hold test results only, never an image. A failed run
+# can be re-run on the same build (quality/README.md#in-ci). Called by Candidate
+# and Installer.
+name: Test on VMs
+
+on:
+  workflow_call:
+    inputs:
+      pull:
+        description: Commands that pull what is tested into build/
+        type: string
+        required: true
+      run:
+        description: The test's commands
+        type: string
+        required: true
+      results:
+        description: The name of the results' artifact
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  ENGINE: docker
+  FOUNDATION_CACHE: ghcr.io/shapebit-software/os/foundation:latest
+
+# Named, the shell runs with -o pipefail, so that a failing command piped to
+# tee fails its step; unnamed, it runs with -e alone.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/runner
+        with:
+          kvm: true
+      - name: Pull what is tested
+        run: ${{ inputs.pull }}
+      - name: Test
+        run: ${{ inputs.run }}
+      - name: Keep the test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ inputs.results }}-${{ github.run_attempt }}
+          path: build/results
+          if-no-files-found: ignore

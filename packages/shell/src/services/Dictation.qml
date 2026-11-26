@@ -1,0 +1,458 @@
+// Dictation, from the quick actions and Super+D: a click starts listening,
+// another stops, and what was said goes into the text field that has the focus,
+// and to the clipboard. A right click, or Super+Shift+D, only copies. Its button
+// shows the state (bar/QuickButton.qml), and then, briefly, where the words went:
+// a check when inserted, or a clipboard. The words show phrase by phrase only in the
+// text field where they would go (dictation/src/dictate); the shell shows none.
+// dictation/src/dictate decides where they go; this starts it and shows what it
+// says. It understands Parakeet's 25 languages, any of them, once Parakeet is
+// downloaded (Extras.qml); until then, the button leads there. Everything runs
+// on the computer, and locking the screen discards what is under way.
+pragma Singleton
+import QtQuick
+import Quickshell
+import Quickshell.Io
+
+Singleton {
+    id: dictation
+
+    // "idle", "listening", "writing", or "failed", shown for a moment.
+    property string state: "idle"
+    readonly property bool listening: state === "listening"
+    readonly property bool writing: state === "writing"
+    readonly property bool active: listening || writing
+    // This dictation only copies.
+    property bool onlyCopy
+
+    // Listening: the microphone's level, 0 to 1, whether it seems not to hear,
+    // whether the person seems gone, and how long so far, in seconds.
+    property real level
+    property bool quiet
+    property bool idle
+    property int seconds
+    // While the person speaks: the words of the phrases so far, for tests to read.
+    property string draft
+    property string draftTail
+    // Where the last words went, briefly: { text, inserted, copied, app }.
+    property var result: null
+    // Tidy up: the text dictation inserted last, which may be tidied by the
+    // assistant's model, local or online, in its place (dictate --tidy), while
+    // the field still ends with it; offered by its pill (bar/TidyPill.qml) for a
+    // few seconds after, and by Super+T until the next dictation. tidying is
+    // "", "asking" (the model), or "writing" (into the field); tidyNotice, how
+    // it ended, for a moment.
+    property string lastInserted
+    property bool tidyOffered
+    property string tidying
+    property string tidyNotice
+    // Where the pill is, as for the assistant's (QuickButton.qml).
+    property var pillAt: null
+    signal pillAsked(screen: string)
+    // A short message of its own: "Needs a download", "No microphone", or
+    // "Microphone is muted"; shown for a moment. Hearing nothing ends quietly.
+    property string notice
+    // What is going on, for the button's tooltip and icon, and for the pill
+    // where there is no button.
+    readonly property string status: {
+        if (notice === "Needs a download")
+            return "Dictation needs a download · click to get it";
+        if (notice === "No microphone")
+            return "No microphone · click for Sound settings";
+        if (notice === "Microphone is muted")
+            return "Microphone is muted · click to unmute and dictate";
+        if (notice)
+            return notice;
+        if (state === "failed")
+            return "It could not be written down";
+        if (result?.inserted)
+            return "Inserted";
+        if (result?.copied)
+            return "Copied";
+        if (writing)
+            return "Writing it down";
+        if (listening) {
+            const said = quiet ? "Can't hear you" : idle ? "Still listening" : onlyCopy ? "Dictating to copy" : "Dictating";
+            const time = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+            return `${said} ${time} · click to stop`;
+        }
+        if (!available)
+            return "Dictation needs a download";
+        return "Dictate into this app · right click to only copy";
+    }
+    // Something the person should see without pointing at the button.
+    readonly property bool telling: notice !== "" || quiet && listening || idle && listening || state === "failed"
+    readonly property string icon: {
+        if (notice === "Needs a download")
+            return "M8 2v8.4M4.6 7l3.4 3.4L11.4 7M2.6 13.4h10.8";
+        if (notice === "No microphone" || notice === "Microphone is muted" || quiet && listening)
+            return "M5.6 4.2a2.4 2.4 0 0 1 4.8 0v3.2a2.4 2.4 0 0 1-4.8 0zM3.4 7.6a4.6 4.6 0 0 0 9.2 0M8 12.2v2M2.5 2.5l11 11";
+        if (state === "failed")
+            return "M8 3v6.5M8 12.5v.5";
+        // A check, or a clipboard.
+        if (result?.inserted)
+            return "M3 8.5l3.2 3.2L13 4.8";
+        if (result?.copied)
+            return "M5.5 3.5h-1a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-1M6 2.5h4v2H6z";
+        return "M2 7v2M5 5v6M8 2.5v11M11 5v6M14 7v2";
+    }
+
+    // Parakeet, which writes it down, is downloaded (extras/data/extras.json).
+    readonly property bool available: Extras.list.some(e => e.id === "parakeet" && e.installed)
+
+    // With Settings > Assistant's "Load the speech model" at "After sign-in",
+    // the speech model loads now, rather than with the first recording, and
+    // stays (dictation/system/speech-model.service).
+    readonly property bool keepLoaded: available && Settings.speechModel === "ready"
+    onKeepLoadedChanged: load()
+    Component.onCompleted: load()
+    function load() {
+        if (keepLoaded)
+            Quickshell.execDetached(["systemctl", "--user", "start", "--no-block", "speech-model.service"]);
+    }
+
+    function helper(): string {
+        return "/usr/libexec/desktop/dictate";
+    }
+
+    function send(message: var) {
+        process.write(JSON.stringify(message) + "\n");
+    }
+
+    // A dictation that waits for the last one to end.
+    property var next: null
+
+    function start(copyOnly: bool) {
+        if (process.running) {
+            next = copyOnly;
+            send({ do: "discard" });
+            return;
+        }
+        notice = "";
+        result = null;
+        lastInserted = "";
+        tidyOffered = false;
+        draft = draftTail = "";
+        seconds = 0;
+        onlyCopy = copyOnly;
+        state = "listening";
+        const sounds = `DICTATION_SOUNDS=${Settings.dictationSounds ? "1" : ""}`;
+        process.command = ["env", sounds, helper(), copyOnly ? "--only-copy" : "--copy"];
+        process.running = true;
+    }
+
+    // The click: start, or stop; with copyOnly, the right click's.
+    function toggle(copyOnly: bool) {
+        if (writing)
+            return;
+        if (listening) {
+            send({ do: "stop" });
+        } else if (!available) {
+            state = "idle";
+            if (notice === "Needs a download") {
+                notice = "";
+                Settings.open(Shortcuts.focused, "assistant");
+            } else {
+                notice = "Needs a download";
+            }
+        } else if (!Audio.input) {
+            state = "idle";
+            if (notice === "No microphone") {
+                notice = "";
+                Settings.open(Shortcuts.focused, "sound");
+            } else {
+                notice = "No microphone";
+            }
+        } else if (Audio.input.audio?.muted && notice !== "Microphone is muted") {
+            notice = "Microphone is muted";
+            state = "idle";
+        } else {
+            if (Audio.input.audio?.muted)
+                Audio.input.audio.muted = false;
+            start(copyOnly ?? false);
+        }
+    }
+
+    // The right click: discard what is under way, or else dictate only to copy.
+    function secondary() {
+        if (active)
+            cancel();
+        else
+            toggle(true);
+    }
+
+    function cancel() {
+        if (active)
+            send({ do: "discard" });
+        notice = "";
+    }
+
+    // The shortcut: pressed, it starts or stops; let go after being held, it stops.
+    property real pressedAt
+    function press(copyOnly: bool) {
+        pressedAt = listening ? 0 : Date.now();
+        toggle(copyOnly);
+    }
+    function release() {
+        if (pressedAt && Date.now() - pressedAt > 400 && listening)
+            toggle(false);
+        pressedAt = 0;
+    }
+
+    function heard(line: string) {
+        const message = JSON.parse(line);
+        switch (message.state) {
+        case "listening":
+            level = message.level;
+            quiet = message.quiet;
+            idle = message.idle;
+            state = "listening";
+            break;
+        case "draft":
+            draft = message.text;
+            draftTail = message.tail;
+            break;
+        case "writing":
+            state = "writing";
+            break;
+        case "done":
+            draft = draftTail = "";
+            result = message;
+            state = "idle";
+            if (message.inserted) {
+                lastInserted = message.text;
+                offerTidy();
+            }
+            break;
+        }
+    }
+
+    // The pill by the dictation button, or in the corner without one.
+    function offerTidy() {
+        pillAt = null;
+        pillAsked(Shortcuts.focused);
+        if (!pillAt)
+            pillAt = { screen: Shortcuts.focused, rect: null };
+        tidyOffered = true;
+        tidyOffer.restart();
+    }
+
+    // The tidied text in the place of the last dictated, as it is written.
+    property string tidyId
+    property string tidied
+    property bool tidyDone
+    property bool tidyThere
+    function tidy() {
+        if (tidying !== "")
+            return;
+        if (!lastInserted) {
+            tidyNotice = "Nothing dictated to tidy up";
+            return;
+        }
+        if (!pillAt)
+            offerTidy();
+        tidyOffered = false;
+        tidyNotice = "";
+        tidied = "";
+        tidyDone = false;
+        tidyThere = false;
+        tidyId = `${Date.now()}`;
+        tidying = "asking";
+        tidier.command = [helper(), "--tidy"];
+        tidier.running = true;
+        tidier.write(JSON.stringify({ text: lastInserted }) + "\n");
+        Assistant.tidy(tidyId, lastInserted);
+    }
+
+    function tidyEnded(notice: string) {
+        tidying = "";
+        tidyNotice = notice;
+    }
+
+    // What the model wrote, to the field while it holds the dictated text,
+    // or else, once whole, to the clipboard.
+    Connections {
+        target: Assistant
+
+        function onTidied(event: var) {
+            if (event.id !== dictation.tidyId || dictation.tidying === "")
+                return;
+            if (event.error) {
+                if (dictation.tidier.running)
+                    dictation.tidier.write(JSON.stringify({ restore: true }) + "\n");
+                dictation.tidyEnded(event.error);
+                return;
+            }
+            dictation.tidied = event.text;
+            dictation.tidyDone = event.done ?? false;
+            if (dictation.tidyThere && dictation.tidier.running) {
+                dictation.tidying = "writing";
+                dictation.tidier.write(JSON.stringify(event.done ? { done: event.text } : { draft: event.text }) + "\n");
+            }
+            if (event.done && !dictation.tidier.running)
+                dictation.copyTidied();
+        }
+    }
+
+    function copyTidied() {
+        Quickshell.execDetached(["wl-copy", "--", tidied]);
+        lastInserted = "";
+        tidyEnded("Tidied and copied: the text was no longer where it was dictated");
+    }
+
+    IpcHandler {
+        target: "dictation"
+
+        function toggle(): void {
+            dictation.toggle(false);
+        }
+
+        function copy(): void {
+            dictation.toggle(true);
+        }
+
+        function cancel(): void {
+            dictation.cancel();
+        }
+
+        function press(): void {
+            dictation.press(false);
+        }
+
+        function release(): void {
+            dictation.release();
+        }
+
+        // "listening", "writing", "failed", or "idle".
+        function state(): string {
+            return dictation.state;
+        }
+
+        // The words so far, while the person speaks.
+        function draft(): string {
+            return [dictation.draft, dictation.draftTail].filter(part => part).join(" ");
+        }
+
+        // Where the last words went: "inserted", "copied", or "".
+        function result(): string {
+            const result = dictation.result;
+            return !result ? "" : result.inserted ? "inserted" : result.copied ? "copied" : "";
+        }
+
+        function notice(): string {
+            return dictation.notice;
+        }
+
+        function tidy(): void {
+            dictation.tidy();
+        }
+
+        // "", "asking", or "writing".
+        function tidying(): string {
+            return dictation.tidying;
+        }
+
+        function available(): bool {
+            return dictation.available;
+        }
+    }
+
+    Process {
+        id: process
+
+        stdinEnabled: true
+        stdout: SplitParser {
+            onRead: line => dictation.heard(line)
+        }
+        // Quickshell does not declare the status's type to tooling.
+        onExited: exitCode => { // qmllint disable signal-handler-parameters
+            dictation.draft = dictation.draftTail = "";
+            if (dictation.active)
+                dictation.state = exitCode !== 0 && exitCode !== 130 ? "failed" : "idle";
+            if (dictation.next !== null) {
+                const copyOnly = dictation.next;
+                dictation.next = null;
+                dictation.start(copyOnly);
+            }
+        }
+    }
+
+    // dictate --tidy: "ready", the dictated text is where it was; "gone", it
+    // is not; "moved", the focus left it while the draft showed; "tidied".
+    property alias tidier: tidier
+    Process {
+        id: tidier
+
+        stdinEnabled: true
+        stdout: SplitParser {
+            onRead: line => {
+                const state = JSON.parse(line).state;
+                if (state === "ready") {
+                    dictation.tidyThere = true;
+                    if (dictation.tidied) {
+                        dictation.tidying = "writing";
+                        tidier.write(JSON.stringify(dictation.tidyDone ? { done: dictation.tidied } : { draft: dictation.tidied }) + "\n");
+                    }
+                } else if (state === "tidied") {
+                    dictation.lastInserted = dictation.tidied;
+                    dictation.tidyEnded("Tidied up");
+                }
+            }
+        }
+        // Quickshell does not declare the status's type to tooling.
+        onExited: exitCode => { // qmllint disable signal-handler-parameters
+            dictation.tidyThere = false;
+            // Gone or moved: what the model writes goes to the clipboard, now
+            // if it is whole, or else once it is.
+            if (dictation.tidying !== "" && dictation.tidyDone)
+                dictation.copyTidied();
+            else if (dictation.tidying !== "")
+                dictation.tidying = "asking";
+        }
+    }
+    // Offered for a while after a dictation.
+    Timer {
+        id: tidyOffer
+        interval: 8000
+        onTriggered: dictation.tidyOffered = false
+    }
+    Timer {
+        running: dictation.tidyNotice !== ""
+        interval: 4000
+        onTriggered: dictation.tidyNotice = ""
+    }
+
+    Timer {
+        running: dictation.listening
+        interval: 1000
+        repeat: true
+        onTriggered: dictation.seconds++
+    }
+
+    // Messages, a failure, and where the words went go by themselves.
+    Timer {
+        running: dictation.notice !== "" || dictation.state === "failed"
+        interval: 4000
+        onTriggered: {
+            dictation.notice = "";
+            if (dictation.state === "failed")
+                dictation.state = "idle";
+        }
+    }
+    // Where the words went is a glance.
+    Timer {
+        running: dictation.result !== null
+        interval: 1200
+        onTriggered: dictation.result = null
+    }
+
+    Connections {
+        target: Lock
+
+        function onLockedChanged() {
+            if (Lock.locked) {
+                dictation.cancel();
+                dictation.result = null;
+            }
+        }
+    }
+}

@@ -1,0 +1,9 @@
+module qs.controls
+Avatar Avatar.qml
+DialogButton DialogButton.qml
+Glass Glass.qml
+Icon Icon.qml
+PopoverFrame PopoverFrame.qml
+Slider Slider.qml
+Switch Switch.qml
+Tooltip Tooltip.qml

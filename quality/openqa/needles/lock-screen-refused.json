@@ -1,0 +1,15 @@
+{
+  "area": [
+    {
+      "xpos": 585,
+      "ypos": 482,
+      "width": 110,
+      "height": 20,
+      "type": "match"
+    }
+  ],
+  "properties": [],
+  "tags": [
+    "lock-screen-refused"
+  ]
+}

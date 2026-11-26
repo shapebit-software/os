@@ -1,0 +1,12 @@
+# Checks for a system update soon after boot, then every 6 hours.
+[Unit]
+Description=Check for a system update every 6 hours
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=6h
+RandomizedDelaySec=1h
+Unit=os-update@auto.service
+
+[Install]
+WantedBy=timers.target

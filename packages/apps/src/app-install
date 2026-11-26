@@ -1,0 +1,192 @@
+#!/usr/bin/python3
+# Installs, for the downloads queue (downloads/src/downloads), into the person's own
+# Flatpak installation: a browser, which it makes their default, or apps from
+# Flathub; or updates them all, for app-update.timer.
+# Usage: app-install browser chrome|chromium|firefox|epiphany
+#        app-install apps APP_ID...
+#        app-install update
+#
+# One JSON line at a time: {"step": text, "percent": 0..100} as it goes, then
+# {"done": app id or ids} or {"error": text}. SIGTERM, as when a download is
+# cancelled, stops it with the flatpak under way. An install that fails or
+# is stopped then removes what it fetched that no app uses, such as the
+# runtime it came with; so does an update, as old runtimes go out of use.
+#
+# Chrome, Firefox, GNOME Web, and the recommended apps come from Flathub;
+# Flathub's Chrome downloads Google's own package when it installs. Chromium
+# is Fedora's own Flatpak, from Fedora's registry, which the person's remote
+# only offers it and its runtime from (fedora.filter).
+import fcntl
+import json
+import os
+import pty
+import re
+import signal
+import struct
+import subprocess
+import sys
+import termios
+from pathlib import Path
+
+DATA = Path("/usr/share/desktop/browsers")
+# The image's copy of Flathub's remote; elsewhere, as in the unit tests, Flathub's.
+FLATHUB = "/usr/share/flatpak/remotes.d/flathub.flatpakrepo"
+if not os.path.exists(FLATHUB):
+    FLATHUB = "https://dl.flathub.org/repo/flathub.flatpakrepo"
+FEDORA = "oci+https://registry.fedoraproject.org"
+# Each browser: its app id, and the remote it comes from.
+BROWSERS = {
+    "chrome": ("com.google.Chrome", "flathub"),
+    "chromium": ("org.chromium.Chromium", "fedora"),
+    "firefox": ("org.mozilla.firefox", "flathub"),
+    "epiphany": ("org.gnome.Epiphany", "flathub"),
+}
+# What the default browser opens.
+TYPES = ["x-scheme-handler/http", "x-scheme-handler/https", "text/html", "application/xhtml+xml"]
+
+
+class Failed(Exception):
+    pass
+
+
+def say(**message):
+    print(json.dumps(message), flush=True)
+
+
+def run(*command):
+    """Runs a command; fails with the last line it printed."""
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        lines = (result.stderr or result.stdout).strip().splitlines()
+        raise Failed(lines[-1] if lines else f"{command[0]} failed")
+    return result.stdout
+
+
+def flatpak(*args):
+    return run("flatpak", "--user", *args)
+
+
+# Flatpak tells its progress only to a terminal, redrawing a line such as
+# "Installing 2/3… ████  45%  1.2 MB/s" with its colours.
+ESCAPES = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+PROGRESS = re.compile(r"(?:(\d+)/(\d+)\D.*?)?(\d+)%")
+
+
+def flatpak_install(remote, ref, step):
+    flatpak_progress(step, "install", "--noninteractive", "--or-update", remote, ref)
+
+
+def flatpak_progress(step, *args):
+    """Tells step with how far it is, all of what Flatpak does together."""
+    main, sub = pty.openpty()
+    fcntl.ioctl(sub, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 200, 0, 0))
+    process = subprocess.Popen(["flatpak", "--user", *args],
+                               stdin=subprocess.DEVNULL, stdout=sub, stderr=sub, env={**os.environ, "TERM": "xterm"})  # fmt: skip
+    os.close(sub)
+    pending, last, told = "", "", -1
+    try:
+        while True:
+            try:
+                chunk = os.read(main, 4096)
+            except OSError:
+                # The terminal closes with Flatpak.
+                break
+            if not chunk:
+                break
+            pending += chunk.decode(errors="replace")
+            *lines, pending = re.split(r"[\r\n]", pending)
+            for line in (ESCAPES.sub("", line).strip() for line in lines):
+                if not line:
+                    continue
+                last = line
+                match = PROGRESS.search(line)
+                if not match:
+                    continue
+                number, count, percent = int(match[1] or 1), int(match[2] or 1), min(int(match[3]), 100)
+                overall = (100 * (number - 1) + percent) // max(count, 1)
+                if overall != told:
+                    told = overall
+                    say(step=step, percent=overall)
+    finally:
+        # Stopped (SIGTERM), Flatpak stops too.
+        if process.poll() is None:
+            process.kill()
+        code = process.wait()
+        os.close(main)
+    if code != 0:
+        raise Failed(last.removeprefix("error: ") or "flatpak failed")
+
+
+def add_remote(name):
+    if name == "flathub":
+        flatpak("remote-add", "--if-not-exists", "flathub", FLATHUB)
+    elif name == "fedora":
+        flatpak("remote-add", "--if-not-exists", f"--filter={DATA / 'fedora.filter'}", "fedora", FEDORA)
+
+
+def install_apps(apps):
+    add_remote("flathub")
+    for number, app in enumerate(apps, 1):
+        step = "Installing" if len(apps) == 1 else f"Installing apps ({number} of {len(apps)})"
+        say(step=step)
+        flatpak_install("flathub", app, step)
+    return apps
+
+
+def update():
+    say(step="Updating apps")
+    flatpak_progress("Updating apps", "update", "--noninteractive")
+    say(step="Removing what no app uses")
+    remove_unused()
+    return "updated"
+
+
+def remove_unused():
+    flatpak("uninstall", "--unused", "--noninteractive")
+
+
+def install(browser):
+    app, remote = BROWSERS[browser]
+    add_remote(remote)
+    say(step="Installing")
+    flatpak_install(remote, app, "Installing")
+    say(step="Making it the default browser")
+    for kind in TYPES:
+        run("gio", "mime", kind, f"{app}.desktop")
+    return app
+
+
+def main():
+    # SystemExit stops the command under way too: subprocess.run and
+    # flatpak_install kill theirs on any exception.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
+    args = sys.argv[1:]
+    if len(args) == 2 and args[0] == "browser" and args[1] in BROWSERS:
+        action = lambda: install(args[1])
+    elif len(args) > 1 and args[0] == "apps":
+        action = lambda: install_apps(args[1:])
+    elif args == ["update"]:
+        action = update
+    else:
+        print("usage: app-install browser chrome|chromium|firefox|epiphany | apps APP_ID... | update", file=sys.stderr)
+        return 2
+    try:
+        say(done=action())
+        return 0
+    except (Failed, OSError) as error:
+        say(error=str(error))
+        code = 1
+    except SystemExit as stop:
+        code = stop.code
+    # What a stopped or failed install fetched; a second SIGTERM waits for it.
+    if args[0] != "update":
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        try:
+            remove_unused()
+        except (Failed, OSError):
+            pass
+    return code
+
+
+if __name__ == "__main__":
+    sys.exit(main())

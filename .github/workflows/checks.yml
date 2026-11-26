@@ -1,0 +1,50 @@
+# Lints and validates, then runs the tests that need no image, no VM, and no
+# secrets, in one job, so that the development image is built once. Unit tests
+# run only if lint and validate passed. Called by Verification, Candidate, and
+# Installer, before what they build. For a push or a pull request, only of the
+# packages that the change touches (development/changed.py); scheduled runs
+# check every package.
+name: Static checks and unit tests
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  ENGINE: docker
+  # The foundation that Candidate published last (image/README.md#foundation),
+  # which make takes when what the specs require is unchanged.
+  FOUNDATION_CACHE: ghcr.io/shapebit-software/os/foundation:latest
+
+# Named, the shell runs with -o pipefail, so that a failing command piped to
+# tee fails its step; unnamed, it runs with -e alone.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Packages the change touches
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: development/changed.py "$BASE" | tee -a "$GITHUB_ENV"
+      - uses: ./.github/actions/runner
+      # In the development image (image/Containerfile), as on a developer's computer.
+      - name: Development image
+        run: make dev-image
+      - name: Lint
+        run: make lint
+      - name: Validate
+        if: ${{ !cancelled() }}
+        run: make validate
+      - name: Unit tests
+        run: make test-unit

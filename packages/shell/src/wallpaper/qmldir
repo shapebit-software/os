@@ -1,0 +1,4 @@
+module qs.wallpaper
+Backdrop Backdrop.qml
+Dusk Dusk.qml
+Wallpaper Wallpaper.qml

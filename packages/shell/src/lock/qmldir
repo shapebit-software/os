@@ -1,0 +1,3 @@
+module qs.lock
+AuthorizationPrompt AuthorizationPrompt.qml
+LockSurface LockSurface.qml

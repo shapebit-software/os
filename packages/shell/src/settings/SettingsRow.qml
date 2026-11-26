@@ -1,0 +1,431 @@
+// One setting in Settings: its label and detail, and its control, at the
+// right or, for pictures, the shell's layout, and the displays' arrangement,
+// below them.
+//
+// A row is { label, detail, kind } and what its kind needs:
+//   value       { value, open() if it leads to a page }
+//   choice      { options, selected, select(value) }; options as in SettingsChoice
+//   select      { options, selected, select(value) }; options as [label, value]
+//   toggle      { on, toggle() }
+//   slider      { value, move(value) }, the value from 0 to 1
+//   picture     { open() }: the account's picture
+//   swatches    the accent colors
+//   wallpapers  { open() for a picture of one's own }
+//   gaps        the space between windows
+//   shell       the bars' layout (ShellEditor)
+//   displays    { selected, select(name) }: the displays' arrangement
+//   extra       { extra }: downloading or removing one of Extras
+//   info        nothing beside the text
+pragma ComponentBehavior: Bound
+import QtQuick
+import QtQuick.Shapes
+import qs.controls
+import qs.services
+import qs.wallpaper
+
+Item {
+    id: row
+
+    required property var modelData
+    readonly property string kind: modelData.kind ?? "value"
+    readonly property bool wide: ["swatches", "wallpapers", "shell", "displays"].includes(kind)
+
+    implicitHeight: Math.max(56, (wide ? labels.height + below.height + 12 : Math.max(labels.height, control.height)) + 24)
+
+    Column {
+        id: labels
+
+        x: 16
+        y: row.wide ? 12 : (row.height - height) / 2
+        width: row.width - 32 - (row.wide ? 0 : control.width + 16)
+        spacing: 3
+
+        Text {
+            width: parent.width
+            text: row.modelData.label ?? ""
+            color: Theme.textStrong
+            font { family: Theme.font; pixelSize: 13; weight: Font.Medium }
+        }
+        Text {
+            width: parent.width
+            wrapMode: Text.Wrap
+            text: row.modelData.detail ?? ""
+            color: Theme.textMuted
+            font { family: Theme.font; pixelSize: 12 }
+        }
+    }
+
+    // The control at the right.
+    Item {
+        id: control
+
+        anchors.right: parent.right
+        anchors.rightMargin: 16
+        anchors.verticalCenter: parent.verticalCenter
+        visible: !row.wide
+        // As large as the control shown.
+        width: Math.max(0, ...children.filter(c => c.visible).map(c => c.width))
+        height: Math.max(0, ...children.filter(c => c.visible).map(c => c.height))
+
+        // A value, with a chevron when it opens a page.
+        Row {
+            visible: row.kind === "value" || row.kind === "picture"
+            spacing: 10
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: row.kind === "picture" ? "Change" : row.modelData.value ?? ""
+                color: Theme.textBody
+                font { family: Theme.font; pixelSize: 12 }
+            }
+            Avatar {
+                visible: row.kind === "picture"
+                width: 44
+                height: 44
+            }
+            Icon {
+                visible: row.kind === "value" && row.modelData.open !== undefined
+                anchors.verticalCenter: parent.verticalCenter
+                height: 10
+                gridWidth: 10
+                gridHeight: 10
+                strokeWidth: 1.3
+                color: Theme.textBody
+                strokes: "M3.5 2l3 3-3 3"
+            }
+
+            TapHandler {
+                enabled: row.modelData.open !== undefined
+                onTapped: row.modelData.open()
+            }
+            HoverHandler {
+                enabled: row.modelData.open !== undefined
+                cursorShape: Qt.PointingHandCursor
+            }
+        }
+
+        // Options; custom gaps also have steps smaller or larger.
+        Row {
+            visible: row.kind === "choice" || row.kind === "gaps"
+            spacing: 10
+
+            // Custom gaps: a step smaller or larger.
+            Row {
+                visible: row.kind === "gaps" && Settings.gaps === "Custom"
+                height: 30
+
+                component Step: Rectangle {
+                    id: step
+
+                    property string strokes
+                    signal clicked
+
+                    width: 26
+                    height: 26
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: stepHover.hovered ? Theme.hover : "transparent"
+
+                    Icon {
+                        anchors.centerIn: parent
+                        height: 10
+                        gridWidth: 10
+                        gridHeight: 10
+                        strokeWidth: 1.4
+                        color: Theme.textBody
+                        strokes: step.strokes
+                    }
+                    TapHandler {
+                        onTapped: step.clicked()
+                    }
+                    HoverHandler {
+                        id: stepHover
+                        cursorShape: Qt.PointingHandCursor
+                    }
+                }
+
+                Step {
+                    strokes: "M2 5h6"
+                    onClicked: Settings.gapPixels = Math.max(0, Settings.gapPixels - 2)
+                }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 44
+                    horizontalAlignment: Text.AlignHCenter
+                    text: `${Settings.gapPixels} px`
+                    color: Theme.textStrong
+                    font { family: Theme.mono; pixelSize: 11 }
+                }
+                Step {
+                    strokes: "M2 5h6M5 2v6"
+                    onClicked: Settings.gapPixels = Math.min(32, Settings.gapPixels + 2)
+                }
+            }
+            SettingsChoice {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: row.kind === "choice" || row.kind === "gaps"
+                options: row.kind === "gaps" ? [...Object.keys(Settings.gapSizes), "Custom"] : row.modelData.options ?? []
+                selected: row.kind === "gaps" ? Settings.gaps : row.modelData.selected
+                onPicked: value => row.kind === "gaps" ? Settings.gaps = value : row.modelData.select(value)
+            }
+        }
+
+        SettingsSelect {
+            visible: row.kind === "select"
+            options: row.modelData.options ?? []
+            selected: row.modelData.selected
+            onPicked: value => row.modelData.select(value)
+        }
+
+        Slider {
+            visible: row.kind === "slider"
+            width: 180
+            value: row.modelData.value ?? 0
+            onMoved: value => row.modelData.move(value)
+        }
+
+        // An extra: its state and what can be done.
+        Row {
+            id: extra
+
+            readonly property var info: row.modelData.extra ?? null
+            readonly property var progress: info ? Extras.progress[info.id] ?? null : null
+            readonly property bool working: progress !== null && progress.state !== "failed"
+
+            visible: row.kind === "extra"
+            spacing: 10
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: text !== ""
+                width: Math.min(implicitWidth, 200)
+                wrapMode: Text.Wrap
+                text: !extra.info ? ""
+                    : extra.progress?.state === "failed" ? extra.progress.note
+                    : extra.working ? (extra.progress.percent > 0 ? `${extra.progress.note} ${extra.progress.percent}%` : extra.progress.note)
+                    : extra.info.installed ? "Installed"
+                    : !Extras.writable ? "An administrator can download this"
+                    : Extras.sizeOf(extra.info)
+                color: extra.progress?.state === "failed" ? Theme.danger : Theme.textBody
+                font { family: Theme.font; pixelSize: 12 }
+            }
+            DialogButton {
+                visible: extra.info !== null && !extra.working && Extras.writable
+                text: !extra.info ? "" : extra.info.installed ? "Remove" : extra.progress ? "Try again" : "Download"
+                onActivated: extra.info.installed ? Extras.remove(extra.info.id) : Extras.install(extra.info.id)
+            }
+        }
+
+        Switch {
+            visible: row.kind === "toggle"
+            on: row.modelData.on ?? false
+            offColor: Theme.lineStrong
+            onToggled: row.modelData.toggle()
+        }
+    }
+
+    // The control below the labels.
+    Item {
+        id: below
+
+        x: 16
+        y: labels.y + labels.height + 12
+        visible: row.wide
+        width: row.width - 32
+        height: row.kind === "swatches" ? swatches.height
+            : row.kind === "wallpapers" ? wallpapers.height
+            : row.kind === "shell" ? shellEditor.height
+            : row.kind === "displays" ? arrangement.height : 0
+
+        // The accent colors, and a custom one with its hue.
+        Row {
+            id: swatches
+
+            visible: row.kind === "swatches"
+            x: 4
+            topPadding: 4
+            bottomPadding: 4
+            spacing: 8
+
+            component Swatch: Rectangle {
+                id: swatch
+
+                property bool current
+                signal clicked
+
+                width: 22
+                height: 22
+                radius: 11
+
+                // The ring around the current color, a white space apart.
+                Rectangle {
+                    visible: swatch.current
+                    anchors.centerIn: parent
+                    width: 30
+                    height: 30
+                    radius: 15
+                    z: -1
+                    color: Theme.surface
+                    border.width: 2
+                    border.color: swatch.color
+                }
+                TapHandler {
+                    onTapped: swatch.clicked()
+                }
+                HoverHandler {
+                    cursorShape: Qt.PointingHandCursor
+                }
+            }
+
+            Repeater {
+                model: Theme.accents
+
+                Swatch {
+                    required property string modelData
+
+                    color: Theme.accentOf(modelData, 0)
+                    current: Settings.accent === modelData
+                    onClicked: Settings.accent = modelData
+                }
+            }
+            Swatch {
+                current: Settings.accent === "Custom"
+                color: current ? Theme.accent : Theme.surface
+                border.color: current ? "transparent" : Theme.lineStrong
+                onClicked: Settings.accent = "Custom"
+
+                Icon {
+                    anchors.centerIn: parent
+                    height: 12
+                    gridWidth: 12
+                    gridHeight: 12
+                    strokeWidth: 1.6
+                    capStyle: ShapePath.RoundCap
+                    color: parent.current ? Theme.textOnAccent : Theme.textMuted
+                    strokes: "M6 1.5v9M1.5 6h9"
+                }
+            }
+
+            // The custom hue, along the colors of every hue.
+            Item {
+                visible: Settings.accent === "Custom"
+                width: 130
+                height: 22
+
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    x: 6
+                    width: 120
+                    height: 8
+                    radius: 4
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0; color: Theme.accentOf("Custom", 0) }
+                        GradientStop { position: 0.17; color: Theme.accentOf("Custom", 60) }
+                        GradientStop { position: 0.33; color: Theme.accentOf("Custom", 120) }
+                        GradientStop { position: 0.5; color: Theme.accentOf("Custom", 180) }
+                        GradientStop { position: 0.67; color: Theme.accentOf("Custom", 240) }
+                        GradientStop { position: 0.83; color: Theme.accentOf("Custom", 300) }
+                        GradientStop { position: 1; color: Theme.accentOf("Custom", 359) }
+                    }
+                }
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    x: 6 + Settings.accentHue / 359 * 120 - width / 2
+                    width: 14
+                    height: 14
+                    radius: 7
+                    color: Theme.accent
+                    border.width: 2
+                    border.color: Theme.surface
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    function pick(x: real) {
+                        Settings.accentHue = Math.round(Math.max(0, Math.min(1, (x - 6) / 120)) * 359);
+                    }
+                    onPressed: mouse => pick(mouse.x)
+                    onPositionChanged: mouse => pick(mouse.x)
+                }
+            }
+        }
+
+        // The wallpapers, and a picture of one's own.
+        Grid {
+            id: wallpapers
+
+            readonly property real tileWidth: (width - 2 * spacing) / 3
+
+            visible: row.kind === "wallpapers"
+            width: parent.width
+            columns: 3
+            spacing: 10
+
+            Repeater {
+                model: ["Dusk", "Slate", "Dune", "Fjord", "Moss", "Image"]
+
+                Item {
+                    id: tile
+
+                    required property string modelData
+                    readonly property bool current: Settings.wallpaper === modelData
+                    readonly property bool own: modelData === "Image"
+
+                    width: wallpapers.tileWidth
+                    height: Math.round(width * 0.62)
+
+                    Rectangle {
+                        visible: tile.current
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        color: Theme.surface
+                        border.width: 2
+                        border.color: Theme.accent
+                    }
+                    Rectangle {
+                        anchors.fill: parent
+                        color: Theme.surface
+                        border.color: Theme.lineStrong
+                        visible: tile.own && !Settings.wallpaperImage
+                    }
+                    Backdrop {
+                        anchors.fill: parent
+                        visible: !tile.own || Settings.wallpaperImage !== ""
+                        preset: tile.modelData
+                    }
+                    Icon {
+                        anchors.centerIn: parent
+                        visible: tile.own && !Settings.wallpaperImage
+                        height: 12
+                        gridWidth: 12
+                        gridHeight: 12
+                        strokeWidth: 1.4
+                        color: Theme.textMuted
+                        strokes: "M6 1.5v9M1.5 6h9"
+                    }
+
+                    TapHandler {
+                        onTapped: tile.own ? row.modelData.open() : Settings.wallpaper = tile.modelData
+                    }
+                    HoverHandler {
+                        cursorShape: Qt.PointingHandCursor
+                    }
+                }
+            }
+        }
+
+        ShellEditor {
+            id: shellEditor
+            visible: row.kind === "shell"
+            width: parent.width
+        }
+
+        DisplayArrangement {
+            id: arrangement
+            visible: row.kind === "displays"
+            width: parent.width
+            selected: row.modelData.selected ?? ""
+            onPicked: name => row.modelData.select(name)
+        }
+    }
+}

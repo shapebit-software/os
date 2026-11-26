@@ -1,0 +1,172 @@
+// The shell of ShapeBit Desktop: every surface that is not an application
+// window: the wallpaper, the tabs of Tabs and Accordion, the handles that
+// resize tiles, the system bar and the dock (Shell.qml) with their panels,
+// the hot corner, what dictation shows, the assistant's panel and the edge that opens it, the way out of
+// full screen, Settings, the lock screen, and
+// the question for an administrator's password, the capture overlay, which
+// also picks what to share, the file chooser and the questions, which the
+// portals show, the window switcher and the list of keyboard shortcuts, and
+// Welcome.
+import Quickshell
+import Quickshell.Io
+import qs.bar
+import qs.capture
+import qs.dialogs
+import qs.lock
+import qs.notifications
+import qs.services
+import qs.settings
+import qs.wallpaper
+import qs.windows
+
+ShellRoot {
+    // hypridle runs from the start (Idle.qml) and locks through the lock
+    // screen, so both start with the shell rather than when first used.
+    readonly property string idle: Idle.config
+    readonly property bool locked: Lock.locked
+    // Copied text is kept from the start.
+    readonly property string clipboard: Clipboard.path
+    // The notification server starts with the shell, before anything sends.
+    readonly property int notifications: Notifications.all.length
+    // The polkit agent registers with the shell, before anything asks.
+    readonly property bool authorizing: Authorization.asking
+    // The portals listen from the start, for applications to ask.
+    readonly property string portal: Portal.path
+    // The mice and touchpads take their settings from the start.
+    readonly property string pointer: Pointer.config
+    // The connection agent registers with NetworkManager and BlueZ from the
+    // start, before they ask.
+    readonly property string connectionAgent: Connectivity.agentPath
+    // Welcome's reminder waits for the network from the start.
+    readonly property bool setupReminder: SetupReminder.waiting
+    // Keyboard shortcuts reach the shell from the start.
+    readonly property string shortcuts: Shortcuts.listOn
+    // The assistant answers the actions it asks of the shell from the start.
+    readonly property bool assistant: Assistant.connected
+
+    Variants {
+        model: Quickshell.screens
+
+        Wallpaper {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        WindowTabs {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        Resizer {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        ShellBar {
+            kind: "system"
+        }
+    }
+    Variants {
+        model: Quickshell.screens
+
+        ShellBar {
+            kind: "dock"
+        }
+    }
+    Variants {
+        model: Quickshell.screens
+
+        Panels {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        HotCorner {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        DictationOverlay {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        VoicePill {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        TidyPill {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        AssistantDock {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        AssistantEdge {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        FullscreenExit {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        SettingsWindow {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        AuthorizationPrompt {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        FileChooserDialog {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        QuestionDialog {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        CaptureOverlay {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        NotificationBanners {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        WindowSwitcher {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        ShortcutsWindow {}
+    }
+    Variants {
+        model: Quickshell.screens
+
+        Welcome {}
+    }
+
+    // qs ipc call shell reload: reads every file again, also the modules it
+    // imports from elsewhere, such as Colors, keeping the windows; how
+    // shell.service reloads (make sync).
+    IpcHandler {
+        target: "shell"
+
+        function reload(): void {
+            Quickshell.reload(false);
+        }
+    }
+}

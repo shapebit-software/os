@@ -1,0 +1,6 @@
+# The shell's portal backend (portal): everything applications ask of the
+# desktop but screen sharing, global shortcuts, and secrets. portals.conf
+# picks it for the desktop.
+[portal]
+DBusName=org.freedesktop.impl.portal.desktop.shell
+Interfaces=org.freedesktop.impl.portal.FileChooser;org.freedesktop.impl.portal.Screenshot;org.freedesktop.impl.portal.AppChooser;org.freedesktop.impl.portal.Access;org.freedesktop.impl.portal.Account;org.freedesktop.impl.portal.Background;org.freedesktop.impl.portal.DynamicLauncher;org.freedesktop.impl.portal.Inhibit;org.freedesktop.impl.portal.Notification;org.freedesktop.impl.portal.Settings;org.freedesktop.impl.portal.Wallpaper

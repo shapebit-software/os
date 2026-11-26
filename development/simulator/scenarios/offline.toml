@@ -1,0 +1,11 @@
+# The laptop with Wi-Fi on but joined to no network, and none in reach.
+extends = "laptop"
+
+[networkmanager]
+calls = [
+  # 30: disconnected.
+  { method = "AddWiFiDevice", args = ["wlan0", "wlan0", 30] },
+  # 20: disconnected; 1: no connectivity.
+  { method = "SetGlobalConnectionState", args = [20] },
+  { method = "SetConnectivity", args = [1] },
+]

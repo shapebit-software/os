@@ -1,0 +1,4 @@
+# On its first boot, systemd resets units to their presets, so the installer's
+# units are enabled here, not with `systemctl enable`.
+enable installer-backend.service
+enable installer.service
