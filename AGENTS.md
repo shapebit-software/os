@@ -25,6 +25,7 @@
 - A bug becomes a regression test
 - Never put credentials in the image or disk.
 - Keep shell scripts small.
+- Languages: QML for the shell, Rust for services and complex programs, Python for scripts, tests, and simple programs; Bash where it is simpler than Python; C and C++ only in legacy code.
 
 ## Documentation
 
