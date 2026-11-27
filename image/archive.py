@@ -2,7 +2,7 @@
 """What an image archive of the build is (`make image`, `make update-builds`,
 or one pulled with `skopeo copy`): its digest, which `bootc status` reports,
 and its labels; and the record of a medium made from one. The build writes
-these; the tests (quality/) and distribution (distribution/) read them, so
+these; the tests (packages/testing/) and distribution (distribution/) read them, so
 both depend on the build and not on each other.
 
 The digest is that of the archive's own manifest: `skopeo inspect` reports

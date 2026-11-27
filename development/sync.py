@@ -2,7 +2,7 @@
 """Installs this tree's features into a running ShapeBit, to see a change on
 the real system without building the image (README.md): every feature's
 install rules, as the image's packages install them, but only what goes under
-/usr; /etc and /var are machine state. MACHINE (quality/machine.py) is the
+/usr; /etc and /var are machine state. MACHINE (testing's machine.py) is the
 machine: the VM that `make vm` runs, reached over SSH; this computer, when it
 runs ShapeBit, reached through the host's engine, which is root there
 (dev.sh); or the simulator that `make simulate` runs (simulator/README.md).
@@ -25,8 +25,8 @@ import sys
 import tarfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "quality"))
-import machine  # noqa: E402
+sys.path.insert(0, str(ROOT / "packages" / "testing" / "src"))
+from testing import machine  # noqa: E402
 
 # The simulator's container (simulator/simulate.py).
 SIMULATOR = "shapebit-simulator"

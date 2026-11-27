@@ -20,6 +20,7 @@
 - Dependencies follow the pipeline.
 - External packages live in the feature that needs them.
 - Verify with unit tests.
+- Tests go in `tests/<level>/` beside their code: unit, integration, system, e2e (packages/testing/README.md).
 - Prefer built-in tools.
 - Workflows only call commands.
 - A bug becomes a regression test

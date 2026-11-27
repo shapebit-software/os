@@ -778,7 +778,7 @@ class Notifications:
 
 def oklch(l, c, h):
     """A color from OKLCH as sRGB, as Colors makes them (/usr/lib64/qt6/qml/Colors)
-    and packages/colors/tools/colors.py; packages/colors/tests/test_colors.py checks they agree."""
+    and packages/colors/tools/colors.py; packages/colors/tests/unit/test_colors.py checks they agree."""
     a, b = c * math.cos(math.radians(h)), c * math.sin(math.radians(h))
     l_ = (l + 0.3963377774 * a + 0.2158037573 * b) ** 3
     m_ = (l - 0.1055613458 * a - 0.0638541728 * b) ** 3

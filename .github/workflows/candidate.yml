@@ -118,14 +118,14 @@ jobs:
         run: rm -rf "$RUNNER_TEMP/keys"
 
       - name: Test the image
-        run: make test-image SKIP=image
+        run: make test-system-image SKIP=image
 
       - name: Push the candidate, with its sources and SBOM
         id: push
         run: distribution/release.py candidate "$IMAGE_VERSION" localhost/shapebit-os:dev build/image.tar build/image-next2.tar >>"$GITHUB_OUTPUT"
 
   # Install stable without the UI, update to the candidate through the update
-  # registry, run the system checks on it, then update again and roll back.
+  # registry, run the system tests on it, then update again and roll back.
   scripted:
     name: Test the update from stable
     needs: build
@@ -139,7 +139,7 @@ jobs:
         skopeo copy -q --preserve-digests "docker://ghcr.io/shapebit-software/os/candidate:${{ needs.build.outputs.version }}-update" oci-archive:build/image-next2.tar
       run: |
         make disk SKIP=installer
-        make test-update SKIP="disk update-builds" NEXT_ARCHIVE=build/image.tar
+        make test-system-update SKIP="disk update-builds" NEXT_ARCHIVE=build/image.tar
 
   # Install stable without the UI, whose screens its own release tested, update
   # to the candidate, and test the candidate's desktop, with openQA.
@@ -153,7 +153,7 @@ jobs:
       pull: |
         make pull-installer
         skopeo copy -q --preserve-digests "docker://ghcr.io/shapebit-software/os/candidate:${{ needs.build.outputs.version }}" oci-archive:build/image.tar
-      run: make test-release FLOW=update UPDATE_ARCHIVE=build/image.tar
+      run: make test-e2e FLOW=update UPDATE_ARCHIVE=build/image.tar
 
   draft:
     name: Write the draft release

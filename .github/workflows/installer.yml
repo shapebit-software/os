@@ -77,7 +77,7 @@ jobs:
       - name: Push the installer and its sources
         run: distribution/release.py installer "$VERSION" localhost/shapebit-os-installer:dev build/installer.img "$RUNNER_TEMP/os-sources"
 
-  # Install from the medium, without its UI, and check the system.
+  # Install from the medium, without its UI, and run the system tests.
   scripted:
     name: Test install
     needs: build
@@ -85,7 +85,7 @@ jobs:
     with:
       results: results-scripted
       pull: make pull-installer INSTALLER_REF=ghcr.io/shapebit-software/os/installer:${{ needs.build.outputs.version }}
-      run: make disk test-installed SKIP=installer
+      run: make disk test-system SKIP="installer test-system-image"
 
   # The medium itself, through its UI, and the desktop it installs, with openQA.
   openqa:
@@ -95,7 +95,7 @@ jobs:
     with:
       results: results-openqa
       pull: make pull-installer INSTALLER_REF=ghcr.io/shapebit-software/os/installer:${{ needs.build.outputs.version }}
-      run: make test-release FLOW=install
+      run: make test-e2e FLOW=install
 
   # The upload key is a secret of the environment "Installer", and so is only
   # here, after approval.

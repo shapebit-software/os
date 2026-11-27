@@ -4,7 +4,7 @@
 # images here (see Containerfile). watermark.png is the logo of
 # packages/installer/src/ui/images/horizontal.png, 320 pixels wide. Its colors are copies
 # of the system's (/usr/share/colors/colors.toml): night, nightTrack, and
-# grey0; packages/colors/tests/test_colors.py checks them.
+# grey0; packages/colors/tests/unit/test_colors.py checks them.
 [Plymouth Theme]
 Name=Boot
 Description=The ShapeBit logo and a spinner.

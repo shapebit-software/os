@@ -1,7 +1,7 @@
 # ShapeBit OS image. Run `make help` to list targets.
 # Every variable below can be overridden, e.g. `make test OWNER_NAME=someone`.
 # They configure the build; the tests' own settings, such as the first owner and
-# the installer's locale, are in quality/machine.py.
+# the installer's locale, are in packages/testing/src/testing/machine.py.
 #
 # Every target runs in the development image (development/README.md),
 # for developers and CI alike: on the host, make builds it, then runs itself in
@@ -54,7 +54,7 @@ DEV_UPDATE_REF ?= 10.0.2.2:$(REGISTRY_PORT)/shapebit-os:dev
 UPDATE_TAGS    ?= next next2
 NEXT_ARCHIVE   ?= $(BUILD)/image-next.tar
 NEXT2_ARCHIVE  ?= $(BUILD)/image-next2.tar
-# The order of the openQA modules (quality/openqa/main.pm): install, everything
+# The order of the openQA modules (packages/testing/e2e/main.pm): install, everything
 # from the medium; or update, which also updates the installed system to
 # UPDATE_ARCHIVE's build before the desktop's modules.
 FLOW           ?= install
@@ -70,23 +70,23 @@ SKIP           ?=
 # (packages/repositories/README.md): the one that `make rpm` builds, and where.
 RPM            ?= packages/dictation/external/sherpa-onnx
 RPMS           ?= $(BUILD)/rpms
-# The packages that lint, validate, test-unit, sync, unsync, and watch work
+# The packages that lint, validate, the tests, sync, unsync, and watch work
 # on: every one, or those named, as in PACKAGE="shell colors". CI names those
 # that a change touches (development/changed.py).
 PACKAGE        ?=
 # The kinds of this computer's USB devices that a VM in a window borrows,
 # camera and bluetooth, found as they are plugged in; empty lends none
-# (quality/machine.py, development/README.md#devices).
+# (packages/testing/src/testing/machine.py, development/README.md#devices).
 DEVICES        ?= camera
 
 # The settings that cross into the development image when they are set in the
 # environment, as in `OWNER_NAME=someone make disk` (development/dev.sh);
 # those on make's command line cross in MAKEFLAGS. They are this file's own,
 # set with ?= above (but ENGINE, which dev.sh sets there), the test settings
-# of quality/machine.py, and those read elsewhere: test-guest's IMAGE_DIGEST
+# of testing's machine.py, and those read elsewhere: test-system's IMAGE_DIGEST
 # and GUEST, and the simulator's SCENARIO.
 export DEV_ENV := $(filter-out ENGINE,$(shell sed -n 's/^\([A-Z][A-Z0-9_]*\) *?=.*/\1/p' Makefile)) \
-  $(shell sed -n '/^SETTINGS = {/,/^}/s/^ *"\([A-Z][A-Z0-9_]*\)":.*/\1/p' quality/machine.py) \
+  $(shell sed -n '/^SETTINGS = {/,/^}/s/^ *"\([A-Z][A-Z0-9_]*\)":.*/\1/p' packages/testing/src/testing/machine.py) \
   IMAGE_DIGEST GUEST SCENARIO
 export ENGINE FEDORA_VERSION FOUNDATION FOUNDATION_CACHE DEV_IMAGE
 
@@ -150,8 +150,8 @@ ifndef IN_DEV_IMAGE
 dev-image: $(BUILD)/dev-image.built ## Build the development image (image/Containerfile, its development stage)
 
 # What the development image is made from: the foundation, the Containerfile,
-# and what the installer builds with.
-DEV_INPUTS := image/Containerfile packages/requires.sh packages/installer/installer.spec
+# what the installer builds with, and what the tests run with.
+DEV_INPUTS := image/Containerfile packages/requires.sh packages/installer/installer.spec packages/testing/testing.spec
 $(BUILD)/dev-image.inputs: FORCE
 	$(call record,DEV_IMAGE=$(DEV_IMAGE) $(DEV_INPUTS))
 $(BUILD)/dev-image.id: FORCE
@@ -171,7 +171,7 @@ GOALS := $(filter-out help foundation dev-image dev clean,$(MAKECMDGOALS))
 ifneq ($(GOALS),)
 .PHONY: $(GOALS)
 $(firstword $(GOALS)): dev-image
-	$(if $(filter test-release,$(GOALS)),DEV_NETWORK=private) \
+	$(if $(filter test-e2e,$(GOALS)),DEV_NETWORK=private) \
 	  development/dev.sh $(if $(filter vm installer-vm simulate devices,$(GOALS)),--desktop) $(MAKE) $(GOALS)
 $(wordlist 2,$(words $(GOALS)),$(GOALS)): $(firstword $(GOALS)) ; @:
 endif
@@ -179,12 +179,21 @@ endif
 else
 # In the development image.
 export ENGINE FEDORA_VERSION FOUNDATION FOUNDATION_CACHE DEV_IMAGE $(DEV_ENV)
-# The checks of the built OS, check_*.py beside what they check; each file's
-# marker says where it runs (quality/README.md).
-CHECKS := python3 -m pytest -c quality/pytest.ini --rootdir=.
-CHECK_FILES := $(shell git ls-files -co --exclude-standard '*check_*.py')
-# The update test's own checks, which run in their order around the others.
-UPDATE_CHECKS := packages/updates/tests/check_to_next.py packages/updates/tests/check_rollback.py
+# The tests (packages/testing/README.md): each level's are in tests/LEVEL/ of
+# the code they test; $(call tests,LEVEL) are those folders, of PACKAGE and of
+# packages/ itself, or every one. Each run's results go in RESULTS/<time>-NAME.
+PYTEST := python3 -m pytest --rootdir=.
+tests = $(wildcard $(if $(PACKAGE),$(addsuffix /tests/$1,$(SCOPE)) packages/tests/$1,\
+  packages/*/tests/$1 packages/tests/$1 image/tests/$1 distribution/tests/$1 development/tests/$1 .github/tests/$1))
+junit = --junitxml=$(BUILD)/results/$(shell date -u +%Y%m%dT%H%M%SZ)-$1/junit.xml
+# The installer's CTest tests labelled $1.
+ctest = cmake -S packages/installer -B $(BUILD)/tests/installer -G Ninja && cmake --build $(BUILD)/tests/installer && \
+  ctest --test-dir $(BUILD)/tests/installer -L $1 --output-on-failure
+# The system tests, on the machine that --machine says; each file's marker
+# says which machine it runs on.
+SYSTEM := $(PYTEST) -p testing.system
+# The machines that the system tests run on, which make vm and the others open too.
+MACHINES := python3 packages/testing/src/testing/machine.py
 # The prerequisites of a target, but those in SKIP; and $2, the files of
 # target $1, unless $1 is in SKIP.
 need = $(filter-out $(SKIP),$1)
@@ -202,8 +211,9 @@ RUST := $(patsubst packages/%/Cargo.toml,%,$(wildcard packages/*/Cargo.toml))
 KEYS := $(KEYS_DIR)/$(SIGNING_KEY)-secureboot.key $(KEYS_DIR)/$(SIGNING_KEY)-secureboot.crt \
         $(KEYS_DIR)/$(SIGNING_KEY)-pcr.key
 
-.PHONY: image colors static-checks lint validate test-unit test-image publish installer rpm pull-installer \
-  disk vm devices update-vm sync unsync watch simulate installer-vm ssh test test-installed update-builds test-update test-release test-guest release-key
+.PHONY: image colors lint validate test test-unit test-integration test-system test-system-image \
+  test-system-installer test-system-update test-e2e publish installer rpm pull-installer \
+  disk vm devices update-vm sync unsync watch simulate installer-vm ssh update-builds release-key
 
 image: $(IMAGE_ARCHIVE) ## Build the container image with its signed UKI
 
@@ -228,8 +238,6 @@ $(IMAGE_ARCHIVE): $(KEYS) $(BUILD)/foundation.built $(BUILD)/image.inputs $(BUIL
 colors: ## Write the QML module Colors's values from the system's colors (packages/colors/data/colors.toml)
 	python3 packages/colors/tools/colors.py
 
-static-checks: lint validate ## Lint and validate, without building or running the code
-
 lint: ## Lint the shell, the Python, and the QML (of PACKAGE)
 	$(if $(call scoped,shell),$(MAKE) -C packages/shell lint)
 	development/lint.sh $(SCOPE)
@@ -241,25 +249,24 @@ validate: ## Validate the compositor configuration, the specs' Requires, and the
 	packages/requires.sh --check
 	packages/repositories/tools/check-licenses.sh $(SCOPE)
 
-# The unit tests, test_*.py, in the tests/ of each feature and of each other folder;
-# packages/test_install.py installs every feature. Then the installer's (CTest),
-# and those of each feature's Rust programs (packages/cargo.mk).
-# With PACKAGE, its tests, and those of the packages as a whole (packages/test_*.py).
-test-unit: ## Run the tests that need no image and no VM (of PACKAGE)
-	python3 -m pytest -ra --tb=short -v -p no:cacheprovider --rootdir=. $$(git ls-files -co --exclude-standard \
-	  $(if $(PACKAGE),$(foreach d,$(SCOPE),'$d/*test_*.py') 'packages/test_*.py','*test_*.py'))
-	$(if $(call scoped,installer),cmake -S packages/installer -B $(BUILD)/test-unit/installer -G Ninja)
-	$(if $(call scoped,installer),cmake --build $(BUILD)/test-unit/installer)
-	$(if $(call scoped,installer),ctest --test-dir $(BUILD)/test-unit/installer --output-on-failure)
+test: lint validate test-unit test-integration ## Lint, validate, and the unit and integration tests: all that needs no image (of PACKAGE)
+
+test-unit: ## Run the unit tests: tests/unit/, the installer's, and Rust's (of PACKAGE)
+	$(if $(call tests,unit),$(PYTEST) $(call junit,unit) $(call tests,unit))
+	$(if $(call scoped,installer),$(call ctest,unit))
 	$(foreach f,$(call scoped,$(RUST)),$(MAKE) -s -C packages/$f test CARGO_TARGET_DIR=$(abspath $(BUILD))/cargo/$f &&) true
 
+test-integration: ## Run the integration tests: tests/integration/ and the installer's (of PACKAGE)
+	$(if $(call tests,integration),$(PYTEST) $(call junit,integration) $(call tests,integration))
+	$(if $(call scoped,installer),$(call ctest,integration))
+
 # A container of the image, with nothing installed in it, which Testinfra
-# reaches through the engine (quality/fixtures.py).
-test-image: $(call need,image) ## Build the image and test its files; nothing boots
-	$(CHECKS) -m image $(CHECK_FILES) --machine=container://$(IMAGE)
+# reaches through the engine (packages/testing/src/testing/system.py).
+test-system-image: $(call need,image) ## Build the image and run its system tests; nothing boots
+	$(SYSTEM) -m system_image $(call tests,system) --machine=container://$(IMAGE) --run=image
 
 publish: $(call need,image) ## Push the image to the local update registry
-	python3 quality/machine.py publish $(IMAGE_ARCHIVE)
+	$(MACHINES) publish $(IMAGE_ARCHIVE)
 
 installer: $(MEDIUM) ## Build the installer medium, which carries the image
 
@@ -289,7 +296,7 @@ pull-installer: ## Pull an installer medium from GHCR instead of building it: IN
 
 disk: $(DISK_FILE).json ## Install to a new disk: boot the medium in QEMU, check it, and install
 
-# The installer's settings (quality/machine.py).
+# The installer's settings (machine.py).
 $(BUILD)/disk.inputs: FORCE
 	$(call record,DISK_SIZE=$(DISK_SIZE) OWNER_NAME=$(OWNER_NAME) OWNER_PASSWORD=$(OWNER_PASSWORD) \
 	  RECOVERY_KEY=$(RECOVERY_KEY) LOCALE=$(LOCALE) KEYBOARD_LAYOUT=$(KEYBOARD_LAYOUT) TIME_ZONE=$(TIME_ZONE))
@@ -298,16 +305,16 @@ $(BUILD)/disk.inputs: FORCE
 # as in make vm, is newer than it, so make test installs again; the tests' clones leave it as it is.
 # To install again anyway: rm $(DISK_FILE).json
 $(DISK_FILE).json: $(call unless-skipped,installer,$(MEDIUM)) $(BUILD)/disk.inputs $(wildcard $(DISK_FILE))
-	python3 quality/machine.py install
+	$(MACHINES) install
 
 vm: ## Boot the installed disk in a window, with sound and USB devices (DEVICES); console here (Ctrl-A X quits)
-	python3 quality/machine.py boot
+	$(MACHINES) boot
 
 devices: ## Lend the running VM the USB devices of DEVICES now, and take back the others
-	python3 quality/machine.py devices
+	$(MACHINES) devices
 
 update-vm: $(call need,image) ## Update the running VM to this tree's image, as a system updates, and restart it
-	python3 quality/machine.py update $(IMAGE_ARCHIVE)
+	$(MACHINES) update $(IMAGE_ARCHIVE)
 
 sync: ## Lay this tree (PACKAGE) over the running VM's /usr, or this computer's with MACHINE=local, until it restarts
 	python3 development/sync.py
@@ -322,16 +329,18 @@ simulate: ## Run the tree's desktop in a window, on fake system services (SCENAR
 	python3 development/simulator/simulate.py
 
 installer-vm: $(call need,installer) ## Boot the medium with a new disk in a window, to install by hand
-	python3 quality/machine.py install --window
+	$(MACHINES) install --window
 
 ssh: ## Open a root shell in the running machine
-	python3 quality/machine.py ssh
+	$(MACHINES) ssh
 
-test: $(call need,test-image disk) ## Install, then check the installed system on a disposable clone of it
-	$(CHECKS) -m installed $(CHECK_FILES) --machine=clone --run=installed
+# On a disposable clone of the installed disk; or with GUEST=ADDRESS, on a
+# system that runs already, such as another computer (packages/testing/README.md).
+test-system: $(if $(GUEST),,$(call need,test-system-image disk)) ## Install, then run the installed system's tests on a clone of it, or on GUEST=address
+	$(SYSTEM) -m system_installed $(call tests,system) $(if $(GUEST),--machine=ssh://$(GUEST) --run=$(GUEST),--machine=clone --run=installed)
 
-test-installed: ## Check the installed system on a clone of the disk as it is, without installing
-	$(CHECKS) -m installed $(CHECK_FILES) --machine=clone --run=installed
+test-system-installer: $(call need,installer) ## Boot the medium with a new disk and run its system tests, without installing
+	$(MACHINES) check-installer
 
 update-builds: $(UPDATE_TAGS:%=$(BUILD)/image-%.tar) ## Make the newer builds that the update test moves through (UPDATE_TAGS)
 
@@ -341,18 +350,14 @@ $(UPDATE_TAGS:%=$(BUILD)/image-%.tar): $(BUILD)/image-%.tar: $(call unless-skipp
 	image/seal.sh image/update.Containerfile "$${IMAGE%:*}:$*" $@ \
 	  --build-arg OS=$(IMAGE) --build-arg IMAGE_VERSION=$(IMAGE_VERSION).$*
 
-# On the next build, the installed system's checks run too, but for the
-# reboots of check_persistence.py: the update test restarts it enough.
-test-update: $(call need,disk update-builds) ## On a disposable clone: update to a new build, then roll back
-	$(CHECKS) -m 'installed or update' $(word 1,$(UPDATE_CHECKS)) $(filter-out $(UPDATE_CHECKS),$(CHECK_FILES)) \
-	  $(word 2,$(UPDATE_CHECKS)) --ignore=packages/system/tests/check_persistence.py --machine=clone --run=update \
+# On the next build, the installed system's tests run too, between the
+# update tests' own (system.py).
+test-system-update: $(call need,disk update-builds) ## On a disposable clone: update to a new build, then roll back
+	$(SYSTEM) -m 'system_installed or system_update' $(call tests,system) --machine=clone --run=update \
 	  --next=$(NEXT_ARCHIVE) --next2=$(NEXT2_ARCHIVE)
 
-test-release: ## Full OS and UI tests of the built medium itself, with openQA (FLOW=install|update)
-	python3 quality/openqa/run.py $(FLOW) $(if $(filter update,$(FLOW)),$(UPDATE_ARCHIVE))
-
-test-guest: ## Check the system on another computer: GUEST=address IMAGE_DIGEST=sha256:... (quality/README.md)
-	$(CHECKS) -m installed $(CHECK_FILES) --machine=ssh://$(GUEST) --run=$(GUEST)
+test-e2e: ## Run the end-to-end tests of the built medium itself, with openQA (FLOW=install|update)
+	python3 packages/testing/e2e/run.py $(FLOW) $(if $(filter update,$(FLOW)),$(UPDATE_ARCHIVE))
 
 release-key: ## Generate the missing release keys once, in KEYS_DIR outside build/; store them safely
 	image/keys/keys.sh --release

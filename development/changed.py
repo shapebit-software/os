@@ -2,8 +2,9 @@
 """The packages that a change touches, so that CI checks only those
 (README.md): the packages with changed files, and those that depend on
 them, again and again: whose specs require them, or whose tests read their
-files (packages/NAME/ in a test). A change anywhere else, such as to the
-Makefile or to what all packages share, touches every package; one only to
+files (packages/NAME/ in a test); every package's tests run with testing's
+plugin, so every package depends on testing. A change anywhere else, such as
+to the Makefile or to what all packages share, touches every package; one only to
 documentation touches none of them, but is checked as everything is.
 
 Prints PACKAGE=, with the packages, or empty for every package, for
@@ -28,9 +29,11 @@ def dependents():
     for name in names:
         spec = (PACKAGES / name / f"{name}.spec").read_text()
         required = re.findall(r"^Requires:\s*shapebit-(\S+)", spec, re.M)
-        tests = (PACKAGES / name / "tests").glob("*test_*")
+        # testing's own tests read every package's tests, which need none of them.
+        tests = [p for p in (PACKAGES / name / "tests").rglob("*") if p.suffix in (".py", ".qml", ".cpp")
+                 and name != "testing"]
         read = {other for test in tests for other in re.findall(r"packages/([a-z-]+)/", test.read_text())}
-        for other in set(required) | read:
+        for other in set(required) | read | {"testing"}:
             if other in graph and other != name:
                 graph[other].add(name)
     return graph

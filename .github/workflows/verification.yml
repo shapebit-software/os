@@ -1,7 +1,7 @@
-# Verifies every push and pull request (quality/README.md#in-ci): the static
-# checks and unit tests, then, when the image's inputs changed, the image's
-# files, built with a throwaway key; it publishes nothing. A new check goes in
-# the stage it fits.
+# Verifies every push and pull request (packages/testing/README.md#in-ci): the
+# static checks and the unit and integration tests, then, when the image's
+# inputs changed, the image's system tests, built with a throwaway key; it
+# publishes nothing. A new check goes in the stage it fits.
 name: Verification
 
 on:
@@ -53,4 +53,4 @@ jobs:
         uses: ./.github/actions/runner
       - name: Build and test the image
         if: steps.diff.outputs.changed != 'false'
-        run: make test-image
+        run: make test-system-image

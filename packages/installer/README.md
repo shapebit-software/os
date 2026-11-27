@@ -5,7 +5,7 @@ that erase one disk and install the system on it.
 
 It runs from the installer medium, which the
 [image](../../README.md) builds
-(`make installer`) and tests (`make test`).
+(`make installer`) and tests (`make test-system`).
 
 ## How it works
 
@@ -108,7 +108,7 @@ To install for real, in a VM, use `make installer-vm` from the repository root.
 | `src/ui/`        | `installer`: the Qt Quick pages.                          |
 | `src/ctl/`       | `installerctl`: command-line client for tests and debugging. |
 | `system/`        | The programs' units, D-Bus policy, system user, and the preset that enables the units. |
-| `tests/`         | `tst_*.cpp` and `test_*` unit tests (CTest), and the `check_*.py` checks of the medium and installed system. |
+| `tests/`         | `unit/` and `integration/`: `tst_*` (CTest, labelled by level) and `test_*.py`; `system/`: the medium's and the installed system's tests; `e2e/`: installing through the pages, with openQA. |
 | `tools/`         | `medium.sh`, which writes the installer medium. |
 
 ## Not yet implemented

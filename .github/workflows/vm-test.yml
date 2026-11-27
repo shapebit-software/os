@@ -2,7 +2,7 @@
 # after PULL, which takes what it tests from GHCR, never a local build; the
 # results are kept as RESULTS. Actions artifacts, which anyone signed in to
 # GitHub can download, hold test results only, never an image. A failed run
-# can be re-run on the same build (quality/README.md#in-ci). Called by Candidate
+# can be re-run on the same build (packages/testing/README.md#in-ci). Called by Candidate
 # and Installer.
 name: Test on VMs
 

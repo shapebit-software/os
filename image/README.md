@@ -19,13 +19,13 @@ fedora-bootc
 | [foundation.sh](foundation.sh) | Builds the foundation, or takes the published one made from the same recipe. |
 | [seal.sh](seal.sh) | Builds a bootable image and seals it with its signed UKI; saves it as an OCI archive. |
 | [packaged.py](packaged.py) | Fails the build on a file under `/usr` that no package owns, or that differs from its package. |
-| [archive.py](archive.py) | What an image archive is (its digest, its labels) and the record of a medium made from one; [quality/](../quality/README.md) and [distribution/](../distribution/README.md) read build outputs through it. |
+| [archive.py](archive.py) | What an image archive is (its digest, its labels) and the record of a medium made from one; the tests ([testing](../packages/testing/README.md)) and [distribution/](../distribution/README.md) read build outputs through it. |
 | [keys/](keys/README.md) | The signing keys and their policy: the build signs the boot files with them, distribution the released image. |
 
 CI tags the sealed OS `os/candidate:<version>`; once its tests pass,
 Release copies it, unchanged, to `os:<version>` and `os:stable`
 ([distribution](../distribution/README.md)). How the built OS is tested is in
-[`quality/`](../quality/README.md); the development image's own scripts are
+[`packages/testing/`](../packages/testing/README.md); the development image's own scripts are
 in [`development/`](../development/README.md). The commands are in the
 [README](../README.md#usage) at the root.
 

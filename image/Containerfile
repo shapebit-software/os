@@ -83,50 +83,39 @@ LABEL software.shapebit.foundation.base="$BASE" \
 # client here reaches (development/dev.sh).
 
 # Only what the installer and the features with Rust programs (a Cargo.toml)
-# build with, so that the install below runs again only when that changes, not
-# with every change to a package: make builds this image again whenever a spec
-# changes.
+# build with, and what the tests run with (testing's Requires), so that the
+# installs below run again only when that changes, not with every change to a
+# package: make builds this image again whenever a spec changes.
 FROM ${FOUNDATION} AS development-needs
 RUN --mount=type=bind,target=/src \
     mkdir /out && /src/requires.sh --build installer/installer.spec \
-      $(cd /src && ls */Cargo.toml | sed 's|\(.*\)/Cargo.toml|\1/\1.spec|') >/out/build
+      $(cd /src && ls */Cargo.toml | sed 's|\(.*\)/Cargo.toml|\1/\1.spec|') >/out/build && \
+    /src/requires.sh testing/testing.spec >/out/testing
 
 FROM ${FOUNDATION} AS development
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
     --mount=type=bind,from=development-needs,source=/out,target=/run/needs \
     dnf -y install \
-    # Lint, validate (rpmspec, Fedora's list of licenses, and every file's
-    # license with reuse), the unit tests, and the license notices' tool,
-    # which unpacks RPMs (cpio).
-    git make python3 rpm-build license-validate reuse cpio python3-pyflakes python3-pytest \
-    # The checks of the built OS: the VMs (QEMU with Secure Boot firmware and
-    # a software TPM; for make vm and make installer-vm, in a window that the
-    # host's GPU renders for, through virglrenderer, which virtio-gpu-gl
-    # brings), SSH into them, pytest and Testinfra, skopeo for the registries,
-    # OpenSSL for the signing keys, and xz for the media.
-    qemu-system-x86-core qemu-device-display-virtio-vga qemu-device-display-virtio-vga-gl \
-    qemu-device-display-virtio-gpu-gl qemu-img qemu-ui-gtk qemu-ui-opengl edk2-ovmf swtpm \
-    # The window's machine plays and records through the host's PipeWire, and
-    # borrows its USB devices, such as the camera (make vm, DEVICES).
-    qemu-audio-pipewire qemu-device-usb-host \
-    openssh-clients python3-pytest-testinfra skopeo openssl xz \
+    # Building and packaging: rpmspec and rpmbuild, the license notices' tool,
+    # which unpacks RPMs (cpio), OpenSSL for the signing keys, xz for the
+    # media, and skopeo for the registries.
+    git make python3 rpm-build cpio openssl xz skopeo \
     # The client of a host's Docker, with BuildKit's (dev.sh); Podman, already
     # here, is the client of a host's Podman.
     docker-cli docker-buildx \
-    # The installer's and the Rust programs' unit tests: what they build with,
-    # Rust's formatter for make lint, and a session bus of their own
-    # (dbus-run-session).
-    $(cat /run/needs/build) rustfmt dbus-daemon \
-    # The ChatGPT integration tests' signed identities.
-    python3-jwt python3-cryptography \
-    # make watch's file events, and the simulator's fake system services.
-    inotify-tools python3-dbusmock
+    # What the installer and the Rust programs build with.
+    $(cat /run/needs/build) \
+    # make watch's file events.
+    inotify-tools
 
-# isotovideo, openQA's test engine (quality/openqa/), with Inline::Python
-# for the Python modules. Weak dependencies are off: they bring QEMU for every
-# architecture.
+# Every tool the tests run with, which testing's spec requires
+# (packages/testing/testing.spec): lint and validate, the unit and integration
+# tests (with the fake system services that the simulator uses too), the
+# machines of the system tests and make vm, and openQA's engine. Weak
+# dependencies are off: os-autoinst's bring QEMU for every architecture.
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
-    dnf -y install --setopt=install_weak_deps=False os-autoinst perl-Inline-Python
+    --mount=type=bind,from=development-needs,source=/out,target=/run/needs \
+    dnf -y install --setopt=install_weak_deps=False $(cat /run/needs/testing)
 
 # /home is a folder here, not the bootc image's link to /var/home, so that the
 # developer's folders, which dev.sh mounts at their paths on the host, resolve
@@ -151,7 +140,7 @@ ENV IN_DEV_IMAGE=1
 # reads is installed. A spec at the top of a feature folder is ShapeBit's own;
 # an external package (a folder with a sources file, below a feature) is in
 # the foundation, from ShapeBit's repository. The installer is only on the
-# medium.
+# medium, and testing only in the development image.
 FROM ${FOUNDATION} AS packages-build
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
     --mount=type=bind,target=/src \
@@ -169,7 +158,7 @@ sbsign --key /run/secrets/signing.key --cert /run/secrets/signing.crt \
 openssl x509 -in /run/secrets/signing.crt -outform DER -out /tmp/signed/enroll-this-key.cer
 /src/rpmbuild.sh /out --define "signed_dir /tmp/signed" \
   --define "systemd_boot $(rpm -q --qf '%{VERSION}-%{RELEASE}' systemd-boot-unsigned)" \
-  $(ls /src/*/*.spec | grep -v -e '^/src/installer/' -e '^/src/licenses/')
+  $(ls /src/*/*.spec | grep -v -e '^/src/installer/' -e '^/src/licenses/' -e '^/src/testing/')
 rpmlint --config /src/rpmlint.toml /out/*.rpm
 EOF
 

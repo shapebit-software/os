@@ -9,23 +9,23 @@ socket ([image](../image/README.md)).
 
 | File | What it is |
 | --- | --- |
-| [Containerfile](../image/Containerfile), its development stage | The development image: the foundation, so the OS's own packages, with the tools that the checks and the installer need. CI uses it too. |
+| [Containerfile](../image/Containerfile), its development stage | The development image: the foundation, so the OS's own packages, with what the installer builds with and every tool the tests run with ([testing](../packages/testing/README.md)'s Requires). CI uses it too. |
 | `dev.sh` | Runs a command in the image as the developer, in this repository, with KVM and the host's engine; with `--desktop`, with the host session's display and GPU, for a VM's window. |
 | `sync.py` | `make sync`: installs this tree's features into a running ShapeBit. |
 | `sync-apply.sh` | What `make sync` runs as root on that machine. |
 | [simulator/](simulator/README.md) | `make simulate`: the tree's desktop in a window, on fake system services. |
-| `changed.py` | The packages that a change touches, which CI checks ([quality](../quality/README.md#in-ci)). |
+| `changed.py` | The packages that a change touches, which CI checks ([testing](../packages/testing/README.md#in-ci)). |
 | `vm-devices.rules` | Lets a VM borrow this computer's cameras and Bluetooth radios ([Devices](#devices)). |
 
 Nothing here is installed in the image.
 
 ## One package at a time
 
-`PACKAGE` limits `lint`, `validate`, `test-unit`, `sync`, `unsync`, and
+`PACKAGE` limits `lint`, `validate`, every `test-*`, `sync`, `unsync`, and
 `watch` to the packages it names; empty, the default, means every package:
 
 ```sh
-make lint test-unit PACKAGE=shell        # its checks, and packages/test_*.py
+make test PACKAGE=shell                  # its lint and tests, and packages/tests/'s
 make watch PACKAGE="shell colors"        # only these, at every save
 ```
 
@@ -41,21 +41,21 @@ profile:
 
 ```sh
 export ENGINE=docker   # in ~/.profile, on a host with Docker
-make test-unit
+make test
 ```
 
 On the host, `make` builds the foundation and the development image the first
 time and whenever they change, then runs itself there with the same goals and
 settings: settings on its command line cross as they are, and those in the
 environment, such as `OWNER_NAME`, when the Makefile sets them with `?=` or
-they are test settings of `quality/machine.py` (`DEV_ENV`).
+they are test settings of `packages/testing/src/testing/machine.py` (`DEV_ENV`).
 make's own `-o` does not cross; `SKIP=image` names the prerequisites that
 count as built. In the image, `make` runs targets as they are. The image, the installer
 medium, the disk, and the update test's builds are files under `build/`, made
 again only when what they are made from changed: a file in `packages/` or
 `image/`, a setting that goes into them, or the engine's image they start
 from. A disk that booted since its install, as with `make vm`, is installed
-again by `make test`; `rm build/disk.raw.json` installs again anyway.
+again by `make test-system`; `rm build/disk.raw.json` installs again anyway.
 
 The repository and the home folder have the same paths in the image as on the
 host, so the paths that a command gives the engine are the host's; a command
@@ -84,7 +84,7 @@ VS Code and JetBrains open the same image as a dev container
 writes `.env`, from which `compose.yaml` gives it what `dev.sh` does: the
 repository at its host path, the host's network, KVM, and the host's Docker,
 with their groups. Every target runs in the editor's terminal but those that
-open a window, `vm`, `installer-vm`, and `simulate`, and `test-release`,
+open a window, `vm`, `installer-vm`, and `simulate`, and `test-e2e`,
 whose VNC server needs a network of its own; those run from a terminal on the
 host. The editor rebuilds the container when asked after the image
 changes.
@@ -97,11 +97,11 @@ test goes in the first that can catch it.
 
 | Where | What it shows | How |
 | --- | --- | --- |
-| The development image | Lint, validation, unit tests (`test_*`, `tst_*`) | `make static-checks test-unit` |
+| The development image | Lint, validation, unit and integration tests (`tests/unit/`, `tests/integration/`) | `make test` |
 | The simulator | The shell and what it shows, on fake system services | `make simulate`, `make watch MACHINE=simulator` |
 | A running ShapeBit | The tree on the real system: services, login, sessions | `make vm`, `make watch` |
-| The built image | Its files, a fresh install, updates (`check_*`) | `make test-image`, `make test`, `make test-update` |
-| The built medium | Everything a person does, from installing on | `make test-release` |
+| The built image | Its files, a fresh install, updates (`tests/system/`) | `make test-system-image`, `make test-system`, `make test-system-update` |
+| The built medium | Everything a person does, from installing on (`tests/e2e/`) | `make test-e2e` |
 
 ## Seeing a change on ShapeBit
 

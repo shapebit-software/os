@@ -19,8 +19,8 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
-sys.path.insert(0, str(HERE.parents[1] / "quality"))
-import machine  # noqa: E402
+sys.path.insert(0, str(HERE.parents[1] / "packages" / "testing" / "src"))
+from testing import machine  # noqa: E402
 import sync  # noqa: E402
 
 RUNTIME = f"/run/user/{os.getuid()}"

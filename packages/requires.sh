@@ -5,7 +5,8 @@
 # own are left out, and so are Requires with a macro, the specs' own, which
 # are checked when the packages are installed. The specs are SPEC..., by
 # default those of the OS image: the one at the top of each feature folder,
-# but the installer's, which is only on the medium. With --check, fails on a
+# but the installer's, which is only on the medium, and testing's, which only
+# the development image has. With --check, fails on a
 # package that no longer exists in FEDORA_VERSION or ShapeBit's repository,
 # before an image build would find out; the query reads only metadata.
 # Usage: requires.sh [--build] [SPEC...]   (called by the images' Containerfiles)
@@ -19,7 +20,7 @@ case ${1:-} in
   --check) check=1; shift ;;
 esac
 if (($# == 0)); then
-  set -- $(ls ./*/*.spec | grep -v '^\./installer/')
+  set -- $(ls ./*/*.spec | grep -v -e '^\./installer/' -e '^\./testing/')
 fi
 
 packages=$(sed -n "s/^$field: *//p" "$@" | grep -v -e '%{' -e '^shapebit-' | sort -u)
