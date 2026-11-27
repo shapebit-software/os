@@ -35,6 +35,9 @@ Requires:       mesa-dri-drivers
 # The interface's fonts.
 Requires:       google-noto-sans-fonts
 Requires:       google-noto-sans-mono-fonts
+# The interface's colors, the QML module Colors, which the OS under the
+# medium has.
+Requires:       shapebit-colors = %{version}-%{release}
 
 %description
 ShapeBit's installer: the full-screen interface, the backend that installs the

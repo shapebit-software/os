@@ -28,7 +28,7 @@ portals, what applications ask: the file chooser, screenshots and what to
 share in the capture overlay, and questions such as permissions, which
 application opens a file, the person's details, running in the background,
 launchers, and the wallpaper (the backends in `portal/src/portal` and
-`portal/share-picker` hand it their questions). The portal backend also
+`portal/src/share-picker` hand it their questions). The portal backend also
 passes applications' notifications to the shell, keeps the computer awake
 through logind, and gives applications their settings. Captures from the quick
 actions open the same overlay, with a panel of one row of icons: a
@@ -92,8 +92,7 @@ package:
 | ------------------ | --------------------------------------------------------------------------------------------------------------- |
 | `shell/` (here)    | The Quickshell configuration (QML): `services/` (singletons that hold state, with their tests), `controls/`, `wallpaper/`, `bar/`, `windows/`, `settings/`, `lock/`, `capture/`, `notifications/`, `dialogs/`. |
 | `windows/`         | The Hyprland configuration (Lua): look, key bindings, layouts and resizing, workspaces; the session entry that the login screen starts, and the window button defaults. |
-| `portal/`          | The shell's portal backend and the portals' configuration.                                                       |
-| `screen-sharing/`  | The share picker, and Hyprland's portal set up to ask it.                                                        |
+| `portal/`          | The shell's portal backend, the portals' configuration, and the share picker, which Hyprland's portal asks.     |
 | `network/`         | The connection agent.                                                                                            |
 | `sound/`           | Sound, and the bar's microphone level.                                                                           |
 | `apps/`            | The helpers of Welcome and Settings > Apps, and the timer that updates the apps.                                 |

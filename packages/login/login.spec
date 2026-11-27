@@ -22,6 +22,8 @@ Requires:       mesa-dri-drivers
 Requires:       oo7-daemon
 Requires:       oo7-portal
 Requires:       pam_oo7
+# The greeter's colors, the QML module Colors.
+Requires:       shapebit-colors = %{version}-%{release}
 
 %description
 The login screen: SDDM's settings, the compositor its greeter runs in, and

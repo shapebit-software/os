@@ -9,6 +9,8 @@ package, wherever it lives: in this repository or in one of its own.
 - Its spec's License names exactly the licenses that REUSE.toml gives the files
   it installs, but others' license texts.
 - Its systemd units parse.
+- Its spec requires each package whose QML module it imports (that module's
+  qmldir, in a package beside it).
 
 Usage: conformance.py [FEATURE]   (make check-package, in the feature's folder)"""
 
@@ -138,9 +140,33 @@ def unit_problems(unit):
             if re.search(r"Unknown (?:key|section)|Failed to parse|Invalid", line)]
 
 
+def providers(feature):
+    """The QML modules that the packages beside feature provide, by name:
+    each qmldir's `module NAME`. Alone, in a repository of its own, a package
+    has none beside it, and this checks nothing."""
+    found = {}
+    for qmldir in feature.parent.glob("*/src/**/qmldir"):
+        owner = qmldir.relative_to(feature.parent).parts[0]
+        match = re.search(r"^module\s+(\S+)", qmldir.read_text(), re.M)
+        if match and owner != feature.name:
+            found[match[1]] = owner
+    return found
+
+
+def qml_problems(feature):
+    """Each package whose QML module the feature imports, which its spec does
+    not require."""
+    required = set(re.findall(r"^Requires:\s*shapebit-(\S+)", spec_of(feature).read_text(), re.M))
+    imported = {match for path in (feature / "src").rglob("*.qml")
+                for match in re.findall(r"^\s*import\s+([A-Za-z][\w.]*)\s*$", path.read_text(), re.M)}
+    return [f"{feature.name}.spec: imports the QML module {module} but does not require shapebit-{owner}"
+            for module, owner in sorted(providers(feature).items()) if module in imported and owner not in required]
+
+
 def problems(feature):
     feature = pathlib.Path(feature).resolve()
-    found = name_problems(feature) + install_problems(feature) + license_problems(feature)
+    found = (name_problems(feature) + install_problems(feature) + license_problems(feature)
+             + qml_problems(feature))
     for unit in units(feature):
         found += unit_problems(unit)
     return found

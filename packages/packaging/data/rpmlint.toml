@@ -16,4 +16,8 @@ Filters = [
     # Qt finds QML modules only in its own folder, which is under /usr/lib64;
     # the module itself is text, the same on every architecture.
     'shapebit-colors.noarch: E: noarch-with-lib64',
+    # Fedora ships Qt's QML test runner and linter only in its -devel package,
+    # which the tools need. A file path instead resolves to any architecture's.
+    'shapebit-testing.noarch: E: devel-dependency qt6-qtdeclarative-devel',
+    'shapebit-linting.noarch: E: devel-dependency qt6-qtdeclarative-devel',
 ]

@@ -32,7 +32,6 @@ Requires:       shapebit-network = %{version}-%{release}
 Requires:       shapebit-portal = %{version}-%{release}
 Requires:       shapebit-release = %{version}-%{release}
 Requires:       shapebit-repositories = %{version}-%{release}
-Requires:       shapebit-screen-sharing = %{version}-%{release}
 Requires:       shapebit-shell = %{version}-%{release}
 Requires:       shapebit-sound = %{version}-%{release}
 Requires:       shapebit-splash = %{version}-%{release}

@@ -16,7 +16,7 @@ Requires:       bash
 Requires:       git-core
 Requires:       python3-pyflakes
 Requires:       rustfmt
-Requires:       /usr/bin/qmllint-qt6
+Requires:       qt6-qtdeclarative-devel
 Requires:       reuse
 Requires:       license-validate
 

@@ -21,7 +21,7 @@ BuildRequires:  python3
 Requires:       python3-pytest
 Requires:       dbus-daemon
 Requires:       python3-dbusmock
-Requires:       /usr/bin/qmltestrunner-qt6
+Requires:       qt6-qtdeclarative-devel
 Requires:       ffmpeg-free
 Requires:       python3-jwt
 Requires:       python3-cryptography

@@ -37,6 +37,11 @@ def test_every_license_names_the_licenses_of_the_installed_files(feature):
     assert conformance.license_problems(feature) == []
 
 
+@pytest.mark.parametrize("feature", FEATURES, ids=name)
+def test_every_package_requires_the_qml_modules_it_imports(feature):
+    assert conformance.qml_problems(feature) == []
+
+
 @pytest.mark.parametrize("unit", UNITS, ids=lambda u: f"{u.parents[1].name}/{u.name}")
 def test_every_unit_parses(unit):
     assert conformance.unit_problems(unit) == []
@@ -60,3 +65,15 @@ def test_a_file_that_nothing_installs_and_a_wrong_name_are_found(tmp_path, monke
     assert "demo: not installed by its Makefile: src/forgotten" in found
     assert "demo.spec: License names GPL-3.0-or-later; its files are MIT" in found
     assert len(found) == 3
+
+
+def test_an_imported_qml_module_not_required_is_found(tmp_path):
+    (tmp_path / "theme" / "src" / "Theme").mkdir(parents=True)
+    (tmp_path / "theme" / "src" / "Theme" / "qmldir").write_text("module Theme\n")
+    (tmp_path / "panel" / "src").mkdir(parents=True)
+    (tmp_path / "panel" / "src" / "Panel.qml").write_text("import QtQuick\nimport Theme\n\nItem {}\n")
+    (tmp_path / "panel" / "panel.spec").write_text("Name: shapebit-panel\n")
+    assert conformance.qml_problems(tmp_path / "panel") == [
+        "panel.spec: imports the QML module Theme but does not require shapebit-theme"]
+    (tmp_path / "panel" / "panel.spec").write_text("Name: shapebit-panel\nRequires: shapebit-theme = 1\n")
+    assert conformance.qml_problems(tmp_path / "panel") == []
