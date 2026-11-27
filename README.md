@@ -53,10 +53,11 @@ make test-system        # build, test the image, install with the installer, and
 make test-system-update # the same install, then update a clone to a new build and roll back
 make test-e2e           # the medium itself, through its UI, with openQA; after `make installer`
 make installer-vm       # boot the installer medium in a window, to install by hand
-make vm                 # boot build/disk.raw in a window, its serial console on this terminal
+make vm                 # boot build/vm/disk.raw in a window, its serial console on this terminal
 make sync               # install this tree into the running VM, until it restarts (development/README.md)
 make ssh                # root shell in the running VM (from another terminal)
 make clean              # remove build/, including the disks, keys, and recovery key
+make clean STAGE=vm     # remove only the installed machine, build/vm/
 make help               # all targets, with each test level's own
 ```
 
