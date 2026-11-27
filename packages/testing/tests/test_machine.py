@@ -25,7 +25,8 @@ def build(monkeypatch, tmp_path):
 
 def test_settings_have_defaults_under_build(build):
     assert machines.setting("OWNER_NAME") == "dev"
-    assert machines.path("DISK") == build / "disk.raw"
+    assert machines.path("DISK") == build / "vm/disk.raw"
+    assert machines.path("RECOVERY_KEY") == build / "vm/recovery-key"
 
 
 def test_the_environment_overrides_a_setting(build, monkeypatch):

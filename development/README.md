@@ -61,7 +61,7 @@ medium, the disk, and the update test's builds are files under `build/`, made
 again only when what they are made from changed: a file in `packages/` or
 `image/`, a setting that goes into them, or the engine's image they start
 from. A disk that booted since its install, as with `make vm`, is installed
-again by `make test-system`; `rm build/disk.raw.json` installs again anyway.
+again by `make test-system`; `rm build/vm/disk.raw.json` installs again anyway.
 
 The repository and the home folder have the same paths in the image as on the
 host, so the paths that a command gives the engine are the host's; a command

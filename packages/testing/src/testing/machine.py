@@ -33,6 +33,7 @@ import importlib.util
 import json
 import os
 import pathlib
+import re
 import shlex
 import shutil
 import socket
@@ -47,24 +48,27 @@ import time
 _TREE = pathlib.Path(__file__).resolve().parents[4]
 ROOT = _TREE if (_TREE / "packages").is_dir() else pathlib.Path.cwd()
 
-# The test settings, and their defaults; "{BUILD}" is the Makefile's BUILD.
+# The test settings, and their defaults; "{NAME}" is setting NAME, such as
+# the Makefile's BUILD. VM holds what `make disk` installed and `make vm`
+# boots: its disk, EFI variables, TPM, console, and secrets.
 # The installer's settings differ from the image's defaults, so the checks
 # show that the installer applied them.
 SETTINGS = {
-    "DISK": "{BUILD}/disk.raw",
+    "VM": "{BUILD}/vm",
+    "DISK": "{VM}/disk.raw",
     # Sparse: only what the machine writes takes room. The installer gives the
     # home about half of what the system leaves, and keeps the rest for updates.
     "DISK_SIZE": "64G",
     "RESULTS": "{BUILD}/results",
-    "SSH_KEY": "{BUILD}/ssh/id_ed25519",
+    "SSH_KEY": "{VM}/ssh/id_ed25519",
     # The installed machine's port, for `make vm`; each disposable clone has
     # its own, so that both can run.
     "SSH_PORT": "2222",
     "TEST_SSH_PORT": "2223",
     "BOOT_TIMEOUT": "300",
     "OWNER_NAME": "dev",
-    "OWNER_PASSWORD": "{BUILD}/owner-password",
-    "RECOVERY_KEY": "{BUILD}/recovery-key",
+    "OWNER_PASSWORD": "{VM}/owner-password",
+    "RECOVERY_KEY": "{VM}/recovery-key",
     "LOCALE": "en_GB.UTF-8",
     "KEYBOARD_LAYOUT": "pl",
     "TIME_ZONE": "Europe/Warsaw",
@@ -94,7 +98,7 @@ def setting(name):
     value = os.environ.get(name) or SETTINGS.get(name)
     if value is None:
         raise KeyError(f"{name} is not set; run this through make")
-    return value.replace("{BUILD}", setting("BUILD")) if "{BUILD}" in value else value
+    return re.sub(r"\{(\w+)\}", lambda name: setting(name[1]), value)
 
 
 def path(name):
@@ -521,11 +525,11 @@ class Machine:
 
 
 def installed():
-    """The machine that `make disk` installed, with BUILD as its directory."""
+    """The machine that `make disk` installed, with VM as its directory."""
     disk = path("DISK")
     if not disk.with_name(disk.name + ".json").exists():
         sys.exit(f"error: {disk}.json not found; run 'make disk'")
-    return Machine(directory=path("BUILD"), disk=disk)
+    return Machine(directory=path("VM"), disk=disk)
 
 
 def test_installer(machine, medium):
@@ -557,14 +561,15 @@ def check_installer():
 def install(window=False):
     """Installs to a new disk from the medium, as a person does, and saves the
     recovery key. A new disk is a new machine: new EFI variables and TPM."""
-    build, disk, medium = path("BUILD"), path("DISK"), path("MEDIUM")
+    vm, disk, medium = path("VM"), path("DISK"), path("MEDIUM")
     record = medium.with_name(medium.name + ".json")
     for stale in (disk, disk.with_name(disk.name + ".json"), path("RECOVERY_KEY"),
-                  build / "efivars.qcow2", build / "serial.log"):
+                  vm / "efivars.qcow2", vm / "serial.log"):
         stale.unlink(missing_ok=True)
-    shutil.rmtree(build / "tpm", ignore_errors=True)
+    shutil.rmtree(vm / "tpm", ignore_errors=True)
+    disk.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(["truncate", "-s", setting("DISK_SIZE"), disk], check=True)
-    machine = Machine(directory=build, disk=disk, medium=medium)
+    machine = Machine(directory=vm, disk=disk, medium=medium)
     if window:
         machine.start("window")
     try:
