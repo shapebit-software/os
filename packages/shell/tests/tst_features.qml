@@ -48,6 +48,11 @@ TestCase {
         compare(Merge.groups(ownGroups, [assistant, capture]), [["account", "assistant"], ["network"], ["apps", "capture"]]);
     }
 
+    function test_a_section_goes_before_the_one_it_names() {
+        const store = { sections: [{ id: "store", group: 2, before: "apps" }] };
+        compare(Merge.groups(ownGroups, [capture, store]), [["account"], ["network"], ["store", "apps", "capture"]]);
+    }
+
     function test_the_shells_groups_are_not_changed() {
         Merge.groups(ownGroups, [assistant]);
         compare(ownGroups, [["account"], ["network"], ["apps"]]);

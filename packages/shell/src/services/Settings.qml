@@ -21,9 +21,6 @@ Singleton {
         openOn = screen;
     }
 
-    // The app whose details Settings opens to, from the Apps panel.
-    property var appToShow: null
-
     // The screen Welcome is open on, by name (Welcome.qml), and whether it
     // has been finished or skipped; until then it opens with the session, on
     // the primary display.

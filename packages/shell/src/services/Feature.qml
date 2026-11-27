@@ -8,7 +8,9 @@ QtObject {
     // The feature's name: its package's folder.
     property string name
     // Settings' sections, as SettingsWindow.qml's, each with where it goes in
-    // the sidebar: { id, name, icon, rows, own, group, after }.
+    // the sidebar: { id, name, icon, rows, group, before, after }; a section
+    // with a page of its own has `component`, its rows only for the search,
+    // and with `wide`, more room.
     property var sections: []
     // Settings' pages: { id: { title, section, rows } }, or a page of its own,
     // { id: { title, section, component } }.

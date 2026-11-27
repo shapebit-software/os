@@ -2,7 +2,8 @@
 // row of ten to a page, with a search field and the pages' arrows and marks. A click, or Enter for the first match, opens an
 // application on the current workspace; dragged to a map in the strip, it
 // opens there. A right click offers its details and, for a Flatpak, removing
-// it, both in Settings > Apps. Escape or a click elsewhere closes it.
+// it, both in Settings > Apps, where a feature shows them (Features.provided
+// "app-details"). Escape or a click elsewhere closes it.
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
@@ -29,11 +30,13 @@ Popout {
     // The application that a right click offered choices for, by id.
     property string offering
 
-    // Opens Settings > Apps at an application, asking first if to remove it.
+    // What shows an application's details, or null.
+    readonly property var details: Features.provided("app-details")
+
+    // Opens an application's details, asking first if to remove it.
     function manage(app: DesktopEntry, removing: bool) {
-        Settings.appToShow = { id: app.id.replace(/\.desktop$/, ""), name: app.name, summary: app.comment, confirming: removing };
         dismissed();
-        Settings.open(screenName, "apps");
+        details(screenName, { id: app.id.replace(/\.desktop$/, ""), name: app.name, summary: app.comment, confirming: removing });
     }
 
     function launch(app: DesktopEntry) {
@@ -240,7 +243,7 @@ Popout {
                             }
                             TapHandler {
                                 acceptedButtons: Qt.RightButton
-                                onTapped: panel.offering = panel.offering === app.modelData.id ? "" : app.modelData.id
+                                onTapped: panel.offering = panel.offering === app.modelData.id || !panel.details ? "" : app.modelData.id
                             }
 
                             // What a right click offers, over the application.

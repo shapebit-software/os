@@ -27,12 +27,16 @@ Column {
 
     spacing: 16
 
-    onVisibleChanged: {
+    // Settings makes it as it shows it (feature.qml).
+    function shown() {
         if (visible) {
             Apps.open();
             Qt.callLater(focusSearch);
         }
     }
+
+    onVisibleChanged: shown()
+    Component.onCompleted: shown()
 
     function focusSearch() {
         query.forceActiveFocus();

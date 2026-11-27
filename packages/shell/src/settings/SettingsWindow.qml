@@ -218,11 +218,6 @@ PanelWindow {
             ...(Connectivity.adapter?.enabled ? [{ label: "Bluetooth devices",
               detail: "Pair, connect, or forget devices", value: "Manage", open: () => page = "bluetooth" }] : []),
         ] },
-        // Its page is its own (AppsPage.qml); the row is for the search.
-        { id: "apps", name: "Apps", own: true, icon: "M2.4 2.4h4.4v4.4H2.4zM9.2 2.4h4.4v4.4H9.2zM2.4 9.2h4.4v4.4H2.4zM9.2 9.2h4.4v4.4H9.2z", rows: [
-            { label: "Apps", detail: "Find, install, and remove apps", value: "Open",
-              open: () => window.show("apps") },
-        ] },
         // Its page is its own (DownloadsPage.qml); the row is for the search.
         { id: "downloads", name: "Downloads", own: true, icon: "M8 2v8.4M4.6 7l3.4 3.4L11.4 7M2.6 13.4h10.8", rows: [
             { label: "Downloads", detail: "What is downloading and installing: apps, browsers, and optional downloads",
@@ -255,7 +250,7 @@ PanelWindow {
         ["account", "language", "time"],
         ["desktop", "shell", "notifications", "windows"],
         ["display", "pointing", "network", "sound"],
-        ["apps", "downloads", "updates", "licenses"],
+        ["downloads", "updates", "licenses"],
     ]
     // The shell's own pages that are rows, as a section's.
     readonly property var ownPageRows: ({
@@ -269,7 +264,6 @@ PanelWindow {
         "password": ["Change password", "account"],
         "wifi": ["Wi-Fi networks", "network"],
         "bluetooth": ["Bluetooth devices", "network"],
-        "app": ["App details", "apps"],
     })
 
     // With what features add (Features.qml).
@@ -282,7 +276,7 @@ PanelWindow {
     readonly property var section: sections.find(s => s.id === Settings.section) ?? sections[0]
     readonly property var rows: query
         ? [].concat(...sections.map(s => s.rows), ...Object.values(pageRows)).filter(r => (r.label + " " + r.detail).toLowerCase().includes(query))
-        : page ? pageRows[page] ?? [] : section.own ? [] : section.rows
+        : page ? pageRows[page] ?? [] : section.own || section.component ? [] : section.rows
 
     function close() {
         Settings.openOn = "";
@@ -301,6 +295,10 @@ PanelWindow {
 
         function onPageAsked(id: string) {
             window.page = id;
+        }
+
+        function onSectionAsked(id: string) {
+            window.show(id);
         }
     }
 
@@ -348,16 +346,8 @@ PanelWindow {
         displayName = "";
         if (visible) {
             opening.restart();
-            // From the Apps panel: an app's details.
-            if (Settings.appToShow) {
-                Apps.open();
-                Apps.show(Settings.appToShow);
-                page = "app";
-                Settings.appToShow = null;
-            }
-            if (section.id === "apps" && !page)
-                store.focusSearch();
-            else
+            // A feature's section of its own takes the focus itself.
+            if (!section.component || page)
                 search.forceActiveFocus();
             zone.running = true;
             // A mouse or touchpad may have come since.
@@ -686,8 +676,8 @@ PanelWindow {
                 id: settingsContent
                 x: 36
                 y: 62
-                // The store of apps has room for more.
-                width: Math.min(window.section.id === "apps" && !window.query ? 980 : 620, parent.width - 72)
+                // A wide section, such as Apps, has room for more.
+                width: Math.min(window.section.wide && !window.query ? 980 : 620, parent.width - 72)
                 height: parent.height - y
                 contentHeight: content.height + 36
                 clip: true
@@ -764,22 +754,6 @@ PanelWindow {
                         width: parent.width
                     }
 
-                    AppsPage {
-                        id: store
-
-                        visible: window.page === "" && !window.query && window.section.id === "apps"
-                        width: parent.width
-                        onOpened: app => {
-                            Apps.show(app);
-                            window.page = "app";
-                        }
-                    }
-
-                    AppPage {
-                        visible: window.page === "app"
-                        width: parent.width
-                    }
-
                     DownloadsPage {
                         visible: window.page === "" && !window.query && window.section.id === "downloads"
                         width: parent.width
@@ -790,6 +764,20 @@ PanelWindow {
                         width: parent.width
                         onNavigated: settingsContent.contentY = 0
                         onSourcesRequested: window.openLink("https://shapebit.software/docs/license/#sources")
+                    }
+
+                    // Features' sections of their own (Features.qml).
+                    Repeater {
+                        model: window.sections.filter(s => s.component)
+
+                        Loader {
+                            required property var modelData
+
+                            visible: window.page === "" && !window.query && window.section.id === modelData.id
+                            active: visible
+                            width: parent.width
+                            sourceComponent: modelData.component
+                        }
                     }
 
                     // Features' pages of their own (Features.qml).

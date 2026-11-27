@@ -1,0 +1,4 @@
+module qs.apps
+singleton Apps Apps.qml
+AppPage AppPage.qml
+AppsPage AppsPage.qml

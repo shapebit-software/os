@@ -1,6 +1,4 @@
 module qs.settings
-AppPage AppPage.qml
-AppsPage AppsPage.qml
 DownloadsPage DownloadsPage.qml
 LicensesPage LicensesPage.qml
 ConnectionsPage ConnectionsPage.qml

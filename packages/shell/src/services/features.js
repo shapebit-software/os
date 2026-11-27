@@ -31,15 +31,16 @@ function sections(own, features) {
 }
 
 // The sidebar's groups, with each feature's sections in theirs: in group
-// `group` (the last when there is none, or no such), after section `after`,
-// or last.
+// `group` (the last when there is none, or no such), before section
+// `before`, after section `after`, or last.
 function groups(own, features) {
     const result = own.map(group => group.slice());
     for (const feature of features) {
         for (const section of feature.sections ?? []) {
             const group = result[Math.min(section.group ?? result.length - 1, result.length - 1)];
-            const at = section.after ? group.indexOf(section.after) : -1;
-            group.splice(at >= 0 ? at + 1 : group.length, 0, section.id);
+            const before = section.before ? group.indexOf(section.before) : -1;
+            const after = section.after ? group.indexOf(section.after) : -1;
+            group.splice(before >= 0 ? before : after >= 0 ? after + 1 : group.length, 0, section.id);
         }
     }
     return result;

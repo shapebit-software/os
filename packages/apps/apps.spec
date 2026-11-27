@@ -10,6 +10,8 @@ URL:            %{shapebit_url}
 Vendor:         %{shapebit_vendor}
 BuildArch:      noarch
 BuildRequires:  make
+# Its user interface, in the shell (src/shell, feature.qml).
+Requires:       shapebit-shell = %{version}-%{release}
 # Applications come from Flatpak, with Flathub's remote (flathub.flatpakrepo,
 # as Flathub publishes it), which Flatpak adds by itself the first time it runs;
 # its environment generators put the applications in the session's Apps.

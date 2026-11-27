@@ -21,11 +21,15 @@ Column {
 
     spacing: 18
 
-    // It may open asking, from a Remove elsewhere.
-    onVisibleChanged: {
+    // It may open asking, from a Remove elsewhere; Settings makes it as it
+    // shows it (feature.qml).
+    function opened() {
         confirming = visible && app.confirming === true;
         deleteData = false;
     }
+
+    onVisibleChanged: opened()
+    Component.onCompleted: opened()
     // It has gone: there is nothing more to do here.
     onMineChanged: {
         if (!mine)

@@ -32,11 +32,17 @@ Singleton {
         return Merge.provided(list, name);
     }
 
-    // Settings shows a page of a feature's, such as from a row of its section.
+    // Settings shows a page of a feature's, such as from a row of its section,
+    // or a section.
     signal pageAsked(string id)
+    signal sectionAsked(string id)
 
     function openPage(id) {
         pageAsked(id);
+    }
+
+    function openSection(id) {
+        sectionAsked(id);
     }
 
     // A click on a bar off any of its buttons, which features hear.

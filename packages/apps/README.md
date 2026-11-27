@@ -1,7 +1,10 @@
 # Apps
 
 Built-in apps, and installing others from Flathub: the package `shapebit-apps`.
-The UI is Welcome and Settings > Apps in the shell; the work is done by
+Settings > Apps is its own QML, the module `qs.apps` ([src/shell/](src/shell/)),
+which the package installs in the shell's folder with
+[feature.qml](src/feature.qml); Welcome, in the shell, offers the recommended
+apps. The work is done by
 [app-catalog](src/app-catalog), [app-install](src/app-install), and
 [app-remove](src/app-remove), through the [downloads](../downloads/README.md)
 queue, and `app-update.timer` updates the apps daily.

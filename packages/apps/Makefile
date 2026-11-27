@@ -6,6 +6,10 @@ include $(PACKAGING)/package.mk
 
 install: ## Install into DESTDIR
 	install -Dm755 -t $(libexec) src/app-install src/app-catalog src/app-remove
+# What it shows in the shell: its QML, the module qs.apps, in the shell's
+# folder, and what it adds there (packages/shell/src/services/Features.qml).
+	install -Dm644 -t $(data)/shell/apps src/shell/*.qml src/shell/qmldir
+	install -Dm644 src/feature.qml $(data)/shell/features/apps.qml
 	install -Dm644 -t $(data)/browsers data/fedora.filter
 	install -Dm644 -t $(userunit) system/app-update.service system/app-update.timer
 	install -d $(userunit)/timers.target.wants
