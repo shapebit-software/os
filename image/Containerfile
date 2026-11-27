@@ -82,12 +82,14 @@ LABEL software.shapebit.foundation.base="$BASE" \
 # alike; only the engine that builds the images stays on the host, which its
 # client here reaches (development/dev.sh).
 
-# Only what the installer builds with, so that the install below runs again
-# only when that changes, not with every change to a package: make builds this
-# image again whenever a spec changes.
+# Only what the installer and the features with Rust programs (a Cargo.toml)
+# build with, so that the install below runs again only when that changes, not
+# with every change to a package: make builds this image again whenever a spec
+# changes.
 FROM ${FOUNDATION} AS development-needs
 RUN --mount=type=bind,target=/src \
-    mkdir /out && /src/requires.sh --build installer/installer.spec >/out/installer-build
+    mkdir /out && /src/requires.sh --build installer/installer.spec \
+      $(cd /src && ls */Cargo.toml | sed 's|\(.*\)/Cargo.toml|\1/\1.spec|') >/out/build
 
 FROM ${FOUNDATION} AS development
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
@@ -111,9 +113,10 @@ RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
     # The client of a host's Docker, with BuildKit's (dev.sh); Podman, already
     # here, is the client of a host's Podman.
     docker-cli docker-buildx \
-    # The installer's unit tests: what it builds with, and a session bus of
-    # their own (dbus-run-session).
-    $(cat /run/needs/installer-build) dbus-daemon \
+    # The installer's and the Rust programs' unit tests: what they build with,
+    # Rust's formatter for make lint, and a session bus of their own
+    # (dbus-run-session).
+    $(cat /run/needs/build) rustfmt dbus-daemon \
     # The ChatGPT integration tests' signed identities.
     python3-jwt python3-cryptography \
     # make watch's file events, and the simulator's fake system services.

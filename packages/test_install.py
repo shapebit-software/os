@@ -2,7 +2,8 @@
 feature's Makefile (packages/README.md): a file that is added but not installed
 would otherwise ship nothing, without a word. Its tests/ and tools/ are never
 installed, and its external/ packages are built apart; so are features that
-build otherwise: the installer (CMake) and shapebit-system. The license notices
+build otherwise: the installer (CMake) and shapebit-system. Rust sources are
+built into programs (cargo.mk), not installed. The license notices
 that notices.py collects are installed by the licenses spec, in the image build."""
 
 import pathlib
@@ -24,7 +25,7 @@ def is_test(path):
 def sources(feature):
     for folder in INSTALLED:
         for path in sorted((feature / folder).rglob("*")):
-            if path.is_file() and "__pycache__" not in path.parts:
+            if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".rs":
                 yield str(path.relative_to(feature)), path.read_bytes()
 
 

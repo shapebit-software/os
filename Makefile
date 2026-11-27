@@ -197,6 +197,8 @@ DISK_FILE = $(or $(DISK),$(BUILD)/disk.raw)
 $(foreach p,$(PACKAGE),$(if $(wildcard packages/$p/$p.spec),,$(error PACKAGE=$p: no packages/$p/$p.spec)))
 SCOPE := $(addprefix packages/,$(PACKAGE))
 scoped = $(if $(PACKAGE),$(filter $1,$(PACKAGE)),$1)
+# The features with Rust programs.
+RUST := $(patsubst packages/%/Cargo.toml,%,$(wildcard packages/*/Cargo.toml))
 KEYS := $(KEYS_DIR)/$(SIGNING_KEY)-secureboot.key $(KEYS_DIR)/$(SIGNING_KEY)-secureboot.crt \
         $(KEYS_DIR)/$(SIGNING_KEY)-pcr.key
 
@@ -240,7 +242,8 @@ validate: ## Validate the compositor configuration, the specs' Requires, and the
 	packages/repositories/tools/check-licenses.sh $(SCOPE)
 
 # The unit tests, test_*.py, in the tests/ of each feature and of each other folder;
-# packages/test_install.py installs every feature. Then the installer's (CTest).
+# packages/test_install.py installs every feature. Then the installer's (CTest),
+# and those of each feature's Rust programs (packages/cargo.mk).
 # With PACKAGE, its tests, and those of the packages as a whole (packages/test_*.py).
 test-unit: ## Run the tests that need no image and no VM (of PACKAGE)
 	python3 -m pytest -ra --tb=short -v -p no:cacheprovider --rootdir=. $$(git ls-files -co --exclude-standard \
@@ -248,6 +251,7 @@ test-unit: ## Run the tests that need no image and no VM (of PACKAGE)
 	$(if $(call scoped,installer),cmake -S packages/installer -B $(BUILD)/test-unit/installer -G Ninja)
 	$(if $(call scoped,installer),cmake --build $(BUILD)/test-unit/installer)
 	$(if $(call scoped,installer),ctest --test-dir $(BUILD)/test-unit/installer --output-on-failure)
+	$(foreach f,$(call scoped,$(RUST)),$(MAKE) -s -C packages/$f test CARGO_TARGET_DIR=$(abspath $(BUILD))/cargo/$f &&) true
 
 # A container of the image, with nothing installed in it, which Testinfra
 # reaches through the engine (quality/fixtures.py).

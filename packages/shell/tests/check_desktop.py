@@ -29,7 +29,6 @@ def test_desktop_command_is_installed(host, command):
     [
         "/usr/libexec/desktop/portal",
         "/usr/libexec/desktop/share-picker",
-        "/usr/libexec/desktop/connection-agent",
         "/usr/libexec/desktop/microphone-level",
         "/usr/libexec/desktop/app-install",
         "/usr/libexec/desktop/app-catalog",
@@ -43,6 +42,14 @@ def test_desktop_helper_is_python(host, path):
     helper = host.file(path)
     assert helper.mode & 0o111
     ast.parse(helper.content_string)
+
+
+# The helpers in Rust (packages/network/Cargo.toml).
+@pytest.mark.parametrize("path", ["/usr/libexec/desktop/connection-agent"])
+def test_desktop_helper_is_a_program(host, path):
+    helper = host.file(path)
+    assert helper.mode & 0o111
+    assert helper.content[:4] == b"\x7fELF"
 
 
 @pytest.mark.parametrize(
