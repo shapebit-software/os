@@ -18,8 +18,15 @@ Singleton {
 
     readonly property list<string> edges: ["Top", "Bottom", "Left", "Right"]
     readonly property list<string> zoneNames: Bars.zoneNames
-    // The items, by id, with their names.
-    readonly property var items: ({
+    // The items, by id, with their names: the shell's, then features'
+    // (Features.qml).
+    readonly property var items: {
+        const result = Object.assign({}, ownItems);
+        for (const [name, item] of Object.entries(Features.items))
+            result[name] = item.label ?? name;
+        return result;
+    }
+    readonly property var ownItems: ({
         clock: "Clock",
         notifications: "Notifications",
         microphone: "Microphone",
@@ -32,9 +39,7 @@ Singleton {
         account: "System menu",
         apps: "Apps",
         workspaces: "Workspaces",
-        capture: "Capture",
         dictation: "Dictation",
-        assistant: "Assistant",
     })
 
     // The open panel: "notifications", "microphone", "sound", "brightness",

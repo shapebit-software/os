@@ -21,7 +21,7 @@ PanelWindow {
     readonly property bool pill: noButton && (Dictation.active || Dictation.notice !== "" || Dictation.state === "failed"
         || Dictation.result !== null)
     // Clear of the dock, and of the hot corner's recording pill.
-    readonly property int fromRight: Theme.gap + (Capture.recording && Settings.quickActions === "Hot corner" ? 110 : 0)
+    readonly property int fromRight: Theme.gap + (Features.recording !== null && Settings.quickActions === "Hot corner" ? 110 : 0)
     readonly property int fromBottom: Theme.gap + 14 + (Settings.dock === "Bottom" ? Theme.stripHeight + Theme.gap : 0)
 
     screen: modelData

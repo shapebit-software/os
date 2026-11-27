@@ -10,8 +10,10 @@ URL:            %{shapebit_url}
 Vendor:         %{shapebit_vendor}
 BuildArch:      noarch
 BuildRequires:  make
-# Screenshots and recordings (the shell's services/Capture.qml), to the
-# person's Pictures and Videos.
+# Its user interface, in the shell (src/shell, feature.qml).
+Requires:       shapebit-shell = %{version}-%{release}
+# Screenshots and recordings (src/shell/Capture.qml), to the person's
+# Pictures and Videos.
 Requires:       grim
 Requires:       slurp
 Requires:       wf-recorder
@@ -23,7 +25,8 @@ Requires:       ffmpeg-free
 
 %description
 Screenshots and recordings of the screen, the voice, and the camera, with
-Skip silence; the shell's capture overlay drives them.
+Skip silence, through its capture overlay in the shell, which also picks
+what to share.
 
 %install
 %shapebit_install capture

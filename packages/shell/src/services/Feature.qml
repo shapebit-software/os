@@ -25,18 +25,27 @@ QtObject {
     // The keyboard shortcuts it answers (Shortcuts.qml): { name: function }.
     property var shortcuts: ({})
     // Its items for the bars (ShellItem.qml), by the name that Settings.zones
-    // keeps: { name: { icon, component } }. The component's root takes the
-    // item's bar, half, and size.
+    // keeps: { name: { label, icon, component } }. The component's root takes
+    // the item's bar, half, and size.
     property var items: ({})
-    // Its quick actions, which the hot corner fans out (HotCorner.qml):
-    // [{ name, icon, tap: (screen, rect) => ... }].
+    // Its quick actions, which the hot corner fans out (HotCorner.qml), in
+    // the order of their `order`, the first nearest the screen's right edge:
+    // [{ name, icon, order, tap: (screen, rect) => ... }].
     property var actions: []
+    // What it records, which the hot corner shows while its buttons are on
+    // the bars hidden: { elapsed, stop }, or null.
+    property var recording: null
+    // Whether banners wait, as while the screen is shared.
+    property bool quiet
     // What it hears while it listens, which the hot corner shows: { listening,
     // writing, level }, or null.
     property var voice: null
     // What it does for other features: { name: function }; another asks
     // Features.provided(name).
     property var provides: ({})
+    // The portal requests it answers (Portal.qml), by the portal's name:
+    // { name: handler }, each with ask(socket, request) and dropped(socket).
+    property var portals: ({})
 
     // A click on a bar off any of its buttons (ShellBar.qml).
     signal clickedOff

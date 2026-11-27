@@ -2,13 +2,13 @@
 // through the capture overlay (CaptureOverlay.qml). For screenshots and screen
 // recordings the person picks an area they draw, a window, or a whole screen,
 // then captures it; after the timer, if set, a recording starts, or the
-// screenshot is saved to Pictures/Screenshots, or, with Settings.captureMarkup,
+// screenshot is saved to Pictures/Screenshots, or, with CaptureSettings.markup,
 // first opens for markup, then is saved or copied. Screen recordings go to
-// Videos/Recordings, with the camera in a bubble if Settings.captureBubble;
+// Videos/Recordings, with the camera in a bubble if CaptureSettings.bubble;
 // voice recordings, Opus from the default microphone, to Music/Recordings; and
 // camera recordings, VP9 and Opus in WebM, to Videos/Camera (capture/src/camera,
 // which also writes what the camera sees for the overlay to show). With
-// Settings.captureSkipSilence, voice and camera recordings lose their silences
+// CaptureSettings.skipSilence, voice and camera recordings lose their silences
 // once they end (capture/src/skip-silence). Applications ask for screenshots
 // through the portal (Portal.qml): the overlay then takes a screenshot only, and the
 // application gets the file. Applications sharing the screen ask what to
@@ -19,6 +19,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import qs.services
 
 Singleton {
     id: capture
@@ -60,12 +61,12 @@ Singleton {
     // is on only while it shows or records.
     property bool hasCamera
     // Where the camera shows outside the overlay: during a camera recording
-    // and its timer, "bubble", round, with Settings.captureBubble, otherwise
+    // and its timer, "bubble", round, with CaptureSettings.bubble, otherwise
     // "preview"; "bubble" too over a screen recording, and while picking for
     // one; or "".
     readonly property string cameraWindow: camcorder.running || starting || stage === "wait" && kind === "Camera"
-        ? (Settings.captureBubble ? "bubble" : "preview")
-        : Settings.captureBubble && hasCamera && (kind === "Screen" && stage !== "" && stage !== "markup"
+        ? (CaptureSettings.bubble ? "bubble" : "preview")
+        : CaptureSettings.bubble && hasCamera && (kind === "Screen" && stage !== "" && stage !== "markup"
             || recordingKind === "Screen" && recorder.running) ? "bubble" : ""
     // Whether the camera shows, in the overlay or outside it; and the picture
     // of it that capture/src/camera writes, 25 times a second.
@@ -121,17 +122,17 @@ Singleton {
         if (kind === "Screen") {
             // Frames come steadily, not only when the screen changes, so the
             // recording ends as soon as it is stopped, and plays evenly.
-            // With Settings.captureMicrophone, the default microphone too.
+            // With CaptureSettings.microphone, the default microphone too.
             started(`${videos}/Recordings/Recording ${stamp()}.mp4`, false);
             recorder.command = ["sh", "-c", 'mkdir -p "${1%/*}" && exec wf-recorder --no-damage $3 -g "$2" -f "$1"',
-                "sh", file, geometry(), Settings.captureMicrophone ? "--audio" : ""];
+                "sh", file, geometry(), CaptureSettings.microphone ? "--audio" : ""];
             recorder.running = true;
             close();
             return;
         }
         if (kind === "Voice") {
             // Speech in mono Opus at 32 kb/s: small, and clear.
-            started(`${music}/Recordings/Voice ${stamp()}.opus`, Settings.captureSkipSilence);
+            started(`${music}/Recordings/Voice ${stamp()}.opus`, CaptureSettings.skipSilence);
             recorder.command = ["sh", "-c", 'mkdir -p "${1%/*}" && exec ffmpeg -nostdin -loglevel error -f pulse -i default -ac 1 -c:a libopus -b:a 32k "$1"',
                 "sh", file];
             recorder.running = true;
@@ -140,16 +141,16 @@ Singleton {
         }
         if (kind === "Camera") {
             // The camera records once its view has let go of it.
-            started(`${videos}/Camera/Video ${stamp()}.webm`, Settings.captureSkipSilence && Settings.cameraMicrophone);
+            started(`${videos}/Camera/Video ${stamp()}.webm`, CaptureSettings.skipSilence && CaptureSettings.cameraMicrophone);
             camcorder.command = [helper("camera"), cameraPicture, "--record", file]
-                .concat(Settings.cameraMicrophone ? ["--microphone"] : []);
+                .concat(CaptureSettings.cameraMicrophone ? ["--microphone"] : []);
             starting = true;
             if (!viewer.running)
                 film();
             close();
             return;
         }
-        if (!Settings.captureMarkup) {
+        if (!CaptureSettings.markup) {
             const path = screenshotPath();
             saver.command = ["sh", "-c", 'mkdir -p "${1%/*}" && grim -g "$2" "$1" && echo "$1"', "sh", path, geometry()];
             saver.running = true;

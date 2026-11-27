@@ -43,7 +43,6 @@ Item {
             tray: "M1.5 6h3.5v4h-3.5zM6.25 6h3.5v4h-3.5zM11 6h3.5v4h-3.5z",
             account: "M1.7 8a6.3 6.3 0 1 0 12.6 0a6.3 6.3 0 1 0-12.6 0zM5.9 6.6a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0-4.2 0zM4.1 12.8c.8-1.6 2.2-2.4 3.9-2.4s3.1.8 3.9 2.4",
             apps: "M2.5 2.5h4v4h-4zM9.5 2.5h4v4h-4zM2.5 9.5h4v4h-4zM9.5 9.5h4v4h-4z",
-            capture: "M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3M5.8 8a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0-4.4 0z",
             dictation: "M2 7v2M5 5v6M8 2.5v11M11 5v6M14 7v2",
         };
         // And the features' items' (Features.qml).

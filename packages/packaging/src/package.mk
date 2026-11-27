@@ -35,3 +35,22 @@ test-integration: ## Run this feature's integration tests
 
 check-package: ## Check what every package keeps to: its files installed, its License, its units
 	python3 $(PACKAGING)/conformance.py .
+
+# A feature that adds to the shell (src/feature.qml) has its QML in src/shell,
+# the module qs.FEATURE. lint checks it against the shell's modules and other
+# features', which qmllint looks up in a folder named qs, as installed: this
+# tree's, or the installed shell's; and against Colors, this tree's or the
+# system's.
+ifneq ($(wildcard src/feature.qml),)
+SHELL_QML ?= $(firstword $(wildcard $(abspath ../shell/src)) /usr/share/desktop/shell)
+FEATURES_QML := $(filter-out $(CURDIR)/src/shell,$(wildcard $(abspath ..)/*/src/shell))
+.PHONY: lint
+lint: ## Lint this feature's QML
+	lint=$$(mktemp -d); mkdir $$lint/qs; \
+	for d in $(SHELL_QML)/*/; do ln -s $$d $$lint/qs/; done; \
+	for d in $(FEATURES_QML); do ln -sfn $$d $$lint/qs/$$(basename $$(dirname $$(dirname $$d))); done; \
+	ln -sfn $(CURDIR)/src/shell $$lint/qs/$(notdir $(CURDIR)); \
+	qmllint-qt6 --max-warnings 0 --uncreatable-type disable -I $$lint $(addprefix -I ,$(wildcard $(abspath ../colors/src))) \
+	  src/shell/*.qml src/feature.qml; \
+	status=$$?; rm -r $$lint; exit $$status
+endif

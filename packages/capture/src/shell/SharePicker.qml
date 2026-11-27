@@ -11,6 +11,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.Pipewire
+import qs.services
 
 Singleton {
     id: picker
@@ -32,7 +33,7 @@ Singleton {
 
     // Shares what was picked on a screen, as the overlay's mode names it: an
     // area, in the screen's coordinates; a window, by its address; or the
-    // screen. With Settings.shareRemember, the application may share it
+    // screen. With CaptureSettings.shareRemember, the application may share it
     // again without asking.
     function share(screen: ShellScreen, mode: string, area: rect, address: string) {
         let selection = `screen:${screen.name}`;
@@ -46,7 +47,7 @@ Singleton {
                 return;
             selection = `window:${offered.id}`;
         }
-        send({ selection: selection, remember: Settings.shareRemember });
+        send({ selection: selection, remember: CaptureSettings.shareRemember });
     }
 
     function cancel() {

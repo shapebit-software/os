@@ -1,0 +1,7 @@
+module qs.capture
+singleton Capture Capture.qml
+singleton CaptureSettings CaptureSettings.qml
+singleton SharePicker SharePicker.qml
+CaptureBarButton CaptureBarButton.qml
+CaptureMarkup CaptureMarkup.qml
+CaptureOverlay CaptureOverlay.qml

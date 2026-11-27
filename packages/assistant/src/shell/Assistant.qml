@@ -1077,9 +1077,13 @@ Singleton {
             return true;
         }
 
-        // "area", "window", or "screen": the capture overlay, as Print opens it.
+        // "area", "window", or "screen": the capture overlay, as Print opens
+        // it (capture's shortcuts, Features.qml), on the focused screen.
         function capture(target: string): void {
-            Shortcuts.capture(target === "window" ? "capture-window" : target === "screen" ? "capture-screen" : "capture");
+            const name = target === "window" ? "capture-window" : target === "screen" ? "capture-screen" : "capture";
+            const shortcut = Features.shortcuts[name];
+            if (shortcut)
+                shortcut(Shortcuts.focused);
         }
 
         function lock(): void {

@@ -91,4 +91,16 @@ TestCase {
         compare(Merge.pageRows({}, [assistant, capture])["assistant-permissions"].map(r => r.label), ["Web", "Screen"]);
         compare(Object.keys(Merge.pageRows({}, [dictation])), []);
     }
+
+    function test_actions_go_by_their_order_then_by_feature() {
+        const first = { actions: [{ name: "late", order: 2 }, { name: "none" }] };
+        const second = { actions: [{ name: "early", order: 0 }, { name: "also-late", order: 2 }] };
+        compare(Merge.actions([first, second]).map(a => a.name), ["early", "late", "also-late", "none"]);
+    }
+
+    function test_portals_are_every_features() {
+        const handler = { ask: () => {} };
+        compare(Merge.portals([assistant, { portals: { screenshot: handler } }]), { screenshot: handler });
+        compare(Merge.portals([]), {});
+    }
 }

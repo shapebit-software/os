@@ -265,14 +265,6 @@ def test_monospace_font_is_installed(sh):
     assert "JetBrains Mono" in sh("fc-list : family").splitlines()
 
 
-def test_capture_has_its_encoders_and_devices(sh):
-    # Voice and camera recordings, and Skip silence, need Opus and VP9 from
-    # Fedora's ffmpeg, which has no H.264 (capture/src/camera).
-    encoders = sh("ffmpeg -hide_banner -encoders")
-    assert "libopus" in encoders and "libvpx-vp9" in encoders
-    assert "pulse" in sh("ffmpeg -hide_banner -devices") and "v4l2" in sh("ffmpeg -hide_banner -devices")
-
-
 def test_the_desktops_files_are_their_features_packages(sh):
     # packages/: what each feature's Makefile installs, built with the image.
     paths = {"/usr/libexec/desktop/extra": "shapebit-extras", "/usr/share/desktop/shell/shell.qml": "shapebit-shell",

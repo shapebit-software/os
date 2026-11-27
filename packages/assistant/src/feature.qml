@@ -91,9 +91,9 @@ Feature {
         "super-other": () => Assistant.key("other"),
         "super-up": () => Assistant.key("up"),
     })
-    items: ({ assistant: { icon: Assistant.icon, component: barButton } })
+    items: ({ assistant: { label: "Assistant", icon: Assistant.icon, component: barButton } })
     // In the hot corner: what was open last, its bubbles there or its panel.
-    actions: [{ name: "assistant", icon: Assistant.icon,
+    actions: [{ name: "assistant", icon: Assistant.icon, order: 0,
         tap: (screen, rect) => Assistant.tap(screen, () => Shell.toggle("assistant", screen, rect, "Bottom",
             Theme.stripHeight + Theme.gap)) }]
     voice: Assistant.voice !== "" ? { listening: Assistant.voice === "listening",

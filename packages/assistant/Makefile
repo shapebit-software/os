@@ -4,15 +4,6 @@
 PACKAGING ?= $(firstword $(wildcard $(abspath ../packaging/src)) /usr/share/shapebit/packaging)
 include $(PACKAGING)/package.mk
 
-# Its QML imports the shell's modules as qs.<folder> and its own as
-# qs.assistant, which qmllint looks up in a directory named qs, as installed.
-lint: ## Lint the assistant's QML
-	lint=$$(mktemp -d); mkdir $$lint/qs; for d in $(CURDIR)/../shell/src/*/; do ln -s $$d $$lint/qs/; done; \
-	ln -s $(CURDIR)/src/shell $$lint/qs/assistant; \
-	qmllint-qt6 --max-warnings 0 --uncreatable-type disable -I $$lint -I $(CURDIR)/../colors/src \
-	  src/shell/*.qml src/feature.qml; \
-	status=$$?; rm -r $$lint; exit $$status
-
 install: ## Install into DESTDIR
 	install -Dm755 -t $(libexec)/assistant src/assistant
 	install -Dm644 -t $(libexec)/assistant src/actions.py src/models.py src/skills.py src/web.py src/providers.py src/chatgpt.py

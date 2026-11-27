@@ -25,20 +25,12 @@ Shell); a click on one does what its application does for it, and a right
 click opens its menu. The shell is also the session's polkit agent, which asks
 for an administrator's password, its notification server, and, through the
 portals, what applications ask: the file chooser, screenshots and what to
-share in the capture overlay, and questions such as permissions, which
+share, which capture's overlay shows (Features), and questions such as permissions, which
 application opens a file, the person's details, running in the background,
 launchers, and the wallpaper (the backends in `portal/src/portal` and
 `portal/src/share-picker` hand it their questions). The portal backend also
 passes applications' notifications to the shell, keeps the computer awake
-through logind, and gives applications their settings. Captures from the quick
-actions open the same overlay, with a panel of one row of icons: a
-selection, a window, or the screen; a switch between a
-screenshot and a recording whose knob is the capture button; and editing for
-screenshots, or a timer and the microphone for recordings; screenshots are saved at once, or, with editing, first open for
-markup. When an application shares the screen, the overlay's panel has Share
-in place of the switch, and Remember, which lets the application share it
-again without asking; while sharing, the capture button is filled with the
-accent. It runs
+through logind, and gives applications their settings. It runs
 hypridle, which locks the screen and turns it off after the idle times in
 Settings and locks it before the computer sleeps, and clipman, which keeps
 copied text after the application it came from closes. Settings are kept in
@@ -90,7 +82,7 @@ package:
 
 | Feature            | What it holds                                                                                                   |
 | ------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `shell/` (here)    | The Quickshell configuration (QML): `services/` (singletons that hold state, with their tests), `controls/`, `wallpaper/`, `bar/`, `windows/`, `settings/`, `lock/`, `capture/`, `notifications/`, `dialogs/`; and `features/`, where other packages add theirs (below). |
+| `shell/` (here)    | The Quickshell configuration (QML): `services/` (singletons that hold state, with their tests), `controls/`, `wallpaper/`, `bar/`, `windows/`, `settings/`, `lock/`, `notifications/`, `dialogs/`; and `features/`, where other packages add theirs (below). |
 | `windows/`         | The Hyprland configuration (Lua): look, key bindings, layouts and resizing, workspaces; the session entry that the login screen starts, and the window button defaults. |
 | `portal/`          | The shell's portal backend, the portals' configuration, and the share picker, which Hyprland's portal asks.     |
 | `network/`         | The connection agent.                                                                                            |
@@ -98,6 +90,7 @@ package:
 | `apps/`            | The helpers of Welcome and Settings > Apps, and the timer that updates the apps.                                 |
 | `assistant/`       | The assistant's service, its actions and skills, the model catalog, the units that run it and `llama-server` on demand, `llama-server` itself (an external package), and its user interface, the module `qs.assistant`. |
 | `downloads/`       | The one queue of downloads and installs, which Settings > Downloads shows, and the unit that resumes it at sign-in. |
+| `capture/`         | Screenshots and recordings of the screen, the voice, and the camera: the capture overlay, which also picks what to share, the module `qs.capture`; and the camera's and Skip silence's helpers. |
 | `dictation/`       | Dictation: `hear` turns speech into words, for dictation and the assistant; `dictate` is the input method that delivers them; sherpa-onnx (an external package). |
 | `extras/`          | The extras (large optional downloads, such as models) with their hashes, the helper that installs them, and their license texts. |
 | `licenses/`        | The reader of Settings > Licenses: each component's texts, from `/usr/share/licenses` and the RPM database.     |

@@ -37,7 +37,7 @@ Singleton {
         || Shell.panel === "notifications"
 
     // Banners are held back, except critical ones, and how many were since.
-    readonly property bool quiet: Settings.doNotDisturb || SharePicker.sharing
+    readonly property bool quiet: Settings.doNotDisturb || Features.quiet
     property int held
     readonly property list<string> quietChoices: Rules.quietChoices
     readonly property list<string> modes: Rules.modes

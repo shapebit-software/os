@@ -19,8 +19,13 @@ Singleton {
     readonly property var panels: [].concat(...list.map(f => Array.from(f.panels)))
     readonly property var items: Merge.items(list)
     readonly property var actions: Merge.actions(list)
+    readonly property var portals: Merge.portals(list)
     // What a feature hears while it listens, the first that does, or null.
     readonly property var voice: list.map(f => f.voice).find(v => v) ?? null
+    // What a feature records, the first that does, or null.
+    readonly property var recording: list.map(f => f.recording).find(r => r) ?? null
+    // Whether a feature holds banners back.
+    readonly property bool quiet: list.some(f => f.quiet)
 
     // What a feature does for others (Feature.provides), or null.
     function provided(name) {

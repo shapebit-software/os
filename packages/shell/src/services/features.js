@@ -84,9 +84,18 @@ function items(features) {
     return Object.assign({}, ...features.map(f => f.items ?? {}));
 }
 
-// The quick actions that features add, in their order: [{name, icon, tap}].
+// The quick actions that features add, by their order, then the features':
+// [{name, icon, order, tap}].
 function actions(features) {
-    return [].concat(...features.map(f => f.actions ?? []));
+    return [].concat(...features.map(f => f.actions ?? []))
+        .map((action, i) => [action.order ?? Infinity, i, action])
+        .sort((x, y) => x[0] - y[0] || x[1] - y[1])
+        .map(x => x[2]);
+}
+
+// The portal requests that features answer: {name: handler}.
+function portals(features) {
+    return Object.assign({}, ...features.map(f => f.portals ?? {}));
 }
 
 // What one feature does for others, by name, or null: the first that does.

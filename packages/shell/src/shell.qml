@@ -3,15 +3,13 @@
 // resize tiles, the system bar and the dock (Shell.qml) with their panels,
 // the hot corner, what dictation shows, the way out of
 // full screen, Settings, the lock screen, and
-// the question for an administrator's password, the capture overlay, which
-// also picks what to share, the file chooser and the questions, which the
-// portals show, the window switcher and the list of keyboard shortcuts, and
-// Welcome.
+// the question for an administrator's password, the file chooser and the
+// questions, which the portals show, the window switcher and the list of
+// keyboard shortcuts, Welcome, and what features show (Features.qml).
 import QtQml
 import Quickshell
 import Quickshell.Io
 import qs.bar
-import qs.capture
 import qs.dialogs
 import qs.lock
 import qs.notifications
@@ -116,11 +114,6 @@ ShellRoot {
         model: Quickshell.screens
 
         QuestionDialog {}
-    }
-    Variants {
-        model: Quickshell.screens
-
-        CaptureOverlay {}
     }
     Variants {
         model: Quickshell.screens

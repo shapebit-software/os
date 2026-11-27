@@ -1,9 +1,10 @@
 // The quick actions in the screen's bottom right corner, when they open from
 // a hot corner (Settings.quickActions "Hot corner"): the pointer in the
-// corner fans out the buttons of the features' quick actions, such as the
-// assistant's (Features.qml), then dictation (unless hidden in Settings >
-// Shell) and capture, as in the demo. While recording, a red pill there shows
-// the time; a click on it stops the recording. Dictation shows itself
+// corner fans out the buttons of the quick actions on a quarter circle, by
+// their order: the features' (Features.qml), such as the assistant's and
+// capture's, and dictation's (unless hidden in Settings > Shell), as in the
+// demo. While a feature records, a red pill there shows the time; a click on
+// it stops the recording (Features.recording). Dictation shows itself
 // (DictationOverlay.qml). While a feature listens or writes down what was
 // said, a pill there shows it (Features.voice), as its button on a bar would.
 pragma ComponentBehavior: Bound
@@ -20,13 +21,20 @@ PanelWindow {
 
     property bool fanned
 
+    // The quick actions, by their order: the features', and dictation's.
+    readonly property var actions: [
+        ...Features.actions,
+        ...(!Settings.hiddenItems.includes("dictation") ? [{ name: "dictation", order: 1, icon: "M2 7v2M5 5v6M8 2.5v11M11 5v6M14 7v2" }] : []),
+    ].map((action, i) => [action.order ?? Infinity, i, action]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(a => a[2])
+    // Their places, from the corner, on the quarter circle, then up the edge.
+    function place(i: int): var {
+        return [{ right: 13, bottom: 96 }, { right: 65, bottom: 65 }, { right: 96, bottom: 13 }][i]
+            ?? { right: 13, bottom: 152 + 56 * (i - 3) };
+    }
+
     function act(action: var, button: Item) {
         fanned = false;
-        if (action.panel === "capture") {
-            Capture.begin(modelData);
-            return;
-        }
-        if (action.panel === "dictation") {
+        if (action.name === "dictation") {
             Dictation.toggle(false);
             return;
         }
@@ -53,7 +61,7 @@ PanelWindow {
         width: corner.fanned ? corner.width : 14
         height: corner.fanned ? corner.height : 14
 
-        Region { item: Capture.recording ? pill : null }
+        Region { item: Features.recording ? pill : null }
     }
 
     // The corner's mark.
@@ -88,13 +96,7 @@ PanelWindow {
         }
 
         Repeater {
-            // The features' first, each a step further up from the first's place.
-            model: [
-                ...Features.actions.map((action, i) => Object.assign({}, action,
-                    { panel: action.name, right: 13, bottom: 96 + 56 * i, strokes: action.icon })),
-                ...(!Settings.hiddenItems.includes("dictation") ? [{ panel: "dictation", right: 65, bottom: 65, strokes: "M2 7v2M5 5v6M8 2.5v11M11 5v6M14 7v2" }] : []),
-                { panel: "capture", right: 96, bottom: 13, strokes: "M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3M5.8 8a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0-4.4 0z" },
-            ]
+            model: corner.actions
 
             Rectangle {
                 id: button
@@ -102,8 +104,8 @@ PanelWindow {
                 required property var modelData
                 required property int index
 
-                x: corner.width - modelData.right - width
-                y: corner.height - modelData.bottom - height
+                x: corner.width - corner.place(index).right - width
+                y: corner.height - corner.place(index).bottom - height
                 width: 46
                 height: 46
                 radius: 23
@@ -115,7 +117,7 @@ PanelWindow {
                 Icon {
                     anchors.centerIn: parent
                     color: Theme.textBright
-                    strokes: button.modelData.strokes
+                    strokes: button.modelData.icon
                 }
                 TapHandler {
                     onTapped: corner.act(button.modelData, button)
@@ -150,7 +152,7 @@ PanelWindow {
     Rectangle {
         id: pill
 
-        visible: Capture.recording && !corner.fanned
+        visible: Features.recording !== null && !corner.fanned
         x: corner.width - Theme.gap - width
         y: corner.height - Theme.gap - 14 - height
         width: time.width + 34
@@ -170,12 +172,12 @@ PanelWindow {
             id: time
             x: 26
             anchors.verticalCenter: parent.verticalCenter
-            text: Capture.elapsed
+            text: Features.recording?.elapsed ?? ""
             color: Theme.textOnAccent
             font { family: Theme.mono; pixelSize: 11; weight: Font.DemiBold }
         }
         TapHandler {
-            onTapped: Capture.stop()
+            onTapped: Features.recording?.stop()
         }
         HoverHandler {
             cursorShape: Qt.PointingHandCursor

@@ -5,11 +5,11 @@
 // which stays in the middle of the screen, the kind chosen being the capture
 // button, red for a recording; and the options of the kind chosen: for
 // screenshots, Edit, which opens them for markup before they are saved
-// (Settings.captureMarkup); for screen recordings, the timer, its seconds in a
-// badge, Mic, which records the microphone (Settings.captureMicrophone), and
-// Camera bubble (Settings.captureBubble); for the voice, Skip silence
-// (Settings.captureSkipSilence); for the camera, the timer, Camera bubble,
-// which shows it round, Mic (Settings.cameraMicrophone), and Skip silence.
+// (CaptureSettings.markup); for screen recordings, the timer, its seconds in a
+// badge, Mic, which records the microphone (CaptureSettings.microphone), and
+// Camera bubble (CaptureSettings.bubble); for the voice, Skip silence
+// (CaptureSettings.skipSilence); for the camera, the timer, Camera bubble,
+// which shows it round, Mic (CaptureSettings.cameraMicrophone), and Skip silence.
 // Cancel sits on the panel's corner. Until something is picked, the middle of
 // the screen says what to do; for the voice, it shows a microphone, and for the
 // camera, the camera, mirrored. A drag draws the selection, which shows its
@@ -26,7 +26,7 @@
 // what to share: the kinds are not there, the capture button is the Share
 // button instead, and the only option
 // is Remember, which lets the application share it again without asking
-// (Settings.shareRemember).
+// (CaptureSettings.shareRemember).
 //
 // With Edit, the screenshot shows for markup (CaptureMarkup.qml), with its
 // tools and colors, Delete, Undo, Redo, Copy, and Save; Enter saves.
@@ -415,7 +415,7 @@ Scope {
                 }
             }
             Hint {
-                text: Settings.captureSkipSilence ? "Your voice, without its silences" : "Your voice"
+                text: CaptureSettings.skipSilence ? "Your voice, without its silences" : "Your voice"
             }
         }
 
@@ -428,9 +428,9 @@ Scope {
             // Round with the bubble, as it will show while recording.
             CameraView {
                 visible: Capture.hasCamera
-                width: Settings.captureBubble ? height : Math.min(720, window.width * 0.5)
-                height: Settings.captureBubble ? Math.min(360, window.height * 0.4) : width * 9 / 16
-                corner: Settings.captureBubble ? width / 2 : 18
+                width: CaptureSettings.bubble ? height : Math.min(720, window.width * 0.5)
+                height: CaptureSettings.bubble ? Math.min(360, window.height * 0.4) : width * 9 / 16
+                corner: CaptureSettings.bubble ? width / 2 : 18
             }
             Hint {
                 visible: !Capture.hasCamera
@@ -566,46 +566,46 @@ Scope {
                 Option {
                     visible: !overlay.sharing && Capture.kind === "Shot"
                     tip: "Edit before saving"
-                    on: Settings.captureMarkup
+                    on: CaptureSettings.markup
                     strokes: "M9 4.25H5.25a1.5 1.5 0 0 0-1.5 1.5v9a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V11M14 3.5l2.5 2.5L10 12.5H7.5V10z"
-                    onActivated: Settings.captureMarkup = !Settings.captureMarkup
+                    onActivated: CaptureSettings.markup = !CaptureSettings.markup
                 }
                 Option {
                     visible: !overlay.sharing && Capture.kind === "Screen"
                     tip: "Record the microphone"
-                    on: Settings.captureMicrophone
+                    on: CaptureSettings.microphone
                     strokes: overlay.microphone
-                    onActivated: Settings.captureMicrophone = !Settings.captureMicrophone
+                    onActivated: CaptureSettings.microphone = !CaptureSettings.microphone
                 }
                 Option {
                     visible: !overlay.sharing && (Capture.kind === "Screen" || Capture.kind === "Camera") && Capture.hasCamera
                     tip: "Show the camera in a bubble"
-                    on: Settings.captureBubble
+                    on: CaptureSettings.bubble
                     strokes: "M2.75 3.75h14.5v10.5H2.75zM11 11a2.25 2.25 0 1 0 4.5 0a2.25 2.25 0 1 0-4.5 0zM7 17.25h6"
-                    onActivated: Settings.captureBubble = !Settings.captureBubble
+                    onActivated: CaptureSettings.bubble = !CaptureSettings.bubble
                 }
                 Option {
                     visible: !overlay.sharing && Capture.kind === "Camera"
                     tip: "Record the microphone"
-                    on: Settings.cameraMicrophone
+                    on: CaptureSettings.cameraMicrophone
                     strokes: overlay.microphone
-                    onActivated: Settings.cameraMicrophone = !Settings.cameraMicrophone
+                    onActivated: CaptureSettings.cameraMicrophone = !CaptureSettings.cameraMicrophone
                 }
                 Option {
                     visible: !overlay.sharing && (Capture.kind === "Voice" || Capture.kind === "Camera")
-                    enabled: Capture.kind === "Voice" || Settings.cameraMicrophone
+                    enabled: Capture.kind === "Voice" || CaptureSettings.cameraMicrophone
                     opacity: enabled ? 1 : 0.4
                     tip: "Skip silence"
-                    on: Settings.captureSkipSilence && enabled
+                    on: CaptureSettings.skipSilence && enabled
                     strokes: "M3 8.5v3M5.5 6v8M8 8v4M12 8v4M14.5 5v10M17 8.5v3"
-                    onActivated: Settings.captureSkipSilence = !Settings.captureSkipSilence
+                    onActivated: CaptureSettings.skipSilence = !CaptureSettings.skipSilence
                 }
                 Option {
                     visible: overlay.sharing
                     tip: "Let the app share it again without asking"
-                    on: Settings.shareRemember
+                    on: CaptureSettings.shareRemember
                     strokes: "M3.5 10a6.5 6.5 0 1 0 1.9-4.6M3.25 3v3.25H6.5M10 6.5V10l2.5 1.5"
-                    onActivated: Settings.shareRemember = !Settings.shareRemember
+                    onActivated: CaptureSettings.shareRemember = !CaptureSettings.shareRemember
                 }
             }
         }

@@ -5,7 +5,6 @@ singleton Audio Audio.qml
 singleton Authorization Authorization.qml
 singleton Battery Battery.qml
 singleton Brightness Brightness.qml
-singleton Capture Capture.qml
 singleton Clipboard Clipboard.qml
 singleton Compositor Compositor.qml
 singleton Connectivity Connectivity.qml
@@ -29,7 +28,6 @@ singleton Question Question.qml
 singleton Settings Settings.qml
 SettingsFile SettingsFile.qml
 singleton SetupReminder SetupReminder.qml
-singleton SharePicker SharePicker.qml
 singleton Shell Shell.qml
 singleton Shortcuts Shortcuts.qml
 singleton Switcher Switcher.qml

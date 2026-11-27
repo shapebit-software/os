@@ -2,9 +2,9 @@
 // screenshot, shares the screen, or asks the person something, such as for
 // a permission, the portal backend (portal/src/portal) asks over this socket,
 // one JSON line naming the portal, and the shell answers on the same
-// connection, one line too: the file chooser (FileChooser.qml), the capture
-// overlay (Capture.qml), the share picker (SharePicker.qml), and the
-// questions (Question.qml).
+// connection, one line too: the file chooser (FileChooser.qml), the
+// questions (Question.qml), and what features answer, such as capture's
+// screenshots and screen sharing (Features.portals).
 // The backend closing the connection, as when the application gives up,
 // closes what the question opened.
 pragma Singleton
@@ -26,7 +26,7 @@ Singleton {
 
     function ask(socket: Socket, line: string) {
         const request = JSON.parse(line);
-        const handler = { "file-chooser": FileChooser, "screenshot": Capture, "screencast": SharePicker, "question": Question }[request.portal];
+        const handler = handlers()[request.portal];
         if (handler)
             handler.ask(socket, request);
         else
@@ -34,10 +34,13 @@ Singleton {
     }
 
     function dropped(socket: Socket) {
-        FileChooser.dropped(socket);
-        Capture.dropped(socket);
-        SharePicker.dropped(socket);
-        Question.dropped(socket);
+        for (const handler of Object.values(handlers()))
+            handler.dropped(socket);
+    }
+
+    // What answers each portal: the shell's own, then features'.
+    function handlers(): var {
+        return Object.assign({ "file-chooser": FileChooser, "question": Question }, Features.portals);
     }
 
     // The socket's folder, in the runtime directory, before the socket.

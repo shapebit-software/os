@@ -244,9 +244,10 @@ $(IMAGE_ARCHIVE): $(KEYS) $(BUILD)/foundation.built $(BUILD)/image.inputs $(BUIL
 colors: ## Write the QML module Colors's values from the system's colors (packages/colors/data/colors.toml)
 	python3 packages/colors/tools/colors.py
 
+# The shell, and the features that add to it (src/feature.qml), lint their QML.
+QML := shell $(patsubst packages/%/src/feature.qml,%,$(wildcard packages/*/src/feature.qml))
 lint: ## Lint the shell, the Python, and the QML (of PACKAGE)
-	$(if $(call scoped,shell),$(MAKE) -C packages/shell lint)
-	$(if $(call scoped,assistant),$(MAKE) -C packages/assistant lint)
+	$(foreach p,$(QML),$(if $(call scoped,$p),$(MAKE) -C packages/$p lint &&)) true
 	packages/linting/src/lint.sh $(SCOPE)
 
 # Every file has a license (REUSE.toml, with reuse lint).

@@ -1,7 +1,8 @@
 // What the keyboard shortcuts ask of the shell (compositor/shortcuts.lua), on
 // the focused screen: Apps, the notifications, Settings, the system menu,
-// the window menu, the lock screen, the capture overlay, dictation, the assistant, the sound and the
-// media, the window switcher, and the list of shortcuts (ShortcutsWindow.qml).
+// the window menu, the lock screen, dictation, the sound and the media, the
+// window switcher, the list of shortcuts (ShortcutsWindow.qml), and those
+// features answer (Features.qml), such as capture's and the assistant's.
 // On the lock screen, only the sound and media keys work.
 pragma Singleton
 import QtQuick
@@ -98,12 +99,6 @@ Singleton {
             if (listOn)
                 Compositor.dispatch("function() shortcuts.report() end");
             break;
-        case "capture":
-        case "capture-window":
-        case "capture-screen":
-        case "capture-record":
-            capture(name);
-            break;
         case "switch-next":
         case "switch-previous":
         case "switch-app-next":
@@ -114,28 +109,6 @@ Singleton {
             Switcher.done();
             break;
         }
-    }
-
-    // Print opens the capture overlay for a screenshot; with Alt, on the
-    // focused window; with Super, on the whole screen; with Shift, for a
-    // recording of the kind last chosen, the screen to begin with, or stops
-    // the one going on.
-    function capture(name: string) {
-        if (name === "capture-record" && Capture.recording) {
-            Capture.stop();
-            return;
-        }
-        if (Capture.stage)
-            return;
-        if (name !== "capture-record")
-            Capture.kind = "Shot";
-        else if (!Capture.record)
-            Capture.kind = "Screen";
-        if (name === "capture-window")
-            Capture.mode = "Window";
-        else if (name === "capture-screen")
-            Capture.mode = "Screen";
-        Capture.begin(screen);
     }
 
     // The window menu opens over the middle of the focused window.
