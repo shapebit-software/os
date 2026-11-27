@@ -1,6 +1,8 @@
 # Windows: the compositor, its layouts, workspaces, and shortcuts.
-# What this feature installs, and where; see ../package.mk.
-include ../package.mk
+# What this feature installs, and where; see packaging's package.mk: this
+# tree's, or the one shapebit-packaging installs.
+PACKAGING ?= $(firstword $(wildcard $(abspath ../packaging/src)) /usr/share/shapebit/packaging)
+include $(PACKAGING)/package.mk
 
 # Hyprland refuses to run as root, as a CI container is, and needs a runtime
 # directory even to verify its configuration.

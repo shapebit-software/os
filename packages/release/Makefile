@@ -1,7 +1,9 @@
 # Release: ShapeBit's identity, with the image's version and commit, in place
 # of Fedora's identity package (release.spec).
-# What this feature installs, and where; see ../package.mk.
-include ../package.mk
+# What this feature installs, and where; see packaging's package.mk: this
+# tree's, or the one shapebit-packaging installs.
+PACKAGING ?= $(firstword $(wildcard $(abspath ../packaging/src)) /usr/share/shapebit/packaging)
+include $(PACKAGING)/package.mk
 
 fedora = $(or $(FEDORA),$(error FEDORA is not set))
 version = $(or $(IMAGE_VERSION),$(error IMAGE_VERSION is not set))

@@ -1,5 +1,5 @@
 """dbusmock's NetworkManager template, with GetAllDevices, which Quickshell's
-Networking lists the devices with (../README.md)."""
+Networking lists the devices with (development/simulator/README.md)."""
 
 from dbusmock import mockobject
 from dbusmock.templates import networkmanager as upstream

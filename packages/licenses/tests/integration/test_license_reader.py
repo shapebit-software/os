@@ -3,22 +3,22 @@
 import gzip
 import importlib.machinery
 import importlib.util
-import pathlib
 
 import pytest
+from testing import package_dir
 
-ROOT = pathlib.Path(__file__).parents[4]
+HERE = package_dir(__file__)
 
 
 def module(name, path):
-    loader = importlib.machinery.SourceFileLoader(name, str(ROOT / path))
+    loader = importlib.machinery.SourceFileLoader(name, str(HERE / path))
     spec = importlib.util.spec_from_loader(name, loader)
     result = importlib.util.module_from_spec(spec)
     loader.exec_module(result)
     return result
 
 
-reader = module("license_reader", "packages/licenses/src/licenses")
+reader = module("license_reader", "src/licenses")
 
 
 def test_reader_lists_shared_notices_and_reads_plain_text(tmp_path, monkeypatch):

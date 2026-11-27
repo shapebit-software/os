@@ -14,9 +14,10 @@ import threading
 import time
 
 import pytest
+from testing import package_dir
 
-ROOT = pathlib.Path(__file__).parents[4]
-DOWNLOADS = ROOT / "packages" / "downloads" / "src" / "downloads"
+HERE = package_dir(__file__)
+DOWNLOADS = HERE / "src" / "downloads"
 
 # A helper that does what its mode file says: "ok" tells progress and ends
 # well, "fail" fails, "quiet" ends saying nothing, "slow" waits a minute.

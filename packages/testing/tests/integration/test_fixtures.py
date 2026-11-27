@@ -42,3 +42,12 @@ def test_the_system_bus_is_the_tests_own(system_bus):
                           "org.freedesktop.DBus.GetId"], capture_output=True, text=True, check=True).stdout
     assert system_bus.get_object("org.freedesktop.DBus", "/").GetId(
         dbus_interface="org.freedesktop.DBus") in out
+
+
+def test_a_fake_is_a_made_up_service_on_the_tests_bus(fake, system_bus):
+    fake("upower")
+    assert "org.freedesktop.UPower" in system_bus.list_names()
+    # One of testing's own, which adds what dbusmock's lacks.
+    fake("networkmanager")
+    manager = system_bus.get_object("org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager")
+    assert manager.GetAllDevices(dbus_interface="org.freedesktop.NetworkManager") == []

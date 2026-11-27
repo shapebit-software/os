@@ -1,0 +1,3 @@
+[pytest11]
+testing = testing.plugin
+testing_fixtures = testing.fixtures

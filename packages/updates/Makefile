@@ -1,6 +1,8 @@
 # Updates: os-update, its timer, who may run it, and which updates it accepts.
-# What this feature installs, and where; see ../package.mk.
-include ../package.mk
+# What this feature installs, and where; see packaging's package.mk: this
+# tree's, or the one shapebit-packaging installs.
+PACKAGING ?= $(firstword $(wildcard $(abspath ../packaging/src)) /usr/share/shapebit/packaging)
+include $(PACKAGING)/package.mk
 
 # The signature policy is the one file in /etc: containers read
 # /etc/containers/policy.json instead of containers-common's in /usr, and it has

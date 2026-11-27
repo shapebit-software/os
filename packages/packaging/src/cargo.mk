@@ -1,6 +1,6 @@
 # What every feature with Rust programs (a Cargo.toml) shares. Its Makefile
-# includes this after package.mk; its install target needs `build crates`
-# and installs the programs from $(release).
+# includes this after package.mk, from the same PACKAGING; its install target
+# needs `build crates` and installs the programs from $(release).
 #
 # Cargo builds offline with Fedora's crates, which the spec's BuildRequires
 # install, from a copy in CARGO_TARGET_DIR: it writes Cargo.lock beside
@@ -24,7 +24,7 @@ cargo    := cd $(copy) && CARGO_HOME=$(CARGO_TARGET_DIR)/home cargo --offline --
 # The crates: those the programs use, with what those use, on this computer's
 # architecture; not those that only build or test them.
 tree     := $(cargo) tree --edges normal --prefix none --format '{p}|{l}'
-crates   := $(CURDIR)/../crates.py
+crates   := $(PACKAGING)/crates.py
 
 .PHONY: copy build test licenses crates
 

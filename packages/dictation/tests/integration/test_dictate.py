@@ -6,7 +6,6 @@ import importlib.machinery
 import importlib.util
 import json
 import os
-import pathlib
 import queue
 import signal
 import socket
@@ -16,8 +15,9 @@ import threading
 import time
 
 import pytest
+from testing import package_dir
 
-DICTATE = pathlib.Path(__file__).parents[4] / "packages" / "dictation" / "src" / "dictate"
+DICTATE = package_dir(__file__) / "src" / "dictate"
 
 # As dictation/src/hear: listens until "stop", then says "said" as the words, or nothing.
 # Files in FAKES make it fail before it listens ("cannot-hear") or after the stop
@@ -25,6 +25,7 @@ DICTATE = pathlib.Path(__file__).parents[4] / "packages" / "dictation" / "src" /
 # there), or wait for "go" before the words ("waits").
 HEAR = """#!/usr/bin/python3
 import json, os, pathlib, sys, time
+
 fakes = pathlib.Path(os.environ["FAKES"])
 def say(**message):
     print(json.dumps(message), flush=True)

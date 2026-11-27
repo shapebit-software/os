@@ -4,14 +4,14 @@ format, or stay as they are."""
 
 import importlib.machinery
 import importlib.util
-import pathlib
 import shutil
 import subprocess
 
 import numpy
 import pytest
+from testing import package_dir
 
-SKIP = pathlib.Path(__file__).parents[4] / "packages" / "capture" / "src" / "skip-silence"
+SKIP = package_dir(__file__) / "src" / "skip-silence"
 
 loader = importlib.machinery.SourceFileLoader("skip_silence", str(SKIP))
 spec = importlib.util.spec_from_loader("skip_silence", loader)

@@ -13,9 +13,10 @@ import pathlib
 import sys
 import tomllib
 
-ROOT = pathlib.Path(__file__).resolve().parents[3]
-SOURCE = ROOT / "packages/colors/data/colors.toml"
-TARGET = ROOT / "packages/colors/src/Colors/ColorValues.qml"
+# This package's folder, wherever it is.
+FEATURE = pathlib.Path(__file__).resolve().parents[1]
+SOURCE = FEATURE / "data/colors.toml"
+TARGET = FEATURE / "src/Colors/ColorValues.qml"
 
 
 def linear(l, c, h):
@@ -101,7 +102,7 @@ def main(args):
     text = qml(load())
     if args == ["--check"]:
         if TARGET.read_text() != text:
-            print(f"{TARGET.relative_to(ROOT)} is out of date: run `make colors`", file=sys.stderr)
+            print(f"{TARGET.relative_to(FEATURE.parent)} is out of date: run `make colors`", file=sys.stderr)
             return 1
         return 0
     if args:

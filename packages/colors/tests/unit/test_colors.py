@@ -1,19 +1,20 @@
 """The system's colors (packages/colors/data/colors.toml): the QML
 module's values are generated from them and up to date, what cannot read them
 keeps copies that match, the parts that use QML name no color of their own,
-and the accent reads where it is used."""
+and the accent reads where it is used. The other packages' files are read
+beside this one (sibling), so those tests skip where colors is alone."""
 
 import ast
 import importlib.util
 import math
-import pathlib
 import re
 
 import pytest
+from testing import package_dir, sibling
 
-ROOT = pathlib.Path(__file__).parents[4]
+HERE = package_dir(__file__)
 
-spec = importlib.util.spec_from_file_location("colors", ROOT / "packages/colors/tools/colors.py")
+spec = importlib.util.spec_from_file_location("colors", HERE / "tools/colors.py")
 colors = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(colors)
 
@@ -24,7 +25,9 @@ PRESETS = list(ACCENTS["presets"])
 
 
 def read(path):
-    return (ROOT / path).read_text()
+    """A file of a package, as packages/NAME/PATH: this one's, or one beside it."""
+    _, name, rest = path.split("/", 2)
+    return ((HERE if name == "colors" else sibling(name, __file__)) / rest).read_text()
 
 
 def accent_ink(l, c, h):
@@ -127,20 +130,25 @@ def test_accent_text_reads_on_night_for_every_custom_hue(hue):
     assert contrast(accent_ink(*ACCENTS["custom"], hue), NAMED["night"]) >= 4.5
 
 
-# Every QML file that takes its colors from Colors, by way of its Theme.qml;
-# not the QML tests (tst_*.qml), whose colors are data.
-THEMED = [*sorted(p for p in (ROOT / "packages/shell").rglob("*.qml") if not p.name.startswith("tst_")),
-          *sorted((ROOT / "packages/login/src/theme").glob("*.qml")),
-          *sorted((ROOT / "packages/installer/src/ui/qml").glob("*.qml"))]
-# Artwork, whose colors are its own: the wallpapers.
-ARTWORK = ["packages/shell/src/wallpaper/"]
+def themed():
+    """Every QML file that takes its colors from Colors, by way of its
+    Theme.qml, relative to its package's folder; not the QML tests (tst_*.qml),
+    whose colors are data, nor artwork, whose colors are its own: the
+    wallpapers."""
+    shell, login, installer = (sibling(name, __file__) for name in ("shell", "login", "installer"))
+    return [*sorted(p for p in shell.rglob("*.qml") if not p.name.startswith("tst_")
+                    and "src/wallpaper" not in p.relative_to(shell).as_posix()),
+            *sorted((login / "src/theme").glob("*.qml")),
+            *sorted((installer / "src/ui/qml").glob("*.qml"))]
+
+
 # A color written out: hex, rgba, OKLCH with numbers, or a named color.
 LITERAL = re.compile(r'"#[0-9a-fA-F]{3,8}"|Qt\.(rgba|hsla|hsva)\(|oklch\(\s*[\d.]|"(white|black|red|green|blue|gray|grey)"')
 
 
 def test_qml_names_no_color_of_its_own():
-    found = [f"{path.relative_to(ROOT)}:{number}: {line.strip()}"
-             for path in THEMED if not any(str(path.relative_to(ROOT)).startswith(a) for a in ARTWORK)
+    found = [f"{path.relative_to(HERE.parent)}:{number}: {line.strip()}"
+             for path in themed()
              for number, line in enumerate(path.read_text().splitlines(), 1)
              if LITERAL.search(line) and not line.lstrip().startswith("//")]
     assert not found, "Take colors from Theme, which takes them from Colors:\n" + "\n".join(found)

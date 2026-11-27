@@ -14,9 +14,11 @@ PACKAGES = pathlib.Path(__file__).parents[2]
 UNITS = sorted(p for pattern in ("*/system/*.service", "*/system/*.timer") for p in PACKAGES.glob(pattern)
                if not p.name.endswith(".dbus.service"))
 # Every feature with a spec, but the installer, which is only on the medium,
-# testing, which only the development image has, and shapebit-system itself.
+# the tools, which only the development image has, and shapebit-system itself.
+TOOLS = subprocess.run([PACKAGES.parent / "image/requires.sh", "--tools"], capture_output=True, text=True,
+                       check=True).stdout.split()
 FEATURES = sorted(p.parent.name for p in PACKAGES.glob("*/*.spec")
-                  if p.parent.name not in {"installer", "testing", "system"})
+                  if p.parent.name not in {"installer", "system", *TOOLS})
 
 
 @pytest.mark.parametrize("unit", UNITS, ids=lambda p: str(p.relative_to(PACKAGES)))

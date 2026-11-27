@@ -2,13 +2,15 @@
 # Builds ShapeBit's own packages SPEC... in an image build, at the image's
 # version and commit (IMAGE_VERSION, IMAGE_REVISION), with every time in them
 # the commit's (SOURCE_DATE_EPOCH), so that a commit always gives the same
-# packages (package.macros); copies them into OUT. Options for rpmbuild, such
-# as a --define of what one spec needs, go before the specs.
-# Usage: rpmbuild.sh OUT [RPMBUILD_OPTION...] SPEC...
+# packages (packaging's package.macros); copies them into OUT. The specs load
+# the macros and the license texts of this tree's packaging, not of an
+# installed shapebit-packaging. Options for rpmbuild, such as a --define of what
+# one spec needs, go before the specs.
+# Usage: PACKAGES=DIR rpmbuild.sh OUT [RPMBUILD_OPTION...] SPEC...
 #        (called by the Containerfile, its os, licenses and installer stages,
-#        with this folder mounted)
+#        with packages/ mounted at PACKAGES)
 set -euo pipefail
-: "${IMAGE_VERSION:?}" "${IMAGE_REVISION:?}" "${SOURCE_DATE_EPOCH:?}"
+: "${PACKAGES:?}" "${IMAGE_VERSION:?}" "${IMAGE_REVISION:?}" "${SOURCE_DATE_EPOCH:?}"
 export SOURCE_DATE_EPOCH
 out=$1
 shift
@@ -20,7 +22,9 @@ for arg in "$@"; do
   if [[ $arg == *.spec ]]; then specs+=("$arg"); else options+=("$arg"); fi
 done
 for spec in "${specs[@]}"; do
-  rpmbuild -bb --quiet --define "_topdir /tmp/rpm" --define "packages $(dirname "$(realpath "$0")")" \
+  rpmbuild -bb --quiet --define "_topdir /tmp/rpm" --define "packages $PACKAGES" \
+    --define "shapebit_macros $PACKAGES/packaging/src/package.macros" \
+    --define "shapebit_licenses $PACKAGES/packaging/data/licenses" \
     --define "image_version $IMAGE_VERSION" --define "image_revision $IMAGE_REVISION" "${options[@]}" "$spec"
 done
 mkdir -p "$out"

@@ -3,10 +3,10 @@ ffmpeg command for the preview alone or with a recording."""
 
 import importlib.machinery
 import importlib.util
-import pathlib
 import subprocess
+from testing import package_dir
 
-CAMERA = pathlib.Path(__file__).parents[4] / "packages" / "capture" / "src" / "camera"
+CAMERA = package_dir(__file__) / "src" / "camera"
 
 loader = importlib.machinery.SourceFileLoader("camera", str(CAMERA))
 spec = importlib.util.spec_from_loader("camera", loader)

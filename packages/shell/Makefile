@@ -1,6 +1,8 @@
 # The shell: bars, dock, panels, Settings, notifications, and the lock screen.
-# What this feature installs, and where; see ../package.mk.
-include ../package.mk
+# What this feature installs, and where; see packaging's package.mk: this
+# tree's, or the one shapebit-packaging installs.
+PACKAGING ?= $(firstword $(wildcard $(abspath ../packaging/src)) /usr/share/shapebit/packaging)
+include $(PACKAGING)/package.mk
 
 # The shell's folders import each other as qs.<folder>, which qmllint looks up
 # in a directory named qs; Colors is the image's source of it.

@@ -31,7 +31,7 @@ in [`development/`](../development/README.md). The commands are in the
 
 ## Foundation
 
-[packages/requires.sh](../packages/requires.sh) lists what the specs require;
+[requires.sh](requires.sh) lists what the specs require;
 the foundation installs it in one transaction, without weak dependencies, so
 every package is there because a spec requires it. The OS and the development
 image start from the same foundation (`FOUNDATION`), built by the same engine

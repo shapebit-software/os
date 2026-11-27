@@ -13,7 +13,7 @@ name: Third-party packages
 on:
   push:
     branches: [main]
-    paths: ['packages/*/external/**', 'packages/repositories/**', packages/rpmlint.toml, .github/workflows/third-party.yml]
+    paths: ['packages/*/external/**', 'packages/repositories/**', packages/packaging/data/rpmlint.toml, .github/workflows/third-party.yml]
   workflow_dispatch:
 
 permissions:

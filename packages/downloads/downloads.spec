@@ -1,8 +1,8 @@
-# Downloads: the one queue of what the desktop downloads and installs. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Downloads: the one queue of what the desktop downloads and installs. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-downloads
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Downloads: the one queue of what the desktop downloads and installs
 License:        %{shapebit_program} AND %{shapebit_config}

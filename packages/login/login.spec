@@ -1,8 +1,8 @@
-# Login: the login screen, and the secrets it unlocks. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Login: the login screen, and the secrets it unlocks. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-login
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Login: the login screen, and the secrets it unlocks
 License:        %{shapebit_program} AND %{shapebit_config}

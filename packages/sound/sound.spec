@@ -1,8 +1,8 @@
-# Sound: PipeWire, and the bar's microphone level. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Sound: PipeWire, and the bar's microphone level. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-sound
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Sound: PipeWire, and the bar's microphone level
 License:        %{shapebit_program}

@@ -1,8 +1,8 @@
-# Apps: Flathub, the built-in apps, and installing and updating apps. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Apps: Flathub, the built-in apps, and installing and updating apps. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-apps
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Apps: Flathub, the built-in apps, and installing and updating apps
 License:        %{shapebit_program} AND %{shapebit_config}

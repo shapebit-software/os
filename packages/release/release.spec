@@ -1,8 +1,8 @@
-# Release: ShapeBit's identity, in place of Fedora's. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Release: ShapeBit's identity, in place of Fedora's. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-release
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        ShapeBit's identity: os-release, with the image's version and commit
 License:        %{shapebit_config}

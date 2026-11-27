@@ -1,5 +1,5 @@
 """dbusmock's BlueZ template, whose adapters have a discovery filter, without
-which their StartDiscovery fails (../README.md)."""
+which their StartDiscovery fails (development/simulator/README.md)."""
 
 import dbus
 from dbusmock import mockobject

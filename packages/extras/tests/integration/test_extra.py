@@ -14,9 +14,10 @@ import tarfile
 
 import pytest
 from testing.fixtures import serve
+from testing import package_dir, sibling
 
-ROOT = pathlib.Path(__file__).parents[4]
-EXTRA = ROOT / "packages" / "extras" / "src" / "extra"
+HERE = package_dir(__file__)
+EXTRA = HERE / "src" / "extra"
 
 
 def tar_of(files):
@@ -258,7 +259,7 @@ def test_unknown_extra_is_refused(extras):
 
 
 def test_shipped_catalog_is_complete():
-    entries = json.loads((ROOT / "packages" / "extras" / "data" / "extras.json").read_text())
+    entries = json.loads((HERE / "data" / "extras.json").read_text())
     assert entries
     for extra in entries:
         assert {"id", "name", "detail", "unpacked", "credits", "downloads"} <= set(extra)
@@ -276,23 +277,24 @@ def test_every_download_is_pinned_to_a_revision():
     # release asset under a tag can be replaced, as sherpa-onnx's Parakeet was
     # on 2026-11-07, and every install then failed as damaged. A Hugging Face
     # commit cannot change.
-    entries = json.loads((ROOT / "packages" / "extras" / "data" / "extras.json").read_text())
+    entries = json.loads((HERE / "data" / "extras.json").read_text())
     for extra in entries:
         for item in extra["downloads"]:
             assert re.fullmatch(r"https://huggingface\.co/[\w.-]+/[\w.-]+/resolve/[0-9a-f]{40}/\S+", item["url"]), item["url"]
 
 
 def test_live_dictation_finds_what_its_extra_installs():
-    entries = json.loads((ROOT / "packages" / "extras" / "data" / "extras.json").read_text())
+    entries = json.loads((HERE / "data" / "extras.json").read_text())
     parakeet = next(extra for extra in entries if extra["id"] == "parakeet")
     names = {pathlib.PurePosixPath(name).name for item in parakeet["downloads"] for name in item.get("files", [])}
     names |= {pathlib.PurePosixPath(item["url"]).name for item in parakeet["downloads"] if "files" not in item}
-    engine = (ROOT / "packages" / "dictation" / "src" / "dictate-engine").read_text()
+    dictation = sibling("dictation", __file__)
+    engine = (dictation / "src" / "dictate-engine").read_text()
     names |= {item["as"] for item in parakeet["downloads"] if "as" in item}
     for name in ("encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt", "silero_vad_v5.onnx", "smart-turn.onnx"):
         assert name in names
         assert name in engine
-    assert '"/var/lib/extras/parakeet"' in (ROOT / "packages" / "dictation" / "src" / "hear").read_text()
+    assert '"/var/lib/extras/parakeet"' in (dictation / "src" / "hear").read_text()
 
 
 def test_a_download_can_be_named(extras):
@@ -318,26 +320,26 @@ def test_list_tells_whether_the_computer_has_memory_enough(extras, tmp_path):
 def test_every_extra_fits_in_the_room_the_installer_leaves():
     # The installer's reserve keeps steadyRoom beside the first owner's home
     # (packages/installer/src/backend/disks.h); all the extras must install there together.
-    header = (ROOT / "packages" / "installer" / "src" / "backend" / "disks.h").read_text()
+    header = (sibling("installer", __file__) / "src" / "backend" / "disks.h").read_text()
     factors = re.search(r"steadyRoom = ([\d* LL]+);", header).group(1).replace("LL", "").split("*")
     room = 1
     for factor in factors:
         room *= int(factor)
-    entries = json.loads((ROOT / "packages" / "extras" / "data" / "extras.json").read_text())
+    entries = json.loads((HERE / "data" / "extras.json").read_text())
     needed = sum(extra["unpacked"] + sum(item["bytes"] for item in extra["downloads"]) for extra in entries)
     assert needed <= room
 
 
 def test_each_extra_lists_committed_license_texts():
-    extra = runpy.run_path(str(ROOT / "packages/extras/src/extra"))
-    for entry in json.loads((ROOT / "packages/extras/data/extras.json").read_text()):
+    extra = runpy.run_path(str(HERE / "src/extra"))
+    for entry in json.loads((HERE / "data/extras.json").read_text()):
         assert f"{entry['id']}/NOTICE" in entry["licenses"]
         for name in entry["licenses"]:
-            assert ((ROOT / "packages/extras/data/licenses") / name).read_text().strip(), name
-        assert ((ROOT / "packages/extras/data/licenses") / entry["id"] / "NOTICE").read_text() == extra["notice"](entry)
+            assert ((HERE / "data/licenses") / name).read_text().strip(), name
+        assert ((HERE / "data/licenses") / entry["id"] / "NOTICE").read_text() == extra["notice"](entry)
 
 
 def test_each_credit_has_an_spdx_license_id():
     # A single ID: the SBOM (distribution/sbom) and the notice, which links to its page on spdx.org.
-    entries = json.loads((ROOT / "packages" / "extras" / "data" / "extras.json").read_text())
+    entries = json.loads((HERE / "data" / "extras.json").read_text())
     assert all(re.fullmatch(r"[A-Za-z0-9.+-]+", c["license"]) for e in entries for c in e["credits"])

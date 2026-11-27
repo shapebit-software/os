@@ -2,12 +2,12 @@
 language, and a binding that calls what is missing fails only at run time,
 leaving empty what it fills, as all of Settings once was."""
 
-import pathlib
 import re
 
 import pytest
+from testing import package_dir
 
-SHELL = pathlib.Path(__file__).parents[2]
+SHELL = package_dir(__file__)
 
 # Array methods of ECMAScript 2019 and later that Qt 6.11's engine does not have.
 MISSING = ["flatMap", "flat", "findLast", "findLastIndex", "toSorted", "toReversed", "toSpliced"]

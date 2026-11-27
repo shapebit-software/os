@@ -6,7 +6,6 @@ import importlib.machinery
 import importlib.util
 import json
 import os
-import pathlib
 import queue
 import signal
 import socket
@@ -16,8 +15,9 @@ import threading
 import time
 
 import pytest
+from testing import package_dir
 
-HEAR = pathlib.Path(__file__).parents[4] / "packages" / "dictation" / "src" / "hear"
+HEAR = package_dir(__file__) / "src" / "hear"
 
 LOUD = struct.pack("<h", 20000) * 800
 QUIET_SOUND = b"\0" * 1600
@@ -37,6 +37,7 @@ RECORDER_FAILS = "#!/bin/bash\nexit 1\n"
 # runs ("engine-hangs", "engine-fails").
 ENGINE = """#!/usr/bin/python3
 import json, os, pathlib, sys, time
+
 fakes = pathlib.Path(os.environ["FAKES"])
 def mark(name, default=""):
     path = fakes / name

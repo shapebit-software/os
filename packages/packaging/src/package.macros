@@ -1,17 +1,22 @@
 # What ShapeBit's own packages share: each spec loads this file first, with
-#   %{load:%{packages}/package.macros}
+#   %{load:%{shapebit_macros}}
+# shapebit-packaging installs it, and defines where it and the license texts
+# are (macros.shapebit); the image build gives the tree's (image/rpmbuild.sh).
 # Each package is built in every image build from the same commit
-# (image/Containerfile), never published: its version is the image's, and its
-# sources are this repository, so it has no sources file. Build one with
+# (image/Containerfile): its version is the image's, and its sources are this
+# repository, so it has no sources file. Build one with
 #   rpmbuild -bb --define "packages PACKAGES" --define "image_version VERSION" \
 #     --define "image_revision COMMIT" FEATURE/FEATURE.spec
-# with SOURCE_DATE_EPOCH set to the commit's time.
+# with SOURCE_DATE_EPOCH set to the commit's time; without image_version, its
+# version is 0, as for a package built apart from an image.
+
+%shapebit_version   %{?image_version}%{!?image_version:0}
 
 %shapebit_release   1%{?dist}
 # ShapeBit's licenses, by kind of file (REUSE.toml, LICENSES/): programs;
 # code that other programs embed; configuration and snippets that people copy;
 # artwork; and the brand artwork, which no open license covers. A package's
-# License names those of the files it installs (packages/test_licenses.py).
+# License names those of the files it installs (packages/tests/unit/test_licenses.py).
 %shapebit_program   GPL-3.0-or-later
 %shapebit_library   LGPL-3.0-or-later
 %shapebit_config    MIT
@@ -30,12 +35,12 @@
 %_buildhost                         shapebit
 
 # The texts of ShapeBit's licenses that the package's License names, from
-# licenses/shapebit: each is one file, such as
+# shapebit_licenses: each is one file, such as
 # /usr/share/licenses/shapebit/LICENSE-MIT.txt, which rpm lets every package
 # that names it own, so that Settings > Licenses lists it once. Appends them to
 # the file list; a package of others' work (font) names none.
 %shapebit_license_install %{lua: \
-local data = rpm.expand("%{packages}/licenses/shapebit/") \
+local data = rpm.expand("%{shapebit_licenses}/") \
 local share = rpm.expand("%{buildroot}/usr/share/licenses/shapebit/") \
 local seen = {} \
 local nl = string.char(10) \
@@ -54,7 +59,7 @@ end}
 # build's own system lacks, which no other package owns; then the texts of its
 # licenses.
 %shapebit_install() \
-make -C %{packages}/%1 install DESTDIR=%{buildroot} FEDORA=%{fedora} IMAGE_VERSION=%{image_version} IMAGE_REVISION=%{image_revision} \
+make -C %{packages}/%1 install DESTDIR=%{buildroot} FEDORA=%{fedora} IMAGE_VERSION=%{shapebit_version} IMAGE_REVISION=%{?image_revision} \
 (cd %{buildroot} \
  find . ! -type d | cut -c2- | awk 'index($0, "/usr/share/licenses/shapebit/") != 1' \
  find . -mindepth 1 -type d | cut -c2- | awk '$0 != "/usr/share/licenses/shapebit"' | while read -r d; do [ -d "$d" ] || echo "%%dir $d"; done \

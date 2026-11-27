@@ -3,12 +3,12 @@ each action's schema, apps are found by the names people use, and skills are
 read from their files: the OS's as they are, and the person's, which can be
 added, changed, and deleted."""
 
-import pathlib
 import sys
 
 import pytest
+from testing import package_dir
 
-sys.path.insert(0, str(pathlib.Path(__file__).parents[4] / "packages" / "assistant" / "src"))
+sys.path.insert(0, str(package_dir(__file__) / "src"))
 import actions  # noqa: E402
 import skills  # noqa: E402
 

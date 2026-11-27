@@ -3,20 +3,23 @@ it lists what the feature installed as the package's files, with the text of
 each of ShapeBit's licenses that the package's License names, once. rpm's expansion drops some backslashes, which once turned a sed
 address into a syntax error that only the image build found."""
 
-import pathlib
 import shutil
 import subprocess
 
 import pytest
+from testing import package_dir
 
-PACKAGES = pathlib.Path(__file__).parents[2]
+HERE = package_dir(__file__)
+PACKAGES = HERE.parent
+LICENSES = HERE / "data/licenses"
 
 
 def install(feature, buildroot, workdir, license):
     script = subprocess.run(
         ["rpm", "--define", f"packages {PACKAGES}", "--define", f"buildroot {buildroot}",
          "--define", f"license {license}", "--define", "fedora 45", "--define", "image_version dev", "--define", "image_revision dev",
-         "--load", str(PACKAGES / "package.macros"), "--eval", f"%shapebit_install {feature}"],
+         "--define", f"shapebit_licenses {LICENSES}",
+         "--load", str(HERE / "src/package.macros"), "--eval", f"%shapebit_install {feature}"],
         capture_output=True, text=True, check=True).stdout
     subprocess.run(["bash", "-euc", script], cwd=workdir, check=True, capture_output=True)
     return (workdir / "files").read_text().splitlines()
@@ -34,7 +37,7 @@ def test_lists_the_installed_files_and_each_license_once(rpm, tmp_path):
     for name in ("LICENSE-GPL-3.0-or-later.txt", "LICENSE-MIT.txt", "LICENSE-ShapeBit-Brand.txt"):
         assert files.count(f"%license /usr/share/licenses/shapebit/{name}") == 1
         assert (tmp_path / "root/usr/share/licenses/shapebit" / name).read_bytes() == \
-            (PACKAGES / "licenses/shapebit" / name).read_bytes()
+            (LICENSES / name).read_bytes()
     assert not [f for f in files if f.startswith("/usr/share/licenses/")]
     assert files.count("%dir /usr/share/licenses/shapebit") == 1
 

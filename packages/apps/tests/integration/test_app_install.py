@@ -8,9 +8,10 @@ import pathlib
 import signal
 import subprocess
 import time
+from testing import package_dir
 
-ROOT = pathlib.Path(__file__).parents[4]
-APP_INSTALL = ROOT / "packages" / "apps" / "src" / "app-install"
+HERE = package_dir(__file__)
+APP_INSTALL = HERE / "src" / "app-install"
 
 # A flatpak that writes its pid, then installs for a minute; it logs the rest.
 FAKE_FLATPAK = """#!/bin/bash

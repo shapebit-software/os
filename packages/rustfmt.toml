@@ -1,3 +1,0 @@
-# How rustfmt formats the Rust programs (development/lint.sh): lines as long
-# as the Python's.
-max_width = 120

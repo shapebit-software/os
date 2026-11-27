@@ -2,8 +2,9 @@
 """The packages that a change touches, so that CI checks only those
 (README.md): the packages with changed files, and those that depend on
 them, again and again: whose specs require them, or whose tests read their
-files (packages/NAME/ in a test); every package's tests run with testing's
-plugin, so every package depends on testing. A change anywhere else, such as
+files (packages/NAME/ in a test); every package is built, linted, and tested
+with the tools (image/requires.sh --tools), so every package depends on them.
+A change anywhere else, such as
 to the Makefile or to what all packages share, touches every package; one only to
 documentation touches none of them, but is checked as everything is.
 
@@ -18,8 +19,12 @@ import re
 import subprocess
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+# The repository: this runs from it (packages/testing/src/testing/).
+ROOT = pathlib.Path(__file__).resolve().parents[4]
 PACKAGES = ROOT / "packages"
+# The tools, which every package is built, linted, and tested with.
+TOOLS = subprocess.run([ROOT / "image/requires.sh", "--tools"], capture_output=True, text=True,
+                       check=True).stdout.split()
 
 
 def dependents():
@@ -29,11 +34,11 @@ def dependents():
     for name in names:
         spec = (PACKAGES / name / f"{name}.spec").read_text()
         required = re.findall(r"^Requires:\s*shapebit-(\S+)", spec, re.M)
-        # testing's own tests read every package's tests, which need none of them.
+        # The tools' own tests read every package, which needs none of them.
         tests = [p for p in (PACKAGES / name / "tests").rglob("*") if p.suffix in (".py", ".qml", ".cpp")
-                 and name != "testing"]
+                 and name not in TOOLS]
         read = {other for test in tests for other in re.findall(r"packages/([a-z-]+)/", test.read_text())}
-        for other in set(required) | read | {"testing"}:
+        for other in set(required) | read | set(TOOLS):
             if other in graph and other != name:
                 graph[other].add(name)
     return graph

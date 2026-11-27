@@ -7,8 +7,8 @@ import re
 import subprocess
 
 import pytest
-
 from testing import machine as machines
+
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
 

@@ -8,7 +8,6 @@ pictures of the screen go only to the request that took them."""
 import http.server
 import json
 import os
-import pathlib
 import socket
 import socketserver
 import subprocess
@@ -17,9 +16,10 @@ import time
 
 import pytest
 from testing.fixtures import serve
+from testing import package_dir
 
-ROOT = pathlib.Path(__file__).parents[4]
-ASSISTANT = ROOT / "packages" / "assistant" / "src" / "assistant"
+HERE = package_dir(__file__)
+ASSISTANT = HERE / "src" / "assistant"
 
 # The system's commands, each logging how it was called. Brightness is 40%.
 # Workspace 1 is on the screen, with Firefox, focused, and foot; workspace 3

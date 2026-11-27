@@ -1,6 +1,8 @@
 # Repositories: where packages come from, and dnf's settings.
-# What this feature installs, and where; see ../package.mk.
-include ../package.mk
+# What this feature installs, and where; see packaging's package.mk: this
+# tree's, or the one shapebit-packaging installs.
+PACKAGING ?= $(firstword $(wildcard $(abspath ../packaging/src)) /usr/share/shapebit/packaging)
+include $(PACKAGING)/package.mk
 
 install: ## Install into DESTDIR
 	install -Dm644 system/no-weak-deps.conf $(share)/dnf5/libdnf.conf.d/50-no-weak-deps.conf

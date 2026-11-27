@@ -38,7 +38,7 @@ def test_every_feature_is_an_unchanged_package_at_the_images_version(host, sh):
     owners = sh("rpm -qf --qf '%{NAME}\\n' " + " ".join(paths)).split()
     assert owners == list(paths.values())
     # The GPL's text is one file that every package of programs owns
-    # (packages/package.macros); the configuration-only ones are under MIT.
+    # (packaging's package.macros); the configuration-only ones are under MIT.
     license_owners = sh("rpm -qf --qf '%{NAME}\\n' /usr/share/licenses/shapebit/LICENSE-GPL-3.0-or-later.txt").split()
     assert {"shapebit-shell", "shapebit-system", "shapebit-updates"} <= set(license_owners)
     assert "shapebit-font" not in license_owners

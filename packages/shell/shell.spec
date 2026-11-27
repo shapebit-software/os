@@ -1,8 +1,8 @@
-# The shell: bars, dock, panels, Settings, notifications, and the lock screen. See ../package.macros.
-%{load:%{packages}/package.macros}
+# The shell: bars, dock, panels, Settings, notifications, and the lock screen. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-shell
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        The shell: bars, dock, panels, Settings, notifications, and the lock screen
 License:        %{shapebit_program} AND %{shapebit_config}

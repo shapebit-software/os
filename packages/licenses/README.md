@@ -10,11 +10,11 @@ from `/usr/share/licenses/` and from what the RPM database knows elsewhere,
 such as a Python package's metadata. ShapeBit's own licenses depend on the
 kind of file ([REUSE.toml](../../REUSE.toml)); a package's `License` names
 those of the files it installs, with the macros of
-[package.macros](../package.macros), such as `%{shapebit_config}`, and
-`%shapebit_install` installs the text of each from [shapebit](shapebit), as
+[packaging](../packaging/README.md)'s package.macros, such as `%{shapebit_config}`, and
+`%shapebit_install` installs the text of each from packaging's `data/licenses/`, as
 `/usr/share/licenses/shapebit/LICENSE-<license>.txt`: the same file for every
 package that names it. These texts are copies of [LICENSES](../../LICENSES),
-which [test_licenses.py](../test_licenses.py) keeps the same. The texts of
+which [test_licenses.py](../tests/unit/test_licenses.py) keeps the same. The texts of
 the extras are part of the system, so they are there before a model is
 downloaded.
 

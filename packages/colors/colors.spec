@@ -1,8 +1,8 @@
-# Colors: the system's colors, and the QML module made from them. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Colors: the system's colors, and the QML module made from them. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-colors
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Colors: the system's colors, and the QML module made from them
 License:        %{shapebit_library}

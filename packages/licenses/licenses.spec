@@ -1,14 +1,14 @@
 # Licenses: Settings > Licenses, and the license notices
 # that some installed Fedora packages lack, taken from their exact source RPMs
-# by notices.py into /usr/share/licenses/<package>/. See ../package.macros.
+# by notices.py into /usr/share/licenses/<package>/. See packaging's package.macros.
 # Built last in the image build (image/Containerfile), where the
 # packages the notices are for are installed, with
 #   --define "cache CACHE"
 # where CACHE keeps the downloaded source RPMs between builds.
-%{load:%{packages}/package.macros}
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-licenses
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Licenses: Settings > Licenses, and the notices some packages lack
 # ShapeBit's, for the reader; each notice is under the terms of

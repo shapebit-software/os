@@ -3,7 +3,7 @@
 # its extension or its first line; a file with a #! line must be executable.
 # openQA's modules are left out: their API comes from `from testapi import *`,
 # so pyflakes cannot tell which of its names exist. Rust files must be as
-# rustfmt formats them (packages/rustfmt.toml).
+# rustfmt formats them (rustfmt.toml, beside this script or in data/).
 # Usage: lint.sh [FOLDER...]   (called by make lint)
 set -uo pipefail
 status=0 python=() rust=()
@@ -18,5 +18,8 @@ while IFS= read -r file; do
   esac
 done < <(git ls-files -co --exclude-standard "$@")
 python3 -m pyflakes "${python[@]}" || status=1
-((${#rust[@]} == 0)) || rustfmt --check --edition 2024 "${rust[@]}" || status=1
+# Rust's formatting rules: beside this script once installed, else this tree's.
+config=$(dirname "$0")/rustfmt.toml
+[[ -f $config ]] || config=$(dirname "$0")/../data/rustfmt.toml
+((${#rust[@]} == 0)) || rustfmt --check --edition 2024 --config-path "$config" "${rust[@]}" || status=1
 exit $status

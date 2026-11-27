@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The simulator's fake system services, from a scenario (scenarios/*.toml;
-README.md): each table names a python-dbusmock template, templates/NAME.py
+README.md): each table names a python-dbusmock template, testing's fakes/NAME.py
 if there is one, else dbusmock's own, which runs on the simulator's system
 bus with the table's parameters, then takes its calls in order, the
 template's own methods. A call's result can be named, and later arguments
@@ -18,7 +18,8 @@ import tomllib
 
 import dbusmock
 
-TEMPLATES = pathlib.Path(__file__).resolve().parent / "templates"
+# The fakes that the simulator and the integration tests share.
+TEMPLATES = pathlib.Path(__file__).resolve().parents[2] / "packages/testing/src/testing/fakes"
 
 
 def load(path):

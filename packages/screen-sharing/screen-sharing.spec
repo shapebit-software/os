@@ -1,8 +1,8 @@
-# Screen sharing: what to share, asked in the shell. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Screen sharing: what to share, asked in the shell. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-screen-sharing
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Screen sharing: what to share, asked in the shell
 License:        %{shapebit_program} AND %{shapebit_config}

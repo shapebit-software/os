@@ -3,9 +3,15 @@ services on this computer. serve() is for a fake that a test's own class
 starts; the fixtures stop what they start after the test."""
 
 import http.server
+import pathlib
+import subprocess
 import threading
 
 import pytest
+
+# dbusmock's templates where they lack what ShapeBit reads, which the
+# simulator uses too (development/simulator/README.md).
+FAKES = pathlib.Path(__file__).resolve().parent / "fakes"
 
 
 def serve(handler):
@@ -53,3 +59,26 @@ def session_bus():
     dbusmock.DBusTestCase.start_session_bus()
     yield dbusmock.DBusTestCase.get_dbus(system_bus=False)
     dbusmock.DBusTestCase.tearDownClass()
+
+
+@pytest.fixture
+def fake(system_bus):
+    """fake(name, parameters): a made-up system service on the tests' bus:
+    dbusmock's template name, or fakes/name.py where that adds what dbusmock's
+    lacks; its dbusmock interface, to add objects and read the calls. Stopped
+    after the test."""
+    import dbusmock
+
+    servers = []
+
+    def start(name, parameters=None):
+        template = FAKES / f"{name}.py"
+        server, mock = dbusmock.DBusTestCase.spawn_server_template(
+            str(template) if template.exists() else name, parameters or {}, stdout=subprocess.DEVNULL, system_bus=True)
+        servers.append(server)
+        return mock
+
+    yield start
+    for server in servers:
+        server.terminate()
+        server.wait()

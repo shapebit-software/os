@@ -1,8 +1,8 @@
-# Font: Instrument Sans, the system's font. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Font: Instrument Sans, the system's font. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-font
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Font: Instrument Sans, the system's font
 # Instrument Sans, under the SIL Open Font License; nothing of ShapeBit's own.

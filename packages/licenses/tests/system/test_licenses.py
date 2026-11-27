@@ -108,7 +108,7 @@ def shapebits(sh):
     return {line.split()[0] for line in lines if line.endswith(" ShapeBit")}
 
 
-# The texts of ShapeBit's own licenses, by SPDX ID (packages/package.macros).
+# The texts of ShapeBit's own licenses, by SPDX ID (packaging's package.macros).
 OWN = {"GPL-3.0-or-later": "LICENSE-GPL-3.0-or-later.txt", "LGPL-3.0-or-later": "LICENSE-LGPL-3.0-or-later.txt",
        "MIT": "LICENSE-MIT.txt", "CC-BY-SA-4.0": "LICENSE-CC-BY-SA-4.0.txt",
        "LicenseRef-ShapeBit-Brand": "LICENSE-ShapeBit-Brand.txt"}

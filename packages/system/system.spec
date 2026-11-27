@@ -2,11 +2,11 @@
 # Fedora's environments group a desktop's packages. The image installs this
 # package last, so that `rpm -q --requires shapebit-system` lists what the OS is
 # made of, and dnf would refuse an image that lacks a feature. The installer
-# is not here: it is only on the installer medium. See ../package.macros.
-%{load:%{packages}/package.macros}
+# is not here: it is only on the installer medium. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-system
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        ShapeBit's system: every feature of the installed system
 License:        %{shapebit_program}

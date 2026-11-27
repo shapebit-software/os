@@ -3,11 +3,11 @@ to 1, with a made-up recorder; it names its stream, which the shell then
 counts as no one recording."""
 
 import os
-import pathlib
 import struct
 import subprocess
+from testing import package_dir
 
-LEVEL = pathlib.Path(__file__).parents[4] / "packages" / "sound" / "src" / "microphone-level"
+LEVEL = package_dir(__file__) / "src" / "microphone-level"
 
 
 def test_each_tenth_of_a_second_is_its_peak(tmp_path):

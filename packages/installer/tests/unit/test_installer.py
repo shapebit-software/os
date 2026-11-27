@@ -1,8 +1,8 @@
 """packages/installer/system/installer.service, read as a file."""
 
-import pathlib
+from testing import package_dir
 
-UNIT = pathlib.Path(__file__).parents[4] / "packages" / "installer" / "system" / "installer.service"
+UNIT = package_dir(__file__) / "system" / "installer.service"
 
 
 def values(key):

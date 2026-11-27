@@ -3,24 +3,31 @@
 # (packages/repositories/README.md), one package per line: what they run on
 # (Requires), or with --build, what they build with (BuildRequires). ShapeBit's
 # own are left out, and so are Requires with a macro, the specs' own, which
-# are checked when the packages are installed. The specs are SPEC..., by
-# default those of the OS image: the one at the top of each feature folder,
-# but the installer's, which is only on the medium, and testing's, which only
-# the development image has. With --check, fails on a
-# package that no longer exists in FEDORA_VERSION or ShapeBit's repository,
-# before an image build would find out; the query reads only metadata.
+# are checked when the packages are installed. The specs are SPEC..., relative
+# to PACKAGES (packages/ by default), or those of the OS image: the one at the
+# top of each feature folder, but the installer's, which is only on the medium,
+# and the tools', which only the development image has. With --check, fails on
+# a package of any spec that no longer exists in FEDORA_VERSION or ShapeBit's
+# repository, before an image build would find out; the query reads only
+# metadata. --tools names the tools: the features whose code runs from the
+# tree, in the development image, and that no OS image has.
 # Usage: requires.sh [--build] [SPEC...]   (called by the images' Containerfiles)
 #        requires.sh --check                (called by make validate)
+#        requires.sh --tools
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "${PACKAGES:-$(dirname "$0")/../packages}"
+tools=(packaging linting testing)
 
 field=Requires check=
 case ${1:-} in
   --build) field=BuildRequires; shift ;;
   --check) check=1; shift ;;
+  --tools) printf '%s\n' "${tools[@]}"; exit 0 ;;
 esac
-if (($# == 0)); then
-  set -- $(ls ./*/*.spec | grep -v -e '^\./installer/' -e '^\./testing/')
+if (($# == 0)) && [[ -n $check ]]; then
+  set -- ./*/*.spec
+elif (($# == 0)); then
+  set -- $(ls ./*/*.spec | grep -v -e '^\./installer/' $(printf -- "-e ^\\./%s/ " "${tools[@]}"))
 fi
 
 packages=$(sed -n "s/^$field: *//p" "$@" | grep -v -e '%{' -e '^shapebit-' | sort -u)

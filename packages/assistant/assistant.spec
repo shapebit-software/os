@@ -1,8 +1,8 @@
-# The assistant: answers and actions, on the computer or online. See ../package.macros.
-%{load:%{packages}/package.macros}
+# The assistant: answers and actions, on the computer or online. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-assistant
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        The assistant: answers and actions, on the computer or online
 License:        %{shapebit_program} AND %{shapebit_config}

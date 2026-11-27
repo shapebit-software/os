@@ -1,13 +1,13 @@
-# Boot: kernel arguments, the composefs root, systemd-boot, and the EFI shim. See ../package.macros.
+# Boot: kernel arguments, the composefs root, systemd-boot, and the EFI shim. See packaging's package.macros.
 # Build it with --define "systemd_boot VERSION-RELEASE" --define "signed_dir SIGNED",
 # where SIGNED holds systemd-bootx64.efi.signed, signed from systemd-boot-unsigned at
 # version systemd_boot, and enroll-this-key.cer, the certificate that signed it. Only
 # these signed and public files reach the package; the key stays in the build
 # (image/Containerfile).
-%{load:%{packages}/package.macros}
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-boot
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Boot: kernel arguments, the composefs root, systemd-boot, and the EFI shim
 License:        %{shapebit_program} AND %{shapebit_config}

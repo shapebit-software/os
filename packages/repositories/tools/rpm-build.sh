@@ -4,7 +4,7 @@
 # and source RPMs. Its Sources are downloaded first and checked against the
 # `sources` file, in Fedora's format (`SHA512 (FILE) = HASH`); its own files,
 # such as patches, go beside them. The build itself has no network; rpmlint
-# then checks the packages, with the findings that ../../rpmlint.toml accepts.
+# then checks the packages, with the findings that packaging's rpmlint.toml accepts.
 # Usage: rpm-build.sh packages/FEATURE/external/NAME OUT (called by `make rpm`).
 set -euo pipefail
 : "${ENGINE:?}" "${FEDORA_VERSION:?}"
@@ -37,7 +37,7 @@ $ENGINE commit "$container" "$prepared" >/dev/null
 $ENGINE rm "$container" >/dev/null
 
 $ENGINE run --rm --name "$container" --network none -v "$dir:/package:ro,z" -v "$out:/out:z" \
-  -v "$(realpath "$(dirname "$0")/../../rpmlint.toml"):/rpmlint.toml:ro,z" \
+  -v "$(realpath "$(dirname "$0")/../../packaging/data/rpmlint.toml"):/rpmlint.toml:ro,z" \
   -e "OWNER=$(id -u):$(id -g)" "$prepared" bash -euo pipefail -c "
 rpmbuild -ba /package/$name.spec
 rpmlint --config /rpmlint.toml ~/rpmbuild/RPMS/*/*.rpm ~/rpmbuild/SRPMS/*.src.rpm

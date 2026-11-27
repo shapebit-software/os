@@ -18,7 +18,7 @@ recipe=$({
   echo "$FEDORA_VERSION"
   sed '/^# ---- The development image/,$d' image/Containerfile
   cat packages/repositories/system/{hyprland.repo,third-party.repo} packages/repositories/data/third-party.asc
-  packages/requires.sh
+  image/requires.sh
 } | sha256sum | cut -d ' ' -f 1)
 
 if [[ -z $fresh && -n ${FOUNDATION_CACHE:-} ]] && $ENGINE pull -q "$FOUNDATION_CACHE" >/dev/null 2>&1 &&
@@ -38,4 +38,4 @@ base=$($ENGINE image inspect --format '{{index .RepoDigests 0}}' "$base")
 # Without Docker's provenance attestation, which records the build's time: an
 # unchanged foundation keeps its ID, so the development image stays cached.
 BUILDX_NO_DEFAULT_ATTESTATIONS=1 $ENGINE build ${fresh:+--no-cache} --build-arg BASE="$base" --build-arg RECIPE="$recipe" \
-  --target foundation -f image/Containerfile -t "$FOUNDATION" packages
+  --target foundation -f image/Containerfile -t "$FOUNDATION" --build-context image=image packages

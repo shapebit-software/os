@@ -14,8 +14,9 @@ has it; no OS image does.
 | system | The built OS on a machine: the image, the medium, the installed system, an update | `tests/system/` | `make test-system`, `test-system-image`, `test-system-installer`, `test-system-update` |
 | e2e | What a person does, through the screen, from installing on (openQA) | `tests/e2e/` | `make test-e2e` |
 
-`make test` runs lint, validation, and the unit and integration tests: all
-that needs no image, at every push. Every command takes `PACKAGE=`, and each
+`make test` runs the unit and integration tests, and `make check` lint and
+validation too ([linting](../linting/README.md)): all that needs no image, at
+every push. Every command takes `PACKAGE=`, and each
 run leaves `build/results/<time>-<name>/`, with JUnit's `junit.xml`.
 
 A bug becomes a test at the first level that can catch it. A test that a level
@@ -58,7 +59,9 @@ name. Integration tests are Python, whatever language the program is.
 | File | What it is |
 | --- | --- |
 | `src/testing/plugin.py` | The levels' rules, and the QML tests' runner. |
-| `src/testing/fixtures.py` | What integration tests share: `serve` and `http_server`, an HTTP server on this computer; `system_bus` and `session_bus`, buses of their own for dbusmock's made-up services. |
+| `src/testing/fixtures.py` | What integration tests share: `serve` and `http_server`, an HTTP server on this computer; `system_bus` and `session_bus`, buses of their own for dbusmock's made-up services. `fake`, a made-up system service from `src/testing/fakes/`, which the simulator uses too. |
+| `src/testing/__init__.py` | `package_dir(__file__)` and `sibling(NAME, __file__)`: how a test finds its package's files, and another's, wherever the package lives. |
+| `src/testing/changed.py` | The packages that a change touches, which CI checks. |
 | `src/testing/system.py` | What system tests share: `host`, Testinfra's view of the machine; `sh`, `succeeds`, `wait_until`, `setting`, `recovery_key`. |
 | `src/testing/machine.py` | The machines: `make disk`, `vm`, `ssh`, `devices`, `publish`, `update-vm`, and `make sync`; the tests' own settings, such as the first owner. |
 | `e2e/` | The openQA harness: `main.pm`, `lib/`, the needles that several features share, `run.py`, `new-needle.py`. |
@@ -177,7 +180,7 @@ installation.
 
 | Workflow | Starts | Does |
 | --- | --- | --- |
-| Verification | Every push and pull request | Lint, validation, and the unit and integration tests of the packages the change touches ([changed.py](../../development/changed.py)), then, when the image's inputs change, the image's system tests with a throwaway key; each stage only if the one before passed |
+| Verification | Every push and pull request | Lint, validation, and the unit and integration tests of the packages the change touches ([changed.py](src/testing/changed.py)), then, when the image's inputs change, the image's system tests with a throwaway key; each stage only if the one before passed |
 | Candidate | Weekly (Monday, UTC), or by hand | Builds the image without a cache, signed with the release keys, with its sources and SBOM; installs `stable` with `os/installer:stable`, updates it to the candidate, runs the system tests and openQA's desktop modules (`FLOW=update`); if all pass, drafts the release |
 | Release | By hand | Copies the candidate to `os:<version>`, signs it, and moves `os:stable` to it, or undoes the last release; then prunes ([distribution](../../distribution/README.md)) |
 | Installer | Monthly (the 1st, UTC), or by hand | Builds the installer from `os:stable`, runs the system tests and openQA in full (`FLOW=install`), and after approval publishes it |

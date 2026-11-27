@@ -9,7 +9,7 @@ Every feature has the same layout, with only the folders it needs:
 | Path | What it holds |
 | --- | --- |
 | `<folder>.spec`, `Makefile`, `README.md` | The package: its spec, its install rules (CMake for the installer), and what the code can't say. |
-| `Cargo.toml` | Its Rust programs, whose sources are in `src/` ([cargo.mk](cargo.mk)). |
+| `Cargo.toml` | Its Rust programs, whose sources are in `src/` ([packaging](packaging/README.md)'s cargo.mk). |
 | `src/` | What runs: programs, modules, QML, JavaScript, Lua. |
 | `system/` | How the OS runs it: systemd units, presets, tmpfiles, sysusers, and other configuration. |
 | `data/` | What it reads: catalogs, images, fonts, license texts. |
@@ -20,14 +20,32 @@ Every feature has the same layout, with only the folders it needs:
 The `Makefile` installs every file of `src/`, `system/` and `data/`, but
 Rust sources, which it builds, and nothing else ([test_install.py](tests/integration/test_install.py)).
 
-| File | What it is |
+Three packages are the tools that every package is built, checked, and
+tested with, which only the development image has, and whose code runs from
+the tree there ([image/requires.sh](../image/requires.sh) `--tools`):
+
+| Package | What it is |
 | --- | --- |
-| [package.macros](package.macros), [package.mk](package.mk) | What every spec and every feature's `Makefile` share: the version, the paths, the license. |
-| [cargo.mk](cargo.mk), [crates.py](crates.py), [rustfmt.toml](rustfmt.toml) | What every feature with Rust programs shares: building them offline with Fedora's crates, their tests, the crates' licenses and texts, and the formatting. |
-| [requires.sh](requires.sh) | What the specs require from Fedora and the repositories, which the foundation installs. |
-| [rpmbuild.sh](rpmbuild.sh) | Builds the packages in the image build, at the image's version and commit, reproducibly. |
-| [rpmlint.toml](rpmlint.toml) | The rpmlint findings that are accepted, and why. |
-| `tests/` | That every file is installed, every unit parses, every feature is required, and each spec's licenses and crates are right. |
+| [packaging](packaging/README.md) | How a package is built: the macros that every spec loads, what every `Makefile` includes, and the license texts. |
+| [linting](linting/README.md) | How code is checked without running it (`make lint`). |
+| [testing](testing/README.md) | How everything is tested: the levels, the fixtures, the machines, openQA. |
+
+[tests/](tests/) checks the packages as a whole: that every file is
+installed, every unit parses, every feature is required, and every spec's
+licenses and external packages are right.
+
+**Every package could live in a repository of its own** and still build and
+test, with the tools installed: its `Makefile` includes `$(PACKAGING)/package.mk`,
+never `../`; its spec loads `%{load:%{shapebit_macros}}`; its tests find its
+files with `package_dir(__file__)` and another package's with
+`sibling(NAME, __file__)`, which skips where the package is alone; and
+`make test-unit` and `make test-integration` run in its own folder.
+[test_layout.py](testing/tests/unit/test_layout.py) holds every package to
+it, and the image build proves it: its standalone stage builds and tests a
+package away from this tree, with only the tools installed.
+
+A runtime piece that several features share, such as a QML module, is a
+package of its own that they require, as Colors is.
 
 Software that Fedora lacks is an external package in the `external/` of the
 feature that needs it, such as `dictation/external/sherpa-onnx/`, built and published apart

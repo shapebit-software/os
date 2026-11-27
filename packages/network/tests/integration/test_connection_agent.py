@@ -4,7 +4,6 @@ made-up shell on its standard input and output: it joins networks, asks for
 passwords and pairing codes, and pairs devices."""
 
 import json
-import pathlib
 import queue
 import subprocess
 import threading
@@ -13,8 +12,9 @@ import time
 import dbus
 import dbusmock
 import pytest
+from testing import package_dir
 
-ROOT = pathlib.Path(__file__).parents[4]
+HERE = package_dir(__file__)
 NM = "org.freedesktop.NetworkManager"
 NM_PATH = "/org/freedesktop/NetworkManager"
 AGENT = "/org/freedesktop/NetworkManager/SecretAgent"
@@ -29,7 +29,7 @@ PSK, SAE = 0x100, 0x400
 @pytest.fixture(scope="session")
 def program(tmp_path_factory):
     destination = tmp_path_factory.mktemp("network")
-    subprocess.run(["make", "-s", "-C", ROOT / "packages" / "network", "install", f"DESTDIR={destination}"],
+    subprocess.run(["make", "-s", "-C", HERE, "install", f"DESTDIR={destination}"],
                    check=True)
     return destination / "usr" / "libexec" / "desktop" / "connection-agent"
 

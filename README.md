@@ -21,7 +21,7 @@ one development image, where `make` runs every target, after building it
 on the host, reached through its socket.
 
 ```sh
-make test        # lint, validate, and the tests that need no image
+make check       # lint, validate, and the tests that need no image
 make sync        # put a change into the running VM, or this computer on ShapeBit
 make dev         # a shell in the development image
 ```
@@ -47,7 +47,8 @@ Docker instead, set it once: `export ENGINE=docker` in the shell's profile, or
 ## Usage
 
 ```bash
-make test               # lint, validate, and the unit and integration tests: all that needs no image
+make check              # lint, validate, and the unit and integration tests: all that needs no image
+make test               # the unit and integration tests
 make test-system        # build, test the image, install with the installer, and test a clone of the installed machine
 make test-system-update # the same install, then update a clone to a new build and roll back
 make test-e2e           # the medium itself, through its UI, with openQA; after `make installer`
@@ -66,7 +67,7 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 
 | Path         | Purpose                                                               |
 | ------------ | --------------------------------------------------------------------- |
-| `packages/`  | ShapeBit's own packages, one folder per feature: `apps`, `assistant`, `boot`, `capture`, `colors`, `dictation`, `downloads`, `extras`, `font`, `homes`, `installer`, `licenses`, `login`, `network`, `portal`, `release`, `repositories`, `screen-sharing`, `shell`, `sound`, `splash`, `system` (requires them all), `testing` (the tests' own tools; only the development image has it), `updates`, `windows`. |
+| `packages/`  | ShapeBit's own packages, one folder per feature: `apps`, `assistant`, `boot`, `capture`, `colors`, `dictation`, `downloads`, `extras`, `font`, `homes`, `installer`, `licenses`, `login`, `network`, `portal`, `release`, `repositories`, `screen-sharing`, `shell`, `sound`, `splash`, `system` (requires them all), `updates`, `windows`; and the tools, which only the development image has: `packaging`, `linting`, `testing`. |
 | `image/`     | How the images are built: one `Containerfile` with a stage per image (the foundation, the OS, the installer medium, the development image), sealing with the signed UKI, the signing keys (`keys/`), and what describes a build output ([image](image/README.md)). |
 | `distribution/` | How a tested build reaches people, and what is published with it: `release.py`, every step of the workflows with GHCR and GitHub's releases; `sources/`, the source RPMs; `sbom/`, the SBOM ([distribution](distribution/README.md)). |
 | `development/` | The development image's own scripts: `dev.sh`, which runs every `make` goal in it, and `make sync`, which puts a change into a running ShapeBit ([development](development/README.md)). |

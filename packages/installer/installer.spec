@@ -1,8 +1,8 @@
 # The installer: its interface, backend, command-line client, units, and what it
 # runs on, each with the reason for it. Built in every installer medium build
 # from the same commit (the installer stage of the Containerfile), never published: its version is
-# the image's, and its sources are this repository. See ../package.macros.
-%{load:%{packages}/package.macros}
+# the image's, and its sources are this repository. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 # The sources are outside rpmbuild's tree, so there is nothing for a debuginfo
 # package to point to; the binaries are stripped as usual.
@@ -10,7 +10,7 @@
 %global _vpath_srcdir %{packages}/installer
 
 Name:           shapebit-installer
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        ShapeBit's installer
 # Its interface carries the logo and wordmark, under the brand's terms.

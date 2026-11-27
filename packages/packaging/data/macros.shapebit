@@ -1,0 +1,6 @@
+# Where shapebit-packaging installed ShapeBit's package macros and license
+# texts, which a spec loads with %{load:%{shapebit_macros}}. Only these paths
+# are defined for every build here: the macros themselves apply only to the
+# specs that load them.
+%shapebit_macros    /usr/share/shapebit/packaging/package.macros
+%shapebit_licenses  /usr/share/shapebit/packaging/licenses

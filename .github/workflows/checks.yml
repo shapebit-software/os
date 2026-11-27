@@ -2,8 +2,8 @@
 # secrets, in one job, so that the development image is built once. Unit tests
 # run only if lint and validate passed. Called by Verification, Candidate, and
 # Installer, before what they build. For a push or a pull request, only of the
-# packages that the change touches (development/changed.py); scheduled runs
-# check every package.
+# packages that the change touches (packages/testing/src/testing/changed.py);
+# scheduled runs check every package.
 name: Static checks and unit tests
 
 on:
@@ -36,7 +36,7 @@ jobs:
         if: github.event_name == 'push' || github.event_name == 'pull_request'
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: development/changed.py "$BASE" | tee -a "$GITHUB_ENV"
+        run: packages/testing/src/testing/changed.py "$BASE" | tee -a "$GITHUB_ENV"
       - uses: ./.github/actions/runner
       # In the development image (image/Containerfile), as on a developer's computer.
       - name: Development image

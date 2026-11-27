@@ -4,16 +4,16 @@ a made-up sherpa-onnx that writes down how many samples it heard."""
 
 import json
 import os
-import pathlib
 import socket
 import subprocess
 import time
 
 import pytest
+from testing import package_dir
 
 pytest.importorskip("numpy")
 
-ENGINE = pathlib.Path(__file__).parents[4] / "packages" / "dictation" / "src" / "dictate-engine"
+ENGINE = package_dir(__file__) / "src" / "dictate-engine"
 # A second, as whole windows of Silero's 512 samples, which is what the engine takes.
 SECOND = b"\1\0" * 16384
 
@@ -22,6 +22,7 @@ SECOND = b"\1\0" * 16384
 # last phrase.
 SHERPA = """
 import os, pathlib
+
 fakes = pathlib.Path(os.environ["FAKES"])
 
 class Result:

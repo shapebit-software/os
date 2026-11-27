@@ -23,7 +23,7 @@ DEV_IMAGE      ?= localhost/shapebit-dev
 IMAGE          ?= localhost/shapebit-os:dev
 IMAGE_VERSION  ?= dev
 # The commit that the image is made from, and its time, which is every time in
-# ShapeBit's own packages (packages/package.macros).
+# ShapeBit's own packages (packages/packaging/src/package.macros).
 IMAGE_REVISION ?= $(shell git rev-parse HEAD)
 SOURCE_DATE_EPOCH ?= $(shell git log -1 --format=%ct)
 BUILD          ?= build
@@ -72,7 +72,7 @@ RPM            ?= packages/dictation/external/sherpa-onnx
 RPMS           ?= $(BUILD)/rpms
 # The packages that lint, validate, the tests, sync, unsync, and watch work
 # on: every one, or those named, as in PACKAGE="shell colors". CI names those
-# that a change touches (development/changed.py).
+# that a change touches (packages/testing/src/testing/changed.py).
 PACKAGE        ?=
 # The kinds of this computer's USB devices that a VM in a window borrows,
 # camera and bluetooth, found as they are plugged in; empty lends none
@@ -126,7 +126,7 @@ foundation: $(BUILD)/foundation.built ## Build the foundation image, which the O
 # no longer has them as they were made: each .built file is touched after its
 # .id, the engine's ID of the image. Candidate builds the foundation with
 # FOUNDATION_FRESH=1: from Fedora's latest, without a cache, every time.
-FOUNDATION_INPUTS := image/Containerfile image/foundation.sh packages/requires.sh \
+FOUNDATION_INPUTS := image/Containerfile image/foundation.sh image/requires.sh \
   $(wildcard packages/*/*.spec packages/repositories/system/*.repo packages/repositories/data/*.asc)
 $(BUILD)/foundation.inputs: FORCE
 	$(call record,FEDORA_VERSION=$(FEDORA_VERSION) FOUNDATION=$(FOUNDATION) FOUNDATION_CACHE=$(FOUNDATION_CACHE) \
@@ -150,8 +150,9 @@ ifndef IN_DEV_IMAGE
 dev-image: $(BUILD)/dev-image.built ## Build the development image (image/Containerfile, its development stage)
 
 # What the development image is made from: the foundation, the Containerfile,
-# what the installer builds with, and what the tests run with.
-DEV_INPUTS := image/Containerfile packages/requires.sh packages/installer/installer.spec packages/testing/testing.spec
+# what the installer builds with, and what the tools run with.
+DEV_INPUTS := image/Containerfile image/requires.sh packages/installer/installer.spec \
+  $(foreach t,$(shell image/requires.sh --tools),packages/$t/$t.spec)
 $(BUILD)/dev-image.inputs: FORCE
 	$(call record,DEV_IMAGE=$(DEV_IMAGE) $(DEV_INPUTS))
 $(BUILD)/dev-image.id: FORCE
@@ -160,7 +161,7 @@ $(BUILD)/dev-image.id: FORCE
 $(BUILD)/dev-image.built: $(BUILD)/foundation.built $(BUILD)/dev-image.inputs $(BUILD)/dev-image.id $(DEV_INPUTS)
 	BUILDX_NO_DEFAULT_ATTESTATIONS=1 $(ENGINE) build -t $(DEV_IMAGE) --target development \
 	  --build-arg FOUNDATION=$(FOUNDATION) --build-arg BASE=$(FOUNDATION_BASE) \
-	  -f image/Containerfile packages
+	  -f image/Containerfile --build-context image=image packages
 	@$(call engine-id,$(DEV_IMAGE),$(BUILD)/dev-image.id)
 	touch $@
 
@@ -211,7 +212,7 @@ RUST := $(patsubst packages/%/Cargo.toml,%,$(wildcard packages/*/Cargo.toml))
 KEYS := $(KEYS_DIR)/$(SIGNING_KEY)-secureboot.key $(KEYS_DIR)/$(SIGNING_KEY)-secureboot.crt \
         $(KEYS_DIR)/$(SIGNING_KEY)-pcr.key
 
-.PHONY: image colors lint validate test test-unit test-integration test-system test-system-image \
+.PHONY: image colors lint validate check test test-unit test-integration test-system test-system-image \
   test-system-installer test-system-update test-e2e publish installer rpm pull-installer \
   disk vm devices update-vm sync unsync watch simulate installer-vm ssh update-builds release-key
 
@@ -240,16 +241,18 @@ colors: ## Write the QML module Colors's values from the system's colors (packag
 
 lint: ## Lint the shell, the Python, and the QML (of PACKAGE)
 	$(if $(call scoped,shell),$(MAKE) -C packages/shell lint)
-	development/lint.sh $(SCOPE)
+	packages/linting/src/lint.sh $(SCOPE)
 
 # Every file has a license (REUSE.toml, with reuse lint).
 validate: ## Validate the compositor configuration, the specs' Requires, and the licenses (of PACKAGE)
 	$(if $(call scoped,windows),$(MAKE) -C packages/windows validate)
 	reuse lint --quiet
-	packages/requires.sh --check
+	image/requires.sh --check
 	packages/repositories/tools/check-licenses.sh $(SCOPE)
 
-test: lint validate test-unit test-integration ## Lint, validate, and the unit and integration tests: all that needs no image (of PACKAGE)
+check: lint validate test ## Lint, validate, and test: all that needs no image (of PACKAGE)
+
+test: test-unit test-integration ## Run the unit and integration tests (of PACKAGE)
 
 test-unit: ## Run the unit tests: tests/unit/, the installer's, and Rust's (of PACKAGE)
 	$(if $(call tests,unit),$(PYTEST) $(call junit,unit) $(call tests,unit))

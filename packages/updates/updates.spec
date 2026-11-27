@@ -1,9 +1,9 @@
 # Updates: os-update, its timer, who may run it, and which updates it accepts.
-# See ../package.macros.
-%{load:%{packages}/package.macros}
+# See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-updates
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Updates: os-update, its timer, and which updates it accepts
 License:        %{shapebit_program} AND %{shapebit_config}

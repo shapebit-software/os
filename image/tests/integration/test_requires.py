@@ -3,11 +3,11 @@
 import pathlib
 import subprocess
 
-PACKAGES = pathlib.Path(__file__).parents[2]
+IMAGE = pathlib.Path(__file__).parents[2]
 
 
 def requires(*args):
-    result = subprocess.run([PACKAGES / "requires.sh", *args], capture_output=True, text=True, check=True)
+    result = subprocess.run([IMAGE / "requires.sh", *args], capture_output=True, text=True, check=True)
     return result.stdout.split()
 
 
@@ -22,3 +22,9 @@ def test_lists_what_the_image_packages_run_on():
 def test_leaves_out_the_installer_which_is_only_on_the_medium():
     assert "cmake" not in requires("--build")
     assert "cmake" in requires("--build", "installer/installer.spec")
+
+
+def test_leaves_out_the_tools_which_only_the_development_image_has():
+    assert requires("--tools") == ["packaging", "linting", "testing"]
+    assert "python3-pytest" not in requires()
+    assert "python3-pytest" in requires("testing/testing.spec")

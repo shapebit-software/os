@@ -1,7 +1,7 @@
 """Each own package's License names exactly the licenses that REUSE.toml gives
 the files it installs: those of its src/, system/ and data/ (test_install.py),
 except others' license texts. The texts that its packages install
-(licenses/shapebit, package.macros) are those of LICENSES/."""
+(packaging's data/licenses and package.macros) are those of LICENSES/."""
 
 import pathlib
 import re
@@ -34,7 +34,7 @@ def license_of(path):
 
 
 def macros():
-    text = (PACKAGES / "package.macros").read_text()
+    text = (PACKAGES / "packaging/src/package.macros").read_text()
     return dict(re.findall(r"^%(shapebit_\w+)\s+(\S+)$", text, re.MULTILINE))
 
 
@@ -67,7 +67,7 @@ def test_license_names_the_licenses_of_the_installed_files(spec):
 
 
 def test_installed_texts_are_the_repositorys():
-    texts = sorted((PACKAGES / "licenses/shapebit").iterdir())
+    texts = sorted((PACKAGES / "packaging/data/licenses").iterdir())
     assert texts
     for text in texts:
         ident = re.fullmatch(r"LICENSE-(.+)\.txt", text.name)[1]
@@ -80,4 +80,4 @@ def test_installed_texts_are_the_repositorys():
 def test_every_own_license_has_a_text_to_install():
     for kind in ("program", "library", "config", "artwork", "brand"):
         ident = macros()[f"shapebit_{kind}"].removeprefix("LicenseRef-")
-        assert (PACKAGES / "licenses/shapebit" / f"LICENSE-{ident}.txt").exists(), kind
+        assert (PACKAGES / "packaging/data/licenses" / f"LICENSE-{ident}.txt").exists(), kind

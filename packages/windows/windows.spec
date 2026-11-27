@@ -1,8 +1,8 @@
-# Windows: the compositor, its layouts, workspaces, and shortcuts. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Windows: the compositor, its layouts, workspaces, and shortcuts. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-windows
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Windows: the compositor, its layouts, workspaces, and shortcuts
 License:        %{shapebit_config}

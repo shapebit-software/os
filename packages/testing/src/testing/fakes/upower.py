@@ -1,6 +1,6 @@
 """dbusmock's UPower template, with the display device's properties that
 Quickshell's UPower reads, such as PowerSupply, which makes a battery the
-computer's own (../README.md)."""
+computer's own (development/simulator/README.md)."""
 
 from dbusmock import mockobject
 from dbusmock.templates import upower as upstream

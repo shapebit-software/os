@@ -1,7 +1,7 @@
 # check=skip=InvalidDefaultArgInFrom
 # ShapeBit OS: bootc image, booted by systemd-boot from a signed UKI
 # (README.md). Built with packages/ as the context: a folder with a
-# spec is a package (packages/package.macros). These images come from here, each
+# spec is a package (packages/packaging/src/package.macros). These images come from here, each
 # a --target:
 #
 # - foundation: Fedora's bootc image, BASE, by digest, with what ShapeBit's
@@ -35,7 +35,8 @@ FROM ${BASE} AS base
 # Only the list of packages, so that the install below runs again only when the
 # list changes, not with every change to a package.
 FROM base AS needs
-RUN --mount=type=bind,target=/src mkdir /out && /src/requires.sh >/out/requires
+RUN --mount=type=bind,target=/src --mount=type=bind,from=image,target=/run/image \
+    mkdir /out && PACKAGES=/src /run/image/requires.sh >/out/requires
 
 # In one transaction, without weak dependencies, so that every package is there
 # because a spec requires it, and without Fedora's count of systems (as the
@@ -83,14 +84,19 @@ LABEL software.shapebit.foundation.base="$BASE" \
 # client here reaches (development/dev.sh).
 
 # Only what the installer and the features with Rust programs (a Cargo.toml)
-# build with, and what the tests run with (testing's Requires), so that the
-# installs below run again only when that changes, not with every change to a
-# package: make builds this image again whenever a spec changes.
+# build with, and what the tools run with (their specs' Requires: packaging,
+# linting, and testing), so that the installs below run again only when that
+# changes, not with every change to a package: make builds this image again
+# whenever a spec changes.
 FROM ${FOUNDATION} AS development-needs
-RUN --mount=type=bind,target=/src \
-    mkdir /out && /src/requires.sh --build installer/installer.spec \
-      $(cd /src && ls */Cargo.toml | sed 's|\(.*\)/Cargo.toml|\1/\1.spec|') >/out/build && \
-    /src/requires.sh testing/testing.spec >/out/testing
+RUN --mount=type=bind,target=/src --mount=type=bind,from=image,target=/run/image <<'EOF'
+set -euo pipefail
+export PACKAGES=/src
+mkdir /out
+/run/image/requires.sh --build installer/installer.spec \
+  $(cd /src && ls */Cargo.toml | sed 's|\(.*\)/Cargo.toml|\1/\1.spec|') >/out/build
+/run/image/requires.sh $(/run/image/requires.sh --tools | sed 's|.*|&/&.spec|') >/out/tools
+EOF
 
 FROM ${FOUNDATION} AS development
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
@@ -108,14 +114,15 @@ RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
     # make watch's file events.
     inotify-tools
 
-# Every tool the tests run with, which testing's spec requires
-# (packages/testing/testing.spec): lint and validate, the unit and integration
-# tests (with the fake system services that the simulator uses too), the
-# machines of the system tests and make vm, and openQA's engine. Weak
-# dependencies are off: os-autoinst's bring QEMU for every architecture.
+# What the tools run with, which their specs require (packaging, linting, and
+# testing, with its subpackages): building packages, lint and validate, the unit
+# and integration tests (with the fake system services that the simulator uses
+# too), the machines of the system tests and make vm, and openQA's engine. Their
+# code runs from the tree. Weak dependencies are off: os-autoinst's bring QEMU
+# for every architecture.
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
     --mount=type=bind,from=development-needs,source=/out,target=/run/needs \
-    dnf -y install --setopt=install_weak_deps=False $(cat /run/needs/testing)
+    dnf -y install --setopt=install_weak_deps=False $(cat /run/needs/tools)
 
 # /home is a folder here, not the bootc image's link to /var/home, so that the
 # developer's folders, which dev.sh mounts at their paths on the host, resolve
@@ -135,31 +142,57 @@ ENV IN_DEV_IMAGE=1
 # enrolls; the key is a build secret, and only the signed binary and the
 # certificate enter the boot package. shapebit-release replaces Fedora's
 # identity packages (packages/release). rpmlint checks every package for packaging mistakes;
-# packages/rpmlint.toml says which of its findings are accepted, and why.
+# packages/packaging/data/rpmlint.toml says which of its findings are accepted, and why.
 # shapebit-licenses is built last (the licenses stage), once everything its
 # reads is installed. A spec at the top of a feature folder is ShapeBit's own;
 # an external package (a folder with a sources file, below a feature) is in
 # the foundation, from ShapeBit's repository. The installer is only on the
-# medium, and testing only in the development image.
+# medium. The tools (image/requires.sh --tools) are built and checked here too,
+# but no OS image installs them: the standalone stage below does.
 FROM ${FOUNDATION} AS packages-build
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
-    --mount=type=bind,target=/src \
-    dnf -y install rpm-build rpmlint sbsigntools openssl $(/src/requires.sh --build)
+    --mount=type=bind,target=/src --mount=type=bind,from=image,target=/run/image \
+    dnf -y install rpm-build rpmlint sbsigntools openssl \
+      $(cd /src && PACKAGES=/src /run/image/requires.sh --build $(ls */*.spec | grep -v '^installer/'))
 ARG IMAGE_VERSION
 ARG IMAGE_REVISION
 ARG SOURCE_DATE_EPOCH
 ARG KEYS_ID
-RUN --mount=type=bind,target=/src \
+RUN --mount=type=bind,target=/src --mount=type=bind,from=image,target=/run/image \
     --mount=type=secret,id=signing.key --mount=type=secret,id=signing.crt <<'EOF'
 set -euo pipefail
+export PACKAGES=/src
 mkdir /tmp/signed
 sbsign --key /run/secrets/signing.key --cert /run/secrets/signing.crt \
   --output /tmp/signed/systemd-bootx64.efi.signed /usr/lib/systemd/boot/efi/systemd-bootx64.efi
 openssl x509 -in /run/secrets/signing.crt -outform DER -out /tmp/signed/enroll-this-key.cer
-/src/rpmbuild.sh /out --define "signed_dir /tmp/signed" \
+/run/image/rpmbuild.sh /out --define "signed_dir /tmp/signed" \
   --define "systemd_boot $(rpm -q --qf '%{VERSION}-%{RELEASE}' systemd-boot-unsigned)" \
-  $(ls /src/*/*.spec | grep -v -e '^/src/installer/' -e '^/src/licenses/' -e '^/src/testing/')
-rpmlint --config /src/rpmlint.toml /out/*.rpm
+  $(ls /src/*/*.spec | grep -v -e '^/src/installer/' -e '^/src/licenses/')
+rpmlint --config /src/packaging/data/rpmlint.toml /out/*.rpm
+EOF
+
+# A feature built and tested away from this tree, with only the tools'
+# packages installed (packages/packaging/README.md): what shows that a package
+# could live in a repository of its own. Colors, copied alone, builds its RPM
+# with the installed macros and runs its unit tests with the installed plugin.
+# The os stage depends on it, so every OS build proves it.
+FROM ${FOUNDATION} AS standalone
+RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
+    --mount=type=bind,from=packages-build,source=/out,target=/run/packages \
+    dnf -y install --setopt=install_weak_deps=False \
+      /run/packages/shapebit-packaging-*.rpm $(ls /run/packages/shapebit-testing-*.rpm | grep -v -e -machines- -e -e2e-)
+ARG IMAGE_VERSION
+RUN --mount=type=bind,target=/src <<'EOF'
+set -euo pipefail
+mkdir /tmp/alone
+cp -r /src/colors /tmp/alone/colors
+cd /tmp/alone/colors
+make install DESTDIR=/tmp/root
+make test-unit
+rpmbuild -bb --quiet --define "_topdir /tmp/rpm" --define "packages /tmp/alone" \
+  --define "image_version $IMAGE_VERSION" colors.spec
+touch /standalone
 EOF
 
 # What under /usr no RPM has as it is in the base image (image/packaged.py):
@@ -179,9 +212,11 @@ LABEL org.opencontainers.image.title="ShapeBit OS" \
 # ShapeBit's own packages, which need nothing the image lacks; shapebit-release
 # replaces Fedora's identity package. They are built in this build, so they
 # carry no signature. shapebit-system, which requires them all, comes last, with
-# shapebit-licenses, which holds the collected license notices.
+# shapebit-licenses, which holds the collected license notices; the tools never.
 RUN --mount=type=bind,from=packages-build,source=/out,target=/run/packages \
-    dnf -y install --disablerepo='*' --nogpgcheck --allowerasing $(ls /run/packages/*.rpm | grep -v '/shapebit-system-') && \
+    --mount=type=bind,target=/src --mount=type=bind,from=image,target=/run/image \
+    dnf -y install --disablerepo='*' --nogpgcheck --allowerasing $(ls /run/packages/*.rpm | \
+      grep -v -e '/shapebit-system-' $(PACKAGES=/src /run/image/requires.sh --tools | sed 's|.*|-e /shapebit-&-|')) && \
     rm -rf /var/log/dnf5.log /var/lib/dnf /var/cache/ldconfig /run/dnf
 
 # The boot splash (Plymouth): ShapeBit's theme, packages/splash, with the
@@ -227,15 +262,17 @@ RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
 ARG IMAGE_VERSION
 ARG IMAGE_REVISION
 ARG SOURCE_DATE_EPOCH
-RUN --mount=type=bind,target=/src \
+RUN --mount=type=bind,target=/src --mount=type=bind,from=image,target=/run/image \
     --mount=type=cache,target=/var/cache/licenses,sharing=locked \
-    /src/rpmbuild.sh /out --define "cache /var/cache/licenses" /src/licenses/licenses.spec
+    PACKAGES=/src /run/image/rpmbuild.sh /out --define "cache /var/cache/licenses" /src/licenses/licenses.spec
 
 FROM system AS os
 # shapebit-licenses, with the collected notices, and shapebit-system, which requires every feature: rpm
-# refuses it if one is missing.
+# refuses it if one is missing. The standalone stage's mark makes every OS build
+# build it too, and nothing of it enters the image.
 RUN --mount=type=bind,from=licenses,source=/out,target=/run/notices \
     --mount=type=bind,from=packages-build,source=/out,target=/run/packages \
+    --mount=type=bind,from=standalone,source=/standalone,target=/run/standalone \
     rpm -i --nosignature /run/notices/*.rpm /run/packages/shapebit-system-*.rpm
 # The windows' settings defaults (window-buttons.gschema.override) apply once
 # the schemas are compiled again.
@@ -304,18 +341,19 @@ COPY --from=uki /out/ /boot/EFI/Linux/
 # context `payload` is the directory with the sealed system archive, image.tar,
 # which is OS.
 # The installer's package (packages/installer/installer.spec), at the image's
-# version and commit, which the OS's os-release records (packages/rpmbuild.sh);
+# version and commit, which the OS's os-release records (image/rpmbuild.sh);
 # its BuildRequires come from the spec.
 FROM ${OS} AS installer-build
 RUN --mount=type=cache,target=/var/cache/libdnf5,sharing=locked \
     --mount=type=bind,target=/src \
     dnf -y install rpm-build rpmlint dnf5-plugins && \
-    dnf -y builddep --define "packages /src" --define "image_version 0" /src/installer/installer.spec
+    dnf -y builddep --define "packages /src" --define "shapebit_macros /src/packaging/src/package.macros" \
+      --define "image_version 0" /src/installer/installer.spec
 ARG SOURCE_DATE_EPOCH
-RUN --mount=type=bind,target=/src \
-    . /usr/lib/os-release && export IMAGE_VERSION IMAGE_REVISION && \
-    /src/rpmbuild.sh /out /src/installer/installer.spec && \
-    rpmlint --config /src/rpmlint.toml /out/*.rpm
+RUN --mount=type=bind,target=/src --mount=type=bind,from=image,target=/run/image \
+    . /usr/lib/os-release && export IMAGE_VERSION IMAGE_REVISION PACKAGES=/src && \
+    /run/image/rpmbuild.sh /out /src/installer/installer.spec && \
+    rpmlint --config /src/packaging/data/rpmlint.toml /out/*.rpm
 
 FROM ${OS} AS installer
 # The installer and its Requires (packages/installer/installer.spec). It is built in this build,

@@ -1,8 +1,8 @@
-# Capture: screenshots, screen and voice recordings, and the camera. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Capture: screenshots, screen and voice recordings, and the camera. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-capture
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Capture: screenshots, screen and voice recordings, and the camera
 License:        %{shapebit_program}

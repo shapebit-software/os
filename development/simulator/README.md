@@ -30,7 +30,6 @@ configuration, then the session's units, those that
 | `fakes.py` | The fake system services of a scenario. |
 | `system-bus.conf` | The fakes' bus, in place of the system bus. |
 | `scenarios/` | The scenarios, one per file, by name. |
-| `templates/` | The fakes that python-dbusmock's own lack something for. |
 
 ## Scenarios
 
@@ -52,8 +51,9 @@ calls = [
 
 A new scenario is a new file; a new service is a new table, by its template's
 name. Where dbusmock's template lacks what the shell reads, such as a method
-or a property of a newer version, `templates/NAME.py` takes its place: it
-imports dbusmock's and adds only that, and says why.
+or a property of a newer version, `fakes/NAME.py` of [testing](../../packages/testing/README.md) takes its place: it
+imports dbusmock's and adds only that, and says why. Integration tests share
+them (the `fake` fixture).
 
 ## What it does not show
 

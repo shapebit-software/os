@@ -7,7 +7,6 @@ sign-in say so; and removing or signing out forgets what was kept."""
 
 import http.server
 import json
-import pathlib
 import sys
 import time
 import urllib.parse
@@ -17,8 +16,9 @@ import pytest
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 from testing.fixtures import serve
+from testing import package_dir
 
-sys.path.insert(0, str(pathlib.Path(__file__).parents[4] / "packages" / "assistant" / "src"))
+sys.path.insert(0, str(package_dir(__file__) / "src"))
 import models  # noqa: E402
 import providers  # noqa: E402
 from test_assistant import Setup  # noqa: E402
@@ -147,7 +147,7 @@ def online(tmp_path, monkeypatch):
     made.stop()
     # Enable the retained implementation only in these test processes.
     monkeypatch.setitem(providers.PROVIDERS, "chatgpt", providers.CHATGPT)
-    source = pathlib.Path(__file__).parents[4] / "packages" / "assistant" / "src"
+    source = package_dir(__file__) / "src"
     bootstrap = (f"import sys, runpy; sys.path.insert(0, {str(source)!r}); "
                  "import providers; providers.PROVIDERS['chatgpt'] = providers.CHATGPT; "
                  f"sys.argv = [{str(source / 'assistant')!r}, 'serve']; "
@@ -172,7 +172,7 @@ def files_hold(made, text):
 
 
 def test_disabled_service_starts_without_chatgpt_libraries(tmp_path):
-    source = pathlib.Path(__file__).parents[4] / "packages" / "assistant" / "src"
+    source = package_dir(__file__) / "src"
     bootstrap = ("import sys, runpy; sys.modules['jwt'] = None; sys.modules['cryptography'] = None; "
                  f"sys.path.insert(0, {str(source)!r}); "
                  f"sys.argv = [{str(source / 'assistant')!r}, 'serve']; "

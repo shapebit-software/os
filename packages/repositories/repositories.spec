@@ -1,8 +1,8 @@
-# Repositories: where packages come from, and dnf's settings. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Repositories: where packages come from, and dnf's settings. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-repositories
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Repositories: where packages come from, and dnf's settings
 License:        %{shapebit_config}

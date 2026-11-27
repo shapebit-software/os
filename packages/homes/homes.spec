@@ -1,8 +1,8 @@
-# Homes: each person's encrypted home (systemd-homed). See ../package.macros.
-%{load:%{packages}/package.macros}
+# Homes: each person's encrypted home (systemd-homed). See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-homes
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Homes: each person's encrypted home (systemd-homed)
 License:        %{shapebit_config}

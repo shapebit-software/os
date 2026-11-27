@@ -5,13 +5,13 @@ in the person's language, then in English."""
 
 import http.server
 import json
-import pathlib
 import sys
 import urllib.parse
 
 import pytest
+from testing import package_dir
 
-sys.path.insert(0, str(pathlib.Path(__file__).parents[4] / "packages" / "assistant" / "src"))
+sys.path.insert(0, str(package_dir(__file__) / "src"))
 import web  # noqa: E402
 
 ARTICLE = """<!doctype html><html><head><meta charset="utf-8"><title> The  Otter </title>

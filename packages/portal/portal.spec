@@ -1,8 +1,8 @@
-# Portal: what applications ask of the desktop. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Portal: what applications ask of the desktop. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-portal
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Portal: what applications ask of the desktop
 License:        %{shapebit_program} AND %{shapebit_config}

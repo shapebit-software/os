@@ -2,12 +2,11 @@
 
 import importlib.machinery
 import importlib.util
-import pathlib
 
 import pytest
+from testing import package_dir
 
-PACKAGES = pathlib.Path(__file__).parents[2]
-loader = importlib.machinery.SourceFileLoader("crates", str(PACKAGES / "crates.py"))
+loader = importlib.machinery.SourceFileLoader("crates", str(package_dir(__file__) / "src/crates.py"))
 crates = importlib.util.module_from_spec(importlib.util.spec_from_loader("crates", loader))
 loader.exec_module(crates)
 

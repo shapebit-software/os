@@ -9,12 +9,11 @@ socket ([image](../image/README.md)).
 
 | File | What it is |
 | --- | --- |
-| [Containerfile](../image/Containerfile), its development stage | The development image: the foundation, so the OS's own packages, with what the installer builds with and every tool the tests run with ([testing](../packages/testing/README.md)'s Requires). CI uses it too. |
+| [Containerfile](../image/Containerfile), its development stage | The development image: the foundation, so the OS's own packages, with what the installer builds with and what the tools run with ([packaging](../packages/packaging/README.md), [linting](../packages/linting/README.md), and [testing](../packages/testing/README.md)'s Requires). CI uses it too. |
 | `dev.sh` | Runs a command in the image as the developer, in this repository, with KVM and the host's engine; with `--desktop`, with the host session's display and GPU, for a VM's window. |
 | `sync.py` | `make sync`: installs this tree's features into a running ShapeBit. |
 | `sync-apply.sh` | What `make sync` runs as root on that machine. |
 | [simulator/](simulator/README.md) | `make simulate`: the tree's desktop in a window, on fake system services. |
-| `changed.py` | The packages that a change touches, which CI checks ([testing](../packages/testing/README.md#in-ci)). |
 | `vm-devices.rules` | Lets a VM borrow this computer's cameras and Bluetooth radios ([Devices](#devices)). |
 
 Nothing here is installed in the image.
@@ -25,7 +24,7 @@ Nothing here is installed in the image.
 `watch` to the packages it names; empty, the default, means every package:
 
 ```sh
-make test PACKAGE=shell                  # its lint and tests, and packages/tests/'s
+make check PACKAGE=shell                 # its lint, validation, and tests, and packages/tests/'s
 make watch PACKAGE="shell colors"        # only these, at every save
 ```
 
@@ -41,7 +40,7 @@ profile:
 
 ```sh
 export ENGINE=docker   # in ~/.profile, on a host with Docker
-make test
+make check
 ```
 
 On the host, `make` builds the foundation and the development image the first
@@ -97,7 +96,7 @@ test goes in the first that can catch it.
 
 | Where | What it shows | How |
 | --- | --- | --- |
-| The development image | Lint, validation, unit and integration tests (`tests/unit/`, `tests/integration/`) | `make test` |
+| The development image | Lint, validation, unit and integration tests (`tests/unit/`, `tests/integration/`) | `make check` |
 | The simulator | The shell and what it shows, on fake system services | `make simulate`, `make watch MACHINE=simulator` |
 | A running ShapeBit | The tree on the real system: services, login, sessions | `make vm`, `make watch` |
 | The built image | Its files, a fresh install, updates (`tests/system/`) | `make test-system-image`, `make test-system`, `make test-system-update` |

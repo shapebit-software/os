@@ -1,15 +1,15 @@
-# Network: joining Wi-Fi networks and VPNs from the shell. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Network: joining Wi-Fi networks and VPNs from the shell. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 # The sources are outside rpmbuild's tree, so there is nothing for a debuginfo
 # package to point to; the binary is stripped as usual.
 %global debug_package %{nil}
 
 Name:           shapebit-network
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Network: joining Wi-Fi networks and VPNs from the shell
-# The connection agent, and the crates it is built from (../cargo.mk).
+# The connection agent, and the crates it is built from (packaging's cargo.mk).
 License:        %{shapebit_program} AND %(make -s -C %{packages}/network licenses 2>/dev/null)
 URL:            %{shapebit_url}
 Vendor:         %{shapebit_vendor}

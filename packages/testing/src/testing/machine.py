@@ -41,8 +41,11 @@ import sys
 import tempfile
 import time
 
-# The repository: machine.py runs from it (packages/testing/src/testing/).
-ROOT = pathlib.Path(__file__).resolve().parents[4]
+# The repository the machines are run from: this file's, in
+# packages/testing/src/testing/; or, installed (shapebit-testing-machines), the
+# current folder.
+_TREE = pathlib.Path(__file__).resolve().parents[4]
+ROOT = _TREE if (_TREE / "packages").is_dir() else pathlib.Path.cwd()
 
 # The test settings, and their defaults; "{BUILD}" is the Makefile's BUILD.
 # The installer's settings differ from the image's defaults, so the checks

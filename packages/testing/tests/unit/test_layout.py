@@ -45,3 +45,33 @@ def test_no_test_is_outside_tests():
 
 def test_no_check_prefix_is_left():
     assert [str(p) for p in files() if p.name.startswith("check_") and p.suffix == ".py"] == []
+
+
+# What every package keeps to, so that it can move to a repository of its own
+# and still build and test (../../README.md): the tools' own files and the
+# tests of packages/ as a whole read the whole repository, by their nature.
+TOOLS = {"packaging", "linting", "testing"}
+FEATURES = sorted(p.parent for p in (ROOT / "packages").glob("*/*.spec") if p.parent.name not in TOOLS)
+
+
+def test_a_package_builds_with_the_kit_not_with_its_neighbours():
+    wrong = [f"{path.relative_to(ROOT)}: includes ../; use $(PACKAGING)/"
+             for path in (ROOT / "packages").glob("*/Makefile") if re.search(r"^\s*-?include\s+\.\./", path.read_text(), re.M)]
+    wrong += [f"{spec.relative_to(ROOT)}: loads %{{shapebit_macros}} first"
+              for spec in (ROOT / "packages").glob("*/*.spec") if "%{load:%{shapebit_macros}}" not in spec.read_text()]
+    assert wrong == []
+
+
+def test_a_packages_files_reach_only_their_own_package():
+    """No file of a package climbs above its folder with __file__: its tests
+    find their package with package_dir(__file__), and another package with
+    sibling(NAME, __file__)."""
+    wrong = []
+    for feature in FEATURES:
+        for path in feature.rglob("*.py"):
+            depth = len(path.relative_to(feature).parts) - 1
+            for number, line in enumerate(path.read_text().splitlines(), 1):
+                for up in re.findall(r"__file__\)(?:\.resolve\(\))?\.parents\[(\d+)\]", line):
+                    if int(up) > depth:
+                        wrong.append(f"{path.relative_to(ROOT)}:{number}: climbs out of {feature.name}/")
+    assert wrong == []

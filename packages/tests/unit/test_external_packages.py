@@ -1,5 +1,5 @@
 """External packages: software that ShapeBit builds and publishes in its own
-repository (README.md), each in the feature folder that needs it, as a folder
+repository (packages/repositories/README.md), each in the feature folder that needs it, as a folder
 with its spec and a sources file. Each Source is pinned by its hash, so a build
 gets exactly what was reviewed; and the feature requires the package it holds."""
 
@@ -8,7 +8,7 @@ import re
 
 import pytest
 
-ROOT = pathlib.Path(__file__).parents[4]
+ROOT = pathlib.Path(__file__).parents[3]
 # A folder of external/ with a sources file is an external package; ShapeBit's own have none.
 PACKAGES = sorted(path.parent for path in (ROOT / "packages").glob("*/external/*/sources"))
 FEATURES = sorted(path.parent for path in (ROOT / "packages").glob("*/*.spec"))

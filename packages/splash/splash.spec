@@ -1,8 +1,8 @@
-# Splash: the boot splash, and its hand-off to the login screen. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Splash: the boot splash, and its hand-off to the login screen. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-splash
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Splash: the boot splash, and its hand-off to the login screen
 # Configuration; the watermark is the logo, under the brand's terms.

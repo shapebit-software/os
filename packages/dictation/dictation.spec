@@ -1,8 +1,8 @@
-# Dictation: speech written into the application in use. See ../package.macros.
-%{load:%{packages}/package.macros}
+# Dictation: speech written into the application in use. See packaging's package.macros.
+%{load:%{shapebit_macros}}
 
 Name:           shapebit-dictation
-Version:        %{image_version}
+Version:        %{shapebit_version}
 Release:        %{shapebit_release}
 Summary:        Dictation: speech written into the application in use
 License:        %{shapebit_program} AND %{shapebit_config}

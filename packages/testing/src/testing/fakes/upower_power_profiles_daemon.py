@@ -1,6 +1,6 @@
 """dbusmock's power profiles template, with ActiveProfileHolds of the type
 that power-profiles-daemon gives it, aa{sv}, which Quickshell's
-PowerProfiles reads (../README.md)."""
+PowerProfiles reads (development/simulator/README.md)."""
 
 import dbus
 from dbusmock.templates import upower_power_profiles_daemon as upstream
