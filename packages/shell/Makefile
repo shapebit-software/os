@@ -15,6 +15,8 @@ lint: ## Lint the shell
 install: ## Install into DESTDIR
 	# Every file of the shell's code.
 	cd src && find . -type f -exec install -Dm644 {} $(data)/shell/{} \;
+# Where features' packages put what they add (services/Features.qml).
+	install -d $(data)/shell/features
 	install -Dm644 -t $(userunit) system/shell.service
 	install -d $(userunit)/graphical-session.target.wants
 	ln -sf ../shell.service $(userunit)/graphical-session.target.wants/shell.service

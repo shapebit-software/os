@@ -59,8 +59,9 @@ PanelWindow {
     // "password", "wifi", "bluetooth", or "app".
     property string page
 
-    // Each section: { id, name, icon, rows }, rows as in SettingsRow.qml.
-    readonly property var sections: [
+    // The shell's own sections: { id, name, icon, rows }, rows as in
+    // SettingsRow.qml. Features add theirs (Features.qml).
+    readonly property var ownSections: [
         { id: "account", name: "Account", icon: "M5.2 5.6a2.8 2.8 0 1 0 5.6 0a2.8 2.8 0 1 0-5.6 0zM2.6 14.2a5.4 5.4 0 0 1 10.8 0", rows: [
             { label: "Picture", detail: "Shown on the lock screen and in the system menu", kind: "picture",
               open: () => page = "picture" },
@@ -285,8 +286,8 @@ PanelWindow {
               value: `${Math.round((Audio.input?.audio?.volume ?? 0) * 100)}%` },
         ] },
     ]
-    // The sections in the sidebar's groups.
-    readonly property var groups: [
+    // The shell's own sections in the sidebar's groups.
+    readonly property var ownGroups: [
         ["account", "assistant", "language", "time"],
         ["desktop", "shell", "notifications", "windows"],
         ["display", "pointing", "network", "sound"],
@@ -307,8 +308,8 @@ PanelWindow {
         return `${(((extra?.bytes ?? 0) + (vision?.bytes ?? 0) + 1300000000) / 1e9).toFixed(1)} GB`;
     }
 
-    // Pages that are rows, as a section's.
-    readonly property var pageRows: ({
+    // The shell's own pages that are rows, as a section's.
+    readonly property var ownPageRows: ({
         "assistant-permissions": [
             // What the assistant may do without asking; the rest asks every time.
             ...Object.keys(Assistant.groups).map(g => ({ label: Assistant.groups[g], kind: "toggle",
@@ -323,8 +324,8 @@ PanelWindow {
         ],
     })
 
-    // The pages: their title, and the section they belong to.
-    readonly property var pages: ({
+    // The shell's own pages: their title, and the section they belong to.
+    readonly property var ownPages: ({
         "assistant-models": ["Models", "assistant"],
         "assistant-skills": ["Skills and tools", "assistant"],
         "assistant-permissions": ["Permissions", "assistant"],
@@ -336,6 +337,12 @@ PanelWindow {
         "bluetooth": ["Bluetooth devices", "network"],
         "app": ["App details", "apps"],
     })
+
+    // With what features add (Features.qml).
+    readonly property var sections: Features.sections(ownSections)
+    readonly property var groups: Features.groups(ownGroups)
+    readonly property var pageRows: Features.pageRows(ownPageRows)
+    readonly property var pages: Features.pages(ownPages)
 
     readonly property string query: search.text.trim().toLowerCase()
     readonly property var section: sections.find(s => s.id === Settings.section) ?? sections[0]
@@ -850,6 +857,20 @@ PanelWindow {
                     AssistantModelsPage {
                         visible: window.page === "assistant-models"
                         width: parent.width
+                    }
+
+                    // Features' pages of their own (Features.qml).
+                    Repeater {
+                        model: Features.pageComponents
+
+                        Loader {
+                            required property var modelData
+
+                            visible: window.page === modelData.id
+                            active: visible
+                            width: parent.width
+                            sourceComponent: modelData.component
+                        }
                     }
 
                     Rectangle {

@@ -7,6 +7,7 @@
 // also picks what to share, the file chooser and the questions, which the
 // portals show, the window switcher and the list of keyboard shortcuts, and
 // Welcome.
+import QtQml
 import Quickshell
 import Quickshell.Io
 import qs.bar
@@ -157,6 +158,19 @@ ShellRoot {
         model: Quickshell.screens
 
         Welcome {}
+    }
+
+    // What features show on every screen (Features.qml): each surface, made for
+    // each screen.
+    Instantiator {
+        model: Features.surfaces
+
+        delegate: Variants {
+            required property Component modelData
+
+            model: Quickshell.screens
+            delegate: modelData
+        }
     }
 
     // qs ipc call shell reload: reads every file again, also the modules it

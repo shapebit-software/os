@@ -53,6 +53,12 @@ Singleton {
         }
         if (Lock.locked || !screen)
             return;
+        // A shortcut that a feature answers (Features.qml), on the focused screen.
+        const feature = Features.shortcuts[name];
+        if (feature) {
+            feature(focused);
+            return;
+        }
         switch (name) {
         case "apps":
             Shell.request("apps", focused);
