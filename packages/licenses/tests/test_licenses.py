@@ -111,7 +111,7 @@ def shapebits(sh):
 # The texts of ShapeBit's own licenses, by SPDX ID (packaging's package.macros).
 OWN = {"GPL-3.0-or-later": "LICENSE-GPL-3.0-or-later.txt", "LGPL-3.0-or-later": "LICENSE-LGPL-3.0-or-later.txt",
        "MIT": "LICENSE-MIT.txt", "CC-BY-SA-4.0": "LICENSE-CC-BY-SA-4.0.txt",
-       "LicenseRef-ShapeBit-Brand": "LICENSE-ShapeBit-Brand.txt"}
+       "LicenseRef-Brand": "LICENSE-Brand.txt"}
 
 
 def test_every_own_package_carries_its_licenses(sh, shapebits):
@@ -128,10 +128,10 @@ def test_every_own_package_carries_its_licenses(sh, shapebits):
 
 
 def test_brand_artwork_comes_with_the_brands_terms(sh):
-    # No open license covers the logo (LICENSES/LicenseRef-ShapeBit-Brand.txt);
+    # No open license covers the logo (LICENSES/LicenseRef-Brand.txt);
     # the boot splash's watermark is the logo. The installer is only on the medium.
-    assert "/usr/share/licenses/shapebit/LICENSE-ShapeBit-Brand.txt" in sh("rpm -qL shapebit-splash").split()
-    assert "LicenseRef-ShapeBit-Brand" in sh("rpm -q --qf '%{LICENSE}' shapebit-splash")
+    assert "/usr/share/licenses/shapebit/LICENSE-Brand.txt" in sh("rpm -qL shapebit-splash").split()
+    assert "LicenseRef-Brand" in sh("rpm -q --qf '%{LICENSE}' shapebit-splash")
 
 
 def test_every_installed_package_has_its_license_text(sh, shapebits):

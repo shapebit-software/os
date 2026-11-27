@@ -116,7 +116,7 @@ kind of file; [REUSE.toml](REUSE.toml) says which file is under which, and
 | Code that other programs embed, such as the QML module Colors | LGPL-3.0-or-later |
 | Configuration and snippets that people copy: `system/` folders, the compositor's configuration, the boot splash's theme, keys, the assistant's built-in skills | MIT |
 | Documentation (`guidebook/`, READMEs) and artwork | CC-BY-SA-4.0 |
-| Brand artwork: the logo and wordmark | [LicenseRef-ShapeBit-Brand](LICENSES/LicenseRef-ShapeBit-Brand.txt), no open license |
+| Brand artwork: the logo and wordmark | [LicenseRef-Brand](LICENSES/LicenseRef-Brand.txt), no open license |
 
 A new file of another kind gets an annotation in REUSE.toml; `make validate`
 runs `reuse lint`, and each package's `License` must name the licenses of the

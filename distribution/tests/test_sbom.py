@@ -79,7 +79,7 @@ def test_spdx_adds_shapebit_and_what_rpms_bundle():
     by_name = {p["name"]: p for p in doc["packages"]}
     assert by_name["ShapeBit OS"]["versionInfo"] == "202611160900"
     assert by_name["ShapeBit OS"]["downloadLocation"].endswith("@abc123")
-    assert by_name["ShapeBit OS"]["licenseDeclared"] == "GPL-3.0-or-later AND LGPL-3.0-or-later AND MIT AND LicenseRef-ShapeBit-Brand"
+    assert by_name["ShapeBit OS"]["licenseDeclared"] == "GPL-3.0-or-later AND LGPL-3.0-or-later AND MIT AND LicenseRef-Brand"
     assert related(doc, "CONTAINS", "SPDXRef-Root") == {"ShapeBit OS"}
     assert related(doc, "CONTAINS", sbom.spdx_id("Package-rpm", "python3-sherpa-onnx")) == {"utf8proc", "kissfft"}
     assert related(doc, "CONTAINS", sbom.spdx_id("Package-rpm", "bootc")) == {"crate(serde)"}
@@ -97,11 +97,11 @@ def test_spdx_models_are_optional_components_with_their_licenses():
 def test_spdx_defines_the_brands_license_once_with_its_text():
     # syft may define it from the RPMs' License tags, with no real text.
     doc = spdx_scan()
-    doc["hasExtractedLicensingInfos"] = [{"licenseId": "LicenseRef-ShapeBit-Brand", "extractedText": "ShapeBit-Brand"},
+    doc["hasExtractedLicensingInfos"] = [{"licenseId": "LicenseRef-Brand", "extractedText": "Brand"},
                                          {"licenseId": "LicenseRef-Other", "extractedText": "other"}]
     infos = sbom.to_spdx(doc, ITEMS, sbom.installed(PROVIDES), "The brand's terms.")["hasExtractedLicensingInfos"]
     assert [(i["licenseId"], i["extractedText"]) for i in infos] == [
-        ("LicenseRef-Other", "other"), ("LicenseRef-ShapeBit-Brand", "The brand's terms.")]
+        ("LicenseRef-Other", "other"), ("LicenseRef-Brand", "The brand's terms.")]
 
 
 def test_spdx_identifiers_are_unique_and_valid():

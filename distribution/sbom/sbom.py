@@ -30,8 +30,8 @@ FILE = "sbom.spdx.json"
 # ShapeBit's own licenses in the image, by kind of file (REUSE.toml): programs,
 # the QML module Colors, configuration, and the brand artwork, in the installer
 # and the boot splash, under the terms the image ships as BRAND_FILE.
-BRAND = "LicenseRef-ShapeBit-Brand"
-BRAND_FILE = "/usr/share/licenses/shapebit/LICENSE-ShapeBit-Brand.txt"
+BRAND = "LicenseRef-Brand"
+BRAND_FILE = "/usr/share/licenses/shapebit/LICENSE-Brand.txt"
 SHAPEBIT_LICENSE = f"GPL-3.0-or-later AND LGPL-3.0-or-later AND MIT AND {BRAND}"
 REPOSITORY = "https://github.com/shapebit-software/os"
 SYFT_IMAGE = "docker.io/anchore/syft:v1.18.1@sha256:b8c170b8e51bfc4779ec3ef4399942c57290f5ce76a9c3af564c9d00d4946a6b"

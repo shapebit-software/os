@@ -21,7 +21,7 @@
 %shapebit_library   LGPL-3.0-or-later
 %shapebit_config    MIT
 %shapebit_artwork   CC-BY-SA-4.0
-%shapebit_brand     LicenseRef-ShapeBit-Brand
+%shapebit_brand     LicenseRef-Brand
 %shapebit_url       https://github.com/shapebit-software/os
 # Marks ShapeBit's own packages, whose sources are this repository
 # (distribution/sources/sources.py leaves them out).
@@ -35,21 +35,23 @@
 %_buildhost                         shapebit
 
 # The texts of ShapeBit's licenses that the package's License names, from
-# shapebit_licenses: each is one file, such as
-# /usr/share/licenses/shapebit/LICENSE-MIT.txt, which rpm lets every package
-# that names it own, so that Settings > Licenses lists it once. Appends them to
-# the file list; a package of others' work (font) names none.
+# shapebit_licenses (the repository's LICENSES/, named <id>.txt): each is one
+# file, such as /usr/share/licenses/shapebit/LICENSE-MIT.txt, which rpm lets
+# every package that names it own, so that Settings > Licenses lists it once.
+# Appends them to the file list; a package of others' work (font) names none.
 %shapebit_license_install %{lua: \
 local data = rpm.expand("%{shapebit_licenses}/") \
 local share = rpm.expand("%{buildroot}/usr/share/licenses/shapebit/") \
+local own = {} \
+for _, kind in ipairs({"program", "library", "config", "artwork", "brand"}) do own[rpm.expand("%{shapebit_" .. kind .. "}")] = true end \
 local seen = {} \
 local nl = string.char(10) \
 for id in rpm.expand("%{?license}"):gmatch("[%w.+-]+") do \
   local name = "LICENSE-" .. (id:gsub("^LicenseRef%-", "")) .. ".txt" \
-  if not seen[name] and posix.access(data .. name) then \
+  if own[id] and not seen[name] then \
     if next(seen) == nil then print("echo '%dir /usr/share/licenses/shapebit' >>files" .. nl) end \
     seen[name] = true \
-    print("install -Dm644 " .. data .. name .. " " .. share .. name .. nl) \
+    print("install -Dm644 " .. data .. id .. ".txt " .. share .. name .. nl) \
     print("echo '%license /usr/share/licenses/shapebit/" .. name .. "' >>files" .. nl) \
   end \
 end}

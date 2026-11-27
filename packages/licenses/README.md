@@ -13,8 +13,8 @@ those of the files it installs, with the macros of
 [packaging](../packaging/README.md)'s package.macros, such as `%{shapebit_config}`, and
 `%shapebit_install` installs the text of each from packaging's `data/licenses/`, as
 `/usr/share/licenses/shapebit/LICENSE-<license>.txt`: the same file for every
-package that names it. These texts are copies of [LICENSES](../../LICENSES),
-which [packaging's test_licenses.py](../packaging/tests/test_licenses.py) keeps the same. The texts of
+package that names it. The repository's [LICENSES](../../LICENSES) is a link to
+that folder, so there is one copy of each text. The texts of
 the extras are part of the system, so they are there before a model is
 downloaded.
 

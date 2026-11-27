@@ -1,5 +1,6 @@
 # The license of every file in this repository, in the REUSE format
-# (https://reuse.software): the texts are in LICENSES/, and `make validate`
+# (https://reuse.software): the texts are in LICENSES/, a link to
+# packages/packaging/data/licenses, and `make validate`
 # checks with `reuse lint` that every file has one. When several annotations
 # match a file, the last one counts, so the default comes first.
 #
@@ -49,7 +50,7 @@ SPDX-License-Identifier = "MIT"
 [[annotations]]
 path = ["packages/splash/data/watermark.png", "packages/installer/src/ui/images/*.png"]
 SPDX-FileCopyrightText = "Marcin Syngajewski"
-SPDX-License-Identifier = "LicenseRef-ShapeBit-Brand"
+SPDX-License-Identifier = "LicenseRef-Brand"
 
 # Others' work.
 [[annotations]]

@@ -34,12 +34,13 @@ def rpm():
 
 
 def test_lists_the_installed_files_and_each_license_once(rpm, tmp_path):
-    files = install("release", tmp_path / "root", tmp_path, "GPL-3.0-or-later AND MIT AND LicenseRef-ShapeBit-Brand")
+    files = install("release", tmp_path / "root", tmp_path, "GPL-3.0-or-later AND MIT AND LicenseRef-Brand")
     assert "/usr/lib/os-release" in files
-    for name in ("LICENSE-GPL-3.0-or-later.txt", "LICENSE-MIT.txt", "LICENSE-ShapeBit-Brand.txt"):
+    for ident, name in (("GPL-3.0-or-later", "LICENSE-GPL-3.0-or-later.txt"), ("MIT", "LICENSE-MIT.txt"),
+                        ("LicenseRef-Brand", "LICENSE-Brand.txt")):
         assert files.count(f"%license /usr/share/licenses/shapebit/{name}") == 1
         assert (tmp_path / "root/usr/share/licenses/shapebit" / name).read_bytes() == \
-            (LICENSES / name).read_bytes()
+            (LICENSES / f"{ident}.txt").read_bytes()
     assert not [f for f in files if f.startswith("/usr/share/licenses/")]
     assert files.count("%dir /usr/share/licenses/shapebit") == 1
 

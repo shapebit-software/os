@@ -70,6 +70,6 @@ copyrighted and are not covered by any of ShapeBit's open licenses.
 You may pass them on only unmodified, inside an unmodified copy of ShapeBit OS
 or its installer; a modified version must remove or replace them and must not
 be called ShapeBit. Settings > Licenses shows these terms beside ShapeBit's
-licenses, as `LICENSE-ShapeBit-Brand.txt`. The ShapeBit name and logo may also be protected under applicable
+licenses, as `LICENSE-Brand.txt`. The ShapeBit name and logo may also be protected under applicable
 trademark law. No trademark rights are granted by the software or
 documentation licenses.
