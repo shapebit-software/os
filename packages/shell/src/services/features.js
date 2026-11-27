@@ -3,9 +3,31 @@
 // Settings' sections, its sidebar's groups, its pages, and the keyboard
 // shortcuts. Pure, so that tst_features.qml checks it.
 
-// The shell's sections, then each feature's.
+// The rows that features add to sections and pages not theirs: {id: rows}.
+function rows(features) {
+    const result = {};
+    for (const feature of features) {
+        for (const [id, added] of Object.entries(feature.rows ?? {}))
+            result[id] = (result[id] ?? []).concat(added);
+    }
+    return result;
+}
+
+// Those of `list`, {id: rows} or [{id, rows}], with the rows features add to
+// each, after its own.
+function withRows(list, added) {
+    const add = (id, own) => added[id] ? (own ?? []).concat(added[id]) : own;
+    if (Array.isArray(list))
+        return list.map(s => added[s.id] ? Object.assign({}, s, { rows: add(s.id, s.rows) }) : s);
+    const result = {};
+    for (const [id, own] of Object.entries(list))
+        result[id] = add(id, own);
+    return result;
+}
+
+// The shell's sections, then each feature's, with the rows features add.
 function sections(own, features) {
-    return own.concat(...features.map(f => f.sections ?? []));
+    return withRows(own.concat(...features.map(f => f.sections ?? [])), rows(features));
 }
 
 // The sidebar's groups, with each feature's sections in theirs: in group
@@ -42,7 +64,7 @@ function pageRows(own, features) {
                 result[id] = page.rows;
         }
     }
-    return result;
+    return withRows(result, rows(features));
 }
 
 // The pages of their own, which Settings loads: [{id, component}].

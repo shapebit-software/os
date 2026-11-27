@@ -36,7 +36,7 @@ PanelWindow {
     // Whether the models unfold, to choose another.
     property bool choosing
     readonly property bool docked: Logic.reserves(Assistant.view, narrow)
-    readonly property int wide: Logic.width(Settings.assistantWidth, modelData?.width ?? 0)
+    readonly property int wide: Logic.width(AssistantSettings.width, modelData?.width ?? 0)
     // A tile's corners and edge, as the compositor draws the windows'
     // (Compositor.setDecoration).
     readonly property int tileRadius: Settings.windowCorners === "Rounded" ? 9 : Settings.windowDecoration === "Soft" ? 4 : 0
@@ -553,7 +553,7 @@ PanelWindow {
                 yAxis.enabled: false
                 onCentroidChanged: {
                     if (active)
-                        Settings.assistantWidth = Logic.width(dock.width - centroid.scenePosition.x - Theme.gap, dock.modelData.width);
+                        AssistantSettings.width = Logic.width(dock.width - centroid.scenePosition.x - Theme.gap, dock.modelData.width);
                 }
             }
         }

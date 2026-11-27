@@ -26,6 +26,10 @@ TestCase {
         sections: [{ id: "capture", rows: [] }],
         shortcuts: { "screenshot": () => "capture", "super-up": () => "capture" },
         actions: [{ name: "capture", icon: "M2 2" }],
+        rows: { network: [{ label: "Capture" }], "assistant-permissions": [{ label: "Screen" }] },
+    })
+    readonly property var dictation: ({
+        rows: { network: [{ label: "Dictation" }], nowhere: [{ label: "Lost" }] },
     })
 
     function test_without_features_the_shell_is_its_own() {
@@ -77,5 +81,14 @@ TestCase {
     function test_a_feature_does_for_others_what_it_provides() {
         compare(Merge.provided([capture, assistant], "tidy")("words"), "tidied words");
         compare(Merge.provided([capture], "tidy"), null);
+    }
+
+    function test_features_add_rows_to_others_sections_and_pages_after_theirs() {
+        const own = [{ id: "account", rows: [] }, { id: "network", rows: [{ label: "Wi-Fi" }] }];
+        const sections = Merge.sections(own, [capture, dictation]);
+        compare(sections[1].rows.map(r => r.label), ["Wi-Fi", "Capture", "Dictation"]);
+        compare(own[1].rows.length, 1);
+        compare(Merge.pageRows({}, [assistant, capture])["assistant-permissions"].map(r => r.label), ["Web", "Screen"]);
+        compare(Object.keys(Merge.pageRows({}, [dictation])), []);
     }
 }

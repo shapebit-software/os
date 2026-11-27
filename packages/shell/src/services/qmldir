@@ -27,6 +27,7 @@ singleton Pointer Pointer.qml
 singleton Portal Portal.qml
 singleton Question Question.qml
 singleton Settings Settings.qml
+SettingsFile SettingsFile.qml
 singleton SetupReminder SetupReminder.qml
 singleton SharePicker SharePicker.qml
 singleton Shell Shell.qml

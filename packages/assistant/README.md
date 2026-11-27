@@ -9,7 +9,8 @@ Its user interface is its own QML, the module `qs.assistant`
 voice pill, its button, and Settings > Assistant with its pages. The package
 installs it in the shell's folder, with [feature.qml](src/feature.qml), which
 says what it adds to the shell ([Features](../shell/src/services/Feature.qml)):
-the shell names no assistant. `make lint` checks its QML against the shell's
+the shell names no assistant. Its settings in the desktop are kept in
+`~/.config/desktop/assistant.json`. `make lint` checks its QML against the shell's
 modules.
 
 One service ([assistant](src/assistant), `assistant.socket`) serves the whole

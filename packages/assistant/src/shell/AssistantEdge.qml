@@ -15,7 +15,7 @@ PanelWindow {
     required property ShellScreen modelData
 
     screen: modelData
-    visible: Settings.assistantEdge && Assistant.panelOn === "" && !Lock.locked
+    visible: AssistantSettings.edge && Assistant.panelOn === "" && !Lock.locked
         && Settings.systemBar !== "Right" && Settings.dock !== "Right"
     color: "transparent"
     // The middle third of the edge: anchored at the right only, it is

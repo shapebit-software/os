@@ -42,7 +42,7 @@ Feature {
               options: ["After sign-in", "When used"], selected: Assistant.loading === "used" ? "When used" : "After sign-in",
               select: o => Assistant.setLoading(o === "When used" ? "used" : "ready") }] : []),
             { label: "Sound when it hears you", detail: "A soft sound as soon as it takes what you said, before the answer comes",
-              kind: "toggle", on: Settings.assistantSounds, toggle: () => Settings.assistantSounds = !Settings.assistantSounds },
+              kind: "toggle", on: AssistantSettings.sounds, toggle: () => AssistantSettings.sounds = !AssistantSettings.sounds },
             ...(Dictation.available ? [{ label: "Load the speech model", kind: "choice",
               detail: Settings.speechModel === "ready"
                   ? "For dictation and voice: shortly after sign-in, to hear at once; it keeps about 1.1 GB of memory in use"
@@ -61,9 +61,9 @@ Feature {
               value: `${Assistant.grants.length} of ${Object.keys(Assistant.groups).length} allowed`,
               open: () => Features.openPage("assistant-permissions") },
             { label: "Panel beside the windows", detail: "The assistant's panel takes its own room at the right, and windows retile beside it",
-              kind: "toggle", on: Settings.assistantDocked, toggle: () => Settings.assistantDocked = !Settings.assistantDocked },
+              kind: "toggle", on: AssistantSettings.docked, toggle: () => AssistantSettings.docked = !AssistantSettings.docked },
             { label: "Right edge opens the panel", detail: "Push the pointer against the middle of the screen's right edge",
-              kind: "toggle", on: Settings.assistantEdge, toggle: () => Settings.assistantEdge = !Settings.assistantEdge },
+              kind: "toggle", on: AssistantSettings.edge, toggle: () => AssistantSettings.edge = !AssistantSettings.edge },
         ] }
     ]
     pages: ({

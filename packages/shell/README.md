@@ -107,11 +107,14 @@ Development tools are in [`development/`](../../development/README.md).
 
 **Features add to the shell.** A feature's package installs its QML as the
 module `qs.FEATURE` in the shell's folder, and `features/FEATURE.qml`, a
-[Feature](src/services/Feature.qml): its Settings sections and pages, its
-items for the bars, its panels, what it shows on every screen, its quick
-actions for the hot corner, its keyboard shortcuts, and what it does for other
-features. [Features.qml](src/services/Features.qml) loads them, so the shell
-names no feature; the assistant is the first
+[Feature](src/services/Feature.qml): its Settings sections and pages, rows
+for the shell's sections and pages, its items for the bars, its panels, what
+it shows on every screen, its quick actions for the hot corner, its keyboard
+shortcuts, and what it does for other features. It keeps its settings in its
+own `~/.config/desktop/FEATURE.json`, through
+[SettingsFile](src/services/SettingsFile.qml), as the shell keeps its own.
+[Features.qml](src/services/Features.qml) loads them, so the shell names no
+feature; the assistant is the first
 ([packages/assistant](../assistant/README.md)). openQA checks that the shell
 logs no QML errors.
 ## Not yet implemented

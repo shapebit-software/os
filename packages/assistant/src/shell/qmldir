@@ -1,5 +1,6 @@
 module qs.assistant
 singleton Assistant Assistant.qml
+singleton AssistantSettings AssistantSettings.qml
 AssistantBarButton AssistantBarButton.qml
 AssistantBubbles AssistantBubbles.qml
 AssistantButton AssistantButton.qml

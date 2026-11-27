@@ -61,8 +61,6 @@ Singleton {
     // little after sign-in, kept; or "used", with the first recording, and
     // freed after speechModelMinutes unused (dictation/src/dictate-engine reads both).
     property alias speechModel: adapter.speechModel
-    // Whether a soft sound says a spoken request was taken (Assistant.qml).
-    property alias assistantSounds: adapter.assistantSounds
     property alias speechModelMinutes: adapter.speechModelMinutes
     // Whether an application may share what was picked again without asking.
     property alias shareRemember: adapter.shareRemember
@@ -100,13 +98,6 @@ Singleton {
     // How the quick actions (the assistant, capture, and dictation) open:
     // "Buttons" on the bars, or "Hot corner".
     property alias quickActions: adapter.quickActions
-    // The assistant (Assistant.qml): the way it was last opened, "bubbles" or
-    // "panel"; whether its panel is docked beside the windows, and how wide,
-    // in pixels; and whether the right edge of the screen opens the panel.
-    property alias assistantLast: adapter.assistantLast
-    property alias assistantDocked: adapter.assistantDocked
-    property alias assistantWidth: adapter.assistantWidth
-    property alias assistantEdge: adapter.assistantEdge
     // When to lock after the computer has been idle: "1 min", "5 min", or
     // "Never"; lockAfter is that in seconds, 0 for never.
     property alias autolock: adapter.autolock
@@ -203,16 +194,8 @@ Singleton {
         }
     }
 
-    // The first save needs the directory.
-    Component.onCompleted: Quickshell.execDetached(["mkdir", "-p", directory])
-
-    FileView {
-        path: settings.directory + "/settings.json"
-        blockLoading: true
-        // Edits to the file take effect at once, and changes here are saved.
-        watchChanges: true
-        onFileChanged: reload()
-        onAdapterUpdated: writeAdapter()
+    SettingsFile {
+        name: "settings"
         onLoaded: {
             settings.apply();
             settings.welcomeFirstTime();
@@ -243,10 +226,6 @@ Singleton {
             property list<string> hiddenItems: []
             property list<string> halfItems: ["capture", "dictation"]
             property string quickActions: "Buttons"
-            property string assistantLast: "bubbles"
-            property bool assistantDocked: false
-            property int assistantWidth: 340
-            property bool assistantEdge: true
             property string batteryPercentage: "Shown"
             property string trayIcons: "Side by side"
             property bool doNotDisturb: false
@@ -275,7 +254,6 @@ Singleton {
             property bool captureSkipSilence: false
             property bool dictationSounds: false
             property string speechModel: "used"
-            property bool assistantSounds: true
             property int speechModelMinutes: 10
             property bool shareRemember: false
             property bool welcomed: false

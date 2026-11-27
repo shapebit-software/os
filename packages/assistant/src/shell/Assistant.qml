@@ -102,7 +102,7 @@ Singleton {
     property bool peekHovered
     // What is open, as assistant.js holds it.
     readonly property var view: Logic.view(panelOn !== "" ? "panel" : Shell.panel === "assistant" ? "bubbles" : "",
-        Settings.assistantDocked, panelFocused, Settings.assistantLast)
+        AssistantSettings.docked, panelFocused, AssistantSettings.last)
 
     // The Super key, "idle", "pressed", or "listening" (assistant.js), and
     // the voice: "" , "listening", or "writing", with the microphone's
@@ -207,8 +207,8 @@ Singleton {
     // Shows a view on a screen; `show` opens the bubbles, by default as the
     // assistant's button would.
     function apply(next: var, screen: string, show: var) {
-        Settings.assistantDocked = next.docked;
-        Settings.assistantLast = next.last;
+        AssistantSettings.docked = next.docked;
+        AssistantSettings.last = next.last;
         panelFocused = next.open === "panel" && next.focused;
         note = null;
         if (next.open === "panel") {
@@ -220,7 +220,7 @@ Singleton {
         panelOn = "";
         listing = false;
         if (next.open === "bubbles") {
-            Settings.assistantLast = "bubbles";
+            AssistantSettings.last = "bubbles";
             if (!Shell.isOpen("assistant", screen)) {
                 if (show)
                     show();
@@ -300,7 +300,7 @@ Singleton {
         const screen = pillAt?.screen ?? Shortcuts.focused;
         note = null;
         pillAt = null;
-        Settings.assistantLast = "bubbles";
+        AssistantSettings.last = "bubbles";
         tap(screen, null);
     }
 
@@ -465,7 +465,7 @@ Singleton {
     // its loudness.
     // In voice mode, it does not hear the sound, as it does not hear itself.
     function gotIt() {
-        if (!Settings.assistantSounds)
+        if (!AssistantSettings.sounds)
             return;
         Quickshell.execDetached(["pw-play", "--volume", "0.5", "/usr/share/sounds/freedesktop/stereo/message.oga"]);
         if (conversing && listener.running) {

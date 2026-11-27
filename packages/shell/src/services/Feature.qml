@@ -13,6 +13,9 @@ QtObject {
     // Settings' pages: { id: { title, section, rows } }, or a page of its own,
     // { id: { title, section, component } }.
     property var pages: ({})
+    // Rows it adds to the shell's sections and pages, or another feature's,
+    // after their own: { id: [rows] }, rows as a section's.
+    property var rows: ({})
     // What it shows on every screen: each a window, made for each screen as
     // Variants makes them (modelData, the screen).
     property list<Component> surfaces
