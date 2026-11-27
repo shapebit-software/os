@@ -20,7 +20,7 @@
 - Dependencies follow the pipeline.
 - External packages live in the feature that needs them.
 - Verify with unit tests.
-- Tests go in `tests/<level>/` beside their code: unit, integration, system, e2e (packages/testing/README.md).
+- Tests go in `tests/` beside their code; markers say the level: none (unit), `integration`, `system_*`; openQA in `tests/e2e/` (packages/testing/README.md).
 - Every package builds and tests on its own: `$(PACKAGING)`, never `../`; tests use `package_dir`/`sibling` (packages/README.md).
 - Prefer built-in tools.
 - Workflows only call commands.

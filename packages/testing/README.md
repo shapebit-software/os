@@ -1,60 +1,54 @@
 # Testing
 
 How ShapeBit is tested, and the tests' own tools. Every test sits in the
-`tests/` of the code it tests, in the folder of its level; this package holds
-what the tests share, and every tool they run with. Only the development image
-has it; no OS image does.
+`tests/` of the code it tests, which its package arranges as it likes; its
+markers say its level. This package holds what the tests share, and, as its
+spec's Requires, every tool they run with. Only the development image has it;
+no OS image does.
 
 ## Levels
 
-| Level | What it tests | Where | Command |
+| Level | What it tests | How a test says it | Command |
 | --- | --- | --- | --- |
-| unit | A function or a class, in the test's own process | `tests/unit/`; Rust's inline, `#[cfg(test)]` | `make test-unit` |
-| integration | A program whole, on this computer, against made-up services | `tests/integration/` | `make test-integration` |
-| system | The built OS on a machine: the image, the medium, the installed system, an update | `tests/system/` | `make test-system`, `test-system-image`, `test-system-installer`, `test-system-update` |
-| e2e | What a person does, through the screen, from installing on (openQA) | `tests/e2e/` | `make test-e2e` |
+| unit | A function or a class, in the test's own process | no marker; Rust's inline `#[cfg(test)]`; CTest's label `unit`; a QML test (`tst_*.qml`) | `make test-unit` |
+| integration | A program whole, on this computer, against made-up services | `pytestmark = pytest.mark.integration`; CTest's label `integration` | `make test-integration` |
+| system | The built OS on a machine: the image, the medium, the installed system, an update | one of `system_installed`, `system_image`, `system_installer`, `system_update` | `make test-system`, `test-system-image`, `test-system-installer`, `test-system-update` |
+| e2e | What a person does, through the screen, from installing on (openQA) | in `tests/e2e/`, which openQA reads | `make test-e2e` |
 
 `make test` runs the unit and integration tests, and `make check` lint and
 validation too ([linting](../linting/README.md)): all that needs no image, at
-every push. Every command takes `PACKAGE=`, and each
-run leaves `build/results/<time>-<name>/`, with JUnit's `junit.xml`.
+every push. Every command takes `PACKAGE=`, and each run leaves
+`build/results/<time>-<name>/`, with JUnit's `junit.xml`. In a package's own
+folder, `make test-unit` and `make test-integration` run its tests alone.
 
 A bug becomes a test at the first level that can catch it. A test that a level
 refuses belongs at the next one.
 
 ## Layout
 
-```
-packages/<feature>/tests/
-├── conftest.py      optional: fixtures that the feature's levels share
-├── unit/            test_*.py; tst_*.qml (QML), tst_*.cpp (CTest)
-├── integration/     test_*.py; tst_* (CTest)
-├── system/          test_*.py, each with one system_* marker
-└── e2e/             openQA modules (*.py), and needles/
-```
-
-`image/`, `distribution/`, `development/`, `.github/`, and `packages/`
-itself, for the build code they share, have a `tests/` of the same layout.
-A level folder may have a `data/` folder and a `conftest.py`.
-[test_layout.py](tests/unit/test_layout.py) fails on a test anywhere else.
+A package's `tests/` holds `test_*.py` (pytest), `tst_*` (Qt: CTest's, and the
+QML tests that the plugin runs), `conftest.py`, `CMakeLists.txt`, and `data/`
+folders, in whatever folders it likes; and `e2e/`, its openQA modules and
+needles. `image/`, `distribution/`, `development/`, and `.github/` have one too.
+[test_layout.py](tests/test_layout.py) fails on a test anywhere else.
 
 ## Rules
 
 The plugin ([plugin.py](src/testing/plugin.py)), which the root
-[pytest.ini](../../pytest.ini) loads, reads a test's level from its folder and
-holds it to it:
+[pytest.ini](../../pytest.ini) loads, or an installed shapebit-testing by its
+entry point, reads a test's level from its markers and holds it to it:
 
-- **unit**: no network socket, no subprocess, one second a test. A test that
-  needs more is an integration test.
+- **unit**: no network socket, no subprocess, one second a test; a test that
+  needs more fails, saying to mark it `integration`. The plugin marks unit
+  tests `unit`, so that `-m unit` selects them.
 - **integration**: a minute a test.
-- **system**: exactly one marker, which says the machine: `system_installed`,
-  `system_image`, `system_installer`, or `system_update`. No other level has
-  one.
+- **system**: exactly one `system_*` marker, which says the machine.
+- No test has two levels.
 - **In CI**, a test that a `skipif` skips fails instead: a missing tool must
   not pass for a passing test.
 
-Tests import by file, so the levels of one feature may have tests of the same
-name. Integration tests are Python, whatever language the program is.
+Tests import by file, so tests of different packages may share a name.
+Integration tests are Python, whatever language the program is.
 
 | File | What it is |
 | --- | --- |
@@ -84,10 +78,10 @@ test. The engine, which runs the update registry, is the host's.
 - **Reboots.** A test that reboots calls `machine.reboot()`, which waits for a
   new boot; the tests after it see the machine as it came back.
 - **Updates.** `make test-system-update` moves a clone to `NEXT_ARCHIVE`'s
-  build ([test_to_next.py](../updates/tests/system/test_to_next.py), marked
+  build ([test_to_next.py](../updates/tests/test_to_next.py), marked
   `system_update(when="before")`), runs the installed system's tests on it,
   then moves it to `NEXT2_ARCHIVE`'s and rolls back
-  ([test_rollback.py](../updates/tests/system/test_rollback.py),
+  ([test_rollback.py](../updates/tests/test_rollback.py),
   `when="after"`). A test marked `system_installed(update=False)` stays out,
   such as the reboots that the update test does enough of. Both builds are the
   image under test as other versions
@@ -96,7 +90,7 @@ test. The engine, which runs the update registry, is the host's.
 - **The medium.** `make disk` runs the `system_installer` tests on the booted
   medium before it installs, and `make test-system-installer` runs only them.
 - **The recovery key** stays on the host, and reaches the machine over
-  standard input ([test_recovery_key.py](../boot/tests/system/test_recovery_key.py)).
+  standard input ([test_recovery_key.py](../boot/tests/test_recovery_key.py)).
 - **After each run**, the journal, the failed units, `bootc status`, and the
   serial console are kept with the results.
 

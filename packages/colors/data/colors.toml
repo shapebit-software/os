@@ -3,7 +3,7 @@
 # module Colors (/usr/lib64/qt6/qml/Colors), whose values packages/colors/tools/colors.py
 # generates from this file; and the portal, which hands the accent to
 # applications. What cannot read it keeps a copy that names the color here,
-# which packages/colors/tests/unit/test_colors.py checks: the boot splash (Plymouth), the
+# which packages/colors/tests/test_colors.py checks: the boot splash (Plymouth), the
 # console's colors (kargs.d), and the compositor.
 #
 # A color is hex, "#rrggbb", or OKLCH, { oklch = [lightness, chroma, hue] }:

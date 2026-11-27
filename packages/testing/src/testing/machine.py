@@ -532,7 +532,7 @@ def test_installer(machine, medium):
     """Runs the system_installer tests on machine, which booted medium; whether
     they passed."""
     return subprocess.run([sys.executable, "-m", "pytest", "-c", ROOT / "pytest.ini", "-p", "testing.system",
-                           f"--rootdir={ROOT}", "-m", "system_installer", *sorted(ROOT.glob("packages/*/tests/system")),
+                           f"--rootdir={ROOT}", "-m", "system_installer", *sorted(ROOT.glob("packages/*/tests")),
                            f"--machine=ssh://127.0.0.1:{machine.port}", "--run=installer"],
                           env=os.environ | {"IMAGE_DIGEST": recorded(medium, "image_digest")}).returncode == 0
 

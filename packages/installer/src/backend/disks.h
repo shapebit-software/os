@@ -27,7 +27,7 @@ inline constexpr qint64 minimumDiskSize = 16LL * 1024 * 1024 * 1024;
 // extras (packages/extras), such as the assistant's and dictation's models,
 // which need about 8 GB as they install, those added later, the journal, and
 // caches
-// (packages/extras/tests/integration/test_extra.py checks that the extras fit).
+// (packages/extras/tests/test_extra.py checks that the extras fit).
 inline constexpr qint64 steadyRoom = 24LL * 1024 * 1024 * 1024;
 
 // The reserve that the homes leave free on a file system of total bytes whose

@@ -2,7 +2,7 @@
 """Write the values of the QML module Colors (ColorValues.qml) from the
 system's colors, packages/colors/data/colors.toml, which is where to
 change them. The generated file is committed, so the image's tree stays the
-installed system; packages/colors/tests/unit/test_colors.py fails when it is out of date.
+installed system; packages/colors/tests/test_colors.py fails when it is out of date.
 
 Usage: colors.py           (called by `make colors`)
        colors.py --check   exit 1 if ColorValues.qml is out of date

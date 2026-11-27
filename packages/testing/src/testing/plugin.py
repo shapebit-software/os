@@ -1,17 +1,18 @@
-"""The pytest plugin of every test (the root pytest.ini loads it): the folder
-a test is in, tests/LEVEL/, says its level, and the plugin holds it to it.
+"""The pytest plugin of every test (the root pytest.ini loads it; installed,
+its entry point): a test's markers say its level, and the plugin holds it to
+it. A package arranges its tests/ as it likes.
 
-- unit: no network socket, no subprocess, and testing_unit_timeout seconds
-  per test, so that a unit test needs nothing but its process;
-- integration: testing_integration_timeout seconds per test;
-- system: exactly one system_* marker, which says the machine it runs on;
-  no test of another level carries one.
+- unit, a test with no level's marker: no network socket, no subprocess, and
+  testing_unit_timeout seconds per test, so that it needs nothing but its
+  process;
+- integration (pytest.mark.integration): testing_integration_timeout seconds
+  per test;
+- system: exactly one system_* marker, which says the machine it runs on.
 
-A QML test, tests/unit/tst_*.qml, is collected too: qmltestrunner runs it.
-
-testing_layout = warn reports a test outside tests/LEVEL/; strict fails it.
-With CI set, a test that a skipif marker skips fails instead: in CI, a missing
-tool must not pass for a passing test."""
+No test has two levels. The plugin marks a unit test `unit`, so that
+`-m unit` selects them. A QML test, tst_*.qml anywhere in tests/, is a unit
+test, which qmltestrunner runs. With CI set, a test that a skipif marker skips
+fails instead: in CI, a missing tool must not pass for a passing test."""
 
 import os
 import shutil
@@ -19,31 +20,35 @@ import signal
 import socket
 import subprocess
 import tempfile
-import warnings
 
 import pytest
 
-LEVELS = ("unit", "integration", "system", "e2e")
+from testing import package_dir
+
 SYSTEM = ("system_installed", "system_image", "system_installer", "system_update")
 
 
-def level(path):
-    """The level of the test at path: the folder after its last tests/, or None."""
-    parts = path.parts
-    for index in range(len(parts) - 2, -1, -1):
-        if parts[index] == "tests":
-            return parts[index + 1] if parts[index + 1] in LEVELS else None
-    return None
+def level(names):
+    """The level of a test with the markers names: system, integration, or
+    unit; a test with two levels is an error."""
+    systems = [name for name in names if name in SYSTEM]
+    found = (["system"] if systems else []) + (["integration"] if "integration" in names else [])
+    if len(systems) > 1 or len(found) > 1:
+        raise ValueError(f"has two levels: {', '.join(sorted(set(names) & {'integration', *SYSTEM}))}")
+    return found[0] if found else "unit"
 
 
 def pytest_addoption(parser):
-    parser.addini("testing_layout", "warn or strict: a test outside tests/LEVEL/", default="warn")
     parser.addini("testing_unit_timeout", "seconds a unit test may take", default="1")
     parser.addini("testing_integration_timeout", "seconds an integration test may take", default="60")
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "unit: a unit test, which the testing plugin marks: one with no level's marker")
+
+
 def pytest_collect_file(file_path, parent):
-    if file_path.name.startswith("tst_") and file_path.suffix == ".qml" and level(file_path) == "unit":
+    if file_path.name.startswith("tst_") and file_path.suffix == ".qml" and "tests" in file_path.parts:
         return QmlFile.from_parent(parent, path=file_path)
     return None
 
@@ -59,7 +64,7 @@ class QmlFailed(Exception):
 
 class QmlTest(pytest.Item):
     """A QML test, which qmltestrunner runs offscreen from a copy beside its
-    feature's scripts (src/**/*.js): beside the sources, the qmldir would
+    package's scripts (src/**/*.js): beside the sources, the qmldir would
     import modules that load only in their own program, such as Quickshell."""
 
     def runtest(self):
@@ -67,7 +72,7 @@ class QmlTest(pytest.Item):
         runner = shutil.which("qmltestrunner-qt6") or shutil.which("qmltestrunner")
         assert runner, "qmltestrunner is missing: install qt6-qtdeclarative-devel"
         with tempfile.TemporaryDirectory() as copy:
-            for script in (self.path.parents[2] / "src").rglob("*.js"):
+            for script in (package_dir(self.path) / "src").rglob("*.js"):
                 shutil.copy(script, copy)
             shutil.copy(self.path, copy)
             result = subprocess.run([runner, "-platform", "offscreen", "-input", os.path.join(copy, self.path.name)],
@@ -84,32 +89,24 @@ class QmlTest(pytest.Item):
         return self.path, None, self.name
 
 
-class LayoutWarning(UserWarning):
-    pass
-
-
+@pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(session, config, items):
-    strict = config.getini("testing_layout") == "strict"
+    """Before -m selects: marks unit tests, and refuses a test of two levels."""
     errors = []
-    reported = set()
     for item in items:
-        path = item.path
-        found = level(path)
-        systems = {mark.name for mark in item.iter_markers() if mark.name in SYSTEM}
-        if found is None:
-            if path not in reported:
-                reported.add(path)
-                message = f"{path}: not in a tests/LEVEL/ folder ({', '.join(LEVELS)})"
-                if strict:
-                    errors.append(message)
-                else:
-                    warnings.warn(LayoutWarning(message))
-        elif found == "system" and len(systems) != 1:
-            errors.append(f"{item.nodeid}: a system test has exactly one of {', '.join(SYSTEM)}")
-        elif found != "system" and systems:
-            errors.append(f"{item.nodeid}: only a system test has {', '.join(sorted(systems))}")
+        try:
+            found = level({mark.name for mark in item.iter_markers()})
+        except ValueError as error:
+            errors.append(f"{item.nodeid}: {error}")
+            continue
+        item.stash[LEVEL] = found
+        if found == "unit":
+            item.add_marker(pytest.mark.unit)
     if errors:
         raise pytest.UsageError("\n".join(errors))
+
+
+LEVEL = pytest.StashKey[str]()
 
 
 class Forbidden(Exception):
@@ -118,7 +115,7 @@ class Forbidden(Exception):
 
 def forbid(what):
     def refuse(*args, **kwargs):
-        raise Forbidden(f"a unit test may not {what}: it belongs in tests/integration/")
+        raise Forbidden(f"a unit test may not {what}: mark it pytest.mark.integration")
 
     return refuse
 
@@ -128,7 +125,7 @@ class Socket(socket.socket):
 
     def __init__(self, family=-1, type=-1, proto=-1, fileno=None):
         if fileno is None and family in (-1, socket.AF_INET, socket.AF_INET6):
-            raise Forbidden("a unit test may not open a network socket: it belongs in tests/integration/")
+            raise Forbidden("a unit test may not open a network socket: mark it pytest.mark.integration")
         super().__init__(family, type, proto, fileno)
 
 
@@ -140,7 +137,7 @@ class TimedOut(Exception):
 def pytest_runtest_call(item):
     # Only a test's own code is held to its level, not a runner the plugin
     # starts, such as qmltestrunner.
-    found = level(item.path) if isinstance(item, pytest.Function) else None
+    found = item.stash.get(LEVEL, None) if isinstance(item, pytest.Function) else None
     seconds = {"unit": item.config.getini("testing_unit_timeout"),
                "integration": item.config.getini("testing_integration_timeout")}.get(found)
     with pytest.MonkeyPatch.context() as patch:

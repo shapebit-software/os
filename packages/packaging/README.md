@@ -10,6 +10,7 @@ OS image has it.
 | `src/package.macros` | What every spec shares: the version, the release, the licenses, and `%shapebit_install`, which installs a feature with its Makefile and lists its files. |
 | `src/package.mk` | What every feature's Makefile shares: the install paths and `help`. |
 | `src/cargo.mk`, `src/crates.py` | What every feature with Rust programs shares: building them offline with Fedora's crates, their tests, and the crates' licenses and texts. |
+| `src/conformance.py` | What every package keeps to, checked on one package (`make check-package`): its files installed, no test installed, its License, its units. |
 | `data/rpmlint.toml` | The rpmlint findings that are accepted, and why. |
 | `data/licenses/` | The texts of ShapeBit's licenses, which each package installs for the licenses its License names. |
 | `data/macros.shapebit` | Where the installed macros and texts are (`%shapebit_macros`, `%shapebit_licenses`). |

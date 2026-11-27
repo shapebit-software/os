@@ -24,7 +24,7 @@ Nothing here is installed in the image.
 `watch` to the packages it names; empty, the default, means every package:
 
 ```sh
-make check PACKAGE=shell                 # its lint, validation, and tests, and packages/tests/'s
+make check PACKAGE=shell                 # its lint, validation, and tests
 make watch PACKAGE="shell colors"        # only these, at every save
 ```
 
@@ -96,10 +96,10 @@ test goes in the first that can catch it.
 
 | Where | What it shows | How |
 | --- | --- | --- |
-| The development image | Lint, validation, unit and integration tests (`tests/unit/`, `tests/integration/`) | `make check` |
+| The development image | Lint, validation, unit and integration tests | `make check` |
 | The simulator | The shell and what it shows, on fake system services | `make simulate`, `make watch MACHINE=simulator` |
 | A running ShapeBit | The tree on the real system: services, login, sessions | `make vm`, `make watch` |
-| The built image | Its files, a fresh install, updates (`tests/system/`) | `make test-system-image`, `make test-system`, `make test-system-update` |
+| The built image | Its files, a fresh install, updates (system tests) | `make test-system-image`, `make test-system`, `make test-system-update` |
 | The built medium | Everything a person does, from installing on (`tests/e2e/`) | `make test-e2e` |
 
 ## Seeing a change on ShapeBit

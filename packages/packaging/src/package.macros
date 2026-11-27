@@ -16,7 +16,7 @@
 # ShapeBit's licenses, by kind of file (REUSE.toml, LICENSES/): programs;
 # code that other programs embed; configuration and snippets that people copy;
 # artwork; and the brand artwork, which no open license covers. A package's
-# License names those of the files it installs (packages/tests/unit/test_licenses.py).
+# License names those of the files it installs (conformance.py).
 %shapebit_program   GPL-3.0-or-later
 %shapebit_library   LGPL-3.0-or-later
 %shapebit_config    MIT

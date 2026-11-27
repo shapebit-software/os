@@ -180,12 +180,13 @@ endif
 else
 # In the development image.
 export ENGINE FEDORA_VERSION FOUNDATION FOUNDATION_CACHE DEV_IMAGE $(DEV_ENV)
-# The tests (packages/testing/README.md): each level's are in tests/LEVEL/ of
-# the code they test; $(call tests,LEVEL) are those folders, of PACKAGE and of
-# packages/ itself, or every one. Each run's results go in RESULTS/<time>-NAME.
+# The tests (packages/testing/README.md): in the tests/ of the code they test,
+# of PACKAGE or every one; each level by its markers: none, a unit test
+# (-m unit), integration, or a system_* one. Each run's results go in
+# RESULTS/<time>-NAME.
 PYTEST := python3 -m pytest --rootdir=.
-tests = $(wildcard $(if $(PACKAGE),$(addsuffix /tests/$1,$(SCOPE)) packages/tests/$1,\
-  packages/*/tests/$1 packages/tests/$1 image/tests/$1 distribution/tests/$1 development/tests/$1 .github/tests/$1))
+TESTS := $(wildcard $(if $(PACKAGE),$(addsuffix /tests,$(SCOPE)),\
+  packages/*/tests image/tests distribution/tests development/tests .github/tests))
 junit = --junitxml=$(BUILD)/results/$(shell date -u +%Y%m%dT%H%M%SZ)-$1/junit.xml
 # The installer's CTest tests labelled $1.
 ctest = cmake -S packages/installer -B $(BUILD)/tests/installer -G Ninja && cmake --build $(BUILD)/tests/installer && \
@@ -254,19 +255,19 @@ check: lint validate test ## Lint, validate, and test: all that needs no image (
 
 test: test-unit test-integration ## Run the unit and integration tests (of PACKAGE)
 
-test-unit: ## Run the unit tests: tests/unit/, the installer's, and Rust's (of PACKAGE)
-	$(if $(call tests,unit),$(PYTEST) $(call junit,unit) $(call tests,unit))
+test-unit: ## Run the unit tests: pytest's unmarked, the installer's, and Rust's (of PACKAGE)
+	$(PYTEST) $(call junit,unit) -m unit $(TESTS) || test $$? = 5
 	$(if $(call scoped,installer),$(call ctest,unit))
 	$(foreach f,$(call scoped,$(RUST)),$(MAKE) -s -C packages/$f test CARGO_TARGET_DIR=$(abspath $(BUILD))/cargo/$f &&) true
 
-test-integration: ## Run the integration tests: tests/integration/ and the installer's (of PACKAGE)
-	$(if $(call tests,integration),$(PYTEST) $(call junit,integration) $(call tests,integration))
+test-integration: ## Run the integration tests: pytest's marked integration, and the installer's (of PACKAGE)
+	$(PYTEST) $(call junit,integration) -m integration $(TESTS) || test $$? = 5
 	$(if $(call scoped,installer),$(call ctest,integration))
 
 # A container of the image, with nothing installed in it, which Testinfra
 # reaches through the engine (packages/testing/src/testing/system.py).
 test-system-image: $(call need,image) ## Build the image and run its system tests; nothing boots
-	$(SYSTEM) -m system_image $(call tests,system) --machine=container://$(IMAGE) --run=image
+	$(SYSTEM) -m system_image $(TESTS) --machine=container://$(IMAGE) --run=image
 
 publish: $(call need,image) ## Push the image to the local update registry
 	$(MACHINES) publish $(IMAGE_ARCHIVE)
@@ -340,7 +341,7 @@ ssh: ## Open a root shell in the running machine
 # On a disposable clone of the installed disk; or with GUEST=ADDRESS, on a
 # system that runs already, such as another computer (packages/testing/README.md).
 test-system: $(if $(GUEST),,$(call need,test-system-image disk)) ## Install, then run the installed system's tests on a clone of it, or on GUEST=address
-	$(SYSTEM) -m system_installed $(call tests,system) $(if $(GUEST),--machine=ssh://$(GUEST) --run=$(GUEST),--machine=clone --run=installed)
+	$(SYSTEM) -m system_installed $(TESTS) $(if $(GUEST),--machine=ssh://$(GUEST) --run=$(GUEST),--machine=clone --run=installed)
 
 test-system-installer: $(call need,installer) ## Boot the medium with a new disk and run its system tests, without installing
 	$(MACHINES) check-installer
@@ -356,7 +357,7 @@ $(UPDATE_TAGS:%=$(BUILD)/image-%.tar): $(BUILD)/image-%.tar: $(call unless-skipp
 # On the next build, the installed system's tests run too, between the
 # update tests' own (system.py).
 test-system-update: $(call need,disk update-builds) ## On a disposable clone: update to a new build, then roll back
-	$(SYSTEM) -m 'system_installed or system_update' $(call tests,system) --machine=clone --run=update \
+	$(SYSTEM) -m 'system_installed or system_update' $(TESTS) --machine=clone --run=update \
 	  --next=$(NEXT_ARCHIVE) --next2=$(NEXT2_ARCHIVE)
 
 test-e2e: ## Run the end-to-end tests of the built medium itself, with openQA (FLOW=install|update)
