@@ -9,8 +9,8 @@ import pytest
 
 pytestmark = pytest.mark.integration
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location("sync", ROOT / "development/sync.py")
+HERE = pathlib.Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location("sync", HERE / "sync.py")
 sync = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sync)
 

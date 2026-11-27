@@ -1,5 +1,9 @@
 # Distribution
 
+In the pipeline: from a tested build in `build/` (the sealed OS and the
+medium), it makes releases on GHCR and GitHub; the workflows call it through
+[release.py](release.py).
+
 How a build reaches people: how it becomes a release, reaches computers, and
 is undone, and what is published with it so that it can be trusted, its
 licenses kept, and its contents known. The workflows are in

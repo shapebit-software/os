@@ -82,8 +82,15 @@ Software that Fedora lacks is an external package inside the feature that
 needs it, such as `packages/dictation/external/sherpa-onnx/` (a folder with a
 `sources` file), built and published in ShapeBit's own repository
 ([packages/repositories](packages/repositories/README.md)). Its tests are in
-`tests/LEVEL/`: `unit/`, `integration/`, `system/`, and `e2e/`, each run by
-`make test-LEVEL` ([testing](packages/testing/README.md)).
+its `tests/`, and their markers say their level
+([testing](packages/testing/README.md)).
+
+The other folders with code, `image/`, `distribution/`, `signing/`, and
+`development/`, are what builds, releases, signs, and works on the packages;
+no package installs them. Each keeps to what fits of a package: a README that
+opens with its place in the pipeline, its tests in its `tests/`, which reach
+only its own folder, and `PACKAGE=` may name it, as in
+`make check PACKAGE=distribution`.
 
 ## Documentation
 

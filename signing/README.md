@@ -1,5 +1,10 @@
 # Signing
 
+In the pipeline: [keys.sh](keys.sh) makes the development keys in
+`build/keys/` for `make image`, and the release keys once with `make
+release-key`; the image build signs the boot files with them, and
+[distribution](../distribution/README.md) the released image.
+
 What makes a build ShapeBit's: the keys that sign it, how they are kept, and
 how they are replaced. The image build uses them when it seals
 ([images](../image/README.md#build)); this file owns the policy.

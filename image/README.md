@@ -1,5 +1,10 @@
 # Image
 
+In the pipeline: from `packages/`, it makes the foundation, the development
+image, the sealed OS, and the installer medium, in `build/`; `make
+foundation`, `make dev-image`, `make image`, and `make installer` call it,
+locally and in CI.
+
 How the images are built from the packages of [`packages/`](../packages/README.md):
 one [Containerfile](Containerfile), with a stage per image, and the steps
 around it. The images share one foundation, so the OS and the tools that work

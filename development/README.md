@@ -1,5 +1,10 @@
 # Development
 
+In the pipeline: beside it, not in it. From this tree, it makes the
+development image's commands and a running ShapeBit that shows a change;
+`make` calls it (`dev.sh` for every goal; `make sync`, `make watch`, `make
+simulate`).
+
 How to work on ShapeBit: one development image with every tool, where every
 `make` target runs, for developers and CI alike: lint, validate, the unit
 tests, the image builds, and the VMs and checks of the built OS. Changes are
@@ -21,7 +26,9 @@ Nothing here is installed in the image.
 ## One package at a time
 
 `PACKAGE` limits `lint`, `validate`, every `test-*`, `sync`, `unsync`, and
-`watch` to the packages it names; empty, the default, means every package:
+`watch` to the packages it names; empty, the default, means every package.
+`lint`, `validate`, and the tests also take a folder of the root with code,
+such as `distribution`:
 
 ```sh
 make check PACKAGE=shell                 # its lint, validation, and tests

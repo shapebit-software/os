@@ -185,8 +185,16 @@ export ENGINE FEDORA_VERSION FOUNDATION FOUNDATION_CACHE DEV_IMAGE $(DEV_ENV)
 # (-m unit), integration, or a system_* one. Each run's results go in
 # RESULTS/<time>-NAME.
 PYTEST := python3 -m pytest --rootdir=.
+# PACKAGE's folders, or none for every package; and whether package $1 is in
+# scope. A name is a package, or a folder of the root with code, such as
+# distribution, for lint, validate, and the tests.
+TOP := image distribution development signing
+$(foreach p,$(PACKAGE),$(if $(wildcard packages/$p/$p.spec)$(filter $p,$(TOP)),,$(error PACKAGE=$p: no packages/$p/$p.spec, nor one of $(TOP))))
+SCOPE := $(foreach p,$(PACKAGE),$(if $(filter $p,$(TOP)),$p,packages/$p))
+scoped = $(if $(PACKAGE),$(filter $1,$(PACKAGE)),$1)
+# None when PACKAGE has no tests, so that pytest is not run on the whole tree.
 TESTS := $(wildcard $(if $(PACKAGE),$(addsuffix /tests,$(SCOPE)),\
-  packages/*/tests image/tests distribution/tests development/tests .github/tests))
+  packages/*/tests $(addsuffix /tests,$(TOP)) .github/tests))
 junit = --junitxml=$(BUILD)/results/$(shell date -u +%Y%m%dT%H%M%SZ)-$1/junit.xml
 # The installer's CTest tests labelled $1.
 ctest = cmake -S packages/installer -B $(BUILD)/tests/installer -G Ninja && cmake --build $(BUILD)/tests/installer && \
@@ -204,10 +212,6 @@ unless-skipped = $(if $(filter $1,$(SKIP)),,$2)
 # image/, but those deleted and not yet committed.
 INPUTS := $(wildcard $(shell git ls-files -co --exclude-standard packages image))
 DISK_FILE = $(or $(DISK),$(BUILD)/disk.raw)
-# PACKAGE's folders, or none for every package; and whether package $1 is in scope.
-$(foreach p,$(PACKAGE),$(if $(wildcard packages/$p/$p.spec),,$(error PACKAGE=$p: no packages/$p/$p.spec)))
-SCOPE := $(addprefix packages/,$(PACKAGE))
-scoped = $(if $(PACKAGE),$(filter $1,$(PACKAGE)),$1)
 # The features with Rust programs.
 RUST := $(patsubst packages/%/Cargo.toml,%,$(wildcard packages/*/Cargo.toml))
 KEYS := $(KEYS_DIR)/$(SIGNING_KEY)-secureboot.key $(KEYS_DIR)/$(SIGNING_KEY)-secureboot.crt \
@@ -256,12 +260,12 @@ check: lint validate test ## Lint, validate, and test: all that needs no image (
 test: test-unit test-integration ## Run the unit and integration tests (of PACKAGE)
 
 test-unit: ## Run the unit tests: pytest's unmarked, the installer's, and Rust's (of PACKAGE)
-	$(PYTEST) $(call junit,unit) -m unit $(TESTS) || test $$? = 5
+	$(if $(TESTS),$(PYTEST) $(call junit,unit) -m unit $(TESTS) || test $$? = 5)
 	$(if $(call scoped,installer),$(call ctest,unit))
 	$(foreach f,$(call scoped,$(RUST)),$(MAKE) -s -C packages/$f test CARGO_TARGET_DIR=$(abspath $(BUILD))/cargo/$f &&) true
 
 test-integration: ## Run the integration tests: pytest's marked integration, and the installer's (of PACKAGE)
-	$(PYTEST) $(call junit,integration) -m integration $(TESTS) || test $$? = 5
+	$(if $(TESTS),$(PYTEST) $(call junit,integration) -m integration $(TESTS) || test $$? = 5)
 	$(if $(call scoped,installer),$(call ctest,integration))
 
 # A container of the image, with nothing installed in it, which Testinfra

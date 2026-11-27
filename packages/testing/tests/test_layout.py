@@ -71,3 +71,28 @@ def test_a_packages_files_reach_only_their_own_package():
                     if int(up) > depth:
                         wrong.append(f"{path.relative_to(ROOT)}:{number}: climbs out of {feature.name}/")
     assert wrong == []
+
+
+# The folders of the root with code that no package installs, such as
+# distribution/: their code may read the whole tree, but each test reaches
+# only its own folder, as a package's does.
+TOP = sorted(p for p in ROOT.iterdir() if p.is_dir() and not p.is_symlink()
+             and not p.name.startswith(".") and p.name not in {"packages", "guidebook", "build"})
+
+
+def test_a_root_folders_tests_reach_only_their_own_folder():
+    wrong = []
+    for folder in TOP:
+        for path in (folder / "tests").rglob("*.py"):
+            depth = len(path.relative_to(folder).parts) - 1
+            for number, line in enumerate(path.read_text().splitlines(), 1):
+                for up in re.findall(r"__file__\)(?:\.resolve\(\))?\.parents\[(\d+)\]", line):
+                    if int(up) > depth:
+                        wrong.append(f"{path.relative_to(ROOT)}:{number}: climbs out of {folder.name}/")
+    assert TOP and wrong == []
+
+
+def test_make_knows_every_root_folder():
+    """PACKAGE may name one, and make finds its tests (the Makefile's TOP)."""
+    listed = re.search(r"^TOP := (.+)$", (ROOT / "Makefile").read_text(), re.M)[1].split()
+    assert sorted(listed) == [p.name for p in TOP]
