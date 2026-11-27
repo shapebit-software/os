@@ -102,7 +102,7 @@ jobs:
           echo "version=$version" >>"$GITHUB_OUTPUT"
 
       # The keys are on the runner only for the builds that sign, never while
-      # tests run (image/keys/README.md).
+      # tests run (signing/README.md).
       - uses: ./.github/actions/release-keys
         with:
           secureboot-key: ${{ secrets.RELEASE_SECUREBOOT_KEY }}

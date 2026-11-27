@@ -50,7 +50,7 @@ jobs:
         if: inputs.undo
         run: distribution/release.py undo
 
-      # image/keys/README.md: the image key is a file only while promote runs.
+      # signing/README.md: the image key is a file only while promote runs.
       - name: Release the draft's candidate
         if: ${{ !inputs.undo }}
         env:

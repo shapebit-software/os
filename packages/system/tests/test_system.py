@@ -193,7 +193,7 @@ def pe_section(content, name):
 
 
 def test_pcr_policy_key_is_not_the_secure_boot_key(host, uki):
-    # Separate keys can be replaced separately (image/keys/README.md). The
+    # Separate keys can be replaced separately (signing/README.md). The
     # certificate holds its public key as DER, the UKI's .pcrpkey as PEM.
     pem = pe_section(uki, b".pcrpkey").decode()
     assert "BEGIN PUBLIC KEY" in pem

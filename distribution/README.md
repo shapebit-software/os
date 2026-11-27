@@ -42,7 +42,7 @@ signatures (`release.py prune`).
 ## Steps
 
 1. **Build.** Weekly or by hand, a fresh build picks up Fedora's updates and
-   is signed with the release keys ([keys](../image/keys/README.md)).
+   is signed with the release keys ([signing](../signing/README.md)).
 2. **Test** on the path installed computers take: the published installer
    installs `stable`, which updates to the candidate
    ([Testing](../README.md#testing)). Only a build that passes everything

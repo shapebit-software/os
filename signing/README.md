@@ -1,8 +1,8 @@
-# Keys
+# Signing
 
 What makes a build ShapeBit's: the keys that sign it, how they are kept, and
 how they are replaced. The image build uses them when it seals
-([images](../README.md#build)); this file owns the policy.
+([images](../image/README.md#build)); this file owns the policy.
 
 A build is signed with two keys of `SIGNING_KEY`, so that each can be
 replaced on its own:
@@ -20,15 +20,15 @@ replaced on its own:
   do. They are the secrets `RELEASE_SECUREBOOT_KEY` and `RELEASE_PCR_KEY` of
   the GitHub environment **Signing**, used only by the build jobs of the
   Candidate and Installer workflows on `main`, and removed from the runner
-  before tests run ([test_workflows.py](../../.github/test_workflows.py)).
+  before tests run ([test_workflows.py](../.github/tests/test_workflows.py)).
   Inside a build, only the steps that sign see them, as build secrets.
 - **The release image key** (`release-image.key`, sigstore, made by
   `make release-key` with no passphrase) signs each release's image as the
   Release workflow promotes it; computers accept updates only with its
-  signature ([packages/updates](../../packages/updates/README.md#signed-updates)).
+  signature ([packages/updates](../packages/updates/README.md#signed-updates)).
   It is the secret `RELEASE_IMAGE_KEY` of the environment **Release**, a file
   on the runner only while `release.py promote` runs
-  ([test_workflows.py](../../.github/test_workflows.py)); its public half,
+  ([test_workflows.py](../.github/tests/test_workflows.py)); its public half,
   `packages/updates/data/release-image.pub`, is committed, and every build trusts it.
   If it leaks, its holder can offer updates that computers accept, but only
   from `ghcr.io/shapebit-software/os`, and they boot only if Secure Boot's key

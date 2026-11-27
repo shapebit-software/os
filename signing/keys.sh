@@ -4,7 +4,7 @@
 # NAME-secureboot.key and NAME-secureboot.crt sign systemd-boot and the UKI,
 # and shim trusts them once the certificate is enrolled as a MOK. NAME-pcr.key
 # signs the UKI's expected PCR 11 values, which the TPM2 key slot is bound to,
-# so that each key can be replaced on its own (image/keys/README.md). Existing keys are kept: a new one would
+# so that each key can be replaced on its own (signing/README.md). Existing keys are kept: a new one would
 # need enrolling again. RSA-2048 is what shim and every TPM2 accept. With
 # --release, also release-image.key, the sigstore key that signs releases for
 # updates, without a passphrase; its public half goes to

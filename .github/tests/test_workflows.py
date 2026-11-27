@@ -1,6 +1,6 @@
 """GitHub workflows and actions: third-party actions are pinned to a commit SHA
 (.github/dependabot.yml), the release keys are present only for signing builds,
-and the image key only while a release is promoted (image/keys/README.md)."""
+and the image key only while a release is promoted (signing/README.md)."""
 
 import pathlib
 import re
@@ -31,7 +31,7 @@ SIGNING_BUILD = re.compile(r"make( (image|installer|update-builds))+( [A-Z_]+=\S
 
 
 def test_release_keys_are_on_the_runner_only_for_signing_builds():
-    # image/keys/README.md: the keys come only through the release-keys
+    # signing/README.md: the keys come only through the release-keys
     # action, and between it and their removal only builds that sign run.
     restored = 0
     for path in GITHUB.glob("workflows/*.yml"):

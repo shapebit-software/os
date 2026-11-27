@@ -20,7 +20,6 @@ fedora-bootc
 | [seal.sh](seal.sh) | Builds a bootable image and seals it with its signed UKI; saves it as an OCI archive. |
 | [packaged.py](packaged.py) | Fails the build on a file under `/usr` that no package owns, or that differs from its package. |
 | [archive.py](archive.py) | What an image archive is (its digest, its labels) and the record of a medium made from one; the tests ([testing](../packages/testing/README.md)) and [distribution/](../distribution/README.md) read build outputs through it. |
-| [keys/](keys/README.md) | The signing keys and their policy: the build signs the boot files with them, distribution the released image. |
 
 CI tags the sealed OS `os/candidate:<version>`; once its tests pass,
 Release copies it, unchanged, to `os:<version>` and `os:stable`
@@ -59,7 +58,7 @@ image start from the same foundation (`FOUNDATION`), built by the same engine
 2. The seal stage of the [Containerfile](Containerfile) adds the signed UKI, whose
    command line pins the OS's composefs digest and which carries signed
    PCR 11 values ([packages/boot](../packages/boot/README.md)), with the keys
-   of `SIGNING_KEY` ([keys](keys/README.md)).
+   of `SIGNING_KEY` ([signing](../signing/README.md)).
 
 The result is `build/image.tar`.
 

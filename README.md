@@ -68,8 +68,9 @@ Settings are variables at the top of the [Makefile](Makefile), such as
 | Path         | Purpose                                                               |
 | ------------ | --------------------------------------------------------------------- |
 | `packages/`  | ShapeBit's own packages, one folder per feature: `apps`, `assistant`, `boot`, `capture`, `colors`, `dictation`, `downloads`, `extras`, `font`, `homes`, `installer`, `licenses`, `login`, `network`, `portal`, `release`, `repositories`, `shell`, `sound`, `splash`, `system` (requires them all), `updates`, `windows`; and the tools, which only the development image has: `packaging`, `linting`, `testing`. |
-| `image/`     | How the images are built: one `Containerfile` with a stage per image (the foundation, the OS, the installer medium, the development image), sealing with the signed UKI, the signing keys (`keys/`), and what describes a build output ([image](image/README.md)). |
+| `image/`     | How the images are built: one `Containerfile` with a stage per image (the foundation, the OS, the installer medium, the development image), sealing with the signed UKI, and what describes a build output ([image](image/README.md)). |
 | `distribution/` | How a tested build reaches people, and what is published with it: `release.py`, every step of the workflows with GHCR and GitHub's releases; `sources/`, the source RPMs; `sbom/`, the SBOM ([distribution](distribution/README.md)). |
+| `signing/`   | What makes a build ShapeBit's: the keys that sign the boot files and the released image, how they are kept and replaced, and `keys.sh`, which makes them; never the keys themselves ([signing](signing/README.md)). |
 | `development/` | The development image's own scripts: `dev.sh`, which runs every `make` goal in it, and `make sync`, which puts a change into a running ShapeBit ([development](development/README.md)). |
 | `guidebook/` | The guidebook for people who use ShapeBit, published to the Wiki and the website. |
 | `.agents/`   | Skills for coding agents.                                             |
@@ -88,7 +89,7 @@ needs it, such as `packages/dictation/external/sherpa-onnx/` (a folder with a
 
 - [Guidebook](guidebook/Home.md), for people who use ShapeBit.
 - [Image](image/README.md): how the images are built and sealed;
-  [keys](image/keys/README.md): what signs them;
+  [signing](signing/README.md): what signs them;
   [testing](packages/testing/README.md): the tests, their levels, and the machines;
   [distribution](distribution/README.md): releases, sources, and the SBOM.
 - Each feature's README in [`packages/`](packages/), where its code doesn't
