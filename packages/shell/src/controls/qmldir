@@ -1,9 +1,15 @@
 module qs.controls
 Avatar Avatar.qml
+BarButton BarButton.qml
+ButtonPill ButtonPill.qml
 DialogButton DialogButton.qml
 Glass Glass.qml
 Icon Icon.qml
+PillChoice PillChoice.qml
+Popout Popout.qml
 PopoverFrame PopoverFrame.qml
+SettingsChoice SettingsChoice.qml
+SettingsSelect SettingsSelect.qml
 Slider Slider.qml
 Switch Switch.qml
 Tooltip Tooltip.qml

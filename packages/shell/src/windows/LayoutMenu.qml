@@ -5,7 +5,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell.Hyprland
-import qs.bar
 import qs.controls
 import qs.services
 

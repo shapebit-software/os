@@ -13,7 +13,7 @@ their card (assistant): the text may have asked for them.
 
 An action is prepared first: what it would do, for its card, such as which app
 "firefox" is; then run. A change returns how to undo it. What the shell owns,
-such as Do Not Disturb, it asks of the shell (shell/src/services/Assistant.qml)
+such as Do Not Disturb, it asks of the shell (assistant/src/shell/Assistant.qml)
 through `qs ipc`.
 """
 

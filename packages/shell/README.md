@@ -90,13 +90,13 @@ package:
 
 | Feature            | What it holds                                                                                                   |
 | ------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `shell/` (here)    | The Quickshell configuration (QML): `services/` (singletons that hold state, with their tests), `controls/`, `wallpaper/`, `bar/`, `windows/`, `settings/`, `lock/`, `capture/`, `notifications/`, `dialogs/`. |
+| `shell/` (here)    | The Quickshell configuration (QML): `services/` (singletons that hold state, with their tests), `controls/`, `wallpaper/`, `bar/`, `windows/`, `settings/`, `lock/`, `capture/`, `notifications/`, `dialogs/`; and `features/`, where other packages add theirs (below). |
 | `windows/`         | The Hyprland configuration (Lua): look, key bindings, layouts and resizing, workspaces; the session entry that the login screen starts, and the window button defaults. |
 | `portal/`          | The shell's portal backend, the portals' configuration, and the share picker, which Hyprland's portal asks.     |
 | `network/`         | The connection agent.                                                                                            |
 | `sound/`           | Sound, and the bar's microphone level.                                                                           |
 | `apps/`            | The helpers of Welcome and Settings > Apps, and the timer that updates the apps.                                 |
-| `assistant/`       | The assistant's service, its actions and skills, the model catalog, the units that run it and `llama-server` on demand, and `llama-server` itself (an external package). |
+| `assistant/`       | The assistant's service, its actions and skills, the model catalog, the units that run it and `llama-server` on demand, `llama-server` itself (an external package), and its user interface, the module `qs.assistant`. |
 | `downloads/`       | The one queue of downloads and installs, which Settings > Downloads shows, and the unit that resumes it at sign-in. |
 | `dictation/`       | Dictation: `hear` turns speech into words, for dictation and the assistant; `dictate` is the input method that delivers them; sherpa-onnx (an external package). |
 | `extras/`          | The extras (large optional downloads, such as models) with their hashes, the helper that installs them, and their license texts. |
@@ -104,6 +104,16 @@ package:
 
 Development tools are in [`development/`](../../development/README.md).
 
+
+**Features add to the shell.** A feature's package installs its QML as the
+module `qs.FEATURE` in the shell's folder, and `features/FEATURE.qml`, a
+[Feature](src/services/Feature.qml): its Settings sections and pages, its
+items for the bars, its panels, what it shows on every screen, its quick
+actions for the hot corner, its keyboard shortcuts, and what it does for other
+features. [Features.qml](src/services/Features.qml) loads them, so the shell
+names no feature; the assistant is the first
+([packages/assistant](../assistant/README.md)). openQA checks that the shell
+logs no QML errors.
 ## Not yet implemented
 
 - The assistant reads no files' contents and no clipboard. Dictation needs

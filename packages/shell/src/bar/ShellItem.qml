@@ -1,8 +1,9 @@
 // One item of a bar (ShellBar.qml), by its id in Settings.zones: the clock,
 // a status button that opens its panel (the notifications, the microphone,
 // the sound, the brightness, the network, the battery, the input language,
-// the system menu), the background apps' icons, Apps, the workspaces, or a quick action's button (the
-// assistant, capture, dictation). On the dock, buttons are glass tiles, full
+// the system menu), the background apps' icons, Apps, the workspaces, a quick action's button (capture,
+// dictation), or an item that a feature adds (Features.qml), such as the
+// assistant's. On the dock, buttons are glass tiles, full
 // or half size; on the system bar, they are plain. A right click on the
 // microphone or the sound mutes it, and on the bell turns Do Not Disturb on
 // and off.
@@ -62,7 +63,8 @@ Loader {
     // brightness shows only with a backlight, the battery with one, and the
     // bell while there is anything for it to show, and the background apps'
     // icons while there are any.
-    active: !(["assistant", "capture", "dictation"].includes(modelData) && Settings.quickActions === "Hot corner")
+    active: !((["capture", "dictation"].includes(modelData) || Features.actions.some(a => a.name === modelData))
+        && Settings.quickActions === "Hot corner")
         && !(modelData === "notifications" && !Notifications.present)
         && !(modelData === "brightness" && !Brightness.available)
         && !(modelData === "battery" && !Battery.available)
@@ -93,10 +95,29 @@ Loader {
         tray: trayIcons,
         apps: apps,
         workspaces: workspaces,
-        assistant: quick,
         capture: quick,
         dictation: quick,
-    })[modelData] ?? null
+    })[modelData] ?? Features.items[modelData]?.component ?? null
+
+    // A feature's item takes its bar and its size.
+    Binding {
+        when: item.item !== null && Features.items[item.modelData] !== undefined
+        target: item.item
+        property: "bar"
+        value: item.bar
+    }
+    Binding {
+        when: item.item !== null && Features.items[item.modelData] !== undefined
+        target: item.item
+        property: "half"
+        value: item.half
+    }
+    Binding {
+        when: item.item !== null && Features.items[item.modelData] !== undefined
+        target: item.item
+        property: "size"
+        value: item.size
+    }
 
     Component {
         id: clock

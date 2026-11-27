@@ -87,13 +87,6 @@ Singleton {
         case "tidy":
             Dictation.tidy();
             break;
-        // Super alone: a tap opens the assistant, held it listens
-        // (Assistant.qml).
-        case "super-down":
-        case "super-other":
-        case "super-up":
-            Assistant.key(name.slice(6));
-            break;
         case "lock":
             Lock.lock();
             break;

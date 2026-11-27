@@ -1,11 +1,11 @@
 // The quick actions in the screen's bottom right corner, when they open from
 // a hot corner (Settings.quickActions "Hot corner"): the pointer in the
-// corner fans out the buttons for the assistant, dictation (unless hidden
-// in Settings > Shell), and capture, as
-// in the demo. While recording, a red pill there shows the time; a click on
-// it stops the recording. Dictation shows itself (DictationOverlay.qml). While
-// the assistant listens or writes down what was said, a pill there shows it, as
-// its button on a bar would (QuickButton.qml).
+// corner fans out the buttons of the features' quick actions, such as the
+// assistant's (Features.qml), then dictation (unless hidden in Settings >
+// Shell) and capture, as in the demo. While recording, a red pill there shows
+// the time; a click on it stops the recording. Dictation shows itself
+// (DictationOverlay.qml). While a feature listens or writes down what was
+// said, a pill there shows it (Features.voice), as its button on a bar would.
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
@@ -20,21 +20,20 @@ PanelWindow {
 
     property bool fanned
 
-    function act(panel: string, button: Item) {
+    function act(action: var, button: Item) {
         fanned = false;
-        if (panel === "capture") {
+        if (action.panel === "capture") {
             Capture.begin(modelData);
             return;
         }
-        if (panel === "dictation") {
+        if (action.panel === "dictation") {
             Dictation.toggle(false);
             return;
         }
-        // The assistant: what was open last, its bubbles here or its panel.
+        // A feature's: on this screen, where the button is.
         const at = button.mapToItem(null, 0, 0);
-        Assistant.tap(modelData.name, () => Shell.toggle(panel, modelData.name,
-            Qt.rect(modelData.width - width + at.x, modelData.height - height + at.y, button.width, button.height),
-            "Bottom", Theme.stripHeight + Theme.gap));
+        action.tap(modelData.name, Qt.rect(modelData.width - width + at.x, modelData.height - height + at.y,
+            button.width, button.height));
     }
 
     screen: modelData
@@ -89,8 +88,10 @@ PanelWindow {
         }
 
         Repeater {
+            // The features' first, each a step further up from the first's place.
             model: [
-                { panel: "assistant", right: 13, bottom: 96, strokes: Assistant.icon },
+                ...Features.actions.map((action, i) => Object.assign({}, action,
+                    { panel: action.name, right: 13, bottom: 96 + 56 * i, strokes: action.icon })),
                 ...(!Settings.hiddenItems.includes("dictation") ? [{ panel: "dictation", right: 65, bottom: 65, strokes: "M2 7v2M5 5v6M8 2.5v11M11 5v6M14 7v2" }] : []),
                 { panel: "capture", right: 96, bottom: 13, strokes: "M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3M5.8 8a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0-4.4 0z" },
             ]
@@ -117,7 +118,7 @@ PanelWindow {
                     strokes: button.modelData.strokes
                 }
                 TapHandler {
-                    onTapped: corner.act(button.modelData.panel, button)
+                    onTapped: corner.act(button.modelData, button)
                 }
                 HoverHandler {
                     id: buttonHover
@@ -127,9 +128,9 @@ PanelWindow {
         }
     }
 
-    // The assistant listens: what the microphone hears.
+    // A feature listens: what the microphone hears.
     Rectangle {
-        visible: Assistant.voice !== "" && !corner.fanned
+        visible: Features.voice !== null && !corner.fanned
         x: corner.width - Theme.gap - width
         y: corner.height - Theme.gap - 14 - height - (pill.visible ? pill.height + 6 : 0)
         width: 46
@@ -139,9 +140,9 @@ PanelWindow {
 
         DictationBars {
             anchors.centerIn: parent
-            listening: Assistant.voice === "listening"
-            writing: Assistant.voice === "writing"
-            level: Assistant.level
+            listening: Features.voice?.listening ?? false
+            writing: Features.voice?.writing ?? false
+            level: Features.voice?.level ?? 0
         }
     }
 

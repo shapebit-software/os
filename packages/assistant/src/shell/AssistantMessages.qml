@@ -10,7 +10,7 @@ import QtQuick
 import Quickshell
 import qs.controls
 import qs.services
-import "../services/assistant.js" as Logic
+import "assistant.js" as Logic
 
 Column {
     id: list

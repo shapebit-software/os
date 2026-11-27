@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # The assistant: one agent for the whole session, which the shell shows
-# (shell/src/services/Assistant.qml): its conversations, one queue of requests in
+# (assistant/src/shell/Assistant.qml): its conversations, one queue of requests in
 # the order sent, and the actions it takes (actions.py), through a language
 # model (models.py). It runs as a user service of its own (assistant.socket),
 # so hiding or restarting the shell stops nothing.

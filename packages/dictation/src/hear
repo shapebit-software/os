@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # Hears the microphone and writes down what is said, for dictation (dictation/src/dictate)
-# and the assistant (shell/src/services/Assistant.qml). It only turns speech into words:
+# and the assistant (assistant/src/shell/Assistant.qml). It only turns speech into words:
 # where they go is for whoever runs it. It talks over its standard input and output,
 # one JSON line at a time.
 #

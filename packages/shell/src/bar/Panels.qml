@@ -1,8 +1,10 @@
 // The panels of one screen (Popout.qml); Shell.panel says which one is open.
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import qs.services
 import qs.windows
+import qs.controls
 
 Scope {
     id: panels
@@ -71,9 +73,19 @@ Scope {
         screen: panels.modelData
         screenName: panels.modelData?.name ?? ""
     }
-    AssistantBubbles {
-        screen: panels.modelData
-        screenName: panels.modelData?.name ?? ""
+    // The features' panels (Features.qml), each made for this screen.
+    Instantiator {
+        model: Features.panels
+
+        delegate: QtObject {
+            id: made
+
+            required property Component modelData
+            readonly property var panel: modelData.createObject(panels,
+                { screen: panels.modelData, screenName: panels.modelData?.name ?? "" })
+
+            Component.onDestruction: made.panel?.destroy()
+        }
     }
     LayoutMenu {
         screen: panels.modelData

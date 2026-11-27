@@ -32,20 +32,25 @@ Item {
     readonly property int halfSize: (tileSize - 3) / 2
 
     // The items' pictures: icons on the demo's grid, or text.
-    readonly property var icons: ({
-        notifications: "M4 10V6.2a4 4 0 0 1 8 0V10l1.2 1.4H2.8zM6.6 12.4a1.5 1.5 0 0 0 2.8 0",
-        microphone: "M5.6 4.2a2.4 2.4 0 0 1 4.8 0v3.2a2.4 2.4 0 0 1-4.8 0zM3.4 7.6a4.6 4.6 0 0 0 9.2 0M8 12.2v2",
-        sound: "M10.8 5.9a3 3 0 0 1 0 4.2M12.7 4.2a5.6 5.6 0 0 1 0 7.6M3 6.2h2.2L8.6 3.4v9.2L5.2 9.8H3z",
-        brightness: Brightness.icon,
-        network: "M2.4 6.2a8 8 0 0 1 11.2 0M4.7 8.7a4.9 4.9 0 0 1 6.6 0M7.1 11.6a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0-1.8 0z",
-        battery: "M2.2 4.6h9.6a1 1 0 0 1 1 1v4.8a1 1 0 0 1-1 1H2.2a1 1 0 0 1-1-1V5.6a1 1 0 0 1 1-1zM14.4 6.6v2.8M3.6 7v2",
-        tray: "M1.5 6h3.5v4h-3.5zM6.25 6h3.5v4h-3.5zM11 6h3.5v4h-3.5z",
-        account: "M1.7 8a6.3 6.3 0 1 0 12.6 0a6.3 6.3 0 1 0-12.6 0zM5.9 6.6a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0-4.2 0zM4.1 12.8c.8-1.6 2.2-2.4 3.9-2.4s3.1.8 3.9 2.4",
-        apps: "M2.5 2.5h4v4h-4zM9.5 2.5h4v4h-4zM2.5 9.5h4v4h-4zM9.5 9.5h4v4h-4z",
-        capture: "M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3M5.8 8a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0-4.4 0z",
-        dictation: "M2 7v2M5 5v6M8 2.5v11M11 5v6M14 7v2",
-        assistant: Assistant.icon,
-    })
+    readonly property var icons: {
+        const icons = {
+            notifications: "M4 10V6.2a4 4 0 0 1 8 0V10l1.2 1.4H2.8zM6.6 12.4a1.5 1.5 0 0 0 2.8 0",
+            microphone: "M5.6 4.2a2.4 2.4 0 0 1 4.8 0v3.2a2.4 2.4 0 0 1-4.8 0zM3.4 7.6a4.6 4.6 0 0 0 9.2 0M8 12.2v2",
+            sound: "M10.8 5.9a3 3 0 0 1 0 4.2M12.7 4.2a5.6 5.6 0 0 1 0 7.6M3 6.2h2.2L8.6 3.4v9.2L5.2 9.8H3z",
+            brightness: Brightness.icon,
+            network: "M2.4 6.2a8 8 0 0 1 11.2 0M4.7 8.7a4.9 4.9 0 0 1 6.6 0M7.1 11.6a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0-1.8 0z",
+            battery: "M2.2 4.6h9.6a1 1 0 0 1 1 1v4.8a1 1 0 0 1-1 1H2.2a1 1 0 0 1-1-1V5.6a1 1 0 0 1 1-1zM14.4 6.6v2.8M3.6 7v2",
+            tray: "M1.5 6h3.5v4h-3.5zM6.25 6h3.5v4h-3.5zM11 6h3.5v4h-3.5z",
+            account: "M1.7 8a6.3 6.3 0 1 0 12.6 0a6.3 6.3 0 1 0-12.6 0zM5.9 6.6a2.1 2.1 0 1 0 4.2 0a2.1 2.1 0 1 0-4.2 0zM4.1 12.8c.8-1.6 2.2-2.4 3.9-2.4s3.1.8 3.9 2.4",
+            apps: "M2.5 2.5h4v4h-4zM9.5 2.5h4v4h-4zM2.5 9.5h4v4h-4zM9.5 9.5h4v4h-4z",
+            capture: "M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3M5.8 8a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0-4.4 0z",
+            dictation: "M2 7v2M5 5v6M8 2.5v11M11 5v6M14 7v2",
+        };
+        // And the features' items' (Features.qml).
+        for (const [name, item] of Object.entries(Features.items))
+            icons[name] = item.icon;
+        return icons;
+    }
 
     height: screen.height + 8 + details.height + 8 + hidden.height
 

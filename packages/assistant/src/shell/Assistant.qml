@@ -24,6 +24,7 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.SystemTray
 import "assistant.js" as Logic
+import qs.services
 
 Singleton {
     id: assistant

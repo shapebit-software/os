@@ -139,8 +139,8 @@ $(BUILD)/foundation.built: $(BUILD)/foundation.inputs $(BUILD)/foundation.id $(F
 	@$(call engine-id,$(FOUNDATION),$(BUILD)/foundation.id)
 	touch $@
 
-clean: ## Remove build outputs, or only those of STAGE, a folder of build/ (STAGE=vm: the installed machine)
-	rm -rf $(BUILD)$(if $(STAGE),/$(STAGE))
+clean: ## Remove build outputs
+	rm -rf $(BUILD)
 
 ifndef IN_DEV_IMAGE
 # On the host: the development image, then every other goal in it, all in one
@@ -211,7 +211,7 @@ unless-skipped = $(if $(filter $1,$(SKIP)),,$2)
 # What the images and the medium are made from: the files of packages/ and
 # image/, but those deleted and not yet committed.
 INPUTS := $(wildcard $(shell git ls-files -co --exclude-standard packages image))
-DISK_FILE = $(or $(DISK),$(BUILD)/vm/disk.raw)
+DISK_FILE = $(or $(DISK),$(BUILD)/disk.raw)
 # The features with Rust programs.
 RUST := $(patsubst packages/%/Cargo.toml,%,$(wildcard packages/*/Cargo.toml))
 KEYS := $(KEYS_DIR)/$(SIGNING_KEY)-secureboot.key $(KEYS_DIR)/$(SIGNING_KEY)-secureboot.crt \
@@ -246,6 +246,7 @@ colors: ## Write the QML module Colors's values from the system's colors (packag
 
 lint: ## Lint the shell, the Python, and the QML (of PACKAGE)
 	$(if $(call scoped,shell),$(MAKE) -C packages/shell lint)
+	$(if $(call scoped,assistant),$(MAKE) -C packages/assistant lint)
 	packages/linting/src/lint.sh $(SCOPE)
 
 # Every file has a license (REUSE.toml, with reuse lint).

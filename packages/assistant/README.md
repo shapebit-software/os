@@ -1,9 +1,16 @@
 # Assistant
 
-The assistant's service, its actions, skills, and model catalog, and the
-model server: the package `shapebit-assistant`. The shell draws it (bubbles,
-panel, docked panel, voice pill); what a person sees is in the
-[guidebook](../../guidebook/Assistant.md).
+The assistant's service, its actions, skills, and model catalog, the model
+server, and what the shell shows of it: the package `shapebit-assistant`.
+What a person sees is in the [guidebook](../../guidebook/Assistant.md).
+
+Its user interface is its own QML, the module `qs.assistant`
+([src/shell/](src/shell/)): the bubbles, the panel and the docked panel, the
+voice pill, its button, and Settings > Assistant with its pages. The package
+installs it in the shell's folder, with [feature.qml](src/feature.qml), which
+says what it adds to the shell ([Features](../shell/src/services/Feature.qml)):
+the shell names no assistant. `make lint` checks its QML against the shell's
+modules.
 
 One service ([assistant](src/assistant), `assistant.socket`) serves the whole
 session, outside the shell. The local model, Gemma 4 E2B, runs in

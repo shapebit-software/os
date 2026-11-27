@@ -1,0 +1,15 @@
+module qs.assistant
+singleton Assistant Assistant.qml
+AssistantBarButton AssistantBarButton.qml
+AssistantBubbles AssistantBubbles.qml
+AssistantButton AssistantButton.qml
+AssistantCard AssistantCard.qml
+AssistantDock AssistantDock.qml
+AssistantEdge AssistantEdge.qml
+AssistantGet AssistantGet.qml
+AssistantMessages AssistantMessages.qml
+AssistantModelList AssistantModelList.qml
+AssistantModelsPage AssistantModelsPage.qml
+AssistantReply AssistantReply.qml
+AssistantSkillsPage AssistantSkillsPage.qml
+VoicePill VoicePill.qml

@@ -14,6 +14,9 @@ BuildRequires:  make
 # llama.cpp (llama-server/ here, published in ShapeBit's repository); Fedora's
 # llama-cpp is too old for Gemma 4. The model it serves is downloaded (extras).
 Requires:       llama-server
+# Its panel, bubbles, button, and Settings > Assistant are in the shell
+# (src/shell, src/feature.qml), which shows them.
+Requires:       shapebit-shell = %{version}-%{release}
 # The assistant's soft sound when it takes a spoken request (the shell's
 # services/Assistant.qml). Other packages bring it now; it is named so it stays.
 Requires:       sound-theme-freedesktop

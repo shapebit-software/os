@@ -10,6 +10,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import qs.services
+import qs.controls
 
 PanelWindow {
     id: window
@@ -98,10 +99,10 @@ PanelWindow {
                 if (zone.childAt?.(at.x, at.y))
                     return;
             }
-            // The assistant's bubbles stay (AssistantBubbles.qml).
+            // The assistant's bubbles stay (its feature's Shell panel).
             if (Shell.panel !== "assistant")
                 Shell.close();
-            Assistant.clickedOff();
+            Features.clickedOff();
         }
     }
 

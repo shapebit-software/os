@@ -16,6 +16,29 @@ Singleton {
     readonly property var pageComponents: Merge.pageComponents(list)
     readonly property var shortcuts: Merge.shortcuts(list)
     readonly property var surfaces: [].concat(...list.map(f => Array.from(f.surfaces)))
+    readonly property var panels: [].concat(...list.map(f => Array.from(f.panels)))
+    readonly property var items: Merge.items(list)
+    readonly property var actions: Merge.actions(list)
+    // What a feature hears while it listens, the first that does, or null.
+    readonly property var voice: list.map(f => f.voice).find(v => v) ?? null
+
+    // What a feature does for others (Feature.provides), or null.
+    function provided(name) {
+        return Merge.provided(list, name);
+    }
+
+    // Settings shows a page of a feature's, such as from a row of its section.
+    signal pageAsked(string id)
+
+    function openPage(id) {
+        pageAsked(id);
+    }
+
+    // A click on a bar off any of its buttons, which features hear.
+    function clickedOff() {
+        for (const feature of list)
+            feature.clickedOff();
+    }
 
     function sections(own) {
         return Merge.sections(own, list);

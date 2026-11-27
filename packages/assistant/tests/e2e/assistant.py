@@ -18,7 +18,7 @@ import sut
 post_fail_hook = sut.journal_on_failure("assistant")
 
 CALL = "qs ipc --pid $(pgrep -x qs | head -n 1) call assistant "
-# The panel's width until changed (shell/services/assistant.js), without the gap.
+# The panel's width until changed (assistant/src/shell/assistant.js), without the gap.
 WIDTH = 340
 
 

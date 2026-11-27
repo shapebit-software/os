@@ -1,4 +1,4 @@
-// The assistant's modes and keys as data (packages/shell/src/services/assistant.js),
+// The assistant's modes and keys as data (packages/assistant/src/shell/assistant.js),
 // run by test_shell_logic.py with qmltestrunner.
 import QtQuick
 import QtTest

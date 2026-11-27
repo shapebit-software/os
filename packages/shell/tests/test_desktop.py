@@ -83,7 +83,7 @@ def test_dictation_helpers_are_installed(host, sh, helper):
 
 
 def test_the_assistant_has_its_sound_when_it_hears_a_request(host):
-    # shell/src/services/Assistant.qml plays it with pw-play.
+    # assistant/src/shell/Assistant.qml plays it with pw-play.
     assert host.file("/usr/share/sounds/freedesktop/stereo/message.oga").size > 0
     assert host.exists("pw-play")
 

@@ -15,6 +15,9 @@ while IFS= read -r file; do
     *.sh:* | *:'#!'*bash* | *:'#!'*/sh*) bash -n "$file" || status=1 ;;
     *.py:* | *:'#!'*python*) grep -q '^from testapi import' "$file" || python+=("$file") ;;
     *.rs:*) rust+=("$file") ;;
+    # QML's JavaScript engine lacks some of the language's newer functions.
+    *.qml:* | *.js:*) ! grep -Hn 'Object\.fromEntries' "$file" ||
+      { echo "error: $file: QML's JavaScript has no Object.fromEntries" >&2; status=1; } ;;
   esac
 done < <(git ls-files -co --exclude-standard "$@")
 python3 -m pyflakes "${python[@]}" || status=1

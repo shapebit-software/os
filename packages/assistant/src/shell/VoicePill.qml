@@ -14,7 +14,8 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.services
-import "../services/assistant.js" as Logic
+import "assistant.js" as Logic
+import qs.controls
 
 ButtonPill {
     id: pill

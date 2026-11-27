@@ -5,6 +5,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.services
+import qs.controls
 
 ButtonPill {
     id: pill

@@ -23,7 +23,7 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.controls
 import qs.services
-import "../services/assistant.js" as Logic
+import "assistant.js" as Logic
 
 PanelWindow {
     id: dock

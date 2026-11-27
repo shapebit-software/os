@@ -131,9 +131,8 @@ tree's commit: a published one, such as the stable medium that the update
 test installs, was tested by its own release. It never builds a disk any
 other way. `make installer-vm` opens the same machine in a window.
 
-The installed machine's files are in `build/vm/`: its disk, console, and
-secrets. Its EFI variables (`build/vm/efivars.qcow2`) and TPM state
-(`build/vm/tpm/`) belong to it, and the medium and the disk share them; `make
+The machine's EFI variables (`build/efivars.qcow2`) and TPM state
+(`build/tpm/`) belong to it, and the medium and the disk share them; `make
 disk` resets them. On a new machine, the firmware starts with Microsoft's
 keys, so shim's MOK manager asks to enroll the image's certificate once;
 `machine.py` answers it, as a person would.
@@ -143,11 +142,11 @@ is given, are in `machine.py`, each overridable from the environment: `make
 disk OWNER_NAME=someone`. The build's are in the Makefile.
 
 **Development access.** Images and disks contain no credentials. The machines
-get the SSH key in `build/vm/ssh/` as the systemd credential
+get the SSH key in `build/ssh/` as the systemd credential
 `ssh.authorized_keys.root`. `make disk` gives the installer the first owner,
-`OWNER_NAME`, with the password in `build/vm/owner-password`, `shapebit` unless
+`OWNER_NAME`, with the password in `build/owner-password`, `shapebit` unless
 that file holds another, and the installer's settings; the recovery key goes
-to `build/vm/recovery-key`. There is no root password. `make vm` boots the disk
+to `build/recovery-key`. There is no root password. `make vm` boots the disk
 in a window; `make ssh` opens a shell in it.
 
 **Updates from a local build.** `make publish` pushes the image to a registry
@@ -166,7 +165,7 @@ keys; later updates from `stable` would need the release keys enrolled too.
 Write `build/installer.img` to a USB drive of at least 8 GB with `dd`, and
 install as the [guidebook](../../guidebook/Install.md) says. To run the system
 tests on it, log in on a console (Ctrl+Alt+F3), connect to the network, allow
-root to log in with `build/vm/ssh/id_ed25519.pub`, and run
+root to log in with `build/ssh/id_ed25519.pub`, and run
 `make test-system GUEST=ADDRESS IMAGE_DIGEST=sha256:... OWNER_NAME=... LOCALE=... KEYBOARD_LAYOUT=... TIME_ZONE=...`.
 On the medium, `journalctl -b -u installer-backend.service` shows the
 installation.

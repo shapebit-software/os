@@ -18,10 +18,14 @@ TestCase {
             "assistant-permissions": { title: "Permissions", section: "assistant", rows: [{ label: "Web" }] },
         },
         shortcuts: { "super-up": () => "assistant" },
+        items: { assistant: { icon: "M1 1", component: page } },
+        actions: [{ name: "assistant", icon: "M1 1" }],
+        provides: { tidy: text => `tidied ${text}` },
     })
     readonly property var capture: ({
         sections: [{ id: "capture", rows: [] }],
         shortcuts: { "screenshot": () => "capture", "super-up": () => "capture" },
+        actions: [{ name: "capture", icon: "M2 2" }],
     })
 
     function test_without_features_the_shell_is_its_own() {
@@ -61,5 +65,17 @@ TestCase {
         const shortcuts = Merge.shortcuts([assistant, capture]);
         compare(Object.keys(shortcuts).sort(), ["screenshot", "super-up"]);
         compare(shortcuts["super-up"](), "capture");
+    }
+
+    function test_items_and_actions_are_every_features() {
+        compare(Object.keys(Merge.items([assistant, capture])), ["assistant"]);
+        compare(Merge.actions([assistant, capture]).map(a => a.name), ["assistant", "capture"]);
+        compare(Merge.items([]), {});
+        compare(Merge.actions([]), []);
+    }
+
+    function test_a_feature_does_for_others_what_it_provides() {
+        compare(Merge.provided([capture, assistant], "tidy")("words"), "tidied words");
+        compare(Merge.provided([capture], "tidy"), null);
     }
 }

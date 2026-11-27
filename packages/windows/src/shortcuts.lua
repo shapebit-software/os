@@ -32,7 +32,7 @@ end
 
 -- Super alone is the assistant's: let go soon, it opens or closes it; held,
 -- the assistant listens until it is let go. The shell tells the two apart
--- (shell/src/services/assistant.js), from what happens here: "super-down" for
+-- (assistant/src/shell/assistant.js), from what happens here: "super-down" for
 -- Super pressed with no other key down, "super-other" for any other key
 -- while it is down, which makes it a shortcut, and "super-up".
 -- Alt let go ends the window switcher, if one of its shortcuts opened it.

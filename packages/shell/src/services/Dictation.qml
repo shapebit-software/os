@@ -260,7 +260,9 @@ Singleton {
         tidier.command = [helper(), "--tidy"];
         tidier.running = true;
         tidier.write(JSON.stringify({ text: lastInserted }) + "\n");
-        Assistant.tidy(tidyId, lastInserted);
+        // A feature that tidies the text, such as the assistant, which answers
+        // with what the model wrote, as it writes (Features.provided).
+        Features.provided("tidy")?.(tidyId, lastInserted, event => dictation.tidiedBy(event));
     }
 
     function tidyEnded(notice: string) {
@@ -270,27 +272,23 @@ Singleton {
 
     // What the model wrote, to the field while it holds the dictated text,
     // or else, once whole, to the clipboard.
-    Connections {
-        target: Assistant
-
-        function onTidied(event: var) {
-            if (event.id !== dictation.tidyId || dictation.tidying === "")
-                return;
-            if (event.error) {
-                if (dictation.tidier.running)
-                    dictation.tidier.write(JSON.stringify({ restore: true }) + "\n");
-                dictation.tidyEnded(event.error);
-                return;
-            }
-            dictation.tidied = event.text;
-            dictation.tidyDone = event.done ?? false;
-            if (dictation.tidyThere && dictation.tidier.running) {
-                dictation.tidying = "writing";
-                dictation.tidier.write(JSON.stringify(event.done ? { done: event.text } : { draft: event.text }) + "\n");
-            }
-            if (event.done && !dictation.tidier.running)
-                dictation.copyTidied();
+    function tidiedBy(event: var) {
+        if (event.id !== tidyId || tidying === "")
+            return;
+        if (event.error) {
+            if (tidier.running)
+                tidier.write(JSON.stringify({ restore: true }) + "\n");
+            tidyEnded(event.error);
+            return;
         }
+        tidied = event.text;
+        tidyDone = event.done ?? false;
+        if (tidyThere && tidier.running) {
+            tidying = "writing";
+            tidier.write(JSON.stringify(event.done ? { done: event.text } : { draft: event.text }) + "\n");
+        }
+        if (event.done && !tidier.running)
+            copyTidied();
     }
 
     function copyTidied() {

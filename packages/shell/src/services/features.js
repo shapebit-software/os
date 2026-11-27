@@ -57,6 +57,21 @@ function pageComponents(features) {
     return result;
 }
 
+// The bars' items that features add: {name: {icon, component}}.
+function items(features) {
+    return Object.assign({}, ...features.map(f => f.items ?? {}));
+}
+
+// The quick actions that features add, in their order: [{name, icon, tap}].
+function actions(features) {
+    return [].concat(...features.map(f => f.actions ?? []));
+}
+
+// What one feature does for others, by name, or null: the first that does.
+function provided(features, name) {
+    return features.map(f => (f.provides ?? {})[name]).find(f => f) ?? null;
+}
+
 // The keyboard shortcuts that features answer: {name: function}; a later
 // feature's takes a name over an earlier one's.
 function shortcuts(features) {

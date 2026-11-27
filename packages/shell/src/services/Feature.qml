@@ -16,6 +16,25 @@ QtObject {
     // What it shows on every screen: each a window, made for each screen as
     // Variants makes them (modelData, the screen).
     property list<Component> surfaces
+    // Its panels, which open by a bar's button, made for each screen as the
+    // shell's are (Panels.qml), with the screen and its name, screenName.
+    property list<Component> panels
     // The keyboard shortcuts it answers (Shortcuts.qml): { name: function }.
     property var shortcuts: ({})
+    // Its items for the bars (ShellItem.qml), by the name that Settings.zones
+    // keeps: { name: { icon, component } }. The component's root takes the
+    // item's bar, half, and size.
+    property var items: ({})
+    // Its quick actions, which the hot corner fans out (HotCorner.qml):
+    // [{ name, icon, tap: (screen, rect) => ... }].
+    property var actions: []
+    // What it hears while it listens, which the hot corner shows: { listening,
+    // writing, level }, or null.
+    property var voice: null
+    // What it does for other features: { name: function }; another asks
+    // Features.provided(name).
+    property var provides: ({})
+
+    // A click on a bar off any of its buttons (ShellBar.qml).
+    signal clickedOff
 }
